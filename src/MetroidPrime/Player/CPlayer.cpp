@@ -568,9 +568,14 @@ void CPlayer::fn_80012eb8(CStateManager& mgr) {
   // TODO: Recover the remaining target behavior.
 }
 
-float CPlayer::fn_80012e14() const {
-  // TODO: Select jump duration from surface restraint and equipment.
-  return 0.f;
+float CPlayer::GetMaximumPlayerPositiveVerticalVelocity(const CStateManager&) const {
+  const CPlayerState& playerState = *GetPlayerState();
+  const bool hasSpaceJump = playerState.GetItemAmount(CPlayerState::kIT_SpaceJumpBoots) != 0;
+  if (GetSurfaceRestraint() == kSR_Phazon &&
+      playerState.GetItemAmount(CPlayerState::kIT_GravityBoost) == 0) {
+    return hasSpaceJump ? 5.25f : 4.75f;
+  }
+  return hasSpaceJump ? 14.f : 11.66666f;
 }
 
 bool CPlayer::AttachActorToPlayer(TUniqueId actor, bool disableGun) {

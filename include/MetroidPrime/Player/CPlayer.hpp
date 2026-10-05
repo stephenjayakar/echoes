@@ -409,7 +409,7 @@ public:
   void RenderGun(const CStateManager& mgr, const CVector3f& position) const;
   void fn_80012040(CStateManager& mgr);
   void RenderReflectedPlayer(CStateManager& mgr);
-  float fn_80012e14() const;
+  float GetMaximumPlayerPositiveVerticalVelocity(const CStateManager& mgr) const;
   void fn_80012eb8(CStateManager& mgr);
   void fn_80015d64(float dt, const CFinalInput& input);
   void fn_800165ec(CStateManager& mgr);
