@@ -39,8 +39,10 @@ struct SRenderItem {
     kT_Selected = 3,
   };
 
-  SRenderItem(const SDataNetworkNode* node, const CVector3f& pos, int type)
-  : mNode(node), mPos(pos), mDepth(0.f), mType(type) {}
+  SRenderItem(const SDataNetworkNode* node, CVector3f pos, int type)
+  : mNode(node), mPos(pos), mDepth(0.f) {
+    mType = type;
+  }
 
   const SDataNetworkNode* mNode;
   CVector3f mPos;
@@ -215,10 +217,10 @@ void CScriptFrontEndDataNetwork::AcceptScriptMsg(CStateManager& mgr, const CScri
     }
     break;
   case kSM_Escape:
-    ClearControllers();
+    ClearControllers(mgr);
     break;
   case kSM_Reset:
-    ResetTransition();
+    ResetTransition(mgr);
     break;
   case kSM_InternalMessage02:
     if (CScriptFrontEndDataNetwork* root =
@@ -306,19 +308,18 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
       HandleButtons(input, mgr);
       HandleStick(input, mgr);
     } else {
-      int i;
-      const CFinalInput& input = mgr.mFinalInputs[mControllers[mActiveController]];
-      uchar handled = HandleRotation(input, mgr);
-      handled = handled | HandleButtons(input, mgr);
-      handled = handled | HandleStick(input, mgr);
+      const CFinalInput* input = &mgr.mFinalInputs[mControllers[mActiveController]];
+      uchar handled = HandleRotation(*input, mgr);
+      handled = handled | HandleButtons(*input, mgr);
+      handled = handled | HandleStick(*input, mgr);
       if (!handled) {
-        for (i = 0; i < mControllers.size(); ++i) {
+        for (int i = 0; i < mControllers.size(); ++i) {
           if (i != mActiveController) {
-            const CFinalInput& other = mgr.mFinalInputs[mControllers[i]];
-            uchar otherHandled = HandleRotation(other, mgr);
-            otherHandled = otherHandled | HandleButtons(other, mgr);
-            otherHandled = otherHandled | HandleStick(other, mgr);
-            if (otherHandled) {
+            input = &mgr.mFinalInputs[mControllers[i]];
+            handled = HandleRotation(*input, mgr);
+            handled = handled | HandleButtons(*input, mgr);
+            handled = handled | HandleStick(*input, mgr);
+            if (handled) {
               mActiveController = i;
               break;
             }
@@ -327,7 +328,8 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
       }
     }
   }
-  CSfxManager::SfxVolume(mRotationSfx, mRotationSoundVolume);
+  const uchar volume = mRotationSoundVolume;
+  CSfxManager::SfxVolume(mRotationSfx, volume);
 }
 
 void CScriptFrontEndDataNetwork::AddToRenderer(const CStateManager& mgr) const {
@@ -390,7 +392,7 @@ void CScriptFrontEndDataNetwork::LayoutChildren(int idx, CStateManager& mgr) {
   }
 }
 
-void CScriptFrontEndDataNetwork::ResetTransition() {
+void CScriptFrontEndDataNetwork::ResetTransition(CStateManager& mgr) {
   if (mCurIndex != 0) {
     mNodes[mCurIndex].SetSelectedChild(-1);
   }
@@ -850,7 +852,7 @@ void CScriptFrontEndDataNetwork::AddController(int controller) {
   mControllers.push_back_unsafe(controller);
 }
 
-void CScriptFrontEndDataNetwork::ClearControllers() {
+void CScriptFrontEndDataNetwork::ClearControllers(CStateManager& mgr) {
   mControllers.clear();
   mActiveController = 0;
 }

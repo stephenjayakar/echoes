@@ -92,7 +92,7 @@ private:
   void BuildNetwork(CStateManager& mgr);
   int AddNode(CStateManager& mgr, TUniqueId id, int parent);
   void LayoutChildren(int idx, CStateManager& mgr);
-  void ResetTransition();
+  void ResetTransition(CStateManager& mgr);
   void UpdateTransition(CStateManager& mgr, float dt);
   void SimulateChildren(CStateManager& mgr, int idx, float dt);
   void UpdateRenderPositions(CStateManager& mgr, int idx, float dt);
@@ -101,7 +101,7 @@ private:
   void CloseNode(CStateManager& mgr);
   void FaceNode(TUniqueId id, const CStateManager& mgr, bool onlyWhenInactive);
   void AddController(int controller);
-  void ClearControllers();
+  void ClearControllers(CStateManager& mgr);
   void RenderNode(const CStateManager& mgr, const CTransform4f& xf, int idx, float alpha) const;
   void DrawConnection(const CTransform4f& xf, const CVector3f& a, const CVector3f& b,
                       const CColor& colorA, const CColor& colorB, float width) const;
