@@ -198,22 +198,7 @@ public:
 
   // Guessed name; drives one body-state command through the CAnimationState handshake.
   template < typename T >
-  void TryCommand(EStateMsg msg, pas::EAnimationState state, const T& cmd) {
-    switch (msg) {
-    case kStateMsg_Activate:
-      mAnimationState.SetState(CAnimationState::kAS_Ready);
-      mBodyController->CommandMgr().DeliverCmd(cmd);
-      break;
-    case kStateMsg_Update:
-      if (mAnimationState.CanIssueCommand(*mBodyController, state)) {
-        mBodyController->CommandMgr().DeliverCmd(cmd);
-      }
-      break;
-    case kStateMsg_Deactivate:
-      mAnimationState.SetState(CAnimationState::kAS_NotReady);
-      break;
-    }
-  }
+  void TryCommand(EStateMsg msg, pas::EAnimationState state, const T& cmd);
 
   void Start(CStateManager& mgr, EStateMsg msg, float dt);
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt);
@@ -392,6 +377,24 @@ protected:
   CSegId mLockOnTarget;
 };
 CHECK_SIZEOF(CPatterned, 0x7c0)
+
+template < typename T >
+void CPatterned::TryCommand(EStateMsg msg, pas::EAnimationState state, const T& cmd) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mBodyController->CommandMgr().DeliverCmd(cmd);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*mBodyController, state)) {
+      mBodyController->CommandMgr().DeliverCmd(cmd);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
 
 // Defined after the class: a REL that never builds an optional_object< CAABox > itself calls
 // the constructor out of line here (weak copy at the end of the module), like the originals.

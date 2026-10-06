@@ -575,15 +575,12 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 }
 
 void CElitePirate::SetInvulnerable(CStateManager& mgr, EStateMsg msg) {
-  switch (msg) {
-  case kStateMsg_Activate:
+  if (msg == kStateMsg_Activate) {
     SetShieldActive(mgr, true);
     mInvulnerable = true;
-    break;
-  case kStateMsg_Deactivate:
+  } else if (msg == kStateMsg_Deactivate) {
     SetShieldActive(mgr, false);
     mInvulnerable = false;
-    break;
   }
 }
 
@@ -654,8 +651,8 @@ void CElitePirate::RenderShield() const {
 
 void CElitePirate::RenderIngSnatchingTransition(const CStateManager& mgr) const {
   CPatterned::RenderIngSnatchingTransition(mgr);
-  GetModelData()->SetupWorldSpacePortalPlane(
-      GetTransform(), CPlane(CVector3f::Dot(GetTranslation(), CVector3f::Up()), CVector3f::Up()));
+  GetModelData()->SetupWorldSpacePortalPlane(GetTransform(),
+                                             CPlane(GetTranslation(), CVector3f::Up()));
 }
 
 CVector3f CElitePirate::GetAimPosition(const CStateManager& mgr, float dt) const {
@@ -875,16 +872,20 @@ void CElitePirate::FollowAttackPattern(CStateManager& mgr, EStateMsg msg, float 
   SetCurrentAction(kA_FollowAttackPattern, msg);
   SetInvulnerable(mgr, msg);
   mWaypointNavigation.Patrol(mgr, msg, dt, *this);
-  if (msg == kStateMsg_Activate) {
+  switch (msg) {
+  case kStateMsg_Activate: {
     mAlert = false;
     const TUniqueId id = GetConnectedObject(mgr, kSS_Attack, kSM_Follow);
     mWaypointNavigation.SetDestination(id);
     if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(id))) {
-      if (CVector3f::Dot(GetTransform().GetForward(), wp->GetTranslation() - GetTranslation()) <=
-          0.f) {
+      const CVector3f forward = GetTransform().GetForward();
+      const CVector3f delta = wp->GetTranslation() - GetTranslation();
+      if (CVector3f::Dot(forward, delta) <= 0.f) {
         mWaypointNavigation.SetInPosition(true);
       }
     }
+    break;
+  }
   }
 }
 
@@ -896,18 +897,15 @@ bool CElitePirate::NotReachedTarget(CStateManager& mgr, const CTriggerData& data
 }
 
 bool CElitePirate::ShieldKilled(CStateManager& mgr, const CTriggerData& data) const {
-  if (mShield.mType == kST_Light) {
-    return mShield.mDamage >= mData.GetMeleeChance();
-  }
-  return mShield.mDamage >= mData.GetShockwaveChance();
+  return mShield.mDamage >
+         (mShield.mType == kST_Light ? mData.GetMeleeChance() : mData.GetShockwaveChance());
 }
 
 bool CElitePirate::ShouldTurn(CStateManager& mgr, const CTriggerData& data) const {
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-    const CVector3f dist = target->GetTranslation() - GetTranslation();
-    const CVector3f forward = GetTransform().GetForward();
-    return CVector2f::GetAngleDiff(CVector2f(forward.GetX(), forward.GetY()),
-                                   CVector2f(dist.GetX(), dist.GetY())) > 1.7453293f;
+    const CVector2f dist = (target->GetTranslation() - GetTranslation()).ToVec2f();
+    const CVector2f forward = GetTransform().GetForward().ToVec2f();
+    return CVector2f::GetAngleDiff(forward, dist) > 0.5497787f;
   }
   return false;
 }
@@ -964,7 +962,8 @@ bool CElitePirate::DonePursuing(CStateManager& mgr, const CTriggerData& data) co
 
 bool CElitePirate::ShouldAlert(CStateManager& mgr, const CTriggerData& data) const {
   if (!mInvulnAlert) {
-    if (mAlertPos == CVector3f::Zero() || (mAlertPos - GetTranslation()).MagSquared() > 25.f) {
+    if (mAlertPos == CVector3f::Zero() ||
+        CVector3f(mAlertPos - GetTranslation()).MagSquared() > 25.f) {
       return true;
     }
   }
@@ -1005,9 +1004,9 @@ bool CElitePirate::ShouldMeleeAttack(CStateManager& mgr, const CTriggerData& dat
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
     const CVector3f dist = target->GetTranslation() - GetTranslation();
     if (dist.MagSquared() <= mData.GetMaxMeleeRange() * mData.GetMaxMeleeRange()) {
-      const CVector3f forward = GetTransform().GetForward();
-      if (CVector2f::GetAngleDiff(CVector2f(forward.GetX(), forward.GetY()),
-                                  CVector2f(dist.GetX(), dist.GetY())) < 0.5497787f) {
+      const CVector2f dist2 = dist.ToVec2f();
+      const CVector2f forward = GetTransform().GetForward().ToVec2f();
+      if (CVector2f::GetAngleDiff(forward, dist2) < 0.5497787f) {
         return true;
       }
     }
@@ -1043,13 +1042,14 @@ bool CElitePirate::ShouldShockwave(CStateManager& mgr, const CTriggerData& data)
 bool CElitePirate::ShotAt(CStateManager& mgr, const CTriggerData& data) const { return mShotAt; }
 
 bool CElitePirate::InPosition(CStateManager& mgr, const CTriggerData& data) const {
-  return (mTargetDestPos - GetTranslation()).MagSquared() < 25.f;
+  const CVector3f dist = mTargetDestPos - GetTranslation();
+  return dist.MagSquared() < 25.f;
 }
 
 bool CElitePirate::TooClose(CStateManager& mgr, const CTriggerData& data) const {
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-    return (GetTranslation() - target->GetTranslation()).MagSquared() <
-           mData.GetMaxMeleeRange() * mData.GetMaxMeleeRange();
+    const CVector3f dist = GetTranslation() - target->GetTranslation();
+    return dist.MagSquared() < 0.5f * (mData.GetMaxMeleeRange() * mData.GetMaxMeleeRange());
   }
   return false;
 }
@@ -1085,7 +1085,8 @@ bool CElitePirate::ReadyToCharge(CStateManager& mgr, const CTriggerData& data) c
   if (GetNearbyHintType(mgr) == 27 && ShieldKilled(mgr, CTriggerData(0.f)) == false) {
     return false;
   }
-  return GetHealthInfo()->GetHP() < mHp;
+  const float initialHP = GetHealthInfo()->GetInitialHP();
+  return mShield.mStartTime + (0.3f + 1.7f * (GetHealthInfo()->GetHP() / initialHP)) < mTime;
 }
 
 bool CElitePirate::Alerted(CStateManager& mgr, const CTriggerData& data) const { return mAlerted; }
@@ -1113,15 +1114,12 @@ void CElitePirate::PowerUp(CStateManager& mgr, EStateMsg msg, float dt) {
   SetCurrentAction(kA_PowerUp, msg);
   SetInvulnerable(mgr, msg);
   BodyController()->SetLocomotionType(pas::kLT_Relaxed);
-  switch (msg) {
-  case kStateMsg_Activate:
+  if (msg == kStateMsg_Activate) {
     mAlertPos = GetTranslation();
     SendScriptMsgs(kSS_Attack, mgr, kSM_None);
-    break;
-  case kStateMsg_Deactivate:
+  } else if (msg == kStateMsg_Deactivate) {
     mKnockBackController.EnableAnimReaction(CKnockBackMgr::kAR_Flinch, true);
     ActivateGrenadeLauncher(mgr, true);
-    break;
   }
 }
 
@@ -1259,12 +1257,15 @@ void CElitePirate::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
 
 void CElitePirate::Turn(CStateManager& mgr, EStateMsg msg, float dt) {
   if (msg == kStateMsg_Activate) {
-    if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-      const CVector3f dir = target->GetTranslation() - GetTranslation();
-      if (dir.CanBeNormalized()) {
-        mTurnDirection = dir.AsNormalized();
-      }
+    const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId));
+    if (target == nullptr) {
+      return;
     }
+    const CVector3f dir = target->GetTranslation() - GetTranslation();
+    if (!dir.CanBeNormalized()) {
+      return;
+    }
+    mTurnDirection = dir.AsNormalized();
   }
   if (ShouldAlert(mgr, CTriggerData(0.f)) == true) {
     SetInvulnerable(mgr, msg);
@@ -1556,21 +1557,23 @@ void CElitePirate::PopShield(CStateManager& mgr) {
   if (mShield.mType == kST_Light) {
     if (!mShield.mLightPop) {
       if (mData.GetLightShieldPop() != kInvalidAssetId) {
-        mShield.mLightPop = TLockedToken< CGenDescription >(
-            gpSimplePool->GetObj(SObjectTag('PART', mData.GetLightShieldPop())));
+        mShield.mLightPop = rstl::optional_object< TLockedToken< CGenDescription > >(
+            TLockedToken< CGenDescription >(
+                gpSimplePool->GetObj(SObjectTag('PART', mData.GetLightShieldPop()))));
       }
     }
-    if (mShield.mLightPop == true) {
+    if (mShield.mLightPop.valid() == true) {
       pop = &*mShield.mLightPop;
     }
   } else {
     if (!mShield.mDarkPop) {
       if (mData.GetDarkShieldPop() != kInvalidAssetId) {
-        mShield.mDarkPop = TLockedToken< CGenDescription >(
-            gpSimplePool->GetObj(SObjectTag('PART', mData.GetDarkShieldPop())));
+        mShield.mDarkPop = rstl::optional_object< TLockedToken< CGenDescription > >(
+            TLockedToken< CGenDescription >(
+                gpSimplePool->GetObj(SObjectTag('PART', mData.GetDarkShieldPop()))));
       }
     }
-    if (mShield.mDarkPop == true) {
+    if (mShield.mDarkPop.valid() == true) {
       pop = &*mShield.mDarkPop;
     }
   }
@@ -1788,10 +1791,14 @@ void CElitePirate::ActivateGrenadeLauncher(CStateManager& mgr, bool active) {
 }
 
 void CElitePirate::ActivateGrenadeLauncherById(CStateManager& mgr, bool active,
-                                               TUniqueId uid) const {
+                                               const TUniqueId uid) const {
   if (uid != kInvalidUniqueId) {
     if (CEntity* entity = mgr.ObjectById(uid)) {
-      mgr.SendScriptMsg(entity, GetUniqueId(), active ? kSM_Start : kSM_Stop);
+      EScriptObjectMessage msg = kSM_Stop;
+      if (active) {
+        msg = kSM_Start;
+      }
+      mgr.SendScriptMsg(entity, GetUniqueId(), msg);
     }
   }
 }
@@ -1852,7 +1859,10 @@ void CElitePirate::UpdatePathDestination(CStateManager& mgr, const CVector3f& de
 void CElitePirate::UpdateAttackTimeLeft(CStateManager& mgr) {
   if (mgr.IsRandomAvailable()) {
     if (mgr.Random()->Float() > mData.GetRepeatedAttackChance()) {
-      mAttackTimer = mgr.Random()->Float() * mAttackTimeVariation + GetAverageAttackTime();
+      const float variation = mAttackTimeVariation;
+      const float average = GetAverageAttackTime();
+      const float random = mgr.Random()->Float();
+      mAttackTimer = random * variation + average;
     }
   }
 }

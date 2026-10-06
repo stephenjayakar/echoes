@@ -15,6 +15,7 @@
 #include "MetroidPrime/Weapons/CProjectileInfo.hpp"
 
 #include "Kyoto/Audio/CSfxHandle.hpp"
+#include "Kyoto/Particles/CElementGen.hpp"
 #include "Kyoto/TToken.hpp"
 
 #include "rstl/auto_ptr.hpp"
@@ -23,7 +24,6 @@
 #include "rstl/single_ptr.hpp"
 
 class CCollisionActorManager;
-class CElementGen;
 class CGenDescription;
 class CJointCollisionDescription;
 class CShockWaveInfo;
@@ -277,8 +277,8 @@ private:
     float mLastHitTime;
     float mAlpha;
     int mType;
-    rstl::optional_object< TLockedToken< CGenDescription > > mDarkPop;
     rstl::optional_object< TLockedToken< CGenDescription > > mLightPop;
+    rstl::optional_object< TLockedToken< CGenDescription > > mDarkPop;
     rstl::auto_ptr< CElementGen > mElementGen;
     CSfxHandle mSfx;
     rstl::optional_object< TLockedToken< CSkinnedModel > > mModel;
