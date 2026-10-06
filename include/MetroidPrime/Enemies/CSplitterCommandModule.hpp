@@ -150,6 +150,8 @@ private:
   void OnDamaged(TUniqueId sender);
   void SetShieldState(CStateManager& mgr, bool playSound);
   CParticleGenInfo* GetShieldEffect();
+  void FireLaserSweep(CStateManager& mgr, const CVector3f& target);
+  CTransform4f GetBeamEffectTransform() const;
   void FireLaserPulse(CStateManager& mgr, const rstl::string& locator);
 
   CSplitterCommandModuleData mData;
@@ -170,7 +172,7 @@ private:
   TUniqueId xefc_;
   TUniqueId mTargetId;
   TUniqueId xf00_;
-  TUniqueId xf02_;
+  TUniqueId mLaserSweepBeamId;
   CColor xf04_;
   float xf08_;
   float xf0c_;
@@ -184,8 +186,8 @@ private:
   int xf34_;
   CVector3f xf38_;
   CVector3f xf44_;
-  CVector3f xf50_;
-  int xf5c_;
+  CVector3f mLaserSweepDirection;
+  CSfxHandle mLaserSweepSfx;
   CSfxHandle mShieldSfx;
   int xf64_;
   TUniqueId xf68_;

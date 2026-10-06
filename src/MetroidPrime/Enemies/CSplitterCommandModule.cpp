@@ -18,12 +18,18 @@
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/Enemies/CSplitterMainChassis.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/Weapons/CBeamInfo.hpp"
+#include "MetroidPrime/Weapons/CImpactVisorEffect.hpp"
+#include "MetroidPrime/Weapons/CPlasmaProjectile.hpp"
+#include "MetroidPrime/Weapons/CWeaponAssetInfo.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 static const char* const skBeamLocator = "Beam_LCTR";
 static const char* const skLightShield = "LightShield";
 static const char* const skDarkShield = "DarkShield";
+static const char* const skLaserMuzzle = "LaserMuzzle";
+static const char* const skAlertEye = "AlertEye";
 
 CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string& name,
                                                const CEntityInfo& info, const CTransform4f& xf,
@@ -52,7 +58,7 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , xefc_(kInvalidUniqueId)
 , mTargetId(kInvalidUniqueId)
 , xf00_(kInvalidUniqueId)
-, xf02_(kInvalidUniqueId)
+, mLaserSweepBeamId(kInvalidUniqueId)
 , xf04_(CColor::White())
 , xf08_(0.f)
 , xf0c_(0.f)
@@ -66,8 +72,8 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , xf34_(-1)
 , xf38_(CVector3f::Zero())
 , xf44_(CVector3f::Zero())
-, xf50_(CVector3f::Zero())
-, xf5c_(0)
+, mLaserSweepDirection(CVector3f::Zero())
+, mLaserSweepSfx()
 , mShieldSfx()
 , xf64_(0)
 , xf68_(kInvalidUniqueId)
@@ -955,6 +961,97 @@ void CSplitterCommandModule::MoveTo(const CVector3f& pos, float dt) {
     const CVector3f delta = pos - GetTranslation();
     MoveInOneFrameOR(GetTransform().TransposeRotate(delta), dt);
   }
+}
+
+void CSplitterCommandModule::FireLaserPulse(CStateManager& mgr, const rstl::string& locator) {
+  if (!GetAlive()) {
+    return;
+  }
+  if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
+    const CTransform4f lctrXf = GetLctrTransform(locator);
+    const CVector3f muzzlePos = lctrXf.GetTranslation();
+    const CVector3f aimPos = target->GetAimPosition(mgr, 0.f);
+    const CVector3f delta = aimPos - muzzlePos;
+    const CVector3f forward = GetTransform().GetForward();
+    CVector3f offset = CVector3f::Dot(forward, delta) * forward;
+    offset.SetZ(delta.GetZ());
+    const CTransform4f lookAtXf =
+        CTransform4f::LookAt(muzzlePos, muzzlePos + offset, CVector3f::Up());
+    LaunchProjectile(lookAtXf, mgr, 6, CWeapon::kPA_None, false, CImpactVisorEffect(),
+                     CVector3f(1.f, 1.f, 1.f));
+  }
+}
+
+void CSplitterCommandModule::FireLaserSweep(CStateManager& mgr, const CVector3f& target) {
+  const CBeamInfo beamInfo = TLdrToBeamInfo(mData.laserSweepBeamInfo, 0x91);
+  const TUniqueId uid = mgr.AllocateUniqueId();
+  CPlasmaProjectile* beam = rs_new CPlasmaProjectile(
+      mLaserSweepProjectileInfo.Token(), rstl::string_l("LaserSweepBeam"), kWT_Light, beamInfo,
+      CTransform4f::Identity(), kMT_NoPlatformCollision, mData.mLaserSweepDamage, uid,
+      GetCurrentAreaId(), GetUniqueId(), CWeaponAssetInfo(), false, 0x21000);
+  if (beam) {
+    const CTransform4f lctrXf = GetLctrTransform(mBeamLocator);
+    const CTransform4f fireXf =
+        CTransform4f::LookAt(lctrXf.GetTranslation(), target, CVector3f::Up());
+    beam->Fire(fireXf, mgr, false);
+    beam->SetNextDrawNode(mMainChassisId);
+    mgr.AddObject(*beam);
+    const int areaId = GetCurrentAreaId().Value();
+    CAudioSys::C3DEmitterParmData parms(150.f, 0.1f, 1, 127, 35);
+    parms.mPos = beam->GetCurrentPos();
+    parms.mDir = CVector3f::Up();
+    parms.mSfxId = mData.sound_LaserSweep;
+    mLaserSweepSfx = CSfxManager::AddEmitter(parms, areaId, true, true, CSfxManager::kMedPriority);
+    mLaserSweepBeamId = uid;
+  }
+  UpdateAlertEffect(mgr);
+}
+
+void CSplitterCommandModule::UpdateLaserSweep(float dt, CStateManager& mgr) {
+  if (CPlasmaProjectile* beam = static_cast< CPlasmaProjectile* >(mgr.ObjectById(mLaserSweepBeamId))) {
+    const CTransform4f lctrXf = GetLctrTransform(mBeamLocator);
+    const CVector3f beamPos = lctrXf.GetTranslation();
+    const CTransform4f beamXf =
+        CTransform4f::LookAt(beamPos, beamPos + mLaserSweepDirection, CVector3f::Up());
+    beam->UpdateFx(beamXf, dt, mgr);
+    CSfxManager::UpdateEmitter(mLaserSweepSfx, beam->GetCurrentPos(), CVector3f::Up(), 127);
+  }
+}
+
+void CSplitterCommandModule::StopLaserSweep(CStateManager& mgr) {
+  if (CPlasmaProjectile* beam = static_cast< CPlasmaProjectile* >(mgr.ObjectById(mLaserSweepBeamId))) {
+    beam->ResetBeam(mgr, false);
+    CSfxManager::RemoveEmitter(mLaserSweepSfx);
+    mgr.DeleteObjectRequest(mLaserSweepBeamId);
+  }
+  mLaserSweepBeamId = kInvalidUniqueId;
+  mLaserSweepSfx = CSfxHandle();
+  if (GetAlive()) {
+    UpdateAlertEffect(mgr);
+  }
+}
+
+void CSplitterCommandModule::UpdateAlertEffect(CStateManager& mgr) {
+  CAnimData* animData = AnimationData();
+  if (xedc_ == 2 || xedc_ == 1) {
+    animData->SetEffectState(rstl::string_l(skAlertEye), false, mgr);
+    animData->SetEffectState(rstl::string_l(skLaserMuzzle), false, mgr);
+  } else if (mLaserSweepBeamId != kInvalidUniqueId) {
+    animData->SetEffectState(rstl::string_l(skAlertEye), false, mgr);
+    animData->SetEffectState(rstl::string_l(skLaserMuzzle), true, mgr);
+  } else if (mTargetId != kInvalidUniqueId || IsScanning(mgr, CTriggerData(0.f))) {
+    animData->SetEffectState(rstl::string_l(skAlertEye), true, mgr);
+    animData->SetEffectState(rstl::string_l(skLaserMuzzle), false, mgr);
+  } else {
+    animData->SetEffectState(rstl::string_l(skAlertEye), false, mgr);
+    animData->SetEffectState(rstl::string_l(skLaserMuzzle), false, mgr);
+  }
+}
+
+CTransform4f CSplitterCommandModule::GetBeamEffectTransform() const {
+  CTransform4f xf = GetTransform();
+  xf.SetTranslation(xf * GetLocatorTransform(rstl::string_l("Beam_LCTR")).GetTranslation());
+  return xf;
 }
 
 CEntity* REL_LoadSplitterCommandModule(CStateManager& mgr, CInputStream& input,
