@@ -91,7 +91,8 @@ CScriptSound::CScriptSound(TUniqueId uid, const rstl::string& name, const CEntit
                            short unknown1a2, bool looped, bool nonEmitter, bool playerRelativePan,
                            bool autoStart, bool occlusionTest, bool acoustics, bool worldSfx,
                            bool allowDuplicates, bool allAreas, bool scaleByMusicVolume, int pitch)
-: CActor(uid, name, info, 0, xf, CModelData(), CMaterialList(kMT_Trigger), CActorParameters::None(),
+: CActor(uid, name, info, 0, xf, CModelData::CModelDataNull(), CMaterialList(kMT_Trigger),
+         CActorParameters::None(),
          kInvalidUniqueId)
 , mOcclusionUpdateTimer(0.f)
 , mSfxHandle()
