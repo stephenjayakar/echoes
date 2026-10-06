@@ -1106,8 +1106,9 @@ void CSwarmBasics::Render(const CStateManager& mgr) const {
 void CSwarmBasics::BuildBoidNearList(const CBoid& boid, float radius,
                                      rstl::reserved_vector< CBoid*, 50 >& nearList) {
   CBoid* other = GetListAt(boid.GetTranslation());
+  const CVector3f pos = boid.GetTranslation();
   while (other != nullptr && nearList.size() < 50) {
-    const float distance = (other->GetTranslation() - boid.GetTranslation()).MagSquared();
+    const float distance = (other->GetTranslation() - pos).MagSquared();
     if (distance != 0.f && distance < radius) {
       nearList.push_back(other);
     }
