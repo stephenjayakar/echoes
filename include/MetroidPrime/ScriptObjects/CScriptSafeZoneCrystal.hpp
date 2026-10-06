@@ -1,0 +1,6 @@
+#ifndef _CSCRIPTSAFEZONECRYSTAL
+#define _CSCRIPTSAFEZONECRYSTAL
+
+#include "MetroidPrime/CActor.hpp"
+
+#endif // _CSCRIPTSAFEZONECRYSTAL

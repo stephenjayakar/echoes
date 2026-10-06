@@ -1496,6 +1496,13 @@ config.libs = [
         ],
     ),
     Rel(
+        "ScriptSafeZone",
+        [
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptSafeZone.cpp"),
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptSafeZoneCrystal.cpp"),
+        ],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),

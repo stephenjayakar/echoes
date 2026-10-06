@@ -29,6 +29,8 @@ public:
   virtual bool IsHurtful() const;
   // A following native extra slot remains unidentified.
 
+  void ApplyRenderEffect(CStateManager& mgr); // Guessed name.
+
   // Shell appearance used while teleporting; WorldTeleporter reads the first entry.
   const CDarkWorldInfo& GetDarkWorldInfo() const { return mDarkWorldInfos[0]; }
 
