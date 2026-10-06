@@ -285,7 +285,11 @@ float CCameraManager::GetWaterFarDistance(CStateManager& mgr, const CScriptWater
 
 void CCameraManager::SetWaterFogScale(float target, float speed) {
   mFogDensityFactorTarget = target;
-  mFogDensitySpeed = target < mFogDensityFactor ? -speed : speed;
+  if (mFogDensityFactorTarget < mFogDensityFactor) {
+    mFogDensitySpeed = -speed;
+  } else {
+    mFogDensitySpeed = speed;
+  }
 }
 
 void CCameraManager::TransferCameraTriggers(CGameCamera& from, CGameCamera& to,
@@ -468,12 +472,14 @@ void CCameraManager::SetPlayerCamera(CStateManager& mgr, TUniqueId uid) {
   if (camera && camera->GetActive()) {
     SetCurrentCameraId(uid, mgr);
   } else {
-    const CPlayer::EPlayerMorphBallState state =
-        mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState();
-    if (state == CPlayer::kMS_Unmorphing || state == CPlayer::kMS_Unmorphed) {
+    switch (mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState()) {
+    case CPlayer::kMS_Unmorphing:
+    case CPlayer::kMS_Unmorphed:
       SetCurrentCameraId(mFpCamera->GetUniqueId(), mgr);
-    } else {
+      break;
+    default:
       SetCurrentCameraId(mBallCamera->GetUniqueId(), mgr);
+      break;
     }
   }
   UpdateCameraTriggers(GetCurrentCameraId(false), mgr);
@@ -502,7 +508,8 @@ void CCameraManager::CinematicCut(CStateManager& mgr) {
 }
 
 void CCameraManager::SetPathCamera(TUniqueId uid, CStateManager& mgr) {
-  if (mPathCamera && (!mPathCamera->GetActive() || mPathCamera->GetScriptCameraId() != uid)) {
+  if (mPathCamera && (!mPathCamera->GetActive() ||
+                      (mPathCamera->GetActive() && mPathCamera->GetScriptCameraId() != uid))) {
     if (TCastToConstPtr< CScriptPathCamera >(mgr.GetObjectById(uid))) {
       mPathCamera->SetActive(true);
       mPathCamera->SetScriptCameraId(uid);
@@ -518,7 +525,7 @@ void CCameraManager::ClearPathCamera() {
 }
 
 void CCameraManager::SetSpindleCamera(TUniqueId uid, CStateManager& mgr) {
-  if (!mSpindleCamera->GetActive() || mSpindleCamera->GetScriptCameraId() != uid) {
+  if (!mSpindleCamera->GetActive() || (mSpindleCamera->GetActive() && mSpindleCamera->GetScriptCameraId() != uid)) {
     if (TCastToPtr< CScriptSpindleCamera >(mgr.ObjectById(uid))) {
       mSpindleCamera->SetActive(true);
       mSpindleCamera->SetScriptCameraId(uid);
@@ -534,7 +541,7 @@ void CCameraManager::ClearSpindleCamera() {
 }
 
 void CCameraManager::SetFixedCamera(TUniqueId uid, const CTransform4f& xf, CStateManager& mgr) {
-  if (!mFixedCamera->GetActive() || mFixedCamera->GetScriptCameraId() != uid) {
+  if (!mFixedCamera->GetActive() || (mFixedCamera->GetActive() && mFixedCamera->GetScriptCameraId() != uid)) {
     mFixedCamera->SetActive(true);
     mFixedCamera->SetScriptCameraId(uid);
     mFixedCamera->Reset(xf, mgr);
@@ -546,7 +553,8 @@ void CCameraManager::ClearFixedCamera() { mFixedCamera->SetActive(false); }
 
 void CCameraManager::SetSurfaceCamera(TUniqueId uid, CStateManager& mgr) {
   if (mSurfaceCamera &&
-      (!mSurfaceCamera->GetActive() || mSurfaceCamera->GetScriptCameraId() != uid)) {
+      (!mSurfaceCamera->GetActive() ||
+       (mSurfaceCamera->GetActive() && mSurfaceCamera->GetScriptCameraId() != uid))) {
     if (TCastToConstPtr< CScriptSurfaceCamera >(mgr.GetObjectById(uid))) {
       mSurfaceCamera->SetActive(true);
       mSurfaceCamera->SetScriptCameraId(uid);
