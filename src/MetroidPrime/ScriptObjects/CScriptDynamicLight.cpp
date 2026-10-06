@@ -129,7 +129,7 @@ void CScriptDynamicLight::FindParent(CStateManager& mgr) {
 void CScriptDynamicLight::FindTarget(CStateManager& mgr) {
   const rstl::vector< TUniqueId > targets = FindConnectedObjects(mgr, kSS_CameraTarget, kSM_Attach);
   for (int i = 0; i < targets.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(targets[i]))) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(targets[i]))) {
       mTargetId = actor->GetUniqueId();
       break;
     }
