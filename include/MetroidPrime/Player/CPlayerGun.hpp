@@ -124,7 +124,7 @@ public:
   TUniqueId DropPowerBomb(CStateManager& mgr) const;
   void DropBomb(EBWeapon type, CStateManager& mgr);
   void FireBombs(CStateManager& mgr);
-  void TakeDamage(bool bigStrike, bool strikeGrapple, CStateManager& mgr);
+  void TakeDamage(const bool bigStrike, bool strikeGrapple, CStateManager& mgr);
   TUniqueId GetTargetId(CStateManager& mgr);
   void PlayAnim(CStateManager& mgr, int animation, bool loop);
   void PlayBeamFireSfx(CStateManager& mgr, CPlayer& player, bool play); // Guessed name

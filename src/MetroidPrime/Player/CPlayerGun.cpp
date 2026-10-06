@@ -1321,8 +1321,9 @@ void CPlayerGun::EnableChargeFx(CStateManager& mgr, bool enable) {
   mCurrentBeam->ActivateCharge(enable, false);
   SetGunLightActive(enable, mgr);
   mCurrentBeam->EnableSecondaryFx(enable ? CGunWeapon::kSFT_Charge : CGunWeapon::kSFT_CancelCharge);
-  mChargeEffectVisible = enable;
-  if (enable) {
+  const bool visible = enable;
+  mChargeEffectVisible = visible;
+  if (visible) {
     mAuxMuzzleGenerators[mCurrentBeamId] =
         rstl::auto_ptr< CElementGen >(rs_new CElementGen(mAuxMuzzleEffects[mCurrentBeamId]));
     mAuxMuzzleGenerators[mCurrentBeamId]->SetParticleEmission(true);
@@ -1727,10 +1728,11 @@ void CPlayerGun::PlayAnim(CStateManager& mgr, int animation, bool loop) {
 void CPlayerGun::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CPlayerGunBase::AcceptScriptMsg(mgr, msg);
   const TUniqueId sender = msg.GetSenderId();
+  const EScriptObjectMessage message = msg.GetMessage();
   CPlayer& player = *GetPlayerFromAll(mgr);
   const CPlayerState& playerState = *player.GetPlayerState();
 
-  switch (msg.GetMessage()) {
+  switch (message) {
   case kSM_Create:
     SetBeam(playerState.GetCurrentBeam(), mgr);
     for (rstl::reserved_vector< CGunWeapon*, 4 >::iterator it = mSelectableBeams.begin();
@@ -2640,7 +2642,7 @@ void CPlayerGun::ComboActive(CStateManager& mgr, int message, float dt) {
   }
   case kSM_Update:
     if (mComboTransferGenerator.get() != nullptr) {
-      mComboTransferGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+      mComboTransferGenerator.get()->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
       mComboTransferGenerator->SetGlobalOrientation(mBeamLocalXf.GetRotation());
       mComboTransferGenerator->Update(dt);
     }
