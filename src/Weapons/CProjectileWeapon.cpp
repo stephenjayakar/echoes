@@ -769,8 +769,9 @@ CProjectileWeapon::CollisionOccured(EWeaponCollisionResponseTypes type, bool def
       SetWorldSpaceOrientation(CTransform4f::LookAt(CVector3f::Zero(), toTarget.AsNormalized()));
     } else {
       const CVector3f forward = GetTransform().GetForward();
-      SetWorldSpaceOrientation(CTransform4f::LookAt(
-          CVector3f::Zero(), forward - 2.f * CVector3f::Dot(normal, forward) * normal, normal));
+      const CTransform4f orientation = CTransform4f::LookAt(
+          CVector3f::Zero(), forward - 2.f * CVector3f::Dot(normal, forward) * normal, normal);
+      SetWorldSpaceOrientation(orientation);
     }
     return rstl::optional_object_null();
   }
