@@ -14,8 +14,8 @@ struct CDarkWorldInfo {
   CDarkWorldInfo(ushort sfx0, ushort sfx1, ushort sfx2, ushort sfx3, ushort sfx4, float xc,
                  CAssetId spotTexture, float x20, const CVector2f& scroll1,
                  const CVector2f& scroll2, const CVector2f& texScale1, const CVector2f& texScale2,
-                 CAssetId environment, CAssetId cloud1, CAssetId cloud2, const CColor& color,
-                 const CColor& additiveColor)
+                 CAssetId environment, CAssetId cloud1, CAssetId cloud2, CColor color,
+                 CColor additiveColor)
   : x0_(sfx0)
   , x2_(sfx1)
   , x4_(sfx2)

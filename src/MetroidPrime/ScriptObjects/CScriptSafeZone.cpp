@@ -48,7 +48,7 @@ CScriptSafeZone::CScriptSafeZone(
     bool ignoreCinematicCamera, bool mobile, bool generateMobileLight,
     const CVector3f& mobileLightOffset, EShapeType shape, const CSafeZoneFog& insideFog,
     const CSafeZoneFog& outsideFog, const SEchoParameters& echoParameters, float flashBrightness,
-    ushort flashSound, const CColor& insideFilterColor, float insideFilterTime)
+    ushort flashSound, CColor insideFilterColor, float insideFilterTime)
 : CScriptTriggerEllipsoid(uid, name, info, scale, xf, damage, forceField, flags | 0x1028f806,
                           deactivateOnEnter, deactivateOnExit, shape)
 , mActivationTime(activationTime)
@@ -800,8 +800,74 @@ void CScriptSafeZone::ModifyObstruction(CStateManager& mgr, int delta, int type)
   }
 }
 
+CSafeZoneFog::CSafeZoneFog(bool enabled, ERglFogMode mode, const CColor& color,
+                           const CVector2f& range, float colorRate, const CVector2f& rangeRate)
+: mEnabled(enabled)
+, mMode(mode)
+, mColor(color)
+, mRange(range)
+, mColorRate(colorRate)
+, mRangeRate(rangeRate) {}
+
 bool CScriptSafeZone::IsHurtful() const {
   return mZoneType == kZT_Hurtful || mZoneType == kZT_Echo;
+}
+
+// Guessed name.
+CSafeZoneFog LdrToSafeZoneFog(const SLdrSafeZoneStructA& data) {
+  return CSafeZoneFog(data.enabled, FogSelectionToFogMode(data.mode), data.color,
+                      LdrToVector2f(data.nearFarPlane), data.colorRate,
+                      LdrToVector2f(data.distanceRate));
+}
+
+CEntity* REL_LoadSafeZone(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrSafeZone sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrSafeZone.inc"
+
+  const CVector3f forceField =
+      mgr.World()->Area(info.GetAreaId())->GetTM().Rotate(sldrThis.trigger.forceField);
+  const CVector3f scale = sldrThis.editorProperties.transform.scale;
+  rstl::reserved_vector< CDarkWorldInfo, 3 > infos;
+  const SLdrSafeZoneAttributes* attributes[3] = {&sldrThis.normalAttributes,
+                                                 &sldrThis.hurtfulAttributes,
+                                                 &sldrThis.echoAttributes};
+  for (int i = 0; i < 3; ++i) {
+    const SLdrSafeZoneAttributes& attr = *attributes[i];
+    if (attr.shellEnvironmentMap == kInvalidAssetId || attr.shell1Texture == kInvalidAssetId ||
+        attr.shell2Texture == kInvalidAssetId) {
+      return nullptr;
+    }
+    infos.push_back(CDarkWorldInfo(
+        attr.turnOnSound, attr.activeLoopSound, attr.turnOffSound, attr.playerEnterSound,
+        attr.playerExitSound, attr.unknown_0xd4839a3f, attr.darkVisorSpotTexture,
+        attr.darkVisorSpotMaxSize,
+        CVector2f(attr.shell1AnimatedHorizRate, attr.shell1AnimatedVertRate),
+        CVector2f(attr.shell2AnimatedHorizRate, attr.shell2AnimatedVertRate),
+        CVector2f(attr.shell1ScaleHoriz, attr.shell1ScaleVert),
+        CVector2f(attr.shell2ScaleHoriz, attr.shell2ScaleVert), attr.shellEnvironmentMap,
+        attr.shell1Texture, attr.shell2Texture, attr.shellColor, attr.unknown_0xe68b1fa8));
+  }
+
+  const TUniqueId uid = mgr.AllocateUniqueId();
+  const CScriptTriggerEllipsoid::EShapeType shape =
+      static_cast< CScriptTriggerEllipsoid::EShapeType >(sldrThis.safezoneShape);
+  return rs_new CScriptSafeZone(
+      uid, sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties), scale,
+      LdrToTransform4f(sldrThis.editorProperties), LdrToDamageInfo(sldrThis.trigger.damage),
+      forceField, sldrThis.activationTime, sldrThis.deactivationTime, sldrThis.lifetime,
+      sldrThis.randomLifetimeOffset, sldrThis.insideFadeStart,
+      sldrThis.insideFadeStart + sldrThis.insideFadeTime,
+      sldrThis.insideFadeMinAlpha, sldrThis.flashTime, sldrThis.trigger.flagsTrigger,
+      sldrThis.deactivateOnEnter, sldrThis.deactivateOnExit, sldrThis.impactEffect, infos[0],
+      infos[1], infos[2], LdrToDamageInfo(sldrThis.normalDamage),
+      LdrToDamageInfo(sldrThis.hurtfulDamage), sldrThis.filterSoundEffects,
+      sldrThis.unknown_0x414379ea, sldrThis.ignoreCinematicCamera, sldrThis.mobile,
+      sldrThis.generateMobileLight, sldrThis.mobileLightOffset, shape,
+      LdrToSafeZoneFog(sldrThis.safeZoneStructA),
+      LdrToSafeZoneFog(sldrThis.safeZoneStructA_0xafb855b8),
+      LdrToEchoParameters(sldrThis.echoParameters), sldrThis.flashBrightness, sldrThis.flashSound,
+      sldrThis.unknown_0xe71b43e1, sldrThis.unknown_0x9f638987);
 }
 
 SSafeZone_FuncPtrs REL_loader_SafeZone;

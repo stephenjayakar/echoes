@@ -19,13 +19,7 @@ struct SEchoParameters;
 // Guessed name. Fog fade requested while a player camera is inside or outside the zone.
 struct CSafeZoneFog {
   CSafeZoneFog(bool enabled, ERglFogMode mode, const CColor& color, const CVector2f& range,
-               float colorRate, const CVector2f& rangeRate)
-  : mEnabled(enabled)
-  , mMode(mode)
-  , mColor(color)
-  , mRange(range)
-  , mColorRate(colorRate)
-  , mRangeRate(rangeRate) {}
+               float colorRate, const CVector2f& rangeRate);
 
   bool mEnabled;
   ERglFogMode mMode;
@@ -59,7 +53,7 @@ public:
                   const CVector3f& mobileLightOffset, EShapeType shape,
                   const CSafeZoneFog& insideFog, const CSafeZoneFog& outsideFog,
                   const SEchoParameters& echoParameters, float flashBrightness,
-                  ushort flashSound, const CColor& insideFilterColor, float insideFilterTime);
+                  ushort flashSound, CColor insideFilterColor, float insideFilterTime);
 
   // CEntity
   ~CScriptSafeZone() override;
