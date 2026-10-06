@@ -315,17 +315,19 @@ void CPlasmaProjectile::Render(const CStateManager& mgr) const {
     gpRender->SetModelMatrix(xf);
     RenderBeam(3, 0.25f * mBeamWidth, mCoreColor, 4);
   }
+  const CColor& innerColor = mInnerColor;
+  const CColor& outerColor = mOuterColor;
   if (!(mBeamAttributes & 0x20)) {
     gpRender->SetModelMatrix(xf * CTransform4f::RotateY(CRelAngle::FromDegrees(mBeamAngle)));
-    RenderBeam(4, 0.5f * mBeamWidth, mInnerColor, 1);
+    RenderBeam(4, 0.5f * mBeamWidth, innerColor, 1);
   }
   if (!(mBeamAttributes & 0x40)) {
     gpRender->SetModelMatrix(xf * CTransform4f::RotateY(CRelAngle::FromDegrees(-mBeamAngle)));
-    RenderBeam(8, mBeamWidth, mOuterColor, 3);
+    RenderBeam(8, mBeamWidth, outerColor, 3);
   }
   if (!(mBeamAttributes & 0x80)) {
     gpRender->SetModelMatrix(xf);
-    RenderBeam(6, 1.25f * mBeamWidth, mOuterColor, 0xd);
+    RenderBeam(6, 1.25f * mBeamWidth, outerColor, 0xd);
   }
 }
 
@@ -469,7 +471,9 @@ void CPlasmaProjectile::RenderMotionBlur() const {
   gpRender->SetModelMatrix(CTransform4f::Identity());
   gpRender->SetBlendMode_AlphaBlended();
   const CVector3f origin = GetBeamTransform().GetTranslation();
-  const uint outerColor = mOuterColor.GetColor_u32();
+  CColor blurColor = mOuterColor;
+  blurColor.SetAlpha(mExpansion);
+  const uint outerColor = blurColor.GetColor_u32();
   const uint color0 = (outerColor & 0xffffff00) | 0x3f;
   const uint color1 = outerColor & 0xffffff00;
   static const GXVtxDescList vtxDesc[] = {

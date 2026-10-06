@@ -395,7 +395,7 @@ void CGameProjectile::ApplyDamageToActors(CStateManager& mgr, const CDamageInfo&
 }
 
 CRayCastResult CGameProjectile::DoCollisionCheck(TUniqueId& idOut, CStateManager& mgr) {
-  CRayCastResult result;
+  CRayCastResult result = CRayCastResult::MakeInvalid();
   if (mActive) {
     const CVector3f delta = GetTranslation() - mPreviousPos;
     rstl::reserved_vector< TUniqueId, 1024 > nearList;
