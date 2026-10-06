@@ -187,8 +187,8 @@ public:
   CVector3f ConvertToScreenSpace(const CVector3f& position, const CGameCamera& camera) const;
   void BeginDarkVisorRender(CStateManager& mgr) const; // Guessed name
   void EndDarkVisorRender(CStateManager& mgr) const;   // Guessed name
-  static void DrawScreenTex(float depth);
-  static void CopyScreenTex();
+  void DrawScreenTex(float depth) const;
+  void CopyScreenTex() const;
   CStateMachine* GetStateMachine();
   void ResetStateMachine(CStateManager& mgr);
 

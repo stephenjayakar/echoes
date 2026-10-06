@@ -335,14 +335,14 @@ void CPlayerGun::PreRender(CStateManager& mgr, const CVector3f& cameraPosition) 
   }
 }
 
-void CPlayerGun::CopyScreenTex() {
+void CPlayerGun::CopyScreenTex() const {
   GXSetTexCopySrc(320, 224, 320, 224);
   GXSetTexCopyDst(320, 224, GX_TF_RGBA8, false);
   GXCopyTex(CGraphics::GetDolphinSpareBuffer(), false);
   GXPixModeSync();
 }
 
-void CPlayerGun::DrawScreenTex(float depth) {
+void CPlayerGun::DrawScreenTex(float depth) const {
   const CTransform4f backupView(CGraphics::GetViewMatrix());
   const CGraphics::CProjectionState backupProjection(CGraphics::GetProjectionState());
   const CViewport& viewport = CGraphics::GetViewport();
@@ -394,15 +394,16 @@ void CPlayerGun::RenderGun(const CStateManager& mgr, const CVector3f& cameraTran
                            bool drawSuitArm, const CTransform4f& elbowTransform,
                            const CTransform4f& gunTransform, const CModelFlags& armFlags,
                            const CModelFlags& gunFlags) const {
-  const CWorldShadow* shadow = GetWorldShadow();
-  if (mLights.HasShadowLight()) {
-    shadow->EnableModelProjectedShadow(gunTransform, mLights.GetShadowLightArrayIndex(), 2.15f);
+  const CActorLights* lights = &mLights;
+  CWorldShadow* shadow = const_cast< CPlayerGun* >(this)->GetWorldShadow();
+  if (lights->HasShadowLight()) {
+    shadow->EnableModelProjectedShadow(gunTransform, lights->GetShadowLightArrayIndex(), 2.15f);
   }
 
   BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
   DrawArm(mgr, cameraTranslation, armFlags);
-  mCurrentBeam->Draw(drawSuitArm, mgr.MaskUIdNumPlayers(mPlayerUniqueId), mgr, gunTransform,
-                     gunFlags, &mLights);
+  const int playerIndex = mgr.MaskUIdNumPlayers(GetPlayerUniqueId());
+  mCurrentBeam->Draw(drawSuitArm, playerIndex, mgr, gunTransform, gunFlags, lights);
   EndDarkVisorRender(const_cast< CStateManager& >(mgr));
 
   if (!mgr.IsMultiplayer()) {
@@ -415,24 +416,18 @@ void CPlayerGun::RenderGunWithHologram(const CStateManager& mgr, const CVector3f
                                        const CTransform4f& gunTransform,
                                        const CModelFlags& armFlags,
                                        const CModelFlags& gunFlags) const {
-  const CWorldShadow* shadow = GetWorldShadow();
-  switch (mGunMorph.mGunState) {
+  const CActorLights* lights = &mLights;
+  CWorldShadow* shadow = const_cast< CPlayerGun* >(this)->GetWorldShadow();
+  const CGunMorph::EGunState gunState = mGunMorph.mGunState;
+  switch (gunState) {
   case CGunMorph::kGS_OutWipeDone:
     RenderGun(mgr, cameraTranslation, drawSuitArm, elbowTransform, gunTransform, armFlags,
               gunFlags);
     break;
   case CGunMorph::kGS_InWipeDone:
-    mCurrentBeam->DrawHologram(mgr, gunTransform, CModelFlags(CModelFlags::kT_Opaque, 1.f));
-    if (mLights.HasShadowLight()) {
-      shadow->EnableModelProjectedShadow(gunTransform, mLights.GetShadowLightArrayIndex(), 2.15f);
-    }
-    BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
-    DrawArm(mgr, cameraTranslation, armFlags);
-    EndDarkVisorRender(const_cast< CStateManager& >(mgr));
-    shadow->DisableModelProjectedShadow();
-    break;
   case CGunMorph::kGS_InWipe:
-  case CGunMorph::kGS_OutWipe: {
+  case CGunMorph::kGS_OutWipe:
+    if (gunState != CGunMorph::kGS_InWipeDone) {
     const bool echoVisor = mgr.GetRenderVisorMode() == CStateManager::kRVM_Echo;
     const CTransform4f morphTransform =
         elbowTransform * CTransform4f::Translate(0.f, mGunMorph.mYLerp, 0.f);
@@ -450,22 +445,31 @@ void CPlayerGun::RenderGunWithHologram(const CStateManager& mgr, const CVector3f
       gpRender->DisableDestinationAlpha();
     }
     DrawScreenTex(depth);
-    if (mLights.HasShadowLight()) {
-      shadow->EnableModelProjectedShadow(gunTransform, mLights.GetShadowLightArrayIndex(), 2.15f);
+    if (lights->HasShadowLight()) {
+      shadow->EnableModelProjectedShadow(gunTransform, lights->GetShadowLightArrayIndex(), 2.15f);
     }
     gpRender->SetModelMatrix(morphTransform);
     DrawClipCube(mHologramClipCube);
-    const int playerIndex = mgr.MaskUIdNumPlayers(mPlayerUniqueId);
+    const int playerIndex = mgr.MaskUIdNumPlayers(GetPlayerUniqueId());
     if (echoVisor) {
       gpRender->SetDestinationAlpha(0);
     }
-    mCurrentBeam->Draw(drawSuitArm, playerIndex, mgr, gunTransform, gunFlags, &mLights);
+    mCurrentBeam->Draw(drawSuitArm, playerIndex, mgr, gunTransform, gunFlags, lights);
     BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
     DrawArm(mgr, cameraTranslation, armFlags);
     EndDarkVisorRender(const_cast< CStateManager& >(mgr));
     shadow->DisableModelProjectedShadow();
+    } else {
+      mCurrentBeam->DrawHologram(mgr, gunTransform, CModelFlags(CModelFlags::kT_Opaque, 1.f));
+      if (lights->HasShadowLight()) {
+        shadow->EnableModelProjectedShadow(gunTransform, lights->GetShadowLightArrayIndex(), 2.15f);
+      }
+      BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
+      DrawArm(mgr, cameraTranslation, armFlags);
+      EndDarkVisorRender(const_cast< CStateManager& >(mgr));
+      shadow->DisableModelProjectedShadow();
+    }
     break;
-  }
   }
 }
 
