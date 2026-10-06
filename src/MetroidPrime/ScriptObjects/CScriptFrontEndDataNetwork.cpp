@@ -358,17 +358,16 @@ void CScriptFrontEndDataNetwork::BuildNetwork(CStateManager& mgr) {
 }
 
 int CScriptFrontEndDataNetwork::AddNode(CStateManager& mgr, TUniqueId id, int parent) {
+  const CScriptFrontEndDataNetwork* net;
   const int count = mNodes.size();
   for (int i = 0; i < count; ++i) {
     if (id == mNodes[i].mId) {
       return i;
     }
   }
-  const CScriptFrontEndDataNetwork* net =
-      TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(id));
-  const CScriptFrontEndDataNetwork* parentNet = mNodes[parent].GetConstNetwork(mgr);
-  mNodes.push_back_unsafe(
-      SDataNetworkNode(id, count, parent, net->mIsProxy, parentNet->mIsProxy));
+  net = TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(id));
+  mNodes.push_back_unsafe(SDataNetworkNode(id, count, parent, net->mIsProxy,
+                                           mNodes[parent].GetConstNetwork(mgr)->mIsProxy));
   return count;
 }
 
@@ -588,7 +587,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
       pos -= parent.GetPos();
       radius = parent.GetConstNetwork(mgr)->GetConnectionRadius();
     }
-    const CVector3f local = xf.TransposeRotate(pos - xf.GetTranslation());
+    const CVector3f local = xf.TransposeMultiply(pos);
     float facing = (-1.f * local).GetY() / radius;
     if (-1.f > facing) {
       facing = -1.f;
@@ -634,7 +633,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
                                   mOrientation.BuildTransform4f());
         CTransform4f platformXf(GetTransform());
         const CVector3f& renderPos = it->GetRenderPos();
-        const CVector3f offset = nodeXf.TransposeRotate(renderPos - nodeXf.GetTranslation());
+        const CVector3f offset = nodeXf.TransposeMultiply(renderPos);
         platformXf.SetTranslation(GetTransform().GetTranslation() + offset);
         platform->SetTransformIfNoPositionSpline(platformXf);
         CColor color = CColor::Lerp(mUnselectedMinColor, mUnselectedMaxColor, it->x5c);
@@ -667,12 +666,8 @@ void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, f
     const int childIdx = node.mChildren[i];
     SDataNetworkNode& child = mNodes[childIdx];
     CVector3f pos = child.GetPos();
-    if (node.GetSelectedChild() != -1 &&
-        childIdx == node.mChildren[node.GetSelectedChild()] &&
-        node.GetConstNetwork(mgr)->x2ce) {
-      child.SetX38(CVector3f::Zero());
-      child.SetVelocity(CVector3f::Zero());
-    } else {
+    if (node.GetSelectedChild() == -1 || childIdx != node.mChildren[node.GetSelectedChild()] ||
+        !node.GetConstNetwork(mgr)->x2ce) {
       CVector3f accel = CVector3f::Zero();
       const bool attract = child.GetConstNetwork(mgr)->x2cd;
       if (attract) {
@@ -688,23 +683,27 @@ void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, f
       CVector3f step = attract ? accel : child.GetX38() + 3.f * (dt * velocity);
       if (step.CanBeNormalized()) {
         const float len = step.Magnitude();
-        const float& maxStep = attract ? maxAttractStep : maxFlockStep;
-        const float clamped = 0.1f > len ? 0.1f : (maxStep < len ? maxStep : len);
+        const float clamped = CMath::Clamp(0.1f, len, attract ? maxAttractStep : maxFlockStep);
         step = clamped * ((1.f / len) * step);
       }
-      pos += dt * step;
+      pos = pos + dt * step;
       child.SetX38(step);
       child.SetVelocity(velocity);
+    } else {
+      child.SetX38(CVector3f::Zero());
+      child.SetVelocity(CVector3f::Zero());
     }
     const CVector3f delta = pos - center;
     if (delta.CanBeNormalized()) {
       const CVector3f dir = delta.AsNormalized();
-      child.SetPos(child.GetConstNetwork(mgr)->x2cd ? pos : center + radius * dir);
+      const CVector3f newPos = child.GetConstNetwork(mgr)->x2cd ? pos : center + radius * dir;
+      child.SetPos(newPos);
     }
   }
 }
 
 void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int idx, float dt) {
+  SDataNetworkNode& node = mNodes[idx];
   const bool forward = mTransitionForward == 1;
   int curIdx = mCurIndex;
   if (mCurIndex > 0 && mNodes[mCurIndex].mParentIsProxy) {
@@ -714,7 +713,6 @@ void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int i
   if (mPrevIndex > 0 && mNodes[mPrevIndex].mParentIsProxy) {
     prevIdx = mNodes[mPrevIndex].mParent;
   }
-  SDataNetworkNode& node = mNodes[idx];
   const CVector3f& pos = node.GetPos();
   node.SetRenderPos(pos);
   if (mTransitionState == 3 && idx > 0) {
@@ -757,9 +755,11 @@ void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int i
     if (delta.CanBeNormalized()) {
       const CVector3f dir = delta.AsNormalized();
       if (child.GetConstNetwork(mgr)->x2cd) {
-        child.SetRenderPos(pos + scale * delta);
+        const CVector3f offset = scale * delta;
+        child.SetRenderPos(pos + offset);
       } else {
-        child.SetRenderPos(pos + scale * (radius * dir));
+        const CVector3f offset = scale * (radius * dir);
+        child.SetRenderPos(pos + offset);
       }
     }
   }
@@ -988,10 +988,11 @@ void CScriptFrontEndDataNetwork::DrawConnection(const CTransform4f& xf, const CV
                                                 const CVector3f& b, const CColor& colorA,
                                                 const CColor& colorB, float t) const {
   CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvPassthru);
-  const CVector3f start = xf.TransposeRotate(a - xf.GetTranslation()) + GetTransform().GetTranslation();
-  const CVector3f end =
-      xf.TransposeRotate(CVector3f::Lerp(a, b, t) - xf.GetTranslation()) +
-      GetTransform().GetTranslation();
+  const CVector3f startLocal = xf.TransposeMultiply(a);
+  const CVector3f start = startLocal + GetTransform().GetTranslation();
+  const CVector3f mid = CVector3f::Lerp(a, b, t);
+  const CVector3f endLocal = xf.TransposeMultiply(mid);
+  const CVector3f end = endLocal + GetTransform().GetTranslation();
   for (int width = 2; width != 0; --width) {
     CGraphics::SetLineWidth(width + 1, kTO_Zero);
     CGraphics::StreamBegin(kP_Lines);
@@ -1009,8 +1010,8 @@ void CScriptFrontEndDataNetwork::DrawBillboard(const CTransform4f& xf, const CVe
   if (mHotDotTexture == kInvalidAssetId) {
     return;
   }
-  const CVector3f center =
-      xf.TransposeRotate(pos - xf.GetTranslation()) + GetTransform().GetTranslation();
+  const CVector3f local = xf.TransposeMultiply(pos);
+  const CVector3f center = local + GetTransform().GetTranslation();
   if (additive) {
     gpRender->SetBlendMode_AdditiveAlpha();
   } else {
