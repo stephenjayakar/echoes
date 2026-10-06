@@ -12,7 +12,7 @@ uint _getPOIList(const CCharAnimTime& time, T* listOut, uint capacity, uint iter
   if (count > 0) {
     const CCharAnimTime& duration = sourceInfo.GetAnimationDuration();
     CCharAnimTime totalTime = curTime + time;
-    CCharAnimTime endTime = rstl::min_val(duration, totalTime);
+    CCharAnimTime endTime = rstl::min_val< const CCharAnimTime& >(duration, totalTime);
     if (passedCount < count) {
       int index = passedCount;
       const int initialIndex = index;
