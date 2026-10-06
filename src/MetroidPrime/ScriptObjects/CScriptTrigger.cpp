@@ -546,16 +546,19 @@ bool CScriptTrigger::RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr)
 }
 
 bool CScriptTrigger::RemoveInhabitant(TUniqueId id, CStateManager& mgr) {
-  if (TCastToConstPtr< CActor >(mgr.GetObjectById(id)) != nullptr) {
-    for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
-         ++it) {
-      if (it->GetObjectId() == id) {
-        mInhabitants.erase(it);
-        return true;
-      }
+  if (TCastToConstPtr< CActor >(mgr.GetObjectById(id)) == nullptr) {
+    return false;
+  }
+  bool removed = false;
+  for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
+       ++it) {
+    if (it->GetObjectId() == id) {
+      mInhabitants.erase(it);
+      removed = true;
+      break;
     }
   }
-  return false;
+  return removed;
 }
 
 CEntity* LoadTrigger(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
