@@ -1496,6 +1496,13 @@ config.libs = [
         ],
     ),
     Rel(
+        "ScriptFrontEndDataNetwork",
+        [
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptFrontEndDataNetwork.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),
