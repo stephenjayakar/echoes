@@ -21,6 +21,7 @@
 #include "MetaRender/SModelRenderData.hpp"
 #include "MetroidPrime/Factories/CCharacterFactory.hpp"
 #include "MetroidPrime/Factories/CCharacterFactoryBuilder.hpp"
+#include "rstl/math.hpp"
 
 #include <dolphin/mtx.h>
 
@@ -79,14 +80,9 @@ void CModelData::Render(EWhichModel which, const CTransform4f& xf, const CActorL
     uchar destinationAlpha = 0;
     if (flags.GetTrans() == CModelFlags::kT_Two) {
       const CColor& color = flags.GetColorRef();
-      uchar intensity = color.GetRedu8();
-      if (intensity < color.GetGreenu8()) {
-        intensity = color.GetGreenu8();
-      }
-      if (intensity < color.GetBlueu8()) {
-        intensity = color.GetBlueu8();
-      }
-      destinationAlpha = intensity * 2 < 255 ? intensity * 2 : 255;
+      const uchar intensity = rstl::max_val(
+          rstl::max_val(color.GetRedu8(), color.GetGreenu8()), color.GetBlueu8());
+      destinationAlpha = rstl::min_val< uint >(255, intensity * 2);
     }
     if (destinationAlpha != 0) {
       gpRender->SetDestinationAlpha(destinationAlpha);
@@ -102,7 +98,8 @@ void CModelData::Render(EWhichModel which, const CTransform4f& xf, const CActorL
     return;
   }
 
-  const CTransform4f modelXf = xf * CTransform4f::Scale(mScale);
+  CTransform4f modelXf = xf;
+  modelXf *= CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ());
   gpRender->SetModelMatrix(modelXf);
   if (lights != nullptr && which != kWM_Dark) {
     lights->ActivateLights();
@@ -135,7 +132,9 @@ void CModelData::RenderUnsortedParts(EWhichModel which, const CTransform4f& xf,
     return;
   }
 
-  gpRender->SetModelMatrix(xf * CTransform4f::Scale(mScale));
+  const CTransform4f modelXf(xf *
+                             CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ()));
+  gpRender->SetModelMatrix(modelXf);
   if (lights != nullptr && which != kWM_Dark) {
     lights->ActivateLights();
   } else {
@@ -302,7 +301,7 @@ CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CStateManager& mgr, TA
   if (!HasAnimation()) {
     return skNullAdvance;
   }
-  return mAnimData->Advance(dt, cameraDistance, mScale, &mgr, *mgr.Random(), aid, advTree);
+  return mAnimData->Advance(dt, cameraDistance, GetScale(), &mgr, *mgr.Random(), aid, advTree);
 }
 
 CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CRandom16& random, bool advTree) {
@@ -310,7 +309,7 @@ CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CRandom16& random, boo
     return skNullAdvance;
   }
   static const TAreaId areaId = kInvalidAreaId;
-  return mAnimData->Advance(dt, 0.f, mScale, nullptr, random, areaId, advTree);
+  return mAnimData->Advance(dt, 0.f, GetScale(), nullptr, random, areaId, advTree);
 }
 
 CAdvancementDeltas CModelData::AdvanceAnimationIgnoreParticles(float dt, CRandom16& random,
@@ -523,15 +522,14 @@ void CModelData::Render(const CStateManager& mgr, const CTransform4f& xf,
 
 bool CModelData::IsLoaded(int shaderIdx) const {
   if (HasAnimation()) {
-    if (!mAnimData->GetModelData()->GetModel()->IsLoaded(shaderIdx)) {
+    const CAnimData* animData = mAnimData.get();
+    if (!animData->GetModelData()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
-    const CSkinnedModel* echo = mAnimData->GetXRayModel();
-    const CSkinnedModel* dark = mAnimData->GetInfraModel();
-    if (echo && !echo->GetModel()->IsLoaded(shaderIdx)) {
+    if (animData->GetXRayModel() && !animData->GetXRayModel()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
-    if (dark && !dark->GetModel()->IsLoaded(shaderIdx)) {
+    if (animData->GetInfraModel() && !animData->GetInfraModel()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
   }
