@@ -841,7 +841,7 @@ CGameOptions::~CGameOptions() {}
 
 CWorldState::~CWorldState() {}
 
-CGameState::~CGameState() {}
+
 
 void CMain::ResetGameState() {}
 
