@@ -124,21 +124,30 @@ void CAuiBitmapMeter::Draw(const CGuiWidgetDrawParms& parms) const {
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetNumTexGens(1);
   CGX::SetNumChans(0);
-  GXVtxDescList desc[] = {{GX_VA_POS, GX_DIRECT}, {GX_VA_TEX0, GX_DIRECT}, {GX_VA_NULL, GX_NONE}};
+  static const GXVtxDescList desc[] = {
+      {GX_VA_POS, GX_DIRECT}, {GX_VA_TEX0, GX_DIRECT}, {GX_VA_NULL, GX_NONE}};
   CGX::SetVtxDescv(desc);
 
   for (int bar = 0; bar < 2; ++bar) {
-    CGX::SetTevKColor(GX_KCOLOR0, (bar == 0 ? shadowColor : currentColor).GetGXColor());
+    if (bar == 0) {
+      CGX::SetTevKColor(GX_KCOLOR0, shadowColor.GetGXColor());
+    } else {
+      CGX::SetTevKColor(GX_KCOLOR0, currentColor.GetGXColor());
+    }
     CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
     const float fraction = bar == 0 ? mShadowFraction : mCurrentFraction;
-    const float remainder = 1.f - fraction;
-    for (int i = 0; i < 4; ++i) {
-      const CVector3f pos =
-          i % 2 == 0 ? mCoords[i] * fraction + mCoords[i + 1] * remainder : mCoords[i];
-      const CVector2f uv = i % 2 == 0 ? mUvs[i] * fraction + mUvs[i + 1] * remainder : mUvs[i];
-      GXPosition3f32(pos.GetX(), pos.GetY(), pos.GetZ());
-      GXTexCoord2f32(uv.GetX(), uv.GetY());
-    }
+    const CVector2f uv0 = CVector2f::Lerp(mUvs[1], mUvs[0], fraction);
+    const CVector3f pos0 = CVector3f::Lerp(mCoords[1], mCoords[0], fraction);
+    GXPosition3f32(pos0[kDX], pos0[kDY], pos0[kDZ]);
+    GXTexCoord2f32(uv0.GetX(), uv0.GetY());
+    GXPosition3f32(mCoords[1].GetX(), mCoords[1].GetY(), mCoords[1].GetZ());
+    GXTexCoord2f32(mUvs[1].GetX(), mUvs[1].GetY());
+    const CVector2f uv2 = CVector2f::Lerp(mUvs[3], mUvs[2], fraction);
+    const CVector3f pos2 = CVector3f::Lerp(mCoords[3], mCoords[2], fraction);
+    GXPosition3f32(pos2[kDX], pos2[kDY], pos2[kDZ]);
+    GXTexCoord2f32(uv2.GetX(), uv2.GetY());
+    GXPosition3f32(mCoords[3].GetX(), mCoords[3].GetY(), mCoords[3].GetZ());
+    GXTexCoord2f32(mUvs[3].GetX(), mUvs[3].GetY());
     CGX::End();
   }
 
