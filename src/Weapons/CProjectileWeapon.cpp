@@ -217,7 +217,10 @@ void CProjectileWeapon::SetWorldSpaceOrientation(const CTransform4f& orientation
 }
 
 void CProjectileWeapon::UpdatePSTranslationAndOrientation() {
-  if (mCurFrame > mLifetime || !mActive) {
+  if (mLifetime < mCurFrame) {
+    return;
+  }
+  if (!mActive) {
     return;
   }
 
@@ -226,19 +229,20 @@ void CProjectileWeapon::UpdatePSTranslationAndOrientation() {
     mWeaponDesc->mPSVM->GetValue(mCurFrame, mVelocity, mLocalOffset);
   }
   if (mVMD2) {
-    mLocalOffset += mLocalXf * mVelocity;
+    const CVector3f velocity = mLocalXf * mVelocity;
+    mLocalOffset += velocity;
   } else {
     mLocalOffset += mVelocity;
   }
   mVelocity += mGravity * (1.f / 60.f);
 
   if (mWeaponDesc->mPSOV) {
-    CVector3f angles = CVector3f::Zero();
+    CVector3f angles(0.f, 0.f, 0.f);
     mWeaponDesc->mPSOV->GetValue(mCurFrame, angles);
     CTransform4f orientation = mLocalXf;
-    orientation.RotateLocalZ(CRelAngle::FromDegrees(angles.GetX()));
+    orientation.RotateLocalX(CRelAngle::FromDegrees(angles.GetX()));
     orientation.RotateLocalY(CRelAngle::FromDegrees(angles.GetY()));
-    orientation.RotateLocalX(CRelAngle::FromDegrees(angles.GetZ()));
+    orientation.RotateLocalZ(CRelAngle::FromDegrees(angles.GetZ()));
     SetRelativeOrientation(orientation);
   }
   if (mWeaponDesc->mPSCL) {
