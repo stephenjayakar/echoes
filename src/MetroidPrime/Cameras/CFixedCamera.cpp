@@ -27,7 +27,8 @@ enum EOverrideFlags {
 };
 } // namespace
 
-CFixedCamera::CFixedCamera(TUniqueId uid, const CTransform4f& xf, int index, int controllerIdx)
+CFixedCamera::CFixedCamera(const TUniqueId& uid, const CTransform4f& xf, int index,
+                           int controllerIdx)
 : CGameCamera(uid, rstl::string_l("Fixed Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, false), xf,
               CCameraManager::GetDefaultThirdPersonVerticalFOV(),

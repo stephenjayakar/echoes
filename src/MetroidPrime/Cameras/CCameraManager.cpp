@@ -585,7 +585,7 @@ float CCameraManager::GetCameraBobMagnitude() const {
   return 1.f - pitch;
 }
 
-void CCameraManager::AddCamera(TUniqueId uid, CStateManager& mgr) {
+void CCameraManager::AddCamera(const TUniqueId& uid, CStateManager& mgr) {
   if (!TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid))) {
     return;
   }
