@@ -377,8 +377,6 @@ void CWorldTransManager::UpdateLights(float dt) {
     return;
   }
 
-  rstl::vector< CLight >& lights = mModelData->mLights;
-  lights.clear();
   CColor pointColor = CColor::White();
   CColor movingColor = CColor::White();
   if (mLongShaft) {
@@ -389,6 +387,8 @@ void CWorldTransManager::UpdateLights(float dt) {
     movingColor = sDarkMovingLightColor;
   }
 
+  rstl::vector< CLight >& lights = mModelData->mLights;
+  lights.clear();
   const CVector3f lightPos(0.f, 1.2f, 0.f);
   CLight light = CLight::BuildPoint(lightPos, pointColor);
   light.SetAttenuation(0.f, 0.f, 0.1f);
@@ -398,22 +398,22 @@ void CWorldTransManager::UpdateLights(float dt) {
 
   float intensity = 1.f;
   if (!mGoingUp && mLightHeight - mLightOffset < 2.f) {
-    intensity = (mLightHeight - mLightOffset) * 0.5f;
+    intensity = (mLightHeight - mLightOffset) / 2.f;
   } else if (mGoingUp && mLightOffset < 2.f) {
-    intensity = mLightOffset * 0.5f;
+    intensity = mLightOffset / 2.f;
   }
   if (intensity < 1.f) {
     CLight wrappedLight = light;
     wrappedLight.SetPosition(lightPos +
                              CVector3f(0.f, 0.f, mGoingUp ? mLightHeight : -mLightHeight));
     wrappedLight.SetColor(CColor::Lerp(CColor::Black(), pointColor, 1.f - intensity));
-    lights.push_back(wrappedLight);
+    lights.push_back_unsafe(wrappedLight);
     movingLight.SetColor(CColor::Lerp(CColor::Black(), movingColor, intensity));
   }
-  lights.push_back(movingLight);
+  lights.push_back_unsafe(movingLight);
   movingLight.SetPosition(
       CVector3f(movingLight.GetPosition().GetX(), -1.2f, movingLight.GetPosition().GetZ()));
-  lights.push_back(movingLight);
+  lights.push_back_unsafe(movingLight);
 }
 
 float CWorldTransManager::GetCameraFov(int pass) const {
