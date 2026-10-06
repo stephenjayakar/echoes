@@ -12,7 +12,8 @@ CScriptSequenceTimer::CScriptSequenceTimer(TUniqueId uid, const rstl::string& na
                                            const CEntityInfo& info,
                                            const SLdrSequenceConnections& connections,
                                            float startTime, float maxTime, float loopStartTime,
-                                           bool autoStart, bool loop, bool takeExternalTime)
+                                           const bool autoStart, const bool loop,
+                                           const bool takeExternalTime)
 : CEntity(uid, info, name, 0)
 , mStartTime(startTime)
 , mCurrentTime(startTime)

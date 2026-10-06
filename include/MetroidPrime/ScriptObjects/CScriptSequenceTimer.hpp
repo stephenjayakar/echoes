@@ -9,7 +9,8 @@ class CScriptSequenceTimer : public CEntity {
 public:
   CScriptSequenceTimer(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                        const SLdrSequenceConnections& connections, float startTime, float maxTime,
-                       float loopStartTime, bool autoStart, bool loop, bool takeExternalTime);
+                       float loopStartTime, const bool autoStart, const bool loop,
+                       const bool takeExternalTime);
 
   // CEntity
   ~CScriptSequenceTimer() override;
