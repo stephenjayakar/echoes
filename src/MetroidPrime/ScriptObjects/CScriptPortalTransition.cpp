@@ -172,14 +172,16 @@ CPortalTransition::CPortalTransition(
     mFirstEffect = CElementGen::ConstructChildParticleSystem(
         *mFirstEffectDescription, mFirstEffectDescription->GetTag().GetType(), 0,
         CElementGen::kOSF_One, false, true, firstEffectTransform.GetTranslation(),
-        firstEffectTransform, CVector3f::Zero(), CTransform4f::Identity(), firstEffectScale,
+        firstEffectTransform.GetRotation(), CVector3f::Zero(), CTransform4f::Identity(),
+        firstEffectScale,
         CColor::White(), CVector3f::One());
   }
   if (mSecondEffectDescription) {
     mSecondEffect = CElementGen::ConstructChildParticleSystem(
         *mSecondEffectDescription, mSecondEffectDescription->GetTag().GetType(), 0,
         CElementGen::kOSF_One, false, true, CVector3f::Zero(), CTransform4f::Identity(),
-        secondEffectTransform.GetTranslation(), secondEffectTransform, secondEffectScale,
+        secondEffectTransform.GetTranslation(), secondEffectTransform.GetRotation(),
+        secondEffectScale,
         CColor::White(), CVector3f::One());
   }
   if (firstPassCamera != nullptr) {
