@@ -43,6 +43,11 @@ static const char* const kIntroAudio = "/Audio/swanp-mae32.dsp";
 extern const char* const kGunLocator;
 extern const char* const kGrappleLocator;
 
+// Guessed name; returns the current viewport dimensions.
+static CVector2i GetViewportSize() {
+  return CVector2i(CGraphics::GetViewport().mWidth, CGraphics::GetViewport().mHeight);
+}
+
 struct CWorldTransManager::SModelDatas {
   CAnimRes mSamusRes;
   CModelData mSamusModelData;
@@ -623,10 +628,12 @@ void CWorldTransManager::EnableTransition(CAssetId fontId, CAssetId stringId, in
   mTransType = kTT_Text;
   mModelData = nullptr;
   mFadeWhite = fadeWhite;
-  const CVector2i extent(CGraphics::GetViewport().mWidth, CGraphics::GetViewport().mHeight);
-  const CGuiTextProperties properties(true, kJustification_Center, kVerticalJustification_Center);
+  const CVector2i extent = GetViewportSize();
   mTextData =
-      rs_new CGuiTextSupport(fontId, extent.GetX(), extent.GetY(), properties, CColor::White(),
+      rs_new CGuiTextSupport(fontId, extent.GetX(), extent.GetY(),
+                             CGuiTextProperties(true, kJustification_Center,
+                                                kVerticalJustification_Center),
+                             CColor::White(),
                              CColor::Black(), CColor::White(), gpSimplePool);
   mTextData->SetTypeWriteEffectOptions(true, charFadeTime, charFadeRate);
   mTextData->SetText(rstl::wstring_l(L""));
@@ -634,7 +641,10 @@ void CWorldTransManager::EnableTransition(CAssetId fontId, CAssetId stringId, in
     mTextData->SetExtentX(CGraphics::GetViewport().mWidth - 64);
   }
   if (mDisplaySubtitles) {
-    mSubtitleData = rs_new CGuiTextSupport(fontId, extent.GetX(), 120, properties, CColor::White(),
+    mSubtitleData = rs_new CGuiTextSupport(
+        fontId, extent.GetX(), 120,
+        CGuiTextProperties(true, kJustification_Center, kVerticalJustification_Center),
+        CColor::White(),
                                            CColor::Black(), CColor::White(), gpSimplePool);
     mSubtitleData->SetText(rstl::wstring_l(L""));
     mSubtitleData->SetGeometryColor(CColor::Black());
@@ -809,11 +819,6 @@ void CWorldTransManager::UpdateText(float dt) {
       mStopTime = mCurTime;
     }
   }
-}
-
-// Guessed name; returns the current viewport dimensions.
-static CVector2i GetViewportSize() {
-  return CVector2i(CGraphics::GetViewport().mWidth, CGraphics::GetViewport().mHeight);
 }
 
 void CWorldTransManager::DrawText() const {
