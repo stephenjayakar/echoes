@@ -388,8 +388,9 @@ void CGameProjectile::ApplyDamageToOneActor(CStateManager& mgr, const CDamageInf
 }
 
 void CGameProjectile::ApplyDamageToActors(CStateManager& mgr, const CDamageInfo& damageInfo) {
+  const CVector3f forward = GetTransform().GetForward();
   if (mPendingDamagee != kInvalidUniqueId) {
-    ApplyDamageToOneActor(mgr, damageInfo, mPendingDamagee, GetTransform().GetForward());
+    ApplyDamageToOneActor(mgr, damageInfo, mPendingDamagee, forward);
     mPendingDamagee = kInvalidUniqueId;
   }
 }
