@@ -478,8 +478,8 @@ void CActorLights::BuildDynamicLightList(const CStateManager& mgr, const CAABox&
   mDynamicLights.clear();
   mDynamicAmbientColor = CColor::Black();
 
-  const CVector3f lightingPos = bounds.GetCenterPoint() + mLightingPositionOffset;
   CVector3f ambient = CVector3f::Zero();
+  const CVector3f lightingPos = bounds.GetCenterPoint() + mLightingPositionOffset;
   for (int i = 0; i < mExplicitLightIds.size() && mDynamicLights.size() < 4; ++i) {
     const CScriptDynamicLight* gameLight =
         TCastToConstPtr< CScriptDynamicLight >(mgr.GetObjectById(mExplicitLightIds[i]));
@@ -498,11 +498,10 @@ void CActorLights::BuildDynamicLightList(const CStateManager& mgr, const CAABox&
   const rstl::vector< rstl::pair< TUniqueId, CLight > >& lights = mgr.GetDynamicActorLights();
   if (!mFindNearestDynamicLights) {
     for (int i = 0; i < lights.size() && mDynamicLights.size() < mMaxDynamicLights; ++i) {
-      const rstl::pair< TUniqueId, CLight >& entry = lights[i];
-      if (IsLightExcluded(mgr, entry.first)) {
+      if (IsLightExcluded(mgr, lights[i].first)) {
         continue;
       }
-      const CLight& light = entry.second;
+      const CLight& light = lights[i].second;
       if (light.GetType() == kLT_Hard && mExcludeSpecialDynamicLights) {
         continue;
       }
@@ -516,15 +515,14 @@ void CActorLights::BuildDynamicLightList(const CStateManager& mgr, const CAABox&
       }
     }
   } else {
-    uint ids[4];
+    int ids[4];
     float radii[4] = {-1.f, -1.f, -1.f, -1.f};
     const int explicitCount = mDynamicLights.size();
     for (int i = 0; i < lights.size() && mDynamicLights.size() < 4; ++i) {
-      const rstl::pair< TUniqueId, CLight >& entry = lights[i];
-      if (IsLightExcluded(mgr, entry.first)) {
+      if (IsLightExcluded(mgr, lights[i].first)) {
         continue;
       }
-      const CLight& light = entry.second;
+      const CLight& light = lights[i].second;
       if (light.GetType() == kLT_Hard && mExcludeSpecialDynamicLights) {
         continue;
       }
