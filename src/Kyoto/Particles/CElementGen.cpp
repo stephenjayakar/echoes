@@ -414,12 +414,18 @@ bool CElementGen::InternalUpdate(double dt) {
   int frameUpdateCount = 0;
   double time = mCurFrame * skTickTime;
   const double tolerance = skTickTime / 1000.0;
-  double scaledDt = close_enough(dt, skTickTime, tolerance) ? skTickTime : dt;
+  double scaledDt;
+  if (close_enough(dt, skTickTime, tolerance)) {
+    scaledDt = skTickTime;
+  } else {
+    scaledDt = dt;
+  }
   CParticleGlobals::SetEmitterTime(mCurFrame);
   if (mLoadedGenDesc->mPSTS) {
     float timeScale = 1.f;
     mLoadedGenDesc->mPSTS->GetValue(mCurFrame, timeScale);
-    scaledDt = rstl::max_val(0.0, scaledDt * timeScale);
+    scaledDt *= timeScale;
+    scaledDt = rstl::max_val(0.0, scaledDt);
   }
   mCurSeconds += scaledDt;
   if (mMBLR && dt > 0.0 && mLoadedGenDesc->mMBSP) {
@@ -427,8 +433,8 @@ bool CElementGen::InternalUpdate(double dt) {
   }
 
   while (time < mCurSeconds && !close_enough(time, mCurSeconds, tolerance)) {
-    mAabbMin = CVector3f(FLT_MAX, FLT_MAX, FLT_MAX);
-    mAabbMax = CVector3f(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+    mAabbMin = CVector3f(3.4028235e38f, 3.4028235e38f, 3.4028235e38f);
+    mAabbMax = CVector3f(-3.4028235e38f, -3.4028235e38f, -3.4028235e38f);
     mMaxSize = 0.f;
     CParticleGlobals::SetEmitterTime(mCurFrame);
     UpdateExistingParticles();
@@ -441,7 +447,7 @@ bool CElementGen::InternalUpdate(double dt) {
       }
       generationRate = rstl::max_val(0.f, generationRate * mGeneratorRate);
       mGeneratorRemainder += generationRate;
-      const int count = static_cast< int >(floor(mGeneratorRemainder));
+      const int count = static_cast< int >(static_cast< float >(floor(mGeneratorRemainder)));
       mGeneratorRemainder -= static_cast< float >(count);
       if (mLoadedGenDesc->mMAXP) {
         mLoadedGenDesc->mMAXP->GetValue(mCurFrame, mMAXP);
