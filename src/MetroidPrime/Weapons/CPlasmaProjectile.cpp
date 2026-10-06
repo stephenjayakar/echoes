@@ -25,7 +25,7 @@
 #include "dolphin/gx.h"
 
 const int CPlasmaProjectile::kMaxPlasmaLights = 3;
-const float CPlasmaProjectile::kInvMaxPlasmaLights = 1.f / CCast::ToReal32(kMaxPlasmaLights - 1);
+const float CPlasmaProjectile::kInvMaxPlasmaLights = 1.f / (kMaxPlasmaLights - 1);
 static const CColor skCoreColor(1.f, 1.f, 1.f, 0.3f);
 
 CPlasmaProjectile::CPlasmaProjectile(const TToken< CWeaponDescription >& description,
@@ -143,7 +143,7 @@ float CPlasmaProjectile::UpdateBeamState(float dt, CStateManager& mgr) {
   case kES_Done:
     mShutdownTimer += dt;
     if (mShutdownTimer > mShutdownTime &&
-        (!mContactGen.get() || mContactGen->GetParticleCountAll() == 0)) {
+        (mContactGen.get() ? mContactGen->GetParticleCountAll() <= 0 : true)) {
       mExpansionState = kES_Inactive;
       ResetBeam(mgr, true);
     }
@@ -502,7 +502,25 @@ void CPlasmaProjectile::RenderMotionBlur() const {
 }
 
 void CPlasmaProjectile::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_Delete) {
+  switch (msg.GetMessage()) {
+  case kSM_Create: {
+    const TLockedToken< CWeaponDescription >& desc = mProjectile.GetWeaponDescription();
+    if (desc->mAPSM) {
+      mWeaponGen = rs_new CElementGen(*desc->mAPSM);
+    }
+    if (mWeaponGen.get() && mWeaponGen->SystemHasLight()) {
+      const uint sourceId = static_cast< const TToken< CWeaponDescription >& >(desc).GetTag().GetId();
+      CreatePlasmaLights(sourceId, mWeaponGen->GetLight(), mgr);
+    } else {
+      mWeaponGen = nullptr;
+    }
+    if (mDrawOwnerFirst) {
+      SetNextDrawNode(GetOwnerId());
+    }
+    mgr.AddWeaponId(GetOwnerId(), GetType());
+    break;
+  }
+  case kSM_Delete:
     mgr.RemoveWeaponId(GetOwnerId(), GetType());
     DeletePlasmaLights(mgr);
     if (mSustainedDamagePlayerId != kInvalidUniqueId) {
@@ -511,32 +529,20 @@ void CPlasmaProjectile::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& ms
       }
       mSustainedDamagePlayerId = kInvalidUniqueId;
     }
-  } else if (msg.GetMessage() == kSM_Create) {
-    const TLockedToken< CWeaponDescription > desc = mProjectile.GetWeaponDescription();
-    if (desc->mAPSM) {
-      mWeaponGen = rs_new CElementGen(*desc->mAPSM);
-    }
-    if (mWeaponGen.get() && mWeaponGen->SystemHasLight()) {
-      CreatePlasmaLights(static_cast< const TToken< CWeaponDescription >& >(desc).GetTag().GetId(),
-                         mWeaponGen->GetLight(), mgr);
-    } else {
-      mWeaponGen = nullptr;
-    }
-    if (mDrawOwnerFirst) {
-      SetNextDrawNode(GetOwnerId());
-    }
-    mgr.AddWeaponId(GetOwnerId(), GetType());
+    break;
+  default:
+    break;
   }
   CGameProjectile::AcceptScriptMsg(mgr, msg);
 }
 
 void CPlasmaProjectile::SetLightsActive(bool active, CStateManager& mgr) {
-  for (int i = 0; i < mLights.size(); ++i) {
-    if (mLights[i] == kInvalidUniqueId) {
-      continue;
-    }
-    if (CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(mLights[i]))) {
-      light->SetActive(active);
+  for (rstl::vector< TUniqueId >::iterator it = mLights.begin(); it != mLights.end(); ++it) {
+    const TUniqueId& id = *it;
+    if (id != kInvalidUniqueId) {
+      if (CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(id))) {
+        light->SetActive(active);
+      }
     }
   }
 }
@@ -545,10 +551,11 @@ void CPlasmaProjectile::CreatePlasmaLights(uint sourceId, const CLight& light, C
   DeletePlasmaLights(mgr);
   mLights.reserve(kMaxPlasmaLights);
   for (int i = 0; i < kMaxPlasmaLights; ++i) {
+    const rstl::string name;
     const TUniqueId id = mgr.AllocateUniqueId();
-    mgr.AddObject(rs_new CGameLight(id, GetAreaIdForPersistence(), GetActive(), rstl::string(),
+    mgr.AddObject(rs_new CGameLight(id, GetAreaIdForPersistence(), GetActive(), name,
                                     GetTransform(), GetUniqueId(), light, sourceId, 0, 0.f));
-    mLights.push_back(id);
+    mLights.push_back_unsafe(id);
   }
 }
 
