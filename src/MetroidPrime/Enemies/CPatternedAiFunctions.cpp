@@ -97,8 +97,9 @@ bool CPatterned::OffLine(CStateManager&, const CTriggerData& data) const {
 }
 
 bool CPatterned::InRange(CStateManager& mgr, const CTriggerData&) const {
+  const float magSq = (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared();
   const float range = 0.5f * (mMinAttackRange + mMaxAttackRange);
-  return (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared() < range * range;
+  return magSq < range * range;
 }
 
 bool CPatterned::TooClose(CStateManager& mgr, const CTriggerData&) const {
@@ -131,8 +132,12 @@ bool CPatterned::InDetectionRange(CStateManager& mgr, const CTriggerData&) const
 }
 
 bool CPatterned::Leash(CStateManager&, const CTriggerData&) const {
-  return mCurPlayerLeashTime > mPlayerLeashTime &&
-         (mLatestLeashPosition - GetTranslation()).MagSquared() > mLeashRadius * mLeashRadius;
+  bool leash = mCurPlayerLeashTime > mPlayerLeashTime;
+  if (leash) {
+    const float magSq = (mLatestLeashPosition - GetTranslation()).MagSquared();
+    leash = leash && magSq > mLeashRadius * mLeashRadius;
+  }
+  return leash;
 }
 
 bool CPatterned::SpotPlayer(CStateManager& mgr, const CTriggerData&) const {
@@ -222,6 +227,10 @@ bool CPatterned::HasPatrolPath(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CPatterned::InPosition(CStateManager&, const CTriggerData&) const { return mInPosition; }
+
+bool CPatterned::GetAnimOver(CStateManager&, const CTriggerData&) const {
+  return mAnimationState.IsOver();
+}
 
 bool CPatterned::AnimOver(CStateManager& mgr, const CTriggerData& data) const {
   return GetAnimOver(mgr, data);
@@ -317,7 +326,7 @@ TUniqueId CPatterned::GetConnectedObject(CStateManager& mgr, EScriptObjectState 
       const CEntity* entity = mgr.GetObjectById(id);
       if (entity && entity->GetActive()) {
         ids.push_back(id);
-        if (ids.size() == ids.capacity()) {
+        if (ids.capacity() - ids.size() <= 0) {
           break;
         }
       }
