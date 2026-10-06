@@ -185,6 +185,16 @@ public:
   , mOverrideAnim(animId != -1)
   , mInterruptKnockBack(false) {}
 
+  CBCGenerateCmd(pas::EGenerateType type, const CVector3f& targetPos, bool targetTransform = false,
+                 bool overrideAnim = false)
+  : CBodyStateCmd(kBSC_Generate)
+  , mType(type)
+  , mTargetPos(targetPos)
+  , mAnimId(-1)
+  , mTargetTransform(targetTransform)
+  , mOverrideAnim(overrideAnim)
+  , mInterruptKnockBack(false) {}
+
   pas::EGenerateType GetGenerateType() const { return mType; }
   bool UseSpecialAnimId() const { return mOverrideAnim; }
   int GetSpecialAnimId() const { return mAnimId; }
