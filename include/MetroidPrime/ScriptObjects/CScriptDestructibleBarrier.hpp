@@ -61,11 +61,6 @@ public:
     return CVector3f(size.GetX() * mChunkSize.GetX(), size.GetY() * mChunkSize.GetY(),
                      size.GetZ() * mChunkSize.GetZ());
   }
-  CVector3f GetCenter(const CVector3i& min, const CVector3f& extent) const {
-    return CVector3f(min.GetX() * mChunkSize.GetX() + 0.5f * extent.GetX(),
-                     min.GetY() * mChunkSize.GetY() + 0.5f * extent.GetY(),
-                     min.GetZ() * mChunkSize.GetZ() + 0.5f * extent.GetZ());
-  }
 
   CVector3i mDims;
   CVector3f mChunkSize;

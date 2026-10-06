@@ -222,52 +222,52 @@ void CBarrierChunkGrid::AddBoxGeometry(COBBTree::SIndexData& data,
     data.mMaterials = cube.mMaterials;
   }
 
-  data.mVertMaterials.reserve(data.mVertMaterials.size() + cube.mVertMaterials.size());
-  data.mVertMaterials.insert(data.mVertMaterials.end(), cube.mVertMaterials.begin(),
-                             cube.mVertMaterials.end());
+  data.mEdgeMaterials.reserve(data.mEdgeMaterials.size() + cube.mEdgeMaterials.size());
+  data.mEdgeMaterials.insert(data.mEdgeMaterials.end(), cube.mEdgeMaterials.begin(),
+                             cube.mEdgeMaterials.end());
 
   data.mEdges.reserve(data.mEdges.size() + cube.mEdges.size());
   for (int i = 0; i < cube.mEdges.size(); ++i) {
-    data.mEdges.push_back(CCollisionEdge(vertBase + cube.mEdges[i].GetVertIndex1(),
-                                         vertBase + cube.mEdges[i].GetVertIndex2()));
+    data.mEdges.push_back_unsafe(CCollisionEdge(vertBase + cube.mEdges[i].GetVertIndex1(),
+                                                vertBase + cube.mEdges[i].GetVertIndex2()));
   }
 
   data.x60_.reserve(data.x60_.size() + cube.x60_.size());
   for (int i = 0; i < cube.x60_.size(); ++i) {
-    data.x60_.push_back(triBase + cube.x60_[i]);
+    data.x60_.push_back_unsafe(triBase + cube.x60_[i]);
   }
 
   data.mSurfaceIndices.reserve(data.mSurfaceIndices.size() + cube.mSurfaceIndices.size());
   for (int i = 0; i < cube.mSurfaceIndices.size(); ++i) {
-    data.mSurfaceIndices.push_back(edgeBase + cube.mSurfaceIndices[i]);
+    data.mSurfaceIndices.push_back_unsafe(edgeBase + cube.mSurfaceIndices[i]);
   }
 
   data.mSurfaceMaterials.reserve(data.mSurfaceMaterials.size() + cube.mSurfaceMaterials.size());
   data.mSurfaceMaterials.insert(data.mSurfaceMaterials.end(), cube.mSurfaceMaterials.begin(),
                                 cube.mSurfaceMaterials.end());
 
-  data.mEdgeMaterials.reserve(data.mEdgeMaterials.size() + cube.mEdgeMaterials.size());
-  data.mEdgeMaterials.insert(data.mEdgeMaterials.end(), cube.mEdgeMaterials.begin(),
-                             cube.mEdgeMaterials.end());
+  data.mVertMaterials.reserve(data.mVertMaterials.size() + cube.mVertMaterials.size());
+  data.mVertMaterials.insert(data.mVertMaterials.end(), cube.mVertMaterials.begin(),
+                             cube.mVertMaterials.end());
 
   data.mVertices.reserve(data.mVertices.size() + cube.mVertices.size());
   for (int i = 0; i < cube.mVertices.size(); ++i) {
-    const CVector3f& v = cube.mVertices[i];
-    data.mVertices.push_back(CVector3f(v.GetX() * extent.GetX() + center.GetX(),
-                                       v.GetY() * extent.GetY() + center.GetY(),
-                                       v.GetZ() * extent.GetZ() + center.GetZ()));
+    data.mVertices.push_back_unsafe(cube.mVertices[i] * extent + center);
   }
 
   surfaces.reserve(surfaces.size() + 12);
   for (int i = 0; i < 12; ++i) {
-    surfaces.push_back(triBase + i);
+    surfaces.push_back_unsafe(triBase + i);
   }
 }
 
 COBBTree::CNode* CBarrierChunkGrid::BuildBoxNode(COBBTree::SIndexData& data, const CVector3i& min,
                                                  const CVector3i& size) const {
   const CVector3f extent = GetExtent(size);
-  const CVector3f center = GetCenter(min, extent);
+  const CVector3f center =
+      CVector3f(min.GetX() * mChunkSize.GetX(), min.GetY() * mChunkSize.GetY(),
+                min.GetZ() * mChunkSize.GetZ()) +
+      0.5f * extent;
   rstl::vector< ushort > surfaces;
   AddBoxGeometry(data, surfaces, center, extent);
   CTransform4f xf = CTransform4f::Translate(center);
@@ -281,14 +281,13 @@ COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
       &mChunkHealths[row.GetY() * mDims.GetX() + mDims.GetX() * (row.GetZ() * mDims.GetY())];
   rstl::vector< ushort > surfaces;
   bool alive = *health > 0.f;
-  int end = -1;
   int start = alive ? 0 : 0x7fffffff;
+  int end = -1;
   CVector3i runMin(0, row.GetY(), row.GetZ());
   CVector3i runSize(0, 1, 1);
-  const int dimX = mDims.GetX();
-  for (int x = 0; x <= dimX; ++x) {
+  for (int x = 0; x <= mDims.GetX(); ++x) {
     bool cur;
-    if (x == dimX) {
+    if (x == mDims.GetX()) {
       cur = !alive;
     } else {
       cur = *health > 0.f;
@@ -298,11 +297,15 @@ COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
       if (cur) {
         runMin[0] = x;
         runSize[0] = 0;
-        start = rstl::min_val(start, x);
+        start = rstl::min_val(x, start);
       } else {
         end = rstl::max_val(x, end);
         const CVector3f extent = GetExtent(runSize);
-        AddBoxGeometry(data, surfaces, GetCenter(runMin, extent), extent);
+        const CVector3f center =
+            CVector3f(runMin.GetX() * mChunkSize.GetX(), runMin.GetY() * mChunkSize.GetY(),
+                      runMin.GetZ() * mChunkSize.GetZ()) +
+            0.5f * extent;
+        AddBoxGeometry(data, surfaces, center, extent);
       }
     }
     ++health;
@@ -315,7 +318,10 @@ COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
 
   const CVector3f extent(float(end - start) * mChunkSize.GetX(), 1.f * mChunkSize.GetY(),
                          1.f * mChunkSize.GetZ());
-  const CVector3f center = GetCenter(CVector3i(start, row.GetY(), row.GetZ()), extent);
+  const CVector3f center =
+      CVector3f(start * mChunkSize.GetX(), row.GetY() * mChunkSize.GetY(),
+                row.GetZ() * mChunkSize.GetZ()) +
+      0.5f * extent;
   CTransform4f xf = CTransform4f::Translate(center);
   return rs_new COBBTree::CNode(xf, extent, nullptr, nullptr,
                                 rs_new COBBTree::CLeafData(surfaces));
@@ -331,7 +337,10 @@ COBBTree::CNode* CBarrierChunkGrid::BuildNode(COBBTree::SIndexData& data, const 
     return BuildRowNode(data, min);
   }
   const CVector3f extent = GetExtent(size);
-  const CVector3f center = GetCenter(min, extent);
+  const CVector3f center =
+      CVector3f(min.GetX() * mChunkSize.GetX(), min.GetY() * mChunkSize.GetY(),
+                min.GetZ() * mChunkSize.GetZ()) +
+      0.5f * extent;
   CTransform4f xf = CTransform4f::Translate(center);
   return rs_new COBBTree::CNode(xf, extent, BuildNode(data, minA, sizeA),
                                 BuildNode(data, minB, sizeB), nullptr);
