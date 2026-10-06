@@ -15,12 +15,12 @@ static uint gRejectedByClip = 0;
 static uint gTrianglesProcessed = 0;
 static uint gDupTrianglesProcessed = 0;
 uchar CMetroidAreaCollider::sDupPrimitiveCheckCount = 0xff;
-uchar* CMetroidAreaCollider::spDupVertexList;
-uchar* CMetroidAreaCollider::spDupEdgeList;
-uchar* CMetroidAreaCollider::spDupTriangleList;
 ushort CMetroidAreaCollider::sDupVertexCount;
 ushort CMetroidAreaCollider::sDupEdgeCount;
 ushort CMetroidAreaCollider::sDupTriangleCount;
+uchar* CMetroidAreaCollider::spDupVertexList;
+uchar* CMetroidAreaCollider::spDupEdgeList;
+uchar* CMetroidAreaCollider::spDupTriangleList;
 
 static void FlagVertexIndicesForFace(uint face, bool* vertFlags);
 static void FlagEdgeIndicesForFace(uint face, bool* edgeFlags);
@@ -1069,7 +1069,8 @@ bool CMetroidAreaCollider::MovingAABoxCollisionCheck_Edge(
   CVector3d originalDelta = ev0d - ev1d;
   for (int i = 0; i < edges.size(); ++i) {
     const SBoxEdge& edge = edges[i];
-    if ((CVector3d::Dot(edge.mCoDir, ev0d) >= edge.mDirCoDirDot) ==
+    const CVector3d* vertex = &ev0d;
+    if ((CVector3d::Dot(edge.mCoDir, *vertex) >= edge.mDirCoDirDot) ==
         (CVector3d::Dot(edge.mCoDir, ev1d) >= edge.mDirCoDirDot))
       continue;
 
@@ -1077,32 +1078,22 @@ bool CMetroidAreaCollider::MovingAABoxCollisionCheck_Edge(
     if (cross0.MagSquared() < FLT_EPSILON)
       continue;
 
-    CVector3d vertex = ev0d;
     CVector3d delta = originalDelta;
     CVector3d cross0Norm = cross0.AsNormalized();
     if (CVector3d::Dot(cross0Norm, dir) >= 0.0) {
-      vertex = ev1d;
+      vertex = &ev1d;
       delta = -delta;
       cross0 = -cross0;
       cross0Norm = -cross0Norm;
     }
 
-    CVector3d clipped = vertex + (-(CVector3d::Dot(vertex, edge.mCoDir) - edge.mDirCoDirDot) /
-                                  CVector3d::Dot(delta, edge.mCoDir)) *
-                                     delta;
-    int maxCompIdx = edge.mDominantAxis;
-
-    int ci0, ci1;
-    if (maxCompIdx == 0) {
-      ci0 = 1;
-      ci1 = 2;
-    } else if (maxCompIdx == 1) {
-      ci0 = 0;
-      ci1 = 2;
-    } else {
-      ci0 = 0;
-      ci1 = 1;
-    }
+    CVector3d clipped = *vertex + (-(CVector3d::Dot(*vertex, edge.mCoDir) - edge.mDirCoDirDot) /
+                                   CVector3d::Dot(delta, edge.mCoDir)) *
+                                      delta;
+    static const int kOtherAxis0[3] = {1, 0, 0};
+    static const int kOtherAxis1[3] = {2, 2, 1};
+    const int ci0 = kOtherAxis0[edge.mDominantAxis];
+    const int ci1 = kOtherAxis1[edge.mDominantAxis];
 
     const float& dir0 = dir[ci0];
     const float& dir1 = dir[ci1];
