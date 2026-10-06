@@ -173,11 +173,6 @@ int CPlayer::ValidateOrbitTargetId(TUniqueId target, CStateManager& mgr) const {
       return kOVR_PlayerNotReadyToTarget;
     }
     break;
-  case CPlayerState::kPV_Echo:
-    if ((flags & 8) == 0) {
-      return kOVR_PlayerNotReadyToTarget;
-    }
-    break;
   case CPlayerState::kPV_Scan:
     if ((flags & 2) == 0) {
       return kOVR_PlayerNotReadyToTarget;
@@ -188,6 +183,11 @@ int CPlayer::ValidateOrbitTargetId(TUniqueId target, CStateManager& mgr) const {
     break;
   case CPlayerState::kPV_Dark:
     if ((flags & 4) == 0) {
+      return kOVR_PlayerNotReadyToTarget;
+    }
+    break;
+  case CPlayerState::kPV_Echo:
+    if ((flags & 8) == 0) {
       return kOVR_PlayerNotReadyToTarget;
     }
     break;
