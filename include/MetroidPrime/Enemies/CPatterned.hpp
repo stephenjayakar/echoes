@@ -136,10 +136,10 @@ public:
   virtual TUniqueId GetAttackTarget() const { return kInvalidUniqueId; }
   virtual bool IsOnGround() const { return mOnGround; }
   virtual float GetGravityConstant() const { return CPhysicsActor::GravityConstant(); }
-  virtual bool IsScanVisorSelfRender() const { return false; }
+  virtual bool IsScanVisorSelfRender() const;
   virtual CAABox GetScanVisorRenderBounds(const CStateManager&) const;
   virtual void ScanVisorRender(const CStateManager&, const CTransform4f&,
-                               const CModelFlags&) const {}
+                               const CModelFlags&) const;
   virtual const rstl::optional_object< TCachedToken< CGenDescription > >&
   GetDeathExplosionParticle() const {
     return mDeathExplosionParticle;
