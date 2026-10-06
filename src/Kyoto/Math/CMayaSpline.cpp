@@ -85,14 +85,12 @@ void ValidateTangent(CVector2f& tangent) {
 void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
                                         const CMayaSplineKnot* next) const {
   mDirty = false;
-  bool calculateTangents = false;
+  bool calculateSmooth = false;
   if (mFlagA == 4 && prev != nullptr) {
-    float prevAmplitude = CMath::AbsF(prev->GetAmplitude() - GetAmplitude());
-    float nextAmplitude = prevAmplitude;
-    if (next != nullptr) {
-      nextAmplitude = CMath::AbsF(next->GetAmplitude() - GetAmplitude());
-    }
-    if (nextAmplitude <= 0.05f || prevAmplitude <= 0.05f) {
+    const float prevDifference = fabsf(prev->GetAmplitude() - GetAmplitude());
+    const float nextDifference =
+        next != nullptr ? fabsf(next->GetAmplitude() - GetAmplitude()) : prevDifference;
+    if (nextDifference <= 0.05f || prevDifference <= 0.05f) {
       mFlagA = 1;
     }
   }
@@ -107,13 +105,10 @@ void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
     }
     break;
   case 1: {
-    float time = 0.f;
-    if (prev != nullptr) {
-      time = GetTime() - prev->GetTime();
-    } else if (next != nullptr) {
-      time = next->GetTime() - GetTime();
-    }
-    mCachedTangentA = CVector2f(time, 0.f);
+    const float difference = prev != nullptr   ? GetTime() - prev->GetTime()
+                             : next != nullptr ? next->GetTime() - GetTime()
+                                               : 0.f;
+    mCachedTangentA = CVector2f(difference, 0.f);
     break;
   }
   case 3:
@@ -122,17 +117,17 @@ void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
   case 4:
     mFlagA = 2;
   case 2:
-    calculateTangents = true;
+    calculateSmooth = true;
+    break;
+  case 5:
     break;
   }
 
   if (mFlagB == 4 && next != nullptr) {
-    float nextAmplitude = CMath::AbsF(next->GetAmplitude() - GetAmplitude());
-    float prevAmplitude = nextAmplitude;
-    if (prev != nullptr) {
-      prevAmplitude = CMath::AbsF(prev->GetAmplitude() - GetAmplitude());
-    }
-    if (nextAmplitude <= 0.05f || prevAmplitude <= 0.05f) {
+    const float nextDifference = fabsf(next->GetAmplitude() - GetAmplitude());
+    const float prevDifference =
+        prev != nullptr ? fabsf(prev->GetAmplitude() - GetAmplitude()) : nextDifference;
+    if (nextDifference <= 0.05f || prevDifference <= 0.05f) {
       mFlagB = 1;
     }
   }
@@ -147,13 +142,10 @@ void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
     }
     break;
   case 1: {
-    float time = 0.f;
-    if (next != nullptr) {
-      time = next->GetTime() - GetTime();
-    } else if (prev != nullptr) {
-      time = GetTime() - prev->GetTime();
-    }
-    mCachedTangentB = CVector2f(time, 0.f);
+    const float difference = next != nullptr   ? next->GetTime() - GetTime()
+                             : prev != nullptr ? GetTime() - prev->GetTime()
+                                               : 0.f;
+    mCachedTangentB = CVector2f(difference, 0.f);
     break;
   }
   case 3:
@@ -162,11 +154,13 @@ void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
   case 4:
     mFlagB = 2;
   case 2:
-    calculateTangents = true;
+    calculateSmooth = true;
+    break;
+  case 5:
     break;
   }
 
-  if (calculateTangents) {
+  if (calculateSmooth) {
     CVector2f tangentA(0.f, 0.f);
     CVector2f tangentB(0.f, 0.f);
     if (prev == nullptr && next != nullptr) {
@@ -176,24 +170,29 @@ void CMayaSplineKnot::CalculateTangents(const CMayaSplineKnot* prev,
       tangentA = tangentB =
           CVector2f(GetTime() - prev->GetTime(), GetAmplitude() - prev->GetAmplitude());
     } else if (prev != nullptr && next != nullptr) {
-      float timeDiff = next->GetTime() - prev->GetTime();
-      float amplitudeDiff = next->GetAmplitude() - prev->GetAmplitude();
-      float slope = timeDiff >= 0.0001f ? amplitudeDiff / timeDiff
-                                        : (amplitudeDiff <= 0.f ? -5729578.f : 5729578.f);
+      const float timeDifference = next->GetTime() - prev->GetTime();
+      const float amplitudeDifference = next->GetAmplitude() - prev->GetAmplitude();
+      float slope;
+      if (timeDifference < 0.0001f) {
+        slope = amplitudeDifference > 0.f ? 5729578.f : -5729578.f;
+      } else {
+        slope = amplitudeDifference / timeDifference;
+      }
       float nextTime = next->GetTime() - GetTime();
       float prevTime = GetTime() - prev->GetTime();
       float nextAmplitude;
-      float prevAmplitude = slope;
-      if (nextTime >= 0.0001f) {
-        nextAmplitude = nextTime * slope;
-      } else {
-        nextTime = 0.f;
+      float prevAmplitude;
+      if (nextTime < 0.0001f) {
         nextAmplitude = slope;
-      }
-      if (prevTime >= 0.0001f) {
-        prevAmplitude = prevTime * slope;
+        nextTime = 0.f;
       } else {
+        nextAmplitude = nextTime * slope;
+      }
+      if (prevTime < 0.0001f) {
+        prevAmplitude = slope;
         prevTime = 0.f;
+      } else {
+        prevAmplitude = prevTime * slope;
       }
       tangentB = CVector2f(prevTime, prevAmplitude);
       tangentA = CVector2f(nextTime, nextAmplitude);
