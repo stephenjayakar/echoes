@@ -149,7 +149,7 @@ void CScriptSpecialFunction::PreRenderViewFrustumTester(CStateManager& mgr) {
 }
 
 void CScriptSpecialFunction::PreRenderPlayerFrustumTester(CStateManager& mgr) {
-  if (mIntParm2 == mgr.GetCurrentRenderPlayerIndex()) {
+  if (static_cast< uint >(mIntParm2) == mgr.GetCurrentRenderPlayerIndex()) {
     SetInFrustum(mgr.GetFrustumPlanes().PointInFrustumPlanes(GetTranslation()));
   }
 }
@@ -528,8 +528,7 @@ void CScriptSpecialFunction::AcceptRumble(CStateManager& mgr, const CScriptMsg& 
       } else {
         CVector3f pos = GetTranslation();
         if ((flags & 2) != 0) {
-          TUniqueId uid = msg.GetSenderId();
-          if (const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(uid))) {
+          if (const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(msg.GetSenderId()))) {
             pos = act->GetTranslation();
           }
         }
@@ -656,8 +655,7 @@ void CScriptSpecialFunction::AcceptEnding(CStateManager& mgr, const CScriptMsg& 
 void CScriptSpecialFunction::AcceptPlayerVelocity(CStateManager& mgr, const CScriptMsg& msg) {
   if (msg.GetMessage() == kSM_Action) {
     CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(FindConnectedObject(mgr, kSS_Play, kSM_Activate)));
-    TUniqueId originator = msg.GetOriginator();
-    CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(originator));
+    CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(msg.GetOriginator()));
     if (player) {
       CVector3f dir = (actor->GetTranslation() - player->GetTranslation()).AsNormalized();
       player->SetVelocityWR(mValue1 * dir);
@@ -1836,7 +1834,10 @@ void CScriptSpecialFunction::ThinkConnectedEffectPlane(float dt, CStateManager& 
   if (CActor* act =
           TCastToPtr< CActor >(mgr.ObjectById(FindConnectedObject(mgr, kSS_Play, kSM_Activate)))) {
     const CTransform4f& xf = act->GetTransform();
-    CPlane plane(act->GetTranslation(), CUnitVector3f(-1.f * xf.Get02(), -1.f * xf.Get12(), -1.f * xf.Get22()));
+    const float x = -1.f * xf.Get02();
+    const float y = -1.f * xf.Get12();
+    const float z = -1.f * xf.Get22();
+    CPlane plane(act->GetTranslation(), CUnitVector3f(x, y, z));
     rstl::vector< TUniqueId > ids = FindConnectedObjects(mgr, kSS_Play, kSM_Deactivate);
     for (int i = 0; i < ids.size(); ++i) {
       if (CScriptActor* scriptActor = TCastToPtr< CScriptActor >(mgr.ObjectById(ids[i]))) {
