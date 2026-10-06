@@ -4148,7 +4148,7 @@ __ct__13CPhysicsStateFRC9CVector3fRC11CQuaternionRC9CVector3fRC10CAxisAngleRC9CV
 CalculateFluidTextureOffset__14CFluidUVMotionCFfPA2_f = .text:0x800EBE2C; // type:function size:0x84 align:4
 CalculateFluidLayerOffset__14CFluidUVMotionCFfiPfb = .text:0x800EBEB0; // type:function size:0x1D0
 __ct__14CFluidUVMotionFffRCQ214CFluidUVMotion17SFluidLayerMotionRCQ214CFluidUVMotion17SFluidLayerMotionRCQ214CFluidUVMotion17SFluidLayerMotionRCQ214CFluidUVMotion17SFluidLayerMotionRCQ214CFluidUVMotion17SFluidLayerMotion = .text:0x800EC080; // type:function size:0x17C
-fn_800EC1FC = .text:0x800EC1FC; // type:function size:0x9C
+resize__Q24rstl56reserved_vector<Q214CFluidUVMotion17SFluidLayerMotion,5>FiRCQ214CFluidUVMotion17SFluidLayerMotion = .text:0x800EC1FC; // type:function size:0x9C scope:weak
 fn_800EC298 = .text:0x800EC298; // type:function size:0x228 align:4
 GetTouchBounds__17CScriptCoverPointCFv = .text:0x800EC4C0; // type:function size:0x48 align:4
 Render__17CScriptCoverPointCFRC13CStateManager = .text:0x800EC508; // type:function size:0x4 align:4
