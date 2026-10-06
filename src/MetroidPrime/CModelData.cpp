@@ -382,7 +382,7 @@ CTransform4f CModelData::GetScaledLocatorTransformDynamic(const CSegId& id,
 }
 
 CAABox CModelData::GetBounds(const CTransform4f& xf) const {
-  const CTransform4f scaledXf = xf * CTransform4f::Scale(mScale);
+  const CTransform4f scaledXf = xf * CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ());
   if (HasAnimation()) {
     return mAnimData->GetBoundingBox(scaledXf);
   }
@@ -399,7 +399,7 @@ CAABox CModelData::GetBounds(const CTransform4f& xf) const {
 
 CAABox CModelData::GetBounds() const {
   if (HasAnimation()) {
-    return mAnimData->GetBoundingBox(CTransform4f::Scale(mScale));
+    return mAnimData->GetBoundingBox(CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ()));
   }
 
   CAABox bounds = (*mNormalModel)->GetAABB();
