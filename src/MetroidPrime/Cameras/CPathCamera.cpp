@@ -201,7 +201,8 @@ float CPathCamera::CalculatePositionDistance(float dt, const CStateManager& mgr)
     if (distance > spline.GetLength() - distance) {
       nearest = spline.GetLength() - distance;
     }
-    float step = (mSpeed * dt) * CMath::Limit(nearest / camera->GetDampenDistance(), 1.f);
+    const float limit = CMath::Limit(nearest / camera->GetDampenDistance(), 1.f);
+    float step = limit * (mSpeed * dt);
     const float offset = CMath::AbsF(mPositionDistance - newDistance);
     const float remaining = spline.GetLength() - offset;
     if (mPositionDistance > newDistance) {
@@ -213,9 +214,9 @@ float CPathCamera::CalculatePositionDistance(float dt, const CStateManager& mgr)
     }
     newDistance = spline.ValidateLength(mPositionDistance + step);
   } else {
-    const float step = (mSpeed * dt) * CMath::Limit((newDistance - mPositionDistance) /
-                                                       camera->GetDampenDistance(),
-                                                   1.f);
+    const float limit =
+        CMath::Limit((newDistance - mPositionDistance) / camera->GetDampenDistance(), 1.f);
+    const float step = limit * (mSpeed * dt);
     newDistance = spline.ValidateLength(mPositionDistance + step);
   }
   return newDistance;
