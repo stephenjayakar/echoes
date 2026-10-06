@@ -134,20 +134,23 @@ void CScriptPlatform::AdvanceMotionTime(float dt) {
   mPreviousMotionForward = mMotionForward;
   mPassedMotionEnd = false;
   mPassedMotionStart = false;
+  float delta = dt;
   if (!mMotionForward) {
-    dt = -dt;
+    delta = -dt;
   }
-  float duration = mMotionSpline.get() ? mMotionSpline->GetDuration() : 0.f;
+  float duration = 0.f;
+  if (mMotionSpline.get()) {
+    duration = mMotionSpline->GetDuration();
+  }
   if (mSplineController.get()) {
     duration = mSplineController->GetPositionSpline().GetDuration();
   }
-  const bool fixedDuration = (mMotionFlags & 0x200) != 0;
-  if (fixedDuration) {
+  if ((mMotionFlags & 0x200) != 0) {
     duration = mMotionDuration;
   }
-  if ((mMotionActive || fixedDuration) && duration > 0.f) {
+  if ((mMotionActive || (mMotionFlags & 0x200) != 0) && duration > 0.f) {
     const float invDuration = 1.f / duration;
-    mMotionTime += dt;
+    mMotionTime += delta;
     if (mMotionTime >= duration) {
       if ((mMotionFlags & 4) != 0) {
         mMotionTime -= int(mMotionTime * invDuration) * duration;
