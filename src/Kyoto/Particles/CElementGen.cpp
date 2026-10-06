@@ -761,6 +761,7 @@ CParticleGen* CElementGen::ConstructChildParticleSystem(
     const CTransform4f& globalOrientation, const CVector3f& globalScale,
     const CColor& modulationColor, const CVector3f& localScale) {
   CParticleGen* child;
+  const bool optsEnabled = (flags & kOSF_Two) != 0;
   switch (type) {
   case 'PART': {
     const short backupSeed = sSeed;
@@ -768,7 +769,8 @@ CParticleGen* CElementGen::ConstructChildParticleSystem(
       sSeed = seed;
     }
     TLockedToken< CGenDescription > particleDescription(description);
-    if ((flags & kOSF_Two) && particleDescription->mOPTS) {
+    const bool descOpts = particleDescription->mOPTS;
+    if (optsEnabled && descOpts) {
       return nullptr;
     }
     CElementGen* particles = rs_new CElementGen(particleDescription, kMOT_Normal, flags);
@@ -2647,12 +2649,12 @@ void CElementGen::BeginIndirectModelRender(SModelRenderState& state) {
   CGX::SetNumTevStages(2);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_8_8);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE1, GX_TEV_KASEL_8_8);
-  if (mLoadedGenDesc->mCIND) {
-    CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO);
-    CGX::SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO);
-  } else {
+  if (!mLoadedGenDesc->mCIND) {
     CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_ONE, GX_CC_ZERO);
     CGX::SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_CPREV);
+  } else {
+    CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_RASC, GX_CC_ZERO);
+    CGX::SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV, GX_CC_ZERO);
   }
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_KONST, GX_CA_ZERO);
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
