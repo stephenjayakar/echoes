@@ -38,7 +38,10 @@ bool CElementGen::sMoveRedToAlphaBuffer;
 struct CParticleListItemViewPointComp {
   bool operator()(const CElementGen::CParticleListItem& a,
                   const CElementGen::CParticleListItem& b) const {
-    return a.mViewPoint.GetY() > b.mViewPoint.GetY();
+    if (a.mViewPoint.GetY() > b.mViewPoint.GetY()) {
+      return true;
+    }
+    return false;
   }
 };
 
@@ -46,7 +49,10 @@ struct CParticleListItemViewPointComp {
 struct CTexturedParticleListItemViewPointComp {
   bool operator()(const CElementGen::CTexturedParticleListItem& a,
                   const CElementGen::CTexturedParticleListItem& b) const {
-    return a.mViewPoint.GetY() > b.mViewPoint.GetY();
+    if (a.mViewPoint.GetY() > b.mViewPoint.GetY()) {
+      return true;
+    }
+    return false;
   }
 };
 
@@ -1051,7 +1057,7 @@ void CElementGen::RenderBasicParticlesRotTS(const CTransform4f& xf) const {
     const float z = viewPos.GetZ();
     const uint color = particle.mColor.GetColor_u32();
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
-    const float theta = CRelAngle::FromDegrees(particle.mLineWidthOrRota).AsRadians();
+    const float theta = particle.mLineWidthOrRota * (M_PIF / 180.f);
     const float sinT = CMath::FastSinR(theta) * halfSize;
     const float cosT = CMath::FastCosR(theta) * halfSize;
     const float sinPlusCos = sinT + cosT;
@@ -1112,16 +1118,16 @@ void CElementGen::RenderBasicParticlesRotNoTS(const CTransform4f& xf) const {
     const CParticle& particle = mParticles[i];
     const CVector3f viewPos =
         xf * ((particle.mPos - particle.mPrevPos) * mTimeDeltaScale + particle.mPrevPos);
+    const float x = viewPos.GetX();
+    const float y = viewPos.GetY();
+    const float z = viewPos.GetZ();
     const uint color = particle.mColor.GetColor_u32();
-    const float halfSize = 0.5f * particle.mLineLengthOrSize;
-    const float theta = CRelAngle::FromDegrees(particle.mLineWidthOrRota).AsRadians();
+    const float halfSize = particle.mLineLengthOrSize * 0.5f;
+    const float theta = particle.mLineWidthOrRota * (M_PIF / 180.f);
     const float sinT = CMath::FastSinR(theta) * halfSize;
     const float cosT = CMath::FastCosR(theta) * halfSize;
     const float sinPlusCos = sinT + cosT;
     const float sinMinusCos = sinT - cosT;
-    const float x = viewPos.GetX();
-    const float y = viewPos.GetY();
-    const float z = viewPos.GetZ();
 
     GXPosition3f32(x + sinPlusCos, y, z - sinMinusCos);
     GXColor1u32(color);
@@ -1178,7 +1184,7 @@ void CElementGen::RenderBasicParticlesRotTSModulated(const CTransform4f& xf) con
     const CVector3f viewPos = xf * particle.mPos;
     const uint color = CColor::Modulate(mModuColor, particle.mColor).GetColor_u32();
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
-    const float theta = CRelAngle::FromDegrees(particle.mLineWidthOrRota).AsRadians();
+    const float theta = particle.mLineWidthOrRota * (M_PIF / 180.f);
     const float sinT = CMath::FastSinR(theta) * halfSize;
     const float cosT = CMath::FastCosR(theta) * halfSize;
     const float sinPlusCos = sinT + cosT;
@@ -1244,7 +1250,7 @@ void CElementGen::RenderBasicParticlesRotNoTSModulated(const CTransform4f& xf) c
         xf * ((particle.mPos - particle.mPrevPos) * mTimeDeltaScale + particle.mPrevPos);
     const uint color = CColor::Modulate(mModuColor, particle.mColor).GetColor_u32();
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
-    const float theta = CRelAngle::FromDegrees(particle.mLineWidthOrRota).AsRadians();
+    const float theta = particle.mLineWidthOrRota * (M_PIF / 180.f);
     const float sinT = CMath::FastSinR(theta) * halfSize;
     const float cosT = CMath::FastCosR(theta) * halfSize;
     const float sinPlusCos = sinT + cosT;

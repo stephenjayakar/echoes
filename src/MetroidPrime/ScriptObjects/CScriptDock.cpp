@@ -290,10 +290,11 @@ TAreaId CScriptDock::GetCurrentConnectedAreaId(const CStateManager& mgr) const {
 }
 
 TUniqueId CScriptDock::GetConnectedScriptDockId(const CStateManager& mgr) const {
-  const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(mArea).GetDock(mDock);
+  const TAreaId area = mArea;
+  const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(area).GetDock(mDock);
   const int otherDock = dock.GetOtherDockNumber(dock.GetReferenceCount());
   const TAreaId connectedArea = dock.GetConnectedAreaId(dock.GetReferenceCount());
-  const CObjectList& objects = *mgr.GetWorld()->GetAreaAlways(connectedArea).ObjectList();
+  CObjectList& objects = *const_cast< CGameArea& >(mgr.GetWorld()->GetAreaAlways(connectedArea)).ObjectList();
   for (int i = objects.GetFirstObjectIndex(); i != -1; i = objects.GetNextObjectIndex(i)) {
     if (const CScriptDock* nextDock = TCastToConstPtr< CScriptDock >(objects[i])) {
       if (nextDock->GetDockId() == otherDock) {

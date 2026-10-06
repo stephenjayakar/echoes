@@ -26,6 +26,9 @@ void CScriptAIHint::Render(const CStateManager& mgr) const {}
 
 void CScriptAIHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
+  if (!GetActive()) {
+    return;
+  }
 }
 
 void CScriptAIHint::Think(float dt, CStateManager& mgr) {

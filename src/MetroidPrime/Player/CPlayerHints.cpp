@@ -122,7 +122,7 @@ void CPlayer::ResetPlayerHintState(CStateManager& mgr) {
   }
 }
 
-bool CPlayer::SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mgr) {
+const bool CPlayer::SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mgr) {
   x1268_26_ = (hint.GetOverrideFlags() & 1) != 0;
   mCanEnterMorphBall = !(hint.GetOverrideFlags() & 0x40);
   mCanLeaveMorphBall = !(hint.GetOverrideFlags() & 0x20);
@@ -179,9 +179,7 @@ bool CPlayer::SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mg
   if ((hint.GetOverrideFlags() & 0x200000) != 0 && mMorphBallState != kMS_Unmorphed) {
     PrepareToLeaveMorphBallState(0.f, mgr, kMS_Unmorphed);
     LeaveMorphBallState(mgr);
-    return switchedVisor;
-  }
-  if ((hint.GetOverrideFlags() & 0x400000) != 0 && mMorphBallState != kMS_Morphed) {
+  } else if ((hint.GetOverrideFlags() & 0x400000) != 0 && mMorphBallState != kMS_Morphed) {
     SetOrbitRequest(kOR_EnterMorphBall, mgr);
     mGun->Holster(mgr);
     mGravityBoostUsed = false;
