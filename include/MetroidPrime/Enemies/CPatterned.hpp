@@ -255,7 +255,7 @@ private:
   bool mBlockingCollision : 1; // Guessed name
   bool mOnGround : 1;
   bool mOnStaticGround : 1;
-  mutable bool mPrevOnGround : 1;
+  bool mPrevOnGround : 1;
   bool mEnergyAttractor : 1;
   bool mLookAtDeathDir : 1;
   bool x34d_25_ : 1;
