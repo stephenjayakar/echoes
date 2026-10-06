@@ -857,7 +857,11 @@ CWorldState::~CWorldState() {}
 void CMain::ResetGameState() {}
 
 int CMain::GetLanguage() const {
-  return 0;
+  int language = mOsContext->GetLanguage();
+  if (language == 5) {
+    language = 0;
+  }
+  return language;
 }
 
-void CMain::UpdateStreamedAudio() {}
+void CMain::UpdateStreamedAudio() { CStreamAudioManager::Update(1.f / 60.f); }
