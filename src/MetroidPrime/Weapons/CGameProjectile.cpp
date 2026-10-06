@@ -239,7 +239,8 @@ CProjectileTouchResult CGameProjectile::CanCollideWithOrientatedTrigger(CActor& 
 }
 
 CProjectileTouchResult CGameProjectile::CanCollideWith(CActor& actor, CStateManager& mgr) {
-  if (actor.GetDamageVulnerability()->GetVulnerability(mCurDamageInfo.GetWeaponMode()).mEffect ==
+  const CDamageVulnerability& vuln = *actor.GetDamageVulnerability();
+  if (vuln.GetVulnerability(mCurDamageInfo.GetWeaponMode()).mEffect ==
       CWeaponTypeVulnerability::kE_PassThrough) {
     return CProjectileTouchResult(kInvalidUniqueId, rstl::optional_object_null());
   }
@@ -265,20 +266,25 @@ CGameProjectile::RayCollisionCheckWithWorld(TUniqueId& idOut, const CVector3f& s
                                             CStateManager& mgr, EStaticGeometryTest staticTest) {
   idOut = kInvalidUniqueId;
   mPendingDamagee = kInvalidUniqueId;
-  CRayCastResult result;
+  CRayCastResult result = CRayCastResult::MakeInvalid();
   const CVector3f delta = end - start;
   if (!delta.CanBeNormalized()) {
     return result;
   }
   const CVector3f direction = delta.AsNormalized();
   float bestMagnitude = magnitude;
-  CRayCastResult worldResult;
-  if (staticTest == kSGT_CollisionGeometry) {
+  CRayCastResult worldResult = CRayCastResult::MakeInvalid();
+  switch (staticTest) {
+  case kSGT_None:
+    break;
+  case kSGT_CollisionGeometry:
     worldResult =
         CGameCollision::RayStaticIntersection(mgr, start, direction, magnitude, GetFilter());
-  } else if (staticTest == kSGT_RenderGeometry) {
+    break;
+  case kSGT_RenderGeometry:
     worldResult = RenderGeometryRayCast::RayWorldIntersection(mgr, start, direction, magnitude,
                                                               GetFilter(), nullptr);
+    break;
   }
   if (worldResult.IsValid()) {
     bestMagnitude = worldResult.GetTime();
@@ -319,8 +325,8 @@ CGameProjectile::RayCollisionCheckWithWorld(TUniqueId& idOut, const CVector3f& s
           }
         } else if (bounds->PointInside(start) ||
                    (projectile && GetProjectileBounds().DoBoundsOverlap(*bounds))) {
-          const CPlane plane(start, CUnitVector3f(-direction));
-          result = CRayCastResult(0.f, start, plane, actor->GetMaterialList());
+          result = CRayCastResult(0.f, start, CPlane(start, CUnitVector3f(-direction)),
+                                  actor->GetMaterialList());
           mPendingDamagee = idOut = actor->GetUniqueId();
           break;
         }
@@ -442,8 +448,9 @@ void CGameProjectile::UpdateProjectileMovement(float dt, CStateManager& mgr) {
       }
     }
   }
-  const CGameArea& area = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId());
-  if (area.IsLoaded() && area.GetOcclusionState() == CGameArea::kOS_Occluded) {
+  if (mgr.GetWorld()->IsAreaValid(GetCurrentAreaId()) &&
+      mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetOcclusionState() ==
+          CGameArea::kOS_Occluded) {
     mgr.DeleteObjectRequest(GetUniqueId());
   }
 }
@@ -459,7 +466,10 @@ void CGameProjectile::UpdateHoming(float dt, CStateManager& mgr) {
 }
 
 void CGameProjectile::Chase(float dt, CStateManager& mgr) {
-  if (!mProjectile.IsProjectileActive() || mHomingTargetId == kInvalidUniqueId) {
+  if (!mProjectile.IsProjectileActive()) {
+    return;
+  }
+  if (mHomingTargetId == kInvalidUniqueId) {
     return;
   }
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mHomingTargetId));
@@ -475,13 +485,13 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   const CPlayer* owner = TCastToConstPtr< CPlayer >(mgr.GetObjectById(GetOwnerId()));
   const CWeaponMode& mode = mCurDamageInfo.GetWeaponMode();
   if (owner && owner->GetOrbitTargetId() != mHomingTargetId &&
-      ((mode.GetRawType() == kWT_Missile && (GetAttribField() & 0x400000) != 0x400000) ||
-       (mode.GetRawType() == kWT_Power && mode.IsComboed()))) {
+      ((mode.GetType() == kWT_Missile && (GetAttribField() & 0x400000) != 0x400000) ||
+       (mode.GetType() == kWT_Power && mode.IsComboed()))) {
     mHomingTargetId = kInvalidUniqueId;
     return;
   }
   CVector3f homingPosition = actor->GetHomingPosition(mgr, 0.f);
-  if (GetType() == kWT_AI && mode.GetRawType() != kWT_Phazon) {
+  if (GetType() == kWT_AI && mode.GetType() != kWT_Phazon) {
     if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
       if (player->GetPlayerState()->GetChargeBeamFactor() == 1.f) {
         if (const CScriptPlayerHint* hint = TCastToConstPtr< CScriptPlayerHint >(
@@ -493,14 +503,15 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
       }
     }
   }
-  const CSwarmBasics* swarm = TCastToConstPtr< CSwarmBasics >(actor);
+  const CSwarmBasics* const swarm = TCastToConstPtr< CSwarmBasics >(actor);
   if (swarm) {
     const int lockOnId = swarm->GetCurrentLockOnId();
-    if (!swarm->GetLockOnLocationValid(lockOnId)) {
+    if (swarm->GetLockOnLocationValid(lockOnId)) {
+      homingPosition = swarm->GetLockOnLocation(lockOnId);
+    } else {
       mHomingTargetId = kInvalidUniqueId;
       return;
     }
-    homingPosition = swarm->GetLockOnLocation(lockOnId);
   }
   CVector3f delta = homingPosition - mProjectile.GetTranslation();
   const bool breakHoming = mProjectile.GetWeaponDescription()->mBHBT;
@@ -513,7 +524,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
     }
     mMovingTowardTarget = movingToward;
   }
-  if (!(mMinHomingDist <= 0.f || mMinHomingDist <= delta.Magnitude())) {
+  if (mMinHomingDist > 0.f && delta.Magnitude() < mMinHomingDist) {
     mHomingTargetId = kInvalidUniqueId;
     return;
   }
@@ -534,7 +545,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   }
   CQuaternion rotation = CQuaternion::ShortestRotationArc(forward, delta);
   const float threshold = 2.f * rotation.GetScalar() * rotation.GetScalar() - 1.f;
-  if (threshold <= 0.99f) {
+  if (!(threshold > 0.99f)) {
     float turnRate = mHomingTurnRateScale * mProjectile.GetMaxTurnRate();
     if (mWaterUpdate) {
       turnRate *= 0.5f;

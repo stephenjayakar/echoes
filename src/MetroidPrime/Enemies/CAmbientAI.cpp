@@ -164,9 +164,9 @@ CEntity* LoadAmbientAI(CStateManager& mgr, CInputStream& input, CEntityInfo& inf
   SLdrAmbientAI sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrAmbientAI.inc"
 
-  rstl::optional_object< CModelData > modelData(
+  const rstl::optional_object< CModelData > modelData =
       LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
-                     sldrThis.animationInformation, true));
+                     sldrThis.animationInformation, true);
   if (!modelData) {
     return nullptr;
   }

@@ -40,7 +40,7 @@
 #include "MetroidPrime/CWorldLayerState.hpp"
 #include "MetroidPrime/Cameras/CCinematicCamera.hpp"
 #include "MetroidPrime/Cameras/CGameCamera.hpp"
-#include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
+#include "MetroidPrime/Enemies/CMetroid.hpp"
 #include "MetroidPrime/Enemies/CPatterned.hpp"
 #include "MetroidPrime/Enemies/CSwarmBasics.hpp"
 #include "MetroidPrime/GameObjectLists.hpp"
@@ -3305,7 +3305,7 @@ void CStateManager::CrossTouchActors() {
 
       rstl::reserved_vector< TUniqueId, kMaxObjects > nearList;
       const CMaterialFilter filter = actor->GetMaterialList().HasMaterial(kMT_Trigger) &&
-                                             TCastToPtr< CMetroidAlpha >(actor) == nullptr
+                                             TCastToPtr< CMetroid >(actor) == nullptr
                                          ? CMaterialFilter::MakeExclude(CMaterialList(kMT_Trigger))
                                          : CMaterialFilter::GetPassEverything();
       BuildNearList(nearList, *touchBounds, filter, actor);
