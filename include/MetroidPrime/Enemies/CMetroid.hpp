@@ -115,7 +115,7 @@ public:
   bool IsSuckingEnergy() const;
   bool IsTargetGettingSucked(const CStateManager& mgr) const;
   bool IsPlayerInFluid(const CPlayer& player, const CStateManager& mgr) const;
-  bool IsPirateValidTarget(const CSpacePirate& pirate, const CStateManager& mgr) const;
+  bool IsPirateValidTarget(const CSpacePirate& pirate) const;
   bool CanStartAttack(CStateManager& mgr) const;
   void SwarmAdd(CStateManager& mgr);
   void SwarmRemove(CStateManager& mgr);
@@ -124,6 +124,11 @@ public:
   void PreventWorldCollisions(float dt, CStateManager& mgr);
   void RestoreSolidCollision(CStateManager& mgr);
   float GetDamageMultiplier() const;
+  float GetGrowthStage() const;
+  bool AttachToTarget(CStateManager& mgr);
+  bool PreDamageSpacePirate(CStateManager& mgr);
+  void UpdateAttackTarget(CStateManager& mgr); // Guessed name.
+  void ApplySeparationBehavior(CStateManager& mgr);
   void ApplyDamageGrowth(CStateManager& mgr, TUniqueId sender); // Guessed name.
   void DetachFromTarget(CStateManager& mgr, bool fromDock); // Guessed second parameter.
 
@@ -141,7 +146,7 @@ protected:
   float mAttackChance;
   int mAttackState;
   TUniqueId mTeamAiManagerId;
-  int x7dc_;
+  pas::EStepDirection mDodgeDirection;
   CMetroidData mMetroidData;
   CCollidableSphere mCollisionPrimitive;
   CPathFindSearch mPathFindSearch;
@@ -164,10 +169,10 @@ protected:
   bool mAlert : 1;
   bool mGrowing : 1;
   bool mShotAt : 1;
-  bool xa40_27_ : 1;
+  bool xa40_27_ : 1; // Set when leaving the wall-hang state.
   bool xa40_28_ : 1;
   bool xa40_29_ : 1; // Blocks Ing possession.
-  bool xa40_30_ : 1;
+  bool mRestoreSolidCollision : 1;
   bool xa40_31_ : 1;
   bool mIsEnergyDrainVulnerable : 1;
 };

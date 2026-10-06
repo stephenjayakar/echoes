@@ -1,6 +1,8 @@
 #include "MetroidPrime/Enemies/CMetroid.hpp"
 
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/CSafeZoneManager.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Enemies/CSpacePirate.hpp"
@@ -181,7 +183,7 @@ bool CMetroid::IsSuckingEnergy() const {
   return mAttackState == 2 && !GetBodyController()->IsFrozen();
 }
 
-bool CMetroid::IsPirateValidTarget(const CSpacePirate& pirate, const CStateManager&) const {
+bool CMetroid::IsPirateValidTarget(const CSpacePirate& pirate) const {
   if (pirate.GetAttachedActor() == kInvalidUniqueId) {
     const CHealthInfo* healthInfo = pirate.GetHealthInfo();
     return healthInfo != nullptr && healthInfo->GetHP() > 0.f;
@@ -310,6 +312,206 @@ bool CMetroid::LostInterest(CStateManager& mgr, const CTriggerData&) const {
     }
   }
   return true;
+}
+
+bool CMetroid::PatternShagged(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    if (const CSpacePirate* pirate =
+            TCastToConstPtr< CSpacePirate >(mgr.GetObjectById(mAttackTarget))) {
+      if (!pirate->GetAlive()) {
+        return true;
+      }
+    }
+    if (!CanStartAttack(mgr)) {
+      return true;
+    }
+    if (mState == kAiState_Two) {
+      return mSeekTime >= mMaxSeekTime;
+    }
+    return false;
+  }
+  return true;
+}
+
+bool CMetroid::InPosition(CStateManager& mgr, const CTriggerData&) const {
+  if (mPathFindSearch.GetCurrentWaypoint() < mPathFindSearch.GetWaypoints().size() - 1) {
+    const CVector3f delta = x7c0_ - GetTranslation();
+    return delta.MagSquared() < 4.f;
+  }
+  return true;
+}
+
+bool CMetroid::InRange(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+      if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(actor)) {
+        if (!IsPirateValidTarget(*pirate)) {
+          return false;
+        }
+      }
+      return (actor->GetTranslation() - GetTranslation()).MagSquared() <
+             mMaxAttackRange * mMaxAttackRange;
+    }
+  }
+  return false;
+}
+
+bool CMetroid::AggressionCheck(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget));
+    if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(actor)) {
+      if (!IsPirateValidTarget(*pirate)) {
+        return false;
+      }
+    }
+    if (actor != nullptr) {
+      const CVector3f delta = actor->GetTranslation() - GetTranslation();
+      if (delta.MagSquared() < mDetectionRange * mDetectionRange) {
+        if (mDetectionHeightRange > 0.f) {
+          return delta.GetZ() * delta.GetZ() < mDetectionHeightRange * mDetectionHeightRange;
+        }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool CMetroid::ShouldTurn(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+      const CVector2f direction = (actor->GetTranslation() - GetTranslation()).ToVec2f();
+      const CVector2f forward = GetTransform().GetForward().ToVec2f();
+      return CVector2f::GetAngleDiff(forward, direction) > CRelAngle::FromDegrees(15.f).AsRadians();
+    }
+  }
+  return false;
+}
+
+void CMetroid::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    mAttackTarget = kInvalidUniqueId;
+    mShotAt = false;
+    break;
+  }
+  CPatterned::Patrol(mgr, msg, dt);
+}
+
+void CMetroid::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
+  mPathFindNavigation.PathFind(mgr, msg, dt, *this);
+  switch (msg) {
+  case kStateMsg_Update:
+    ApplySeparationBehavior(mgr);
+    break;
+  }
+}
+
+void CMetroid::TurnAround(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Update:
+    if (mAttackTarget != kInvalidUniqueId) {
+      if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+        UpdateAttackTarget(mgr);
+        const CVector3f direction = actor->GetTranslation() - GetTranslation();
+        if (ShouldTurn(mgr, CTriggerData(0.f)) && direction.CanBeNormalized()) {
+          BodyController()->CommandMgr().DeliverCmd(
+              CBCLocomotionCmd(CVector3f::Zero(), direction.AsNormalized(), 1.f));
+        }
+      }
+    }
+    break;
+  }
+}
+
+void CMetroid::WallHang(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    mState = kAiState_Zero;
+    RemoveMaterial(kMT_Unknown59, mgr);
+    mRestoreSolidCollision = false;
+    break;
+  case kStateMsg_Update:
+    switch (mState) {
+    case kAiState_Zero:
+      if (mAlert) {
+        mState = kAiState_One;
+        mRestoreSolidCollision = true;
+        mDetachPos = CVector3f::Zero();
+      }
+      break;
+    case kAiState_One:
+      if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+        mState = kAiState_Two;
+      } else {
+        BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Zero, -1));
+      }
+      break;
+    case kAiState_Two:
+      if (BodyController()->GetCurrentStateId() != pas::kAS_Generate) {
+        mState = kAiState_Over;
+      }
+      break;
+    }
+    break;
+  case kStateMsg_Deactivate:
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    xa40_27_ = true;
+    break;
+  }
+}
+
+void CMetroid::Dodge(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (mDodgeDirection != pas::kSD_Invalid) {
+      BodyController()->CommandMgr().DeliverCmd(CBCStepCmd(mDodgeDirection, pas::kStep_Dodge));
+      mState = kAiState_Two;
+    }
+    break;
+  case kStateMsg_Update:
+    if (BodyController()->GetCurrentStateId() != pas::kAS_Step) {
+      mState = kAiState_Over;
+    } else if (mAttackTarget != kInvalidUniqueId) {
+      if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+        BodyController()->CommandMgr().SetTargetVector(actor->GetTranslation() - GetTranslation());
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mDodgeDirection = pas::kSD_Invalid;
+    break;
+  }
+}
+
+float CMetroid::GetGrowthStage() const {
+  if (mGrowthEnergy < mMetroidData.mStage2GrowthEnergy) {
+    return 1.f + mGrowthEnergy / mMetroidData.mStage2GrowthEnergy;
+  }
+  if (mGrowthEnergy < mMetroidData.mExplosionGrowthEnergy) {
+    return 2.f + (mGrowthEnergy - mMetroidData.mStage2GrowthEnergy) /
+                     (mMetroidData.mExplosionGrowthEnergy - mMetroidData.mStage2GrowthEnergy);
+  }
+  return 3.f;
+}
+
+float CMetroid::GetDamageMultiplier() const {
+  float result = 0.5f * (GetGrowthStage() - 1.f) + 1.f;
+  return result;
+}
+
+bool CMetroid::AttachToTarget(CStateManager& mgr) {
+  if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+    if (player->AttachActorToPlayer(GetUniqueId(), false)) {
+      player->GetEnergyDrain().AddEnergyDrainSource(GetUniqueId(), 1.f);
+      return true;
+    }
+  } else {
+    return PreDamageSpacePirate(mgr);
+  }
+  return false;
 }
 
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {

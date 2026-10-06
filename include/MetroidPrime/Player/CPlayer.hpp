@@ -418,6 +418,7 @@ public:
   TUniqueId GetAttachedActorId() const { return mAttachedActor; }
   TUniqueId GetRidingPlatform() const { return mRidingPlatform; }
   const CPlayerEnergyDrain& GetEnergyDrain() const { return mEnergyDrain; } // Guessed name
+  CPlayerEnergyDrain& GetEnergyDrain() { return mEnergyDrain; }
   const CVector3f& GetLastVelocity() const { return mLastVelocity; }        // Guessed name
   bool IsInFreeLook() const { return mInFreeLook; }
   bool IsLookButtonHeld() const { return mLookButtonHeld; }
