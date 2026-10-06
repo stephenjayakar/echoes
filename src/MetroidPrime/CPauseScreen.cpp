@@ -1377,23 +1377,22 @@ void CPauseScreen::Draw() const {
                          -gpTweakGui->GetLogBookCameraDistance(),
                          gpTweakGui->GetLogBookCameraZOffset());
   const CVector3f zoomCamera(0.f, -gpTweakGui->GetLogBookCameraDistance(), 0.f);
-  const CVector3f cameraPosition =
-      (1.f - mModelZoomAmount) * camera + mModelZoomAmount * zoomCamera;
-  CGraphics::SetViewPointMatrix(view * CTransform4f::Translate(cameraPosition));
+  CGraphics::SetViewPointMatrix(
+      view * CTransform4f::Translate(CVector3f::Lerp(camera, zoomCamera, mModelZoomAmount)));
   CGraphics::SetDepthRange(0.125f, 1.f);
   CGraphics::SetCullMode(kCM_None);
   CGraphics::SetLineWidth(2.f, kTO_One);
   SetFog(true);
 
   const float transition = mScanTree.GetTransition();
-  const int selectedId = mScanTree.GetSelectedNode();
+  int selectedId = mScanTree.GetSelectedNode();
   rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(selectedId);
   CVector3f origin = node->GetDisplayPosition();
   const bool option = node->GetNodeType() == CScanTreeNode::kNT_Slider ||
                       node->GetNodeType() == CScanTreeNode::kNT_Menu;
   rstl::vector< SNodeDraw > nodes;
   if (!close_enough(transition, 0.f) || option) {
-    const int previousId = mScanTree.GetPreviousNode();
+    int previousId = mScanTree.GetPreviousNode();
     rstl::rc_ptr< CScanTreeNode > previous = mScanTree.GetNode(previousId);
     const bool previousOption = previous->GetNodeType() == CScanTreeNode::kNT_Slider ||
                                 previous->GetNodeType() == CScanTreeNode::kNT_Menu;
@@ -1405,28 +1404,30 @@ void CPauseScreen::Draw() const {
       break;
     case CScanTreeNode::kNT_Scan:
     case CScanTreeNode::kNT_Inventory:
-      DrawModels(previousAlpha);
+      DrawModels(previousId, previousAlpha);
       break;
     }
     if (!option) {
       origin = node->GetDisplayPosition();
     }
   }
-  if (node->GetNodeType() == CScanTreeNode::kNT_Category) {
+  switch (node->GetNodeType()) {
+  case CScanTreeNode::kNT_Category:
     DrawScanTree(view, origin, selectedId, false, nodes);
+    break;
   }
   DrawNodes(view, nodes);
   const float alpha = (1.f - transition) * mAlpha;
   switch (node->GetNodeType()) {
-  case CScanTreeNode::kNT_Menu:
-    DrawMenuNode(view, origin, selectedId, alpha);
-    break;
   case CScanTreeNode::kNT_Scan:
   case CScanTreeNode::kNT_Inventory:
-    DrawModels(alpha);
+    DrawModels(selectedId, alpha);
     break;
   case CScanTreeNode::kNT_Slider:
     DrawSliderNode(view, origin, selectedId, alpha);
+    break;
+  case CScanTreeNode::kNT_Menu:
+    DrawMenuNode(view, origin, selectedId, alpha);
     break;
   }
   CGraphics::SetCullMode(kCM_Front);
@@ -1790,24 +1791,27 @@ void CPauseScreen::DrawMenuNode(const CTransform4f& view, const CVector3f& origi
 
 bool CPauseScreen::IsDone() const { return mDone; }
 
-void CPauseScreen::DrawModels(float alpha) const {
-  if (!mModels.empty() && mModelsReady) {
-    for (int i = 0; i < mModels.size(); ++i) {
-      CModelData* model = mModels[i].get();
-      if (model != nullptr && !model->IsNull()) {
-        if (!model->IsLoaded(0)) {
-          return;
-        }
-        model->Touch(CModelData::kWM_Normal, 0);
-        if (model->HasAnimation()) {
-          model->AnimationData()->PreRender();
-        }
+void CPauseScreen::DrawModels(int nodeId, float alpha) const {
+  if (mModels.empty() || !mModelsReady) {
+    return;
+  }
+
+  for (rstl::reserved_vector< rstl::auto_ptr< CModelData >, 11 >::const_iterator it =
+           mModels.begin();
+       it != mModels.end(); ++it) {
+    if (it->get() != nullptr && !(*it)->IsNull()) {
+      if (!(*it)->IsLoaded(0)) {
+        return;
+      }
+      (*it)->Touch(CModelData::kWM_Normal, 0);
+      if ((*it)->HasAnimation()) {
+        (*it)->AnimationData()->PreRender();
       }
     }
-    SetFog(false);
-    DrawModelView(mModelTransform, alpha);
-    SetFog(true);
   }
+  SetFog(false);
+  DrawModelView(mModelTransform, alpha);
+  SetFog(true);
 }
 
 void CPauseScreen::InitializeStripedTexture() {
