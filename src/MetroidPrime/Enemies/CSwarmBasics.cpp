@@ -527,12 +527,14 @@ void CSwarmBasics::UpdateBoid(CAreaCollisionCache& cache, CStateManager& mgr, fl
     boid.mLifeTime -= dt;
     if (boid.mLifeTime <= 0.f) {
       KillBoid(boid, mgr, CWeaponMode());
+      return;
     }
   }
   x4f0_31_ = true;
   if (x4f0_28_) {
     if (mgr.GetSafeZoneManager()->PointIsInSafeZone(mgr, boid.GetTranslation())) {
       KillBoid(boid, mgr, CWeaponMode());
+      return;
     }
   }
   UpdateLightComboBeam(boid, mgr);
@@ -892,12 +894,15 @@ CSwarmBasics::CBoid* CSwarmBasics::GetListAt(const CVector3f& pos) {
 }
 
 CAABox CSwarmBasics::BoxForPosition(int x, int y, int z, float margin) const {
-  CAABox box = GetBoundingBox();
-  CVector3f diff = box.GetMaxPoint() - box.GetMinPoint();
-  CVector3f partitionSize = diff / 5.f;
-  return CAABox(box.GetMinPoint() + partitionSize * CVector3f(x, y, z) - CVector3f(margin, margin, margin),
-                box.GetMinPoint() + partitionSize * CVector3f(x + 1, y + 1, z + 1) +
-                    CVector3f(margin, margin, margin));
+  const CAABox bounds = GetBoundingBox();
+  const CVector3f extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
+  const CVector3f size(extent.GetX() / 5.f, extent.GetY() / 5.f, extent.GetZ() / 5.f);
+  return CAABox(CVector3f(x * size.GetX() + bounds.GetMinPoint().GetX() - margin,
+                          y * size.GetY() + bounds.GetMinPoint().GetY() - margin,
+                          z * size.GetZ() + bounds.GetMinPoint().GetZ() - margin),
+                CVector3f((x + 1) * size.GetX() + bounds.GetMinPoint().GetX() + margin,
+                          (y + 1) * size.GetY() + bounds.GetMinPoint().GetY() + margin,
+                          (z + 1) * size.GetZ() + bounds.GetMinPoint().GetZ() + margin));
 }
 
 void CSwarmBasics::HardwareLight(const CStateManager& mgr, const CAABox& bounds) const {
@@ -988,7 +993,7 @@ void CSwarmBasics::DrawBoidSkinnedModel(const CBoid* boid,
   CColor color = boid->mAmbientLighting;
   if (boid->mFreezeTimer > 0.f) {
     color = CColor::Lerp(color, CPatterned::skFrozenColor,
-                         CMath::Clamp(0.f, boid->mFreezeTimer, 1.f));
+                         rstl::min_val(1.f, rstl::max_val(boid->mFreezeTimer, 0.f)));
   }
   if (x4f0_24_) {
     CGX::SetChanMatColor(CGX::Channel0, color.GetGXColor());
@@ -1218,7 +1223,8 @@ void CSwarmBasics::MoveToWayPoint(CBoid& boid, CStateManager& mgr, CVector3f& ah
   if (wp) {
     if (!wp->GetActive() ||
         boid.mSurfacePlane.GetHeight(boid.GetTranslation()) > -mWaypointGoalRadius) {
-      rstl::vector< TUniqueId > nextWaypoints(8);
+      rstl::vector< TUniqueId > nextWaypoints;
+      nextWaypoints.reserve(8);
       for (rstl::vector< SConnection >::const_iterator it = wp->GetConnectionList().begin();
            it != wp->GetConnectionList().end(); ++it) {
         if (it->msg == kSM_Next) {
@@ -1231,25 +1237,26 @@ void CSwarmBasics::MoveToWayPoint(CBoid& boid, CStateManager& mgr, CVector3f& ah
         }
       }
       boid.mTargetWaypoint = kInvalidUniqueId;
-      if (nextWaypoints.size() != 0) {
-        if (nextWaypoints.size() > 1) {
-          boid.mTargetWaypoint =
-              nextWaypoints[mgr.Random()->Next() % nextWaypoints.size()];
+      uint count = nextWaypoints.size();
+      if (count != 0) {
+        if (count > 1) {
+          boid.mTargetWaypoint = nextWaypoints[mgr.Random()->Next() % count];
         } else {
           boid.mTargetWaypoint = nextWaypoints[0];
         }
       }
-      CScriptWaypoint* next = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(boid.mTargetWaypoint));
-      if (!next) {
+      if (CScriptWaypoint* next =
+              TCastToPtr< CScriptWaypoint >(mgr.ObjectById(boid.mTargetWaypoint))) {
+        CUnitVector3f normal((next->GetTranslation() - wp->GetTranslation()).AsNormalized());
+        boid.mSurfacePlane = CPlane(next->GetTranslation(), normal);
+        wp = next;
+      } else {
         boid.mActive = false;
         if (boid.mHasLoopedSound) {
           StopLoopedSound(boid, mLocomotionSounds);
         }
         return;
       }
-      CUnitVector3f normal((next->GetTranslation() - wp->GetTranslation()).AsNormalized());
-      boid.mSurfacePlane = CPlane(next->GetTranslation(), normal);
-      wp = next;
     }
     const float weight = mMoveToWaypointWeight;
     ahead += weight * (wp->GetTranslation() - boid.GetTranslation()).AsNormalized();
@@ -1257,19 +1264,21 @@ void CSwarmBasics::MoveToWayPoint(CBoid& boid, CStateManager& mgr, CVector3f& ah
 }
 
 TUniqueId CSwarmBasics::GetWaypointForState(EScriptObjectState state, CStateManager& mgr) {
-  rstl::vector< TUniqueId > waypoints(8);
+  rstl::vector< TUniqueId > waypoints;
+  waypoints.reserve(8);
   for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
        it != GetConnectionList().end(); ++it) {
     if (it->state == state && it->msg == kSM_Follow) {
       TUniqueId uid = mgr.GetIdForScript(it->objId);
-      if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(uid)) && waypoints.size() < 8) {
+      if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(uid)) && waypoints.size() < 8u) {
         waypoints.push_back_unsafe(uid);
       }
     }
   }
-  if (waypoints.size() != 0) {
-    if (waypoints.size() > 1) {
-      return waypoints[mgr.Random()->Next() % waypoints.size()];
+  uint count = waypoints.size();
+  if (count != 0) {
+    if (count > 1) {
+      return waypoints[mgr.Random()->Next() % count];
     }
     return waypoints[0];
   }
@@ -1481,7 +1490,8 @@ void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< uin
   CTransform4f camXf = mgr.GetCameraManager(0)->GetFirstPersonCamera()->GetTransform();
   CVector3f camPos = camXf.GetTranslation();
   CVector3f camFwd = camXf.GetForward();
-  rstl::vector< rstl::pair< uint, float > > candidates(mBoids.size());
+  rstl::vector< rstl::pair< uint, float > > candidates;
+  candidates.reserve(mBoids.size());
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
     if (it->GetActive()) {
       CVector3f delta = it->GetTranslation() - camPos;
@@ -1864,8 +1874,10 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
   uint numTargets = mSeekerTargets.size();
   const rstl::reserved_vector< rstl::pair< TUniqueId, float >, 5 >& gunTargets =
       mgr.GetPlayer(0)->GetPlayerGun()->GetSeekerTargets();
-  rstl::vector< TUniqueId > lostTargets(numTargets);
-  rstl::vector< uint > keptBoids(numTargets);
+  rstl::vector< TUniqueId > lostTargets;
+  rstl::vector< uint > keptBoids;
+  lostTargets.reserve(numTargets);
+  keptBoids.reserve(numTargets);
   for (uint i = 0; i < numTargets; ++i) {
     bool found = false;
     TUniqueId uid = mSeekerTargets[i];
@@ -1881,7 +1893,8 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
     }
   }
   int numLost = lostTargets.size();
-  rstl::vector< uint > newBoids(numLost);
+  rstl::vector< uint > newBoids;
+  newBoids.reserve(numLost);
   AssignSeekerBoids(mgr, keptBoids, numLost, newBoids);
   for (uint i = 0; i < newBoids.size(); ++i) {
     for (uint j = 0; j < numTargets; ++j) {
