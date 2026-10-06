@@ -137,7 +137,7 @@ private:
   int mPatchDimX;
   int mPatchDimY;
   rstl::single_ptr< char > mTileIntersects;
-  rstl::single_ptr< bool > mVertIntersects;
+  rstl::single_ptr< char > mVertIntersects;
   rstl::single_ptr< char > mPatchIntersects;
   int mComputedGridCellCount;
   float x310_;

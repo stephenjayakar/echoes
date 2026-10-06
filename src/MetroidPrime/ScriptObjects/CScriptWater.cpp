@@ -559,7 +559,7 @@ void CScriptWater::SetMorphing(const bool morphing) {
 void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
   if (mRecomputeClipping) {
     mComputedGridCellCount = 0;
-    mVertIntersects = static_cast< bool* >(nullptr);
+    mVertIntersects = static_cast< char* >(nullptr);
     mRecomputeClipping = false;
   }
   if (mComputedGridCellCount >= mGridCellCount) {
@@ -567,25 +567,24 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
   }
   static CMaterialFilter solidFilter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59));
   if (mVertIntersects.null()) {
-    mVertIntersects = rs_new bool[(mGridDimX + 1) * (mGridDimY + 1)];
+    mVertIntersects = rs_new char[(mGridDimX + 1) * (mGridDimY + 1)];
   }
   const CVector3f down(0.f, 0.f, -1.f);
   const CAABox surfaceBounds = GetTriggerBoundsWR();
   const float baseZ = surfaceBounds.GetMaxPoint().GetZ() + 0.8f;
   const CAABox bounds = GetTriggerBoundsWR();
-  const int stride = mGridDimX + 1;
-  int row = mComputedGridCellCount / stride;
-  int column = mComputedGridCellCount % stride;
-  bool* vertex = mVertIntersects.get() + mComputedGridCellCount;
+  int row = mComputedGridCellCount / (mGridDimX + 1);
+  int column = mComputedGridCellCount % (mGridDimX + 1);
+  char* vertex = mVertIntersects.get() + mComputedGridCellCount;
   const float height = mBounds.GetMaxPoint().GetZ() - mBounds.GetMinPoint().GetZ();
-  const float baseX = bounds.GetMinPoint().GetX();
   float yOffset = 3.f * float(row);
-  const float baseY = bounds.GetMinPoint().GetY();
   float xOffset = 3.f * float(column);
   const float length = rstl::min_val(2.f * height + 0.8f, 120.f);
-  const int end = rstl::min_val(mGridCellCount, mComputedGridCellCount + computeVerts);
-  for (int i = mComputedGridCellCount; i < end; ++i, ++vertex) {
-    const CVector3f position(baseX + xOffset, baseY + yOffset, baseZ);
+  const float baseX = bounds.GetMinPoint().GetX();
+  const float baseY = bounds.GetMinPoint().GetY();
+  for (int i = mComputedGridCellCount;
+       i < rstl::min_val(mGridCellCount, mComputedGridCellCount + computeVerts); ++i, ++vertex) {
+    const CVector3f position(xOffset + baseX, yOffset + baseY, baseZ);
     const CRayCastResult hit = mgr.RayStaticIntersection(position, down, length, solidFilter);
     *vertex = hit.IsValid();
     ++column;
@@ -603,11 +602,10 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
   mComputedGridCellCount = mGridCellCount;
   mTileIntersects = rs_new char[mGridDimX * mGridDimY];
   for (int y = 0; y < mGridDimY; ++y) {
-    char* tileRow = mTileIntersects.get() + y * mGridDimX;
-    const bool* vertexRow = mVertIntersects.get() + y * stride;
-    for (int x = 0; x < mGridDimX; ++x) {
-      tileRow[x] =
-          vertexRow[x] || vertexRow[x + 1] || vertexRow[x + stride] || vertexRow[x + stride + 1];
+    char* tile = mTileIntersects.get() + y * mGridDimX;
+    const char* vert = mVertIntersects.get() + y * (mGridDimX + 1);
+    for (int x = 0; x < mGridDimX; ++x, ++tile, ++vert) {
+      *tile = vert[0] || vert[1] || vert[mGridDimX + 1] || vert[mGridDimX + 2];
     }
   }
   const int tilesPerPatch = 7;
@@ -641,7 +639,7 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
       mPatchIntersects.get()[px + py * mPatchDimX] = allIntersect ? 1 : allClear ? 0 : 2;
     }
   }
-  mVertIntersects = static_cast< bool* >(nullptr);
+  mVertIntersects = static_cast< char* >(nullptr);
 }
 
 void CScriptWater::SetupGrid(bool recomputeClipping) {
@@ -651,7 +649,7 @@ void CScriptWater::SetupGrid(bool recomputeClipping) {
   const int dimY = static_cast< int >(static_cast< float >(floor((3.f + yBounds.GetHeight() - 0.01f) / 3.f)));
   mGridCellCount = (dimX + 1) * (dimY + 1);
   mComputedGridCellCount = mGridCellCount;
-  mVertIntersects = static_cast< bool* >(nullptr);
+  mVertIntersects = static_cast< char* >(nullptr);
   if (mTileIntersects.null() || dimX != mGridDimX || dimY != mGridDimY) {
     mTileIntersects = rs_new char[dimX * dimY];
   }
