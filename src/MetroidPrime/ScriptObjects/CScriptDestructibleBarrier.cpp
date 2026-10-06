@@ -667,6 +667,10 @@ void CScriptDestructibleBarrier::AcceptScriptMsg(CStateManager& mgr, const CScri
   CPhysicsActor::AcceptScriptMsg(mgr, msg);
 }
 
+static inline CTransform4f GetSpawnXf(const CTransform4f& xf, const SBarrierSection& section) {
+  return xf * CTransform4f::Translate(section.mSpawnPos);
+}
+
 void CScriptDestructibleBarrier::TakeDamage(CStateManager& mgr) {
   const float damage = GetHealthInfo()->GetInitialHP() - GetHealthInfo()->GetHP();
   HealthInfo()->SetHP(HealthInfo()->GetInitialHP());
@@ -720,8 +724,7 @@ void CScriptDestructibleBarrier::TakeDamage(CStateManager& mgr) {
               mgr.ScriptObjectLoaderHelper().GenerateScriptObject(generatorId, mgr);
           if (generated.mUniqueId != kInvalidUniqueId) {
             if (CActor* sectionActor = TCastToPtr< CActor >(generated.mEntity)) {
-              sectionActor->SetTransform(mRenderXf *
-                                         CTransform4f::Translate(section->mSpawnPos));
+              sectionActor->SetTransform(GetSpawnXf(mRenderXf, *section));
             }
             section->mActorId = generated.mUniqueId;
             mSections.push_back(*section);
