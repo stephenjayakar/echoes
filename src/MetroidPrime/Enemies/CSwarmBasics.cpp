@@ -257,8 +257,10 @@ CSwarmBasics::CSwarmBasics(TUniqueId uid, const rstl::string& name, const CEntit
 CSwarmBasics::~CSwarmBasics() {}
 
 CAABox CSwarmBasics::GetBoundingBox() const {
-  CVector3f he = mBoundingBoxExtent * 0.5f;
-  return CAABox(-he, he).GetTransformedAABox(GetTransform());
+  const CVector3f extent(0.5f * mBoundingBoxExtent.GetX(), 0.5f * mBoundingBoxExtent.GetY(),
+                         0.5f * mBoundingBoxExtent.GetZ());
+  const CAABox bounds(-extent, extent);
+  return bounds.GetTransformedAABox(GetTransform());
 }
 
 rstl::optional_object< CAABox > CSwarmBasics::GetTouchBounds() const { return mAabox; }
