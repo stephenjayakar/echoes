@@ -70,7 +70,10 @@ void CScriptDock::InitializeConnectedArea(CStateManager& mgr) {
 void CScriptDock::AreaUnloaded(CStateManager&) {}
 
 void CWorld::PropogateAreaChain(CGameArea::EOcclusionState state, CGameArea* area, CWorld* world) {
-  if (!area->IsLoaded() || state == area->GetOcclusionState()) {
+  if (!area->IsLoaded()) {
+    return;
+  }
+  if (state == area->GetOcclusionState()) {
     return;
   }
 
@@ -277,7 +280,7 @@ void CScriptDock::UpdateAreaActivateFlags(CStateManager& mgr) {
 
 TAreaId CScriptDock::GetCurrentConnectedAreaId(const CStateManager& mgr) const {
   if (mgr.GetWorld()->GetNumAreas() > mArea.Value()) {
-    const CGameArea& area = mgr.GetWorld()->GetAreaAlways(mArea);
+    const CGameArea& area = mgr.GetWorld()->GetAreaAlways(TAreaId(mArea));
     if (area.GetDockCount() > mDock) {
       const IGameArea::Dock& dock = area.GetDock(mDock);
       return dock.GetConnectedAreaId(dock.GetReferenceCount());

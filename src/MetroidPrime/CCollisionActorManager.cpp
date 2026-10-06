@@ -13,6 +13,9 @@
 #include <float.h>
 #include <math.h>
 
+// Unreferenced in the GC build; only its dynamic initializer survives.
+static TAreaId sUnknownAreaId = kInvalidAreaId;
+
 CJointCollisionDescription
 CJointCollisionDescription::SphereCollision(CSegId pivotId, const CVector3f& pivotPoint,
                                             float radius, const rstl::string& name, float mass) {

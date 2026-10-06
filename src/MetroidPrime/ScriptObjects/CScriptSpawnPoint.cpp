@@ -37,12 +37,7 @@ int CScriptSpawnPoint::GetItemCapacity(CPlayerState::EItemType type) const {
   if (CPlayerState::kIT_Max <= type || type < 0) {
     return m_amountForItem.front();
   }
-  int amount = m_amountForItem[type];
-  int capacity = m_capacityForItem[type];
-  if (amount < capacity) {
-    return capacity;
-  }
-  return amount;
+  return rstl::max_val(m_amountForItem[type], m_capacityForItem[type]);
 }
 
 void CScriptSpawnPoint::SendSpawnMessage(CStateManager& mgr, CEntity& player) {
@@ -50,9 +45,10 @@ void CScriptSpawnPoint::SendSpawnMessage(CStateManager& mgr, CEntity& player) {
 }
 
 void CScriptSpawnPoint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
   CEntity::AcceptScriptMsg(mgr, msg);
 
-  switch (msg.GetMessage()) {
+  switch (message) {
   case kSM_Reset:
     for (int playerIndex = 0; playerIndex < mgr.GetNumPlayers(); ++playerIndex) {
       for (int i = 0; i < CPlayerState::kIT_Max; ++i) {
@@ -68,7 +64,7 @@ void CScriptSpawnPoint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& ms
         TAreaId thisAreaId = GetCurrentAreaId();
         TAreaId nextAreaId = mgr.GetNextAreaId();
 
-        if (thisAreaId != nextAreaId) {
+        if (nextAreaId != thisAreaId) {
           bool propagateAgain = false;
 
           CGameArea* area = mgr.World()->Area(thisAreaId);

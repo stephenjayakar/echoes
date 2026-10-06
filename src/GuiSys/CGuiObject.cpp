@@ -40,12 +40,14 @@ void CGuiObject::RotateReset() {
 }
 
 CVector3f CGuiObject::RotateW2O(const CVector3f& vec) const {
-  return GetWorldTransform().TransposeRotate(vec);
+  const CVector3f result = GetWorldTransform().TransposeRotate(vec);
+  return result;
 }
 
 CVector3f CGuiObject::RotateTranslateW2O(const CVector3f& vec) const {
   const CTransform4f& world = GetWorldTransform();
-  return world.TransposeRotate(vec - world.GetTranslation());
+  const CVector3f result = world.TransposeRotate(vec - world.GetTranslation());
+  return result;
 }
 
 void CGuiObject::MultiplyO2P(const CTransform4f& xf) {
@@ -102,7 +104,8 @@ void CGuiObject::SetO2PTransform(const CTransform4f& xf) {
 }
 
 void CGuiObject::SetO2WTransform(const CTransform4f& xf) {
-  const CTransform4f inverse = mParent->GetWorldTransform().GetQuickInverse();
+  const CTransform4f& parentXf = mParent->GetWorldTransform();
+  const CTransform4f inverse = parentXf.GetQuickInverse();
   const CTransform4f local = inverse * xf;
   SetO2PTransform(local);
 }

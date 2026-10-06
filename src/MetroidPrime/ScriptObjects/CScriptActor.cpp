@@ -73,15 +73,14 @@ const CDamageVulnerability* CScriptActor::GetDamageVulnerability() const {
 void CScriptActor::Touch(CActor&, CStateManager&) {}
 
 rstl::optional_object< CAABox > CScriptActor::GetTouchBounds() const {
-  if (!GetActive() || !GetMaterialList().HasMaterial(kMT_Unknown59)) {
-    return rstl::optional_object_null();
+  if (GetActive() && GetMaterialList().HasMaterial(kMT_Unknown59)) {
+    CAABox bounds = GetBoundingBox();
+    if (!mCollisionPrimitive.null()) {
+      bounds.Include(mCollisionPrimitive->CalculateAABox(GetTransform()));
+    }
+    return bounds;
   }
-
-  CAABox bounds = GetBoundingBox();
-  if (!mCollisionPrimitive.null()) {
-    bounds.Include(mCollisionPrimitive->CalculateAABox(GetTransform()));
-  }
-  return bounds;
+  return rstl::optional_object_null();
 }
 
 void CScriptActor::Think(float dt, CStateManager& mgr) {
@@ -252,10 +251,12 @@ void CScriptActor::AddToRenderer(const CStateManager& mgr) const {
     return;
   }
 
-  if (!mRenderImmediately) {
+  if (mRenderImmediately) {
+    if (!GetPreRenderClipped()) {
+      Render(mgr);
+    }
+  } else {
     CActor::AddToRenderer(mgr);
-  } else if (!GetPreRenderClipped()) {
-    Render(mgr);
   }
 }
 
@@ -272,13 +273,12 @@ const CCollisionPrimitive* CScriptActor::GetCollisionPrimitive() const {
 }
 
 CTransform4f CScriptActor::GetPrimitiveTransform() const {
-  if (mCollisionPrimitive.null()) {
-    return CTransform4f::Translate(GetTranslation() + GetPrimitiveOffset());
+  if (!mCollisionPrimitive.null()) {
+    CTransform4f xf = GetTransform();
+    xf.AddTranslation(GetPrimitiveOffset());
+    return xf;
   }
-
-  CTransform4f xf = GetTransform();
-  xf.SetTranslation(xf.GetTranslation() + GetPrimitiveOffset());
-  return xf;
+  return CTransform4f::Translate(GetTranslation() + GetPrimitiveOffset());
 }
 
 bool CScriptActor::CheckActorRenderOnly() const {
