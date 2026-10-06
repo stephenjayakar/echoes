@@ -2749,7 +2749,7 @@ void CSamusHud::SetMessage(const rstl::wstring& text, const CHUDMemoParms& info)
     mMessageRoot->SetVisibility(false, kTM_Children);
     CGuiWidget* pane = info.IsHintMemo() ? mMessageRoot : mMessagePane;
     if (!info.IsClearMemoWindow() || info.GetDisplayTime() != 0.f || mMessageTime != 0.f ||
-        text.size() != 0) {
+        text.length() != 0) {
       pane->SetVisibility(true, kTM_Children);
     }
     mMessagePane->TextSupport().SetTypeWriteEffectOptions(info.GetFadeInText(), 0.1f, 40.f);
@@ -2757,7 +2757,7 @@ void CSamusHud::SetMessage(const rstl::wstring& text, const CHUDMemoParms& info)
       mLastMessageSoundChars = 0.f;
       mMessagePane->TextSupport().SetCurTime(0.f);
       mMessagePane->TextSupport().SetText(text);
-    } else if (mMessagePane->TextSupport().GetText().size() == 0) {
+    } else if (mMessagePane->TextSupport().GetText().length() == 0) {
       mLastMessageSoundChars = 0.f;
       mMessagePane->TextSupport().AddText(text);
     } else {
