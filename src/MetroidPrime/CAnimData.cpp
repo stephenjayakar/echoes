@@ -13,7 +13,9 @@
 #include "Kyoto/Graphics/CModel.hpp"
 #include "Kyoto/Math/CloseEnough.hpp"
 #include "rstl/algorithm.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/CModelData.hpp"
+#include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Factories/CCharacterFactory.hpp"
 
 typedef rstl::reserved_vector< rstl::pair< uint, CAdditiveAnimPlayback >, 8 > TAdditiveAnims;
@@ -234,8 +236,25 @@ CAdvancementDeltas CAnimData::AdvanceIgnoreParticles(float dt, CRandom16& random
 CAdvancementDeltas CAnimData::Advance(float dt, float minParticleWeight, const CVector3f& scale,
                                       CStateManager* mgr, CRandom16& random, TAreaId areaId,
                                       bool advanceTree) {
-  // TODO: Advance, suspend effects when requested, and emit eligible particle POIs.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  bool suspendParticles;
+  const CAdvancementDeltas deltas = DoAdvance(dt, suspendParticles, random, advanceTree);
+  if (suspendParticles) {
+    mParticleDB.SuspendAllActiveEffects(mgr);
+  }
+  const int count = mPassedParticleCount;
+  for (int i = 0; i < count; ++i) {
+    const CParticlePOINode& node = mParticlePOINodes[i];
+    if (node.GetCharacterIndex() == -1 || mCharIdx == node.GetCharacterIndex()) {
+      if (node.GetMaximumDistance() > minParticleWeight ||
+          (mgr != nullptr && !mgr->IsMultiplayer() &&
+           mgr->GetCameraManager(0)->IsInCinematicCamera())) {
+        mParticleDB.AddParticleEffect(node.GetNameHash(), node.GetFlags(),
+                                      node.GetParticleData(), scale, mgr, areaId, false,
+                                      mParticleLightIdx);
+      }
+    }
+  }
+  return deltas;
 }
 
 CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendEffects, CRandom16& random,
