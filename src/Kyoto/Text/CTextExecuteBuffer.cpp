@@ -66,7 +66,8 @@ void CTextExecuteBuffer::EndBlock() {
 }
 
 void CTextExecuteBuffer::AddFont(const TToken< CRasterFont >& font) {
-  Add(rs_new CFontInstruction(font));
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CFontInstruction(font));
+  Add(inst);
   mState.SetFont(font);
   if (font.IsLoaded()) {
     if (mCurrentBlock) {
@@ -126,17 +127,20 @@ void CTextExecuteBuffer::AddRemoveColorOverride(int index) {
 }
 
 void CTextExecuteBuffer::AddLineSpacing(float spacing) {
-  Add(rs_new CLineSpacingInstruction(spacing));
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CLineSpacingInstruction(spacing));
+  Add(inst);
   mState.SetLineSpacing(spacing);
 }
 
 void CTextExecuteBuffer::AddLineExtraSpace(int spacing) {
-  Add(rs_new CLineExtraSpaceInstruction(spacing));
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CLineExtraSpaceInstruction(spacing));
+  Add(inst);
   mState.SetLineExtraSpace(spacing);
 }
 
 void CTextExecuteBuffer::AddCharacterExtraSpace(int spacing) {
-  Add(rs_new CCharacterExtraSpaceInstruction(spacing));
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CCharacterExtraSpaceInstruction(spacing));
+  Add(inst);
   mState.GetOptions().SetCharacterExtraSpace(spacing);
 }
 
@@ -155,12 +159,14 @@ void CTextExecuteBuffer::AddVerticalJustification(EVerticalJustification justifi
 }
 
 void CTextExecuteBuffer::AddPushState() {
-  Add(rs_new CPushStateInstruction());
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CPushStateInstruction());
+  Add(inst);
   mStateStack.push_front(mState);
 }
 
 void CTextExecuteBuffer::AddPopState() {
-  Add(rs_new CPopStateInstruction());
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CPopStateInstruction());
+  Add(inst);
   mState = mStateStack.front();
   mStateStack.pop_front();
   if (mCurrentLine->GetWidth() == 0) {
@@ -188,7 +194,8 @@ void CTextExecuteBuffer::TerminateLine(bool lastLine) {
 }
 
 void CTextExecuteBuffer::StartNewWord() {
-  mCurrentWord = Add(rs_new CWordInstruction());
+  rstl::ncrc_ptr< CInstruction > inst(rs_new CWordInstruction());
+  mCurrentWord = Add(inst);
   mCurrentX = 0;
   mCurrentY = 0;
   mCurrentWordX = mCurrentLine->GetWidth();
@@ -277,8 +284,8 @@ int CTextExecuteBuffer::WrapOneLTR(const wchar_t* str, int len) {
 }
 
 void CTextExecuteBuffer::AddStringFragment(const wchar_t* str, int len) {
+  int consumed = 0;
   if (mCurrentBlock->GetTextDirection() == kTD_Horizontal) {
-    int consumed = 0;
     while (consumed != len) {
       consumed += WrapOneLTR(str + consumed, len - consumed);
     }
