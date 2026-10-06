@@ -514,15 +514,6 @@ void CMFGame::Draw() const {
                                   CColor(intensity, intensity, intensity, 1.f), nullptr, 1.f);
     return;
   }
-  case kFS_PortalTransition:
-    if (mTransitionPhase > kTP_FadeOut && mTransitionPhase < kTP_Complete &&
-        mPortalTransition.get()) {
-      mPortalTransition->Draw();
-    }
-    if (mTransitionPhase != kTP_Play) {
-      DrawTransitionFilter();
-    }
-    return;
   case kFS_State8: {
     if (mFlowTime >= 1.f / 60.f) {
       return;
@@ -533,36 +524,40 @@ void CMFGame::Draw() const {
     CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Multiply,
                                   CCameraFilterPass::kFS_Fullscreen,
                                   CColor(intensity, intensity, intensity, 1.f), nullptr, 1.f);
-    break;
   }
+  // Fall through.
   case kFS_MultiplayerEndFade:
   case kFS_MultiplayerResults:
+    if (!mEndGameFrameCaptured) {
+      mEndGameFrameCaptured = true;
+      DrawWorld(singleViewport);
+      DrawGui(singleViewport);
+      CGraphics::SetViewport(0, 0, CGraphics::GetRenderMode().fbWidth,
+                            CGraphics::GetRenderMode().xfbHeight);
+      CGraphics::SetScissor(0, 0, CGraphics::GetRenderMode().fbWidth,
+                           CGraphics::GetRenderMode().xfbHeight);
+      CCameraBlurPass::GetFbCopy(GX_TF_RGB565);
+      CGraphics::SetIsBeginSceneClearFb(false);
+    } else {
+      CGraphics::SetViewport(0, 0, CGraphics::GetRenderMode().fbWidth,
+                            CGraphics::GetRenderMode().xfbHeight);
+      CGraphics::SetScissor(0, 0, CGraphics::GetRenderMode().fbWidth,
+                           CGraphics::GetRenderMode().xfbHeight);
+      const float amount = 8.f * (mMultiplayerEndFadeTime * mMultiplayerEndFadeTime) + 1.f;
+      const float rate = CGraphics::Is50Hz() ? 50.f : 60.f;
+      CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Add, CCameraFilterPass::kFS_Fullscreen,
+                                    CColor::White().WithAlphaOf(amount / rate), nullptr, 1.f);
+    }
     break;
-  default:
-    return;
-  }
-
-  if (!mEndGameFrameCaptured) {
-    mEndGameFrameCaptured = true;
-    DrawWorld(singleViewport);
-    DrawGui(singleViewport);
-    CGraphics::SetViewport(0, 0, CGraphics::GetRenderMode().fbWidth,
-                          CGraphics::GetRenderMode().xfbHeight);
-    CGraphics::SetScissor(0, 0, CGraphics::GetRenderMode().fbWidth,
-                         CGraphics::GetRenderMode().xfbHeight);
-    CCameraBlurPass::GetFbCopy(GX_TF_RGB565);
-    CGraphics::SetIsBeginSceneClearFb(false);
-  } else {
-    CGraphics::SetViewport(0, 0, CGraphics::GetRenderMode().fbWidth,
-                          CGraphics::GetRenderMode().xfbHeight);
-    CGraphics::SetScissor(0, 0, CGraphics::GetRenderMode().fbWidth,
-                         CGraphics::GetRenderMode().xfbHeight);
-    const float amount = (8.f * (mMultiplayerEndFadeTime * mMultiplayerEndFadeTime) + 1.f) /
-                         (CGraphics::Is50Hz() ? 50.f : 60.f);
-    CColor color = CColor::White();
-    color.SetAlpha(amount);
-    CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Add,
-                                  CCameraFilterPass::kFS_Fullscreen, color, nullptr, 1.f);
+  case kFS_PortalTransition:
+    if (mTransitionPhase >= kTP_Load && mTransitionPhase <= kTP_FadeIn &&
+        mPortalTransition.get()) {
+      mPortalTransition->Draw();
+    }
+    if (mTransitionPhase != kTP_Play) {
+      DrawTransitionFilter();
+    }
+    break;
   }
 }
 
