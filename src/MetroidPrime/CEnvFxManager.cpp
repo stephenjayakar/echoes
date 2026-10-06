@@ -255,7 +255,10 @@ void CEnvFxManagerGrid::RenderUnderwaterParticles(const CTransform4f& camXf) {
 
 bool CEnvFxManagerGrid::SetupRender(const CTransform4f& xf, const CTransform4f& invXf,
                                     const CTransform4f& camXf, float density, EEnvFxType type) {
-  if (mParticles.empty() || !mBlock.first) {
+  if (mParticles.empty()) {
+    return false;
+  }
+  if (!mBlock.first) {
     return false;
   }
   const float gridX = fixed8_8_to_real(mPosition.GetX());
@@ -350,7 +353,7 @@ void CEnvFxManagerGrid::RenderDarkWorldParticles(const CTransform4f& xf, const C
 }
 
 CVector3f CEnvFxManager::GetParticleBoundsToWorldScale() const {
-  return (mParticleBounds.GetMaxPoint() - mParticleBounds.GetMinPoint()) / 127.f;
+  return (1.f / 127.f) * (mParticleBounds.GetMaxPoint() - mParticleBounds.GetMinPoint());
 }
 
 void CEnvFxManager::MoveWrapCells(EEnvFxType type, int moveX, int moveY) {
@@ -1020,7 +1023,7 @@ void CEnvFxManager::BlankFirstSnowflakeMip(CTexture& tex) {
 }
 
 void CEnvFxManager::SetupSnowTevs(CStateManager& mgr) {
-  const CCameraManager* cameraManager = mgr.GetCameraManager(0);
+  const CCameraManager* cameraManager = mgr.GetCurrentRenderCameraManager();
   const CGameCamera* camera = cameraManager->GetCurrentCamera(mgr, true);
   CColor color = CColor::White();
   if (camera->GetFluidCount() != 0) {
@@ -1059,7 +1062,8 @@ void CEnvFxManager::SetupSnowTevs(CStateManager& mgr) {
 }
 
 void CEnvFxManager::SetupDriftingParticleTevs(CStateManager& mgr) {
-  mgr.GetCameraManager(0)->GetCurrentCamera(mgr, true);
+  mgr.GetCurrentRenderCameraManager()->GetCurrentCamera(mgr, true);
+  const CColor color = CColor::Blue();
   gpRender->SetWorldFog(kRFM_PerspLin, 52.f, 57.f, CColor::Black());
   static const GXVtxDescList desc[] = {
       {GX_VA_POS, GX_DIRECT}, {GX_VA_TEX0, GX_DIRECT}, {GX_VA_NULL, GX_NONE}};
@@ -1075,7 +1079,7 @@ void CEnvFxManager::SetupDriftingParticleTevs(CStateManager& mgr) {
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_ZERO);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_KONST, GX_CA_TEXA, GX_CA_ZERO);
-  CGX::SetTevKColor(GX_KCOLOR0, CColor::Blue().GetGXColor());
+  CGX::SetTevKColor(GX_KCOLOR0, color.GetGXColor());
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
   BlankFirstSnowflakeMip(***mTxtrSnowFlake);
@@ -1102,7 +1106,8 @@ void CEnvFxManager::SetupDarkWorldTevs() {
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_ZERO);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_KONST, GX_CA_TEXA, GX_CA_ZERO);
-  CGX::SetTevKColor(GX_KCOLOR0, CColor::White().GetGXColor());
+  const CColor& white = CColor::White();
+  CGX::SetTevKColor(GX_KCOLOR0, white.GetGXColor());
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
   mDarkWorldParticleTexture->Load(GX_TEXMAP0, CTexture::kCM_Clamp);
@@ -1177,14 +1182,17 @@ void CEnvFxManager::SetupRainTevs() {
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_RASA, GX_CA_KONST, GX_CA_ZERO);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
-  CGX::SetTevKColor(GX_KCOLOR0, CColor(1.f, 1.f, 1.f, 0.15f).GetGXColor());
+  const GXColor color = CColor(1.f, 1.f, 1.f, 0.15f).GetGXColor();
+  CGX::SetTevKColor(GX_KCOLOR0, color);
   (*mTxtrEnvGradient)->Load(GX_TEXMAP0, CTexture::kCM_Clamp);
 }
 
 void CEnvFxManager::SetupParticleTrailTevs(CStateManager& mgr) {
-  const CGameCamera* camera = mgr.GetCameraManager(0)->GetCurrentCamera(mgr, true);
+  const CGameCamera* camera = mgr.GetCurrentRenderCameraManager()->GetCurrentCamera(mgr, true);
+  CColor color = CColor::White();
   if (camera->GetFluidCount() != 0) {
     gpRender->SetWorldFog(kRFM_PerspExp, 0.f, 35.f, CColor::Black());
+    color = CColor(1.f, 1.f, 1.f, 0.5f);
   } else {
     gpRender->SetWorldFog(kRFM_PerspLin, 52.f, 57.f, CColor::Black());
   }
@@ -1202,8 +1210,8 @@ void CEnvFxManager::SetupParticleTrailTevs(CStateManager& mgr) {
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, GX_FALSE, GX_PTIDENTITY);
   CGX::SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR_NULL);
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
-  CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_C1, GX_CC_ZERO);
-  CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A1, GX_CA_ZERO);
+  CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_C0, GX_CC_ZERO);
+  CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_TEXA, GX_CA_A0, GX_CA_ZERO);
   (*mTxtrEnvGradient)->Load(GX_TEXMAP0, CTexture::kCM_Clamp);
 }
 
@@ -1282,10 +1290,13 @@ void CEnvFxManager::Render(const CStateManager& mgr) {
 }
 
 static int CalcRainVolume(float density) {
+  float volume;
   if (density < 0.1f) {
-    return static_cast< int >(74.f * (density / 0.1f));
+    volume = 74.f * (density / 0.1f);
+  } else {
+    volume = 21.f * (density / 0.9f) + 74.f;
   }
-  return static_cast< int >(21.f * (density / 0.9f) + 74.f);
+  return static_cast< int >(volume);
 }
 
 static short CalcRainPitch(float density) { return static_cast< short >(8192.f * density); }

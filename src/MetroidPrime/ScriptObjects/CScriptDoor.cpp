@@ -23,7 +23,11 @@ static const CColor skLockedColor = CColor::Grey();
 static const CColor skResetColor(uchar(0), uchar(255), uchar(255), uchar(255));
 
 int CScriptDoor::FindAnimation(const CPASAnimParmData& parms) const {
-  return HasAnimation() ? GetAnimationData()->FindBestAnimation(parms) : -1;
+  int ret = -1;
+  if (HasAnimation()) {
+    ret = GetAnimationData()->FindBestAnimation(parms);
+  }
+  return ret;
 }
 
 CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
@@ -105,9 +109,6 @@ CVector3f CScriptDoor::GetOrbitPosition(const CStateManager& mgr) const {
 void CScriptDoor::SetDoorAnimation(EDoorAnimType animation) {
   int animationId = 0;
   switch (animation) {
-  case kDAT_Open:
-    animationId = mOpenAnimation;
-    break;
   case kDAT_Closing:
     animationId = mClosingAnimation;
     break;
@@ -117,10 +118,13 @@ void CScriptDoor::SetDoorAnimation(EDoorAnimType animation) {
   case kDAT_Closed:
     animationId = mClosedAnimation;
     break;
+  case kDAT_Open:
+    animationId = mOpenAnimation;
+    break;
   }
   mAnimationId = animationId;
   if (HasAnimation()) {
-    AnimationData()->SetAnimation(CAnimPlaybackParms(animationId, -1, 1.f, true), false);
+    AnimationData()->SetAnimation(CAnimPlaybackParms(mAnimationId, -1, 1.f, true), false);
   }
 }
 
@@ -194,7 +198,11 @@ void CScriptDoor::SetShieldAlpha(float alpha, CStateManager& mgr) {
   const rstl::vector< TUniqueId > slaves = FindConnectedObjects(mgr, kSS_Slave, kSM_Activate);
   for (rstl::vector< TUniqueId >::const_iterator it = slaves.begin(); it != slaves.end(); ++it) {
     if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(*it))) {
-      actor->SetActive(alpha != 0.f);
+      if (alpha == 0.f) {
+        actor->SetActive(false);
+      } else {
+        actor->SetActive(true);
+      }
       actor->SetModelFlags(CModelFlags::AlphaBlended(alpha));
     }
   }
@@ -202,6 +210,8 @@ void CScriptDoor::SetShieldAlpha(float alpha, CStateManager& mgr) {
 
 void CScriptDoor::UpdateShield(float dt, CStateManager& mgr) {
   switch (mShieldState) {
+  case kSS_Visible:
+    break;
   case kSS_FadingOut:
     mColorDirty = true;
     mShieldAlpha -= dt / mShieldFadeOutTime;
@@ -210,6 +220,8 @@ void CScriptDoor::UpdateShield(float dt, CStateManager& mgr) {
       mShieldState = kSS_Hidden;
     }
     SetShieldAlpha(mShieldAlpha, mgr);
+    break;
+  case kSS_Hidden:
     break;
   case kSS_FadingIn:
     mColorDirty = true;
@@ -236,7 +248,7 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
   case kLS_Unlocked:
     SetLockAnimation(mgr, 0);
     mCurrentVulnerability = mBaseVulnerability;
-    mLockState = kLS_Unlocked;
+    mLockState = state;
     mColorDirty = true;
     mLockTimer = 0.f;
     if (mResetPending) {
@@ -246,25 +258,25 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
     break;
   case kLS_Pending:
     if (mLockState == kLS_Unlocked || mLockState == kLS_Unlocking) {
-      mLockState = kLS_Pending;
+      mLockState = state;
     }
     break;
   case kLS_Locking:
     SetLockAnimation(mgr, 1);
     mCurrentVulnerability = CDamageVulnerability::ReflectVulnerabilty();
-    mLockState = kLS_Locking;
+    mLockState = state;
     break;
   case kLS_Locked:
     SetLockAnimation(mgr, 3);
     mCurrentVulnerability = CDamageVulnerability::ReflectVulnerabilty();
-    mLockState = kLS_Locked;
+    mLockState = state;
     mColorDirty = true;
     mLockTimer = 0.f;
     break;
   case kLS_Unlocking:
     if (mLockState != kLS_Unlocked) {
       SetLockAnimation(mgr, 2);
-      mLockState = kLS_Unlocking;
+      mLockState = state;
       if (mResetPending && !mHasReset) {
         mShellColor = skResetColor;
         if (mBlueShellModel) {
@@ -278,6 +290,8 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
 
 void CScriptDoor::UpdateLock(float dt, CStateManager& mgr) {
   switch (mLockState) {
+  case kLS_Unlocked:
+    break;
   case kLS_Pending:
     if (mgr.GetPlayer(0)->GetCurrentAreaId() == GetCurrentAreaId()) {
       switch (mDoorState) {
@@ -295,14 +309,24 @@ void CScriptDoor::UpdateLock(float dt, CStateManager& mgr) {
       case kDS_CloseDelay:
         SetDoorState(mgr, kDS_Closing);
         break;
+      case kDS_Closing:
+        break;
       }
     }
     break;
-  case kLS_Locking:
+  case kLS_Locking: {
+    const CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mLockActorId));
+    if (mLockTimer >= 1.f && (!actor || !actor->GetModelData()->IsAnimating())) {
+      SetLockState(mgr, kLS_Locked);
+    }
+    mLockTimer += dt;
+    mColorDirty = true;
+    break;
+  }
   case kLS_Unlocking: {
     const CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mLockActorId));
     if (mLockTimer >= 1.f && (!actor || !actor->GetModelData()->IsAnimating())) {
-      SetLockState(mgr, mLockState == kLS_Locking ? kLS_Locked : kLS_Unlocked);
+      SetLockState(mgr, kLS_Unlocked);
     }
     mLockTimer += dt;
     mColorDirty = true;
@@ -510,7 +534,9 @@ bool CScriptDoor::IsConnectedToArea(const CStateManager& mgr, TAreaId area) cons
     }
     const CGameArea::Dock& areaDock =
         mgr.GetWorld()->GetAreaAlways(dock->GetAreaId()).GetDock(dock->GetDockId());
-    return areaDock.GetConnectedAreaId(dock->GetDockReference(mgr)) == area;
+    if (areaDock.GetConnectedAreaId(dock->GetDockReference(mgr)) == area) {
+      return true;
+    }
   }
   return false;
 }
@@ -527,20 +553,23 @@ void CScriptDoor::UpdateShellColor(float dt) {
   }
   mColorDirty = false;
 
-  switch (mLockState) {
-  case kLS_Locked:
+  if (mLockState == kLS_Locked) {
     mCurrentShellColor = skLockedColor;
-    break;
+    return;
+  }
+
+  const CColor shellColor = mShellColor;
+  switch (mLockState) {
   case kLS_Locking:
     mCurrentShellColor =
-        CColor::Lerp(mShellColor, skLockedColor, CMath::Clamp(0.f, mLockTimer, 1.f));
+        CColor::Lerp(shellColor, skLockedColor, CMath::Clamp(0.f, mLockTimer, 1.f));
     break;
   case kLS_Unlocking:
     mCurrentShellColor =
-        CColor::Lerp(skLockedColor, mShellColor, CMath::Clamp(0.f, mLockTimer, 1.f));
+        CColor::Lerp(skLockedColor, shellColor, CMath::Clamp(0.f, mLockTimer, 1.f));
     break;
   default:
-    mCurrentShellColor = mShellColor;
+    mCurrentShellColor = shellColor;
     break;
   }
 }
@@ -559,7 +588,10 @@ void CScriptDoor::AddToRenderer(const CStateManager& mgr) const {
     return;
   }
   CPhysicsActor::Render(mgr);
-  if (!mShellModel || !(mShieldAlpha > 0.f)) {
+  if (!mShellModel) {
+    return;
+  }
+  if (!(mShieldAlpha > 0.f)) {
     return;
   }
 
@@ -622,9 +654,9 @@ void CScriptDoor::ResetDoor(CStateManager& mgr) {
           kWT_ScrewAttack,
           CWeaponTypeVulnerability(0.f, CWeaponTypeVulnerability::kE_Normal, false)),
   };
-  static const CDamageVulnerability vulnerability(
-      CDamageVulnerability::NormalIgnoreRadiusVulnerability(), overrides, 4,
-      CDamageVulnerability::kOF_Normal);
+  static const CDamageVulnerability vulnerability =
+      CDamageVulnerability(CDamageVulnerability::NormalIgnoreRadiusVulnerability(), overrides, 4,
+                           CDamageVulnerability::kOF_Normal);
   mCurrentVulnerability = mBaseVulnerability = vulnerability;
   mShellColor = skResetColor;
   if (mBlueShellModel) {

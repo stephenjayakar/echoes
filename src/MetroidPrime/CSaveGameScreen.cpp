@@ -533,6 +533,7 @@ void CSaveGameScreen::DoSelectionChange(CGuiTableGroup* caller, int oldSelection
 }
 
 void CSaveGameScreen::SetUIColors() {
-  mTablegroupChoices->SetColors(CColor(0xffffffff),
-                                CColor(uchar(160), uchar(160), uchar(160), uchar(200)));
+  const CColor selected(0xffffffff);
+  const CColor unselected(uchar(160), uchar(160), uchar(160), uchar(200));
+  mTablegroupChoices->SetColors(selected, unselected);
 }

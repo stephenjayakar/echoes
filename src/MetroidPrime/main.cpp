@@ -240,12 +240,13 @@ void CMain::ShutdownSubsystems() {
   uchar* stackEnd =
       reinterpret_cast< uchar* >((reinterpret_cast< uint >(thread->stackEnd) + 0x3ff) & ~0x3ff);
   uchar* ptr = stackEnd + 0x400;
-  for (; ptr < thread->stackBase - 0x2000; ptr += sizeof(uint)) {
+  uchar* stackBase = thread->stackBase - 0x2000;
+  for (; ptr < stackBase; ptr += sizeof(uint)) {
     if (*reinterpret_cast< uint* >(ptr) != UNUSED_STACK_VAL) {
       break;
     }
   }
-  const int used = thread->stackBase - ptr;
+  const int used = stackBase - ptr + 0x2000;
   OSReport("Stack usage: %d bytes (%dk)\n", used, static_cast< uint >(used) / 1024);
 }
 
@@ -376,12 +377,12 @@ void CMain::MemoryCardInitializePump() {
   if (gpMemoryCard != nullptr) {
     return;
   }
-  rstl::single_ptr< CMemoryCard >& card = mGameGlobalObjects->MemoryCard();
-  if (card.get() == nullptr) {
-    card = rs_new CMemoryCard();
+  if (mGameGlobalObjects->MemoryCard().get() == nullptr) {
+    mGameGlobalObjects->MemoryCard() = rs_new CMemoryCard();
   }
+  CMemoryCard* card = mGameGlobalObjects->MemoryCard().get();
   if (card->InitializePump()) {
-    gpMemoryCard = card.get();
+    gpMemoryCard = card;
     gpGameState->SystemOptions().InitializeMemoryState();
     gpGameState->InitializeMemoryStates();
   }
@@ -733,18 +734,22 @@ void CMain::AsyncIdle(uint time) {
     mFrameTimeIdx = 0;
   }
 
-  time = (time <= 5000) ? time : 5000;
-  if (time < mFrameTimeMinimum) {
-    time = mFrameTimeMinimum;
+  uint idleTime = 5000;
+  if (time <= 5000) {
+    idleTime = time;
+  }
+  if (idleTime < mFrameTimeMinimum) {
+    idleTime = mFrameTimeMinimum;
   }
   mFrameTimeMinimum = 0;
-  bool flag = IsMaxSpeed();
-  if (flag) {
-    time = 1000000;
+  bool flag = false;
+  if (IsMaxSpeed()) {
+    flag = true;
+    idleTime = 1000000;
   }
 
-  if (time != 0) {
-    gpResourceFactory->AsyncIdle(time, flag);
+  if (idleTime != 0) {
+    gpResourceFactory->AsyncIdle(idleTime, flag);
   }
 }
 
@@ -836,7 +841,7 @@ CGameOptions::~CGameOptions() {}
 
 CWorldState::~CWorldState() {}
 
-CGameState::~CGameState() {}
+
 
 void CMain::ResetGameState() {}
 

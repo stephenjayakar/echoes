@@ -56,7 +56,8 @@ public:
   static void DrawRandomStatic(const CColor& color, float alpha, bool cookieCutterDepth);
   // Guessed method names; shape names are present in the original debug strings.
   static void DrawDialogBox(const CColor& color, const CTexture* texture, float alpha);
-  static void DrawCinematicPlaceholderLabel();
+  static void DrawCinematicPlaceholderLabel(const CColor& color, const CTexture* texture,
+                                            float alpha);
   static void DrawFilter(EFilterType type, EFilterShape shape, const CColor& color,
                          const CTexture* texture, float lod);
 

@@ -7,6 +7,7 @@
 #include "MetroidPrime/CControlMapper.hpp"
 #include "MetroidPrime/TGameTypes.hpp"
 
+#include "MetroidPrime/Player/CGameMode.hpp"
 #include "MetroidPrime/Player/CGameOptions.hpp"
 #include "MetroidPrime/Player/CHintOptions.hpp"
 #include "MetroidPrime/Player/CPersistentOptions.hpp"
@@ -77,7 +78,7 @@ public:
 
   CGameState();
   explicit CGameState(CBitStreamReader& in);
-  ~CGameState();
+  ~CGameState() {}
 
   void ReadSystemOptions(CInputStream& in);
   void PutTo(CBitStreamWriter& out);
