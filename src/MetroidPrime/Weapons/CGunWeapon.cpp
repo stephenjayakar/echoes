@@ -515,11 +515,11 @@ void CGunWeapon::Load(CStateManager& mgr, bool subtypeBasePose) {
   mFrozenGenerator = nullptr;
   mGunCharacter->Lock();
   mXferEffect.Lock();
-  for (int i = 0; i < mMuzzleEffects.size(); ++i) {
+  for (int i = 0; i < mMuzzleEffects.capacity(); ++i) {
     mMuzzleEffects[i].Lock();
     mWeapons[i].Lock();
   }
-  for (int i = 0; i < mFrozenEffects.size(); ++i) {
+  for (int i = 0; i < mFrozenEffects.capacity(); ++i) {
     mFrozenEffects[i].Lock();
   }
 }
@@ -571,11 +571,11 @@ void CGunWeapon::AllocResPools(CPlayerState::EBeamId beam) {
 
 void CGunWeapon::FreeResPools() {
   mXferEffect.Unlock();
-  for (int i = 0; i < mMuzzleEffects.size(); ++i) {
+  for (int i = 0; i < mMuzzleEffects.capacity(); ++i) {
     mMuzzleEffects[i].Unlock();
     mWeapons[i].Unlock();
   }
-  for (int i = 0; i < mFrozenEffects.size(); ++i) {
+  for (int i = 0; i < mFrozenEffects.capacity(); ++i) {
     mFrozenEffects[i].Unlock();
   }
   mAnims = rstl::vector< CToken >();
@@ -585,12 +585,16 @@ void CGunWeapon::LoadFxIdle(float dt, CStateManager& mgr) {
   if (!NWeaponTypes::are_tokens_ready(mDeps)) {
     return;
   }
-  if ((mLoadFlags & 2) == 2 && (mLoadFlags & 4) == 4 && (mLoadFlags & 0x10) == 0x10) {
+  if ((mLoadFlags & 2) && (mLoadFlags & 4) && (mLoadFlags & 0x10)) {
     return;
   }
   bool loaded = true;
   for (int i = 0; i < mMuzzleEffects.capacity(); ++i) {
-    if (!mMuzzleEffects[i].IsLoaded() || !mWeapons[i].IsLoaded()) {
+    if (!mMuzzleEffects[i].IsLoaded()) {
+      loaded = false;
+      break;
+    }
+    if (!mWeapons[i].IsLoaded()) {
       loaded = false;
       break;
     }
@@ -656,11 +660,11 @@ void CGunWeapon::ReleaseResources(CStateManager& mgr) {
     mFrozenGenerator = nullptr;
     mMuzzleGenerators = rstl::reserved_vector< rstl::auto_ptr< CElementGen >, 2 >();
     mXferEffect.Unlock();
-    for (int i = 0; i < mMuzzleEffects.size(); ++i) {
+    for (int i = 0; i < mMuzzleEffects.capacity(); ++i) {
       mMuzzleEffects[i].Unlock();
       mWeapons[i].Unlock();
     }
-    for (int i = 0; i < mFrozenEffects.size(); ++i) {
+    for (int i = 0; i < mFrozenEffects.capacity(); ++i) {
       mFrozenEffects[i].Unlock();
     }
     NWeaponTypes::unlock_tokens(mDeps);
@@ -841,11 +845,13 @@ void CGunWeapon::InitializeResources(CStateManager& mgr) {
 }
 
 void CGunWeapon::BuildAnimationIdList(const CAnimData& animData) {
+  const CPASDatabase& db = animData.GetPASDatabase();
   mAnimIds.clear();
   mAnimIds.reserve(21);
   for (int i = 0; i < 21; ++i) {
     const CPASAnimParmData parms(pas::EAnimationState(9), CPASAnimParm::FromEnum(i));
-    mAnimIds.push_back_unsafe(animData.GetPASDatabase().FindBestAnimation(parms, -1).second);
+    const rstl::pair< float, int > best = db.FindBestAnimation(parms, -1);
+    mAnimIds.push_back_unsafe(best.second);
   }
 
   mShootAnimIds.clear();
