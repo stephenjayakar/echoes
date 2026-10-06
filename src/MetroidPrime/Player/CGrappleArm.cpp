@@ -458,30 +458,37 @@ bool CGrappleArm::UpdateGrappleBeam(float dt, const CTransform4f& beamLocator, C
 void CGrappleArm::UpdateGrappleBeamFX(CStateManager& mgr, const CVector3f& gunPos,
                                       const CVector3f& beamPos, const CTransform4f& rotation,
                                       bool firstPerson) {
-  CElementGen& generator = firstPerson ? *mSegmentGenerator : *mMultiplayerSegmentGenerator;
-  CParticleSwoosh& swoosh = firstPerson ? *mSwooshGenerator : *mMultiplayerSwooshGenerator;
-  generator.SetParticleEmission(true);
-  const CVector3f delta = beamPos - gunPos;
+  rstl::single_ptr< CElementGen >& generator =
+      firstPerson ? mSegmentGenerator : mMultiplayerSegmentGenerator;
+  rstl::single_ptr< CParticleSwoosh >& swoosh =
+      firstPerson ? mSwooshGenerator : mMultiplayerSwooshGenerator;
+  generator->SetParticleEmission(true);
+  CVector3f delta = beamPos - gunPos;
   const int segmentCount = static_cast< int >(2.f * delta.Magnitude() + 1.f);
-  const CVector3f segmentDelta = delta / float(segmentCount);
+  CVector3f swooshDelta = delta;
+  swooshDelta *= 0.02f;
   CVector3f segmentPos = gunPos;
+  delta *= 1.f / float(segmentCount);
   for (int i = 0; i < segmentCount; ++i) {
-    const CVector3f wave(mXAmplitude * CMath::FastCosR(float(i) + mAnglePhase), 0.f,
-                         mZAmplitude * CMath::FastSinR(float(i)));
-    generator.SetTranslation(segmentPos + (i > 0 ? rotation * wave : CVector3f::Zero()));
-    generator.ForceParticleCreation(1);
-    segmentPos += segmentDelta;
+    const float angle = float(i);
+    const float x = mXAmplitude * CMath::FastCosR(angle + mAnglePhase);
+    const float z = mZAmplitude * CMath::FastSinR(angle);
+    generator->SetTranslation(segmentPos +
+                              (i > 0 ? rotation * CVector3f(x, 0.f, z) : CVector3f::Zero()));
+    generator->ForceParticleCreation(1);
+    segmentPos += delta;
   }
-  generator.SetParticleEmission(false);
+  generator->SetParticleEmission(false);
 
-  const CVector3f swooshDelta = delta * 0.02f;
   CVector3f swooshPos = gunPos;
-  float previousRotation = swoosh.GetSwooshes()[swoosh.GetSwooshCount() - 1].mInitialRot;
-  for (int i = 0; i < swoosh.GetSwooshCount(); ++i) {
-    const CVector3f wave(mXAmplitude * CMath::FastCosR(float(i) + mAnglePhase), 0.f,
-                         mZAmplitude * CMath::FastSinR(float(i)));
-    CParticleSwoosh::SSwooshData& segment = swoosh.Swooshes()[i];
-    segment.mTranslation = swooshPos + (i > 0 ? rotation * wave : CVector3f::Zero());
+  float previousRotation = swoosh->GetSwooshes()[swoosh->GetSwooshCount() - 1].mInitialRot;
+  for (int i = 0; i < swoosh->GetSwooshCount(); ++i) {
+    const float angle = float(i);
+    const float x = mXAmplitude * CMath::FastCosR(angle + mAnglePhase);
+    const float z = mZAmplitude * CMath::FastSinR(angle);
+    CParticleSwoosh::SSwooshData& segment = swoosh->Swooshes()[i];
+    segment.mTranslation =
+        swooshPos + (i > 0 ? rotation * CVector3f(x, 0.f, z) : CVector3f::Zero());
     swooshPos += swooshDelta;
     const float initialRotation = segment.mInitialRot;
     segment.mInitialRot = previousRotation;
