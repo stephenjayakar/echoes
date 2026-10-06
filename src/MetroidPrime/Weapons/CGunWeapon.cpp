@@ -47,6 +47,8 @@ const char* const CGunWeapon::skElbowLocator = "elbow";
 
 CPlayerState::EBeamId GetWeaponIndex(EWeaponType type) {
   switch (type) {
+  case kWT_Power:
+    return CPlayerState::kBI_Power;
   case kWT_Dark:
     return CPlayerState::kBI_Dark;
   case kWT_Light:
@@ -265,29 +267,34 @@ void CGunWeapon::UpdateGunFx(bool shotSmoke, float dt, const CStateManager& mgr,
 
 void CGunWeapon::UpdateMuzzleFx(float dt, const CVector3f& scale, const CVector3f& pos,
                                 bool emitting) {
-  if (CElementGen* effect = GetMuzzleFx(mMuzzleEffectIdx)) {
-    effect->SetGlobalTranslation(pos);
-    effect->SetGlobalScale(scale);
-    effect->SetParticleEmission(emitting);
-    effect->Update(dt);
+  if (!mMuzzleGenerators.empty() && mMuzzleGenerators[mMuzzleEffectIdx].get()) {
+    mMuzzleGenerators[mMuzzleEffectIdx].get()->SetGlobalTranslation(pos);
+    mMuzzleGenerators[mMuzzleEffectIdx].get()->SetGlobalScale(scale);
+    mMuzzleGenerators[mMuzzleEffectIdx].get()->SetParticleEmission(emitting);
+    mMuzzleGenerators[mMuzzleEffectIdx].get()->Update(dt);
   }
 }
 
 CElementGen* CGunWeapon::GetMuzzleFx(int index) const {
-  return mMuzzleGenerators.empty() ? nullptr : mMuzzleGenerators[index].get();
+  if (!mMuzzleGenerators.empty()) {
+    if (CElementGen* gen = mMuzzleGenerators[index].get()) {
+      return gen;
+    }
+  }
+  return nullptr;
 }
 
 void CGunWeapon::DrawMuzzleFx(const CStateManager& mgr) const {
-  if (mLoaded) {
-    if (CElementGen* effect = GetMuzzleFx(mMuzzleEffectIdx)) {
+  if (mLoaded && !mMuzzleGenerators.empty()) {
+    if (CElementGen* effect = mMuzzleGenerators[mMuzzleEffectIdx].get()) {
       effect->Render();
     }
   }
 }
 
 void CGunWeapon::ActivateCharge(bool enable, bool resetEffect) {
-  if (mLoaded) {
-    if (CElementGen* effect = GetMuzzleFx(mMuzzleEffectIdx)) {
+  if (mLoaded && !mMuzzleGenerators.empty()) {
+    if (CElementGen* effect = mMuzzleGenerators[mMuzzleEffectIdx].get()) {
       effect->SetParticleEmission(false);
     }
   }
