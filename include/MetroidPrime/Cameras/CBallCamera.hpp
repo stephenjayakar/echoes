@@ -133,7 +133,7 @@ private:
                          CVector3f& result, CStateManager& mgr);
   const bool fn_801a6b20(const CVector3f& from, const CVector3f& direction, CVector3f& result,
                          CStateManager& mgr);
-  bool fn_801a36f0(float distance, float dt, CVector3f& position, CStateManager& mgr);
+  const bool fn_801a36f0(float distance, float dt, CVector3f& position, CStateManager& mgr);
   bool fn_801a39d0(float distance, float dt, CVector3f& position, CStateManager& mgr);
   void UpdateUsingColliders(float dt, CStateManager& mgr);
   void UpdateUsingFreeLook(float dt, CStateManager& mgr);

@@ -1145,20 +1145,21 @@ bool CBallCamera::fn_801a39d0(float distance, float dt, CVector3f& position, CSt
   return found;
 }
 
-bool CBallCamera::fn_801a36f0(float distance, float dt, CVector3f& position, CStateManager& mgr) {
+const bool CBallCamera::fn_801a36f0(float distance, float dt, CVector3f& position,
+                                    CStateManager& mgr) {
   const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(mTooCloseActorId));
   position = CVector3f::Zero();
   bool found = false;
   if (door != nullptr && door->IsOpen() && !door->IsHorizontal()) {
-    const CScriptDock* dock =
-        TCastToConstPtr< CScriptDock >(mgr.GetObjectById(door->GetConnectedDockID()));
+    const TUniqueId dockId = door->GetConnectedDockID();
+    const CScriptDock* dock = TCastToConstPtr< CScriptDock >(mgr.GetObjectById(dockId));
     if (dock != nullptr) {
       const bool ballSide = dock->GetPlane(mgr).IsFacing(Player(mgr).GetBallPosition());
       const bool cameraSide = dock->GetPlane(mgr).IsFacing(GetTranslation());
       if ((ballSide && !cameraSide) || (!ballSide && cameraSide)) {
         const CLine planeLine(dock->GetTranslation(), dock->GetPlane(mgr).GetNormal());
-        CVector3f fromCamera(
-            (planeLine.GetClosestPoint(GetTranslation()) - GetTranslation()).ToVec2f(), 0.f);
+        const CVector3f closestPoint = planeLine.GetClosestPoint(GetTranslation());
+        CVector3f fromCamera(CVector3f(closestPoint - GetTranslation()).ToVec2f(), 0.f);
         if (fromCamera.CanBeNormalized()) {
           const float strength = CMath::Clamp(0.f, fromCamera.Magnitude() / 5.f, 1.f);
           position = strength * (40.f * (dt * fromCamera.AsNormalized()));
