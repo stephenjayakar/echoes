@@ -1506,6 +1506,14 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "DigitalGuardian",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CDigitalGuardian.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CDigitalGuardianHead.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "EyeBall",
         [
             Object(NonMatching, "MetroidPrime/Enemies/CEyeBall.cpp"),

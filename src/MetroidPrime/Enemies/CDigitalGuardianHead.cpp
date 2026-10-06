@@ -1,0 +1,1 @@
+#include "MetroidPrime/ScriptLoaderRel.hpp"
