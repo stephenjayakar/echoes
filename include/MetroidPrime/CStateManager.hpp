@@ -340,7 +340,7 @@ public:
   CFluidPlaneManager* GetFluidPlaneManager() const { return mFluidPlaneManager; }
   ERenderVisorMode GetRenderVisorMode() const { return mRenderVisorMode; }
 
-  int GetNumPlayers() const { return mNumPlayers; }
+  uint GetNumPlayers() const { return mNumPlayers; }
   CWeaponMgr* GetWeaponMgr() const { return mWeaponMgr; }
   TUniqueId GetForceTriggerId(int playerIndex) const {
     return mForceTriggerIds[playerIndex];

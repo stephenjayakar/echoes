@@ -110,12 +110,19 @@ bool CPatterned::InMaxRange(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CPatterned::InDetectionRange(CStateManager& mgr, const CTriggerData&) const {
+  const float heightRangeSq = mDetectionHeightRange * mDetectionHeightRange;
+  const float rangeSq = mDetectionRange * mDetectionRange;
+  const CVector3f position = GetTranslation();
   for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
-    const CVector3f delta = mgr.GetPlayer(i)->GetTranslation() - GetTranslation();
-    if (delta.MagSquared() < mDetectionRange * mDetectionRange &&
-        (mDetectionHeightRange <= 0.f ||
-         delta.GetZ() * delta.GetZ() < mDetectionHeightRange * mDetectionHeightRange)) {
-      return true;
+    const CVector3f delta = mgr.GetPlayer(i)->GetTranslation() - position;
+    if (delta.MagSquared() < rangeSq) {
+      if (mDetectionHeightRange > 0.f) {
+        if (delta.GetZ() * delta.GetZ() < heightRangeSq) {
+          return true;
+        }
+      } else {
+        return true;
+      }
     }
   }
   return false;
