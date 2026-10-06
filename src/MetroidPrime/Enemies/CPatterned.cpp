@@ -12,6 +12,8 @@
 #include "rstl/math.hpp"
 #include "MetroidPrime/CGenericFSM2State.hpp"
 
+#include <float.h>
+
 const float CPatterned::skDamageHitTime = 0.33f;
 const float CPatterned::skActorApproachDistance = 3.f;
 const CColor CPatterned::skDamageColor(0.5f, 0.f, 0.f, 1.f);
@@ -234,13 +236,22 @@ bool CPatterned::ApplyBoneTracking() const {
   return false;
 }
 
-float CPatterned::GetAnimationDistance(const CPASAnimParmData&) const {
-  // TODO: Select the best PAS animation and read its root-motion displacement.
-  return 0.f;
+float CPatterned::GetAnimationDistance(const CPASAnimParmData& parms) const {
+  float distance = 1.f;
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    const CAnimData* animData = GetAnimationData();
+    distance = animData->GetAnimationDuration(best.second);
+    distance *= animData->GetAverageVelocity(best.second);
+  }
+  return distance;
 }
 
-float CPatterned::GetAnimationDuration(const CPASAnimParmData&) const {
-  // TODO: Select the best PAS animation and return its duration.
+float CPatterned::GetAnimationDuration(const CPASAnimParmData& parms) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->GetAnimationDuration(best.second);
+  }
   return 0.f;
 }
 
@@ -582,14 +593,21 @@ bool CPatterned::IsOnStaticGround() const { return mOnStaticGround; }
 
 bool CPatterned::TryToBeCaptured(CStateManager&) { return false; }
 
-CCharAnimTime CPatterned::GetTimeOfUserEventForAnimation(const CPASAnimParmData&,
-                                                         EUserEventType) const {
-  // TODO: Select the PAS animation and query its event time.
-  return CCharAnimTime();
+CCharAnimTime CPatterned::GetTimeOfUserEventForAnimation(const CPASAnimParmData& parms,
+                                                         EUserEventType type) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->GetTimeOfUserEventForAnimation(best.second, type);
+  }
+  return CCharAnimTime(CCharAnimTime::kT_Infinity, 1.f);
 }
 
-int CPatterned::GetNumUserEventsForAnimation(const CPASAnimParmData&, EUserEventType) const {
-  // TODO: Select the PAS animation and query its event count.
+int CPatterned::GetNumUserEventsForAnimation(const CPASAnimParmData& parms,
+                                             EUserEventType type) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->CountUserEventsForAnimation(best.second, type);
+  }
   return 0;
 }
 
