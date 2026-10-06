@@ -199,7 +199,6 @@ enum EScriptObjectState {
   kSS_Locked = 0x4c4f434b,
   kSS_Unlocked = 0x554c434b,
   kSS_Frozen = 0x4652455a,
-  kSS_Modify = 0x4d444659,
   kSS_APRC = 0x41505243, // Native GUI accept-press tag, sent before kSS_PressA.
   kSS_PressA = 0x50525341,
   kSS_PressB = 0x50525342,
