@@ -8,6 +8,8 @@
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptDoor.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPortalTransition.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrDock.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 CScriptDock::CScriptDock(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
@@ -304,4 +306,16 @@ TUniqueId CScriptDock::GetConnectedScriptDockId(const CStateManager& mgr) const 
     }
   }
   return kInvalidUniqueId;
+}
+
+CEntity* LoadDock(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrDock sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrDock.inc"
+
+  return rs_new CScriptDock(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+                            LdrToEntityInfo(info, sldrThis.editorProperties),
+                            sldrThis.editorProperties.transform.position,
+                            sldrThis.editorProperties.transform.scale, sldrThis.dockNumber,
+                            TAreaId(sldrThis.areaNumber), 0, sldrThis.loadConnectedImmediate,
+                            sldrThis.isVirtual, sldrThis.showSoftTransition);
 }

@@ -14,8 +14,6 @@
 CPlatformWaypointTracker::CPlatformWaypointTracker(float duration, TUniqueId owner)
 : mLastTime(0.f), mDuration(duration), mOwnerId(owner) {}
 
-CPlatformWaypointTracker::~CPlatformWaypointTracker() {}
-
 void CPlatformWaypointTracker::Build(TUniqueId firstWaypoint, const CMotionSpline& motion,
                                      CMayaSpline& control, bool removeClosingTime,
                                      CStateManager& mgr) {

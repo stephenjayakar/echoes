@@ -35,7 +35,7 @@ public:
   typedef char WaypointTimesSizeCheck[sizeof(CWaypointTimes) == 0x50 ? 1 : -1];
 
   CPlatformWaypointTracker(float duration, TUniqueId owner);
-  virtual ~CPlatformWaypointTracker();
+  virtual ~CPlatformWaypointTracker() {}
 
   void Build(TUniqueId firstWaypoint, const CMotionSpline& motion, CMayaSpline& control,
              bool removeClosingTime, CStateManager& mgr); // Guessed name
