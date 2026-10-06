@@ -209,7 +209,13 @@ public:
   float GetAttachDelay() const;
   void UpdateDoubleChargeBeams(CStateManager& mgr, float dt);
   void UpdateTripleChargeBeams(CStateManager& mgr, float dt);
-  void UpdateStampedeMovement(CStateManager& mgr, float dt);
+  void UpdateStampedeArmor(CStateManager& mgr, float dt);
+  void OnStampedeArmorHit(CStateManager& mgr, const CVector3f& pos, const CVector3f& dir,
+                          float damage);
+  void UpdateDamageFlashColor(float dt);
+  void SyncCollisionActorHealth(CStateManager& mgr);
+  void PlayArmorExplosion(CStateManager& mgr, const CTransform4f& xf);
+  void PushBombs(CStateManager& mgr, const CVector3f& dir);
   void SetArmorVisible(const rstl::string& locator, bool visible);
   void CrackSphere(CStateManager& mgr);
   void FireDarkBeam(CStateManager& mgr, float dt);

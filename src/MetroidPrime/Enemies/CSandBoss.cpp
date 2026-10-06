@@ -22,6 +22,8 @@
 #include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/Player/CPlayerState.hpp"
+#include "MetroidPrime/Weapons/CBomb.hpp"
+#include "MetroidPrime/CObjectList.hpp"
 #include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/Cameras/CCameraShakerManager.hpp"
@@ -42,6 +44,14 @@ static const char* const skSpineJoints[] = {
     "Head_1", "Spine_6", "Spine_5", "Spine_4", "Spine_3", "Spine_2", "Spine_1", "Skeleton_Root",
 };
 static const char* const skRootJoint = "Skeleton_Root";
+// Guessed name; spine joints that get collision spheres.
+static const struct {
+  const char* mName;
+  float mRadius;
+} skSphereJoints[] = {
+    {"Head_1", 2.7f},  {"Spine_6", 2.8f}, {"Spine_5", 2.9f}, {"Spine_4", 3.f},
+    {"Spine_3", 3.1f}, {"Spine_2", 3.2f}, {"Spine_1", 3.3f},
+};
 static const char* const skHeadJoint = "Head_1";
 static CVector3f skJawsTouchBounds(4.5f, 4.5f, 1.5f); // Guessed name.
 
@@ -1334,7 +1344,7 @@ void CSandBoss::Stampede(CStateManager& mgr, EStateMsg msg, float dt) {
     if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
       BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Three, -1));
     }
-    UpdateStampedeMovement(mgr, dt);
+    UpdateStampedeArmor(mgr, dt);
     break;
   case kStateMsg_Deactivate:
     mAnimationState.SetState(CAnimationState::kAS_NotReady);
@@ -2264,6 +2274,288 @@ void CSandBoss::ActivateBeamEffect(CStateManager& mgr, const CVector3f& pos) {
     mgr.SendScriptMsg(effect, GetUniqueId(), kSM_Activate);
     xdfc_ = 0;
     xf14_ = 0.6f;
+  }
+}
+
+void CSandBoss::OnStampedeArmorHit(CStateManager& mgr, const CVector3f& pos,
+                                   const CVector3f& dir, float damage) {
+  TakeDamage(dir, damage);
+  xf10_ = 0.33f;
+  if (mStampedeHP > 0.f) {
+    mStampedeHP -= damage;
+    if (mStampedeHP <= 0.f) {
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCAdditiveReactionCmd(pas::EAdditiveReactionType(5), 1.f, false));
+    }
+    CSfxManager::AddEmitter(mData.stampedeArmor.sound_ArmorImpact, pos, 127,
+                            GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+  }
+}
+
+void CSandBoss::UpdateStampedeArmor(CStateManager& mgr, float dt) {
+  xf30_ -= dt;
+  if (xf30_ <= 0.f) {
+    const float maxHP = mData.stampedeProperties.breakStampedeHP;
+    const float step = maxHP * 0.125f;
+    float threshold = maxHP - step;
+    int broken = -1;
+    for (int i = 7; i >= 0; --i) {
+      if ((mStampedeHP <= threshold || mStampedeHP <= 0.f) && mArmorStates[i] != kArmor_None) {
+        PlayArmorExplosion(mgr, GetLctrTransform(mArmorSegIds[i]));
+        mArmorStates[i] = kArmor_None;
+        broken = i;
+        break;
+      }
+      threshold -= step;
+    }
+    if (broken != -1) {
+      CSfxManager::AddEmitter(mData.stampedeProperties.sound_StampedeArmorExplode,
+                              GetLctrTransform(mArmorSegIds[broken]).GetTranslation(), 127,
+                              GetCurrentAreaId().Value(), true, false,
+                              CSfxManager::kMedPriority);
+      if (mStampedeHP > 0.f) {
+        CSfxManager::AddEmitter(mData.stampedeProperties.sound_StampedeArmorExplodePain,
+                                GetLctrTransform(mHeadSegId).GetTranslation(), 127,
+                                GetCurrentAreaId().Value(), true, false,
+                                CSfxManager::kMedPriority);
+      }
+    }
+  }
+}
+
+void CSandBoss::UpdateDamageFlashColor(float dt) {
+  if (xf10_ > 0.f) {
+    const float t = xf10_ - dt;
+    float remaining = 0.f;
+    if (!(t < remaining)) {
+      remaining = t;
+    }
+    xf10_ = remaining;
+    float alpha = xf10_ / 0.33f;
+    if (!(alpha < 1.f)) {
+      alpha = 1.f;
+    }
+    xf0c_ = CColor::Lerp(CColor::Black(), mDamageColor, alpha);
+  }
+}
+
+void CSandBoss::OnCollisionActorHit(CStateManager& mgr, TUniqueId id) {
+  const CCollisionActor* act = TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(id));
+  if (act != nullptr) {
+    CPlayer* player = mgr.Player(0);
+    if (act->GetLastTouchedObject() == player->GetUniqueId() && mCurDamageRemTime <= 0.f) {
+      if (x165c_26_) {
+        mIsMakingBigStrike = true;
+        mDamageDuration = 1.f;
+        mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), mSnapJawDamage,
+                        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                            CMaterialList()),
+                        CVector3f::Zero());
+        mCurDamageRemTime = mDamageWaitTime;
+      }
+      if (!x165d_26_ || x165d_28_ ||
+          player->GetMorphballTransitionState() != CPlayer::kMS_Morphed) {
+        mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), GetContactDamage(),
+                        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                            CMaterialList()),
+                        CVector3f::Zero());
+        mCurDamageRemTime = mDamageWaitTime;
+      }
+    }
+  }
+}
+
+void CSandBoss::SetupCollisionActors(CStateManager& mgr) {
+  rstl::vector< CJointCollisionDescription > joints;
+  joints.reserve(7);
+  const CAnimData* animData = GetModelData()->GetAnimationData();
+  for (uint i = 0; i < 7; ++i) {
+    const CSegId seg = animData->GetLocatorSegId(skSphereJoints[i].mName);
+    joints.push_back(CJointCollisionDescription::SphereCollision(
+        seg, CVector3f::Zero(), skSphereJoints[i].mRadius, skSphereJoints[i].mName, 1000.f));
+  }
+  mCollisionActorManager =
+      rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), joints, false);
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      CMaterialFilter filter = act->GetMaterialFilter();
+      filter.ExcludeList().Add(kMT_Immovable);
+      act->SetMaterialFilter(filter);
+      if (desc.GetName() == skSpineJoints[0]) {
+        xe8c_ = id;
+      }
+      act->SetDamageVulnerability(*CPatterned::GetDamageVulnerability());
+    }
+  }
+  SyncCollisionActorHealth(mgr);
+  UpdateCollisionActorResponses(mgr);
+  SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
+      CMaterialList(kMT_Unknown59),
+      CMaterialList(kMT_CollisionActor, kMT_Character, kMT_AIPassthrough, kMT_Player)));
+}
+
+void CSandBoss::SyncCollisionActorHealth(CStateManager& mgr) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      const CHealthInfo health = *GetHealthInfo();
+      act->SetDamageVulnerability(*CPatterned::GetDamageVulnerability());
+      *act->HealthInfo() = health;
+    }
+  }
+}
+
+void CSandBoss::FindOtherBosses(CStateManager& mgr) {
+  xe8a_ = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+  xef8_ = FindConnectedObject(mgr, kSS_Play, kSM_Attach);
+  xe86_ = FindConnectedObject(mgr, kSS_Modify, kSM_Activate);
+  xe80_ = FindConnectedObject(mgr, kSS_InternalState02, kSM_Follow);
+  xe82_ = FindConnectedObject(mgr, kSS_InternalState01, kSM_Follow);
+  xe84_ = FindConnectedObject(mgr, kSS_InternalState00, kSM_Follow);
+  CObjectList& list = mgr.ObjectListById(kOL_ListeningAi);
+  for (int index = list.GetFirstObjectIndex(); index != -1;
+       index = list.GetNextObjectIndex(index)) {
+    if (CSandBoss* boss = TCastToPtr< CSandBoss >(list[index])) {
+      if (boss->GetCurrentAreaId() == GetCurrentAreaId()) {
+        mOtherBosses.push_back(boss->GetUniqueId());
+      }
+    }
+  }
+  int nextStage = 0x7fffffff;
+  TUniqueId nextBoss = kInvalidUniqueId;
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr && other != this) {
+      const int stage = other->mData.commandIndex;
+      if (stage > mData.commandIndex && stage < nextStage) {
+        nextStage = stage;
+        nextBoss = other->GetUniqueId();
+      }
+    }
+  }
+  if (nextBoss != kInvalidUniqueId) {
+    SetNextDrawNode(nextBoss);
+  }
+}
+
+void CSandBoss::SetupArmorModels() {
+  const CVector3f scale = GetModelData()->GetScale();
+  mAttachedArmorModels[0] = CModelData(CStaticRes(mData.attachedArmor.headArmor, scale));
+  mAttachedArmorModels[1] = CModelData(CStaticRes(mData.attachedArmor.armorPiece2, scale));
+  mAttachedArmorModels[2] = CModelData(CStaticRes(mData.attachedArmor.armorPiece3, scale));
+  mAttachedArmorModels[3] = CModelData(CStaticRes(mData.attachedArmor.armorPiece4, scale));
+  mAttachedArmorModels[4] = CModelData(CStaticRes(mData.attachedArmor.armorPiece5, scale));
+  mAttachedArmorModels[5] = CModelData(CStaticRes(mData.attachedArmor.armorPiece6, scale));
+  mAttachedArmorModels[6] = CModelData(CStaticRes(mData.attachedArmor.armorPiece7, scale));
+  mStampedeArmorModels[0] = CModelData(CStaticRes(mData.stampedeArmor.headArmor, scale));
+  mStampedeArmorModels[1] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece2, scale));
+  mStampedeArmorModels[2] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece3, scale));
+  mStampedeArmorModels[3] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece4, scale));
+  mStampedeArmorModels[4] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece5, scale));
+  mStampedeArmorModels[5] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece6, scale));
+  mStampedeArmorModels[6] = CModelData(CStaticRes(mData.stampedeArmor.armorPiece7, scale));
+  mStampedeArmorModels[7] = CModelData(CStaticRes(mData.stampedeArmor.tailArmor, scale));
+}
+
+void CSandBoss::SetArmorVisible(const rstl::string& locator, bool visible) {
+  if (!x165c_27_) {
+    if (locator == skRootJoint) {
+      if (visible) {
+        AnimationData()->SetSkinnedModel(mTailArmorSkinnedModel);
+      } else {
+        AnimationData()->SetSkinnedModel(mNormalSkinnedModel);
+      }
+    }
+    for (int i = 0; i < 8; ++i) {
+      if (locator == skSpineJoints[i]) {
+        mArmorStates[i] = visible ? kArmor_Attached : kArmor_None;
+        break;
+      }
+    }
+  }
+}
+
+void CSandBoss::PlayArmorExplosion(CStateManager& mgr, const CTransform4f& xf) {
+  if (mStampedeArmorExplosion) {
+    CExplosion* explosion = rs_new CExplosion(
+        *mStampedeArmorExplosion, mgr.AllocateUniqueId(),
+        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true),
+        "StampedeArmorExplosionFx", xf, 0, GetModelData()->GetScale(), CColor::White(), -1);
+    if (explosion != nullptr) {
+      mgr.AddObject(explosion);
+      xf30_ = 0.2f;
+    }
+    if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(xe82_))) {
+      wp->SetTransform(xf);
+      SendScriptMsgs(kSS_InternalState01, mgr, GetUniqueId(), kSM_None);
+    }
+  }
+}
+
+void CSandBoss::ReleasePlayer(CStateManager& mgr) {
+  CPlayer* player = mgr.Player(0);
+  player->EnableLeaveMorphBall(true);
+  if (player->GetAttachedActorId() == GetUniqueId()) {
+    if (player->GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+      player->Stop();
+      const CTransform4f mouthXf = GetLctrTransform(mArmorSegIds[0]);
+      const CVector3f forward = GetTransform().GetForward();
+      CTransform4f spitXf = mouthXf * x14a0_;
+      spitXf.AddTranslation(CVector3f(0.f, 0.f, -0.5f));
+      player->Teleport(spitXf, mgr, false);
+      player->ApplyImpulseWR(20.f * (player->GetMass() * forward), CAxisAngle::Identity());
+      player->SetMoveState(NPlayer::kMS_ApplyJump, mgr);
+      if (!x165d_25_) {
+        mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), mSpitOutDamage,
+                        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                            CMaterialList()),
+                        CVector3f::Zero());
+      }
+      if (x165e_28_) {
+        PushBombs(mgr, forward);
+      }
+    }
+    player->DetachActorFromPlayer();
+    SendScriptMsgs(kSS_Exited, mgr, player->GetUniqueId(), kSM_None);
+  }
+  player->AddMaterial(kMT_Unknown59, mgr);
+}
+
+void CSandBoss::UpdateSpitOut(CStateManager& mgr) {
+  const CTransform4f mouthXf = GetLctrTransform(mArmorSegIds[0]);
+  const CVector3f scale = GetModelData()->GetScale();
+  const float radius = 5.f * scale.GetY();
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  const CVector3f mouthPos = mouthXf.GetTranslation();
+  mgr.BuildNearList(nearList,
+                    CAABox(mouthPos - CVector3f(radius, radius, radius),
+                           mouthPos + CVector3f(radius, radius, radius)),
+                    CMaterialFilter::MakeInclude(CMaterialList(kMT_Bomb)), this);
+  for (const TUniqueId* it = nearList.begin(); it != nearList.end(); ++it) {
+    if (CBomb* bomb = TCastToPtr< CBomb >(mgr.ObjectById(*it))) {
+      bomb->SetTranslation(mouthPos);
+    }
+  }
+}
+
+void CSandBoss::PushBombs(CStateManager& mgr, const CVector3f& dir) {
+  const CTransform4f mouthXf = GetLctrTransform(mArmorSegIds[0]);
+  const CVector3f scale = GetModelData()->GetScale();
+  const float radius = 5.f * scale.GetY();
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  mgr.BuildNearList(nearList,
+                    CAABox(mouthXf.GetTranslation() - CVector3f(radius, radius, radius),
+                           mouthXf.GetTranslation() + CVector3f(radius, radius, radius)),
+                    CMaterialFilter::MakeInclude(CMaterialList(kMT_Bomb)), this);
+  for (const TUniqueId* it = nearList.begin(); it != nearList.end(); ++it) {
+    if (CBomb* bomb = TCastToPtr< CBomb >(mgr.ObjectById(*it))) {
+      bomb->SetVelocityWR(20.f * dir);
+    }
   }
 }
 
