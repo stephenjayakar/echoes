@@ -987,12 +987,17 @@ void CElementGen::DestroyParticles() {
 }
 
 bool CElementGen::IsSystemDeletable() {
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    if (!mActivePartChildren[i]->IsSystemDeletable()) {
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin(),
+                                               end = mActivePartChildren.end();
+       it != end; ++it) {
+    if (!(*it)->IsSystemDeletable()) {
       return false;
     }
   }
-  return mCurFrame > mPSLT && mActiveParticleCount == 0;
+  if (mPSLT < mCurFrame && static_cast< int >(mActiveParticleCount) == 0) {
+    return true;
+  }
+  return false;
 }
 
 void CElementGen::Render() {
@@ -2942,13 +2947,26 @@ int CElementGen::GetSystemCount() {
 }
 
 void CElementGen::AccumulateBounds(const CVector3f& position, float size) {
-  for (int i = 0; i < 3; ++i) {
-    if (position[i] > mAabbMax[i]) {
-      mAabbMax[i] = position[i];
-    }
-    if (position[i] < mAabbMin[i]) {
-      mAabbMin[i] = position[i];
-    }
+  const float x = position.GetX();
+  const float y = position.GetY();
+  const float z = position.GetZ();
+  if (x > mAabbMax.GetX()) {
+    mAabbMax.SetX(x);
+  }
+  if (x < mAabbMin.GetX()) {
+    mAabbMin.SetX(x);
+  }
+  if (y > mAabbMax.GetY()) {
+    mAabbMax.SetY(y);
+  }
+  if (y < mAabbMin.GetY()) {
+    mAabbMin.SetY(y);
+  }
+  if (z > mAabbMax.GetZ()) {
+    mAabbMax.SetZ(z);
+  }
+  if (z < mAabbMin.GetZ()) {
+    mAabbMin.SetZ(z);
   }
   if (size > mMaxSize) {
     mMaxSize = size;
