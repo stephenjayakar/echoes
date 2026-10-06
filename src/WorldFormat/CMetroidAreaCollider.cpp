@@ -333,7 +333,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(const COctreeLeafCa
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
-        const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+        const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
         if (filter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
           if (CollisionUtil::TriBoxOverlap(center, halfExtent, surf.GetVert(0), surf.GetVert(1),
                                            surf.GetVert(2)) == true)

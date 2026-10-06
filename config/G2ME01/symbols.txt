@@ -5197,7 +5197,7 @@ lower_bound<Q24rstl130pointer_iterator<18CEnergyDrainSource,Q24rstl55vector<18CE
 reserve__Q24rstl55vector<18CEnergyDrainSource,Q24rstl17rmemory_allocator>Fi = .text:0x801398FC; // type:function size:0xAC
 SubdivideAndGenerateParticles__10CIceImpactFR13CStateManagerRC9CVector3fRC9CVector3fRC9CVector3fRC7CSphereRC7CSphere = .text:0x801399A8; // type:function size:0x634 align:4
 GenerateParticlesAgainstOBBTree__10CIceImpactFR13CStateManagerRC8COBBTreeRC12CTransform4fRC7CSphereRC7CSphere = .text:0x80139FDC; // type:function size:0x108 align:4
-fn_8013A0E4 = .text:0x8013A0E4; // type:function size:0x5C
+__ct__17CCollisionSurfaceFRC17CCollisionSurface = .text:0x8013A0E4; // type:function size:0x5C
 GenerateParticlesAgainstAABox__10CIceImpactFR13CStateManagerRC6CAABoxRC7CSphereRC7CSphere = .text:0x8013A140; // type:function size:0xA8 align:4
 fn_8013A1E8 = .text:0x8013A1E8; // type:function size:0x6C
 GenerateParticlesAgainstActors__10CIceImpactFR13CStateManagerRC6CAABoxRC7CSphereRC7CSphere = .text:0x8013A254; // type:function size:0x2A0 align:4
