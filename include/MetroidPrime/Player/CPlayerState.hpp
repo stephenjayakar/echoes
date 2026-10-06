@@ -291,6 +291,7 @@ public:
   float CalculateHealth();
 
   int GetLogScans() const { return mScanCompletionRateFirst; }
+  int GetTotalLogScans() const { return mScanCompletionRateSecond; }
   void SetScanCompletionRateFirst(int rate) { mScanCompletionRateFirst = rate; }
   void SetScanCompletionRateSecond(int rate) { mScanCompletionRateSecond = rate; }
 

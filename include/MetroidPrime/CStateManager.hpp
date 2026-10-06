@@ -390,6 +390,9 @@ public:
   const rstl::list< CEntity* >& GetDoorList() const {
     return mFilteredObjectLists[0]->GetObjects();
   }
+  const rstl::list< CEntity* >& GetParasiteList() const { // Guessed name
+    return mFilteredObjectLists[kFOL_Type124]->GetObjects();
+  }
   const rstl::list< CEntity* >& GetDockList() const {
     return mFilteredObjectLists[kFOL_Dock]->GetObjects();
   }
@@ -463,6 +466,7 @@ public:
   bool GetWantsToEnterSaveGameScreen() const { return mDeferredTransition == kSMT_SaveGame; }
   bool HasSaveGameScreen() const { return !mSaveGameScreen.null(); }
   TAreaId GetPendingDockArea() const { return mPendingDockArea; }
+  void SetPendingDockArea(TAreaId area) { mPendingDockArea = area; }
   bool GetWantsToEnterMessageScreen() const { return mDeferredTransition == kSMT_MessageScreen; }
 
   const CCameraManager* GetCameraManager(int playerIndex) const {

@@ -19,6 +19,8 @@ public:
   bool IsInPosition() const { return mInPosition; }                 // Guessed name.
   void SetHorizontalMovement(bool v) { mHorizontalMovement = v; } // Guessed name.
   const CVector3f& GetDestinationPosition() const { return mDestinationPosition; }
+  // Guessed name; Patrol resumes from this waypoint.
+  void SetLastDestination(TUniqueId id) { mLastDestination = id; }
 
 private:
   void ApplyWobbleSteering(CVector3f& movement) const;

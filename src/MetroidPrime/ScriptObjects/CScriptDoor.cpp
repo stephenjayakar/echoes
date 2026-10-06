@@ -46,7 +46,7 @@ CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityI
 : CPhysicsActor(uid, name, info, 0, xf, model,
                 open ? CMaterialList(kMT_Unknown59, kMT_Immovable, kMT_Orbit)
                      : CMaterialList(kMT_Immovable, kMT_Occluder, kMT_Unknown59, kMT_Orbit),
-                bounds, SMoverData(1.f), parameters, StepData(0.3f, 0.3f, 0))
+                bounds, SMoverData(1.f), parameters, CPhysicsActor::skDefaultStepData)
 , mDoorState(open ? kDS_Open : kDS_Closed)
 , mOpenTime(openTime)
 , mCloseTime(closeTime)
@@ -88,7 +88,11 @@ CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityI
 , mResetPending(false)
 , mHasReset(false)
 , mHorizontal(horizontal) {
-  SetDoorAnimation(open ? kDAT_Opening : kDAT_Closed);
+  if (open) {
+    SetDoorAnimation(kDAT_Opening);
+  } else {
+    SetDoorAnimation(kDAT_Closed);
+  }
   SetMass(0.f);
 
   if (alternateScan != kInvalidAssetId) {
@@ -139,6 +143,19 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   }
 
   switch (message) {
+  case kSM_Close:
+    --mOpenRequestCount;
+    if (mOpenRequestCount < 0) {
+      mOpenRequestCount = 0;
+    }
+    if (mOpenRequestCount == 0 || (sender == mOpeningSenderDoorId && mDoorState != kDS_Closed)) {
+      if (mDoorState == kDS_WaitingForArea) {
+        SetDoorState(mgr, kDS_Closed);
+      } else if (mDoorState != kDS_Closed) {
+        SetDoorState(mgr, kDS_Closing);
+      }
+    }
+    break;
   case kSM_Open:
     if (!mIsOpen) {
       const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(sender));
@@ -152,17 +169,11 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       }
     }
     break;
-  case kSM_Close:
-    --mOpenRequestCount;
-    if (mOpenRequestCount < 0) {
-      mOpenRequestCount = 0;
-    }
-    if (mOpenRequestCount == 0 || (sender == mOpeningSenderDoorId && mDoorState != kDS_Closed)) {
-      if (mDoorState == kDS_WaitingForArea) {
-        SetDoorState(mgr, kDS_Closed);
-      } else if (mDoorState != kDS_Closed) {
-        SetDoorState(mgr, kDS_Closing);
-      }
+  case kSM_AreaLoaded:
+    mDockId = FindConnectedObject(mgr, kSS_InvalidState, kSM_Increment);
+    mLockActorId = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+    if (mInitiallyLocked) {
+      SetLockState(mgr, kLS_Locked);
     }
     break;
   case kSM_Increment:
@@ -184,13 +195,6 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       } else {
         mResetPending = true;
       }
-    }
-    break;
-  case kSM_AreaLoaded:
-    mDockId = FindConnectedObject(mgr, kSS_InvalidState, kSM_Increment);
-    mLockActorId = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
-    if (mInitiallyLocked) {
-      SetLockState(mgr, kLS_Locked);
     }
     break;
   }
@@ -346,7 +350,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     }
     mWasOpen = false;
     mOpeningSenderDoorId = kInvalidUniqueId;
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       mgr.CameraManager(i)->BallCamera()->DoorClosed(GetUniqueId());
     }
     SendScriptMsgs(kSS_Closed, mgr);
@@ -361,7 +365,10 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     mWasOpen = true;
     SendScriptMsgs(kSS_Opened, mgr);
     mPartnerDoorId = kInvalidUniqueId;
-    if (mOpeningSenderDoorId == kInvalidUniqueId || mgr.GetNextAreaId() == GetCurrentAreaId()) {
+    if (mOpeningSenderDoorId != kInvalidUniqueId && mgr.GetNextAreaId() != GetCurrentAreaId()) {
+      SetDoorAnimation(kDAT_Open);
+      SetDoorState(mgr, kDS_Open);
+    } else {
       SetDoorAnimation(kDAT_Opening);
       if (const CScriptDock* dock = TCastToConstPtr< CScriptDock >(mgr.GetObjectById(mDockId))) {
         const CScriptDock* connectedDock =
@@ -379,9 +386,6 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
           }
         }
       }
-    } else {
-      SetDoorAnimation(kDAT_Open);
-      SetDoorState(mgr, kDS_Open);
     }
     break;
   case kDS_Open:
@@ -403,7 +407,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     } else {
       AddMaterial(kMT_Unknown59, kMT_Metal, kMT_Occluder, kMT_Orbit, mgr);
     }
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       mgr.CameraManager(i)->BallCamera()->DoorClosing(GetUniqueId());
     }
     if (mPartnerDoorId != kInvalidUniqueId) {
@@ -447,15 +451,14 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
       SetDoorState(mgr, kDS_Opening);
       break;
     }
-    CWorld* world = mgr.World();
-    if (!world->DoesAreaExist(dock->GetAreaId())) {
+    if (!mgr.World()->DoesAreaExist(dock->GetAreaId())) {
       SetDoorState(mgr, kDS_Closed);
       break;
     }
     const CGameArea::Dock& areaDock =
-        world->GetAreaAlways(dock->GetAreaId()).GetDock(dock->GetDockId());
+        mgr.World()->GetAreaAlways(dock->GetAreaId()).GetDock(dock->GetDockId());
     const TAreaId connectedArea = areaDock.GetConnectedAreaId(dock->GetDockReference(mgr));
-    if (!world->DoesAreaExist(connectedArea)) {
+    if (!mgr.World()->DoesAreaExist(connectedArea)) {
       SetDoorState(mgr, kDS_Closed);
       break;
     }
@@ -473,24 +476,24 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
     if (!canOpen || mOpenRequestCount == 0) {
       break;
     }
-    CGameArea* area = world->Area(connectedArea);
+    CGameArea* area = mgr.World()->Area(connectedArea);
     if (!area->IsLoaded()) {
       mgr.SendScriptMsg(dock, GetUniqueId(), kSM_SetToMax);
       break;
     }
-    if (area->GetPostConstructed()->x190_ != 0 || !world->IsAreaValid(dock->GetAreaId()) ||
-        !world->AreSkyNeedsMet()) {
+    if (area->GetPostConstructed()->x190_ != 0 || !mgr.World()->IsAreaValid(dock->GetAreaId()) ||
+        !mgr.World()->AreSkyNeedsMet()) {
       break;
     }
     bool finishedOccluding = true;
-    for (CGameArea::CConstChainIterator it = world->GetChainHead(CWorld::kC_Alive);
+    for (CGameArea::CConstChainIterator it = mgr.World()->GetChainHead(CWorld::kC_Alive);
          it != CWorld::skGlobalEnd; ++it) {
       if (it->GetId() != area->GetId() && !it->IsFinishedOccluding()) {
         finishedOccluding = false;
       }
     }
     if (finishedOccluding && area->TryTakingOutOfARAM() &&
-        !world->GetMapWorld()->IsMapAreasStreaming()) {
+        !mgr.World()->GetMapWorld()->IsMapAreasStreaming()) {
       SetDoorState(mgr, kDS_Opening);
     }
     break;
@@ -507,12 +510,10 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
     break;
   case kDS_CloseDelay:
     mCloseTimer -= dt;
-    if (mOpenRequestCount == 0) {
-      if (mCloseTimer <= 0.f) {
-        SetDoorState(mgr, kDS_Closing);
-      }
-    } else {
+    if (mOpenRequestCount != 0) {
       SetDoorState(mgr, kDS_Open);
+    } else if (mCloseTimer <= 0.f) {
+      SetDoorState(mgr, kDS_Closing);
     }
     break;
   case kDS_Closing:
@@ -523,7 +524,7 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
   }
 
   UpdateShellColor(dt);
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     SetValidTarget(i, mgr.GetPlayerState(i)->GetCurrentVisor() == CPlayerState::kPV_Scan);
   }
 }

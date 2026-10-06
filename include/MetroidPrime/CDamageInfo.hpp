@@ -53,6 +53,9 @@ public:
 
   CDamageInfo(CInputStream& in);
   CDamageInfo(const CDamageInfo&, float);
+  // Guessed name (DOL 0x800B5F8C, only caller CParasite::Think): copy flagged mNoImmunity with the
+  // radius damage reset to the damage, like the per-frame copy without the frame scaling.
+  CDamageInfo WithNoImmunity() const;
   void SetDamageFromVulnerability(const CDamageVulnerability& dVuln, float damage);
 
   CDamageInfo ApplyDoubleDamage(const CPlayerState& state) const;

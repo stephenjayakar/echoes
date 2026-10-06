@@ -530,6 +530,11 @@ public:
     mSlide = cmd;
   }
 
+  void DeliverCmd(const CBCLoopReactionCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopReaction = cmd;
+  }
+
   void DeliverCmd(const CBCTauntCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mTaunt = cmd;

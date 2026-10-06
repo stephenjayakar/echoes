@@ -143,7 +143,8 @@ void CBomb::Think(float dt, CStateManager& mgr) {
     }
     if (mVelocity.MagSquared() > 0.f) {
       mPrevLocation = GetTransform().GetTranslation();
-      SetTranslation(GetTranslation() + dt * mVelocity);
+      const CVector3f vel = dt * mVelocity;
+      SetTranslation(GetTranslation() + vel);
       const CVector3f delta = GetTransform().GetTranslation() - mPrevLocation;
       const float distance = delta.Magnitude();
       if (close_enough(distance, 0.f)) {

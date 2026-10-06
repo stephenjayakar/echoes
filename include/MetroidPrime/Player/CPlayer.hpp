@@ -351,6 +351,7 @@ public:
 
   // Guessed names; native knockback and death-effect consumers.
   void SetDeathFadeEnabled(bool enabled) { mDeathFadeEnabled = enabled; }
+  void SetHoldScreenFilterAlpha(bool hold) { mHoldScreenFilterAlpha = hold; } // Guessed name
 
   void SetDeathFadeDuration(float duration) { mDeathFadeDuration = duration; }
 

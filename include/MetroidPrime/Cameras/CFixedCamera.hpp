@@ -6,7 +6,7 @@
 // Guessed name; the runtime camera uses the "Fixed Camera" label.
 class CFixedCamera : public CGameCamera {
 public:
-  CFixedCamera(TUniqueId uid, const CTransform4f& xf, int index, int controllerIdx);
+  CFixedCamera(const TUniqueId& uid, const CTransform4f& xf, int index, int controllerIdx);
 
   // CEntity
   ~CFixedCamera() override;

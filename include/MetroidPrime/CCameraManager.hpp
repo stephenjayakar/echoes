@@ -108,7 +108,7 @@ public:
   void SetSurfaceCamera(TUniqueId uid, CStateManager& mgr);                       // Guessed name
   void ClearSurfaceCamera(CStateManager& mgr);                                    // Guessed name
   float GetCameraBobMagnitude() const;
-  void AddCamera(TUniqueId uid, CStateManager& mgr);                                // Guessed name
+  void AddCamera(const TUniqueId& uid, CStateManager& mgr);                                // Guessed name
   void UpdateCameraHistory(CStateManager& mgr);                                     // Guessed name
   void Reset(TUniqueId uid, CStateManager& mgr);                                    // Guessed name
   void StartScreenFlash();                                                          // Guessed name

@@ -85,7 +85,7 @@ void CCubeMaterial::SetupBlendMode(const uint blendFactors, const CModelFlags& f
                                    bool alphaTest) {
   GXBlendFactor newSrcFactor = static_cast< GXBlendFactor >(blendFactors & 0xFFFF);
   GXBlendFactor newDstFactor = static_cast< GXBlendFactor >(blendFactors >> 0x10);
-  CModelFlags::ETrans blendMode = flags.GetTrans();
+  CModelFlags::ETrans blendMode = flags.GetTransSigned();
 
   GXCompare alphaCompare;
   if (alphaTest) {
@@ -348,7 +348,7 @@ static void HandleTransparency(uint& finalTevCount, uint& finalKColorCount,
     return;
   }
 
-  const CModelFlags::ETrans blendMode = modelFlags.GetTrans();
+  const CModelFlags::ETrans blendMode = modelFlags.GetTransSigned();
   const CColor color = modelFlags.GetColor();
 
   if (blendMode == 2) {
@@ -901,8 +901,7 @@ void CCubeMaterial::EnsureViewDepStateCached(const CCubeSurface* surface) {
   }
 
   const CTransform4f& modelMtx = CGraphics::GetModelMatrix();
-  const CVector3f& playerPos =
-      modelMtx.TransposeRotate(sPlayerPosition - modelMtx.GetTranslation());
+  const CVector3f& playerPos = modelMtx.TransposeMultiply(sPlayerPosition);
   CVector3f points[2];
   points[1] = playerPos;
   sLastModelCached = sRenderingModel;
@@ -954,7 +953,7 @@ void CCubeMaterial::EnsureViewDepStateCached(const CCubeSurface* surface) {
   CGX::LoadTexMtxImm(xf.GetCStyleMatrix(), GX_TEXMTX6, GX_MTX3x4);
   CGX::LoadTexMtxImm(texMtx1, GX_PTTEXMTX6, GX_MTX3x4);
 
-  CVector3f dir = distVec / reflDist;
+  CVector3f dir = (1.f / reflDist) * distVec;
   CVector3f right = CVector3f::Cross(dir, CVector3f(0.f, 0.f, 1.f));
   float xScale = 0.32258067f;
   float yScale = 0.32258067f;

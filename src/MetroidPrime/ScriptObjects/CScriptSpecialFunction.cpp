@@ -141,7 +141,8 @@ void CScriptSpecialFunction::AddToRenderer(const CStateManager& mgr) const {
 void CScriptSpecialFunction::PreRenderFogVolume(CStateManager& mgr) {
   CVector3f max = GetTranslation() + mVectorParm;
   max.SetZ(max.GetZ() + mValue1);
-  SetInFrustum(mgr.GetFrustumPlanes().BoxInFrustumPlanes(CAABox(GetTranslation() - mVectorParm, max)));
+  const CAABox box(GetTranslation() - mVectorParm, max);
+  SetInFrustum(mgr.GetFrustumPlanes().BoxInFrustumPlanes(box));
 }
 
 void CScriptSpecialFunction::PreRenderViewFrustumTester(CStateManager& mgr) {
@@ -1412,8 +1413,8 @@ void CScriptSpecialFunction::ThinkPlayerFollowLocator(float dt, CStateManager& m
 
 void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr,
                                                     ESpinnerControllerMode mode) {
-  const ushort sfx1 = mSfx1;
-  ushort sfx3 = mSfx3;
+  ushort sfx1 = static_cast< ushort >(mSfx1);
+  ushort sfx3 = static_cast< ushort >(mSfx3);
   const float value1 = mValue1;
   const float value2 = mValue2;
   const float value4 = mValue4;
@@ -1530,10 +1531,10 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       } else {
         mVolumeAverage.AddValue(0.f);
       }
-      const rstl::optional_object< float >& volume = mVolumeAverage.GetAverage();
-      float pitch = movingForward ? value4 : 1.f;
+      const float& volume = mVolumeAverage.GetAverage().data();
+      const float pitch = movingForward ? value4 : 1.f;
       AddOrUpdateEmitter(pitch, 200.f, 1.f, mSfxHandle, sfx1, GetTranslation(),
-                         static_cast< uchar >(volume.data()));
+                         static_cast< uchar >(volume));
     }
   } else {
     DeleteEmitter(mSfxHandle);
@@ -1552,9 +1553,8 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       if (splineControl) {
         plat->SetMotionTime(mSpinnerPosition * plat->GetMotionDuration(), mgr);
       } else {
-        const CAnimData* animData = plat->GetAnimationData();
-        const float dur =
-            mSpinnerPosition * animData->GetAnimationDuration(animData->GetCurrentAnimation());
+        const float dur = mSpinnerPosition * plat->GetAnimationData()->GetAnimationDuration(
+                                                 plat->GetAnimationData()->GetCurrentAnimation());
         plat->AnimationData()->SetPhase(0.f);
         plat->AnimationData()->SetPlaybackRate(1.f);
         CAdvancementDeltas deltas = plat->UpdateAnimation(dur, mgr, true);
@@ -1615,7 +1615,7 @@ void CScriptSpecialFunction::ThinkObjectFollowLocator(float dt, CStateManager& m
     }
   }
 
-  const CActor* followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
+  const CActor* const followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
   if (followedAct == kInvalidUniqueId || !followed) {
     return;
   }
@@ -1915,7 +1915,7 @@ void CScriptSpecialFunction::ThinkMultiplayerEndConditions(float dt, CStateManag
     }
   }
   if (mIntParm2 == 0) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       if (gpGameState->GetGameMode().GetGameModeType() == 'DTHM' &&
           gpGameState->GetGameMode().IsNearScoreLimit(mgr, i)) {
         mIntParm2 = 1;
@@ -1959,8 +1959,8 @@ void CScriptSpecialFunction::ThinkObjectFollowJoint(float dt, CStateManager& mgr
   }
 
   if (followerAct != kInvalidUniqueId && followedAct != kInvalidUniqueId) {
-    const CActor* followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
-    CActor* follower = TCastToPtr< CActor >(mgr.ObjectById(followerAct));
+    const CActor* const followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
+    CActor* const follower = TCastToPtr< CActor >(mgr.ObjectById(followerAct));
     if (followed && follower) {
       const CCharLayoutInfo* layout =
           followed->GetModelData()->GetAnimationData()->GetCharLayoutInfo();

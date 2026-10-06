@@ -121,12 +121,14 @@ void CWaypointNavigation::ApproachDest(CStateManager&, CPatterned& actor) {
     if (move.CanBeNormalized()) {
       move.Normalize();
     }
-    move = mMoveSpeed * move;
+    CVector3f velocity = mMoveSpeed * move;
+    ApplyWobbleSteering(velocity);
+    actor.BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(velocity, mFaceVector, 1.f));
   } else {
-    move = actor.GetBodyController()->GetCommandMgr().GetPreviousMoveVector();
+    CVector3f velocity = actor.GetBodyController()->GetCommandMgr().GetPreviousMoveVector();
+    ApplyWobbleSteering(velocity);
+    actor.BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(velocity, mFaceVector, 1.f));
   }
-  ApplyWobbleSteering(move);
-  actor.BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(move, mFaceVector, 1.f));
 }
 
 void CWaypointNavigation::UpdateDest(CStateManager& mgr, CPatterned& actor) {
@@ -144,16 +146,16 @@ void CWaypointNavigation::UpdateDest(CStateManager& mgr, CPatterned& actor) {
           if (const CScriptAIWaypoint* aiWaypoint = TCastToConstPtr< CScriptAIWaypoint >(waypoint)) {
             mMoveSpeed = aiWaypoint->GetSpeed();
             if (aiWaypoint->GetFlags() & 2) {
-              actor.BodyController()->CommandMgr().DeliverCmd(
-                  CBCJumpCmd(next->GetTranslation(), pas::kJT_Normal, pas::kJS_IntoJump, 0,
-                             CBCJumpCmd::kFF_AmbushJump));
+              CBodyStateCmdMgr& cmdMgr = actor.BodyController()->CommandMgr();
+              cmdMgr.DeliverCmd(CBCJumpCmd(next->GetTranslation(), pas::kJT_Normal,
+                                           pas::kJS_IntoJump, 0, CBCJumpCmd::kFF_AmbushJump));
             } else if (aiWaypoint->GetFlags() & 4) {
               const TUniqueId nextId = next->NextWaypoint(mgr);
               if (nextId != kInvalidUniqueId) {
                 if (const CScriptWaypoint* end =
                         TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(nextId))) {
-                  actor.BodyController()->CommandMgr().DeliverCmd(
-                      CBCJumpCmd(next->GetTranslation(), end->GetTranslation()));
+                  CBodyStateCmdMgr& cmdMgr = actor.BodyController()->CommandMgr();
+                  cmdMgr.DeliverCmd(CBCJumpCmd(next->GetTranslation(), end->GetTranslation()));
                 }
               }
             }
@@ -189,11 +191,13 @@ void CWaypointNavigation::ApplyWobbleSteering(CVector3f& movement) const {
     return;
   }
 
-  const CVector3f rotated = mWobbleSteering < 0.f
-                               ? CVector3f(movement.GetY(), -movement.GetX(), movement.GetZ())
-                               : CVector3f(-movement.GetY(), movement.GetX(), movement.GetZ());
-  const float strength = CMath::AbsF(mWobbleSteering);
-  movement = movement * (1.f - strength) + rotated * strength;
+  CVector3f rotated;
+  if (mWobbleSteering < 0.f) {
+    rotated = CVector3f(movement.GetY(), -movement.GetX(), movement.GetZ());
+  } else {
+    rotated = CVector3f(-movement.GetY(), movement.GetX(), movement.GetZ());
+  }
+  movement = CVector3f::Lerp(movement, rotated, CMath::AbsF(mWobbleSteering));
 }
 
 void CWaypointNavigation::ConfigureWobbleSteering(bool clockwise, float strength) {

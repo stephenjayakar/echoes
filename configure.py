@@ -1491,6 +1491,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "AtomicAlpha",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CAtomicAlpha.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "DestructibleBarrier",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),
@@ -1522,6 +1529,13 @@ config.libs = [
         "Metaree",
         [
             Object(Matching, "MetroidPrime/Enemies/CMetaree.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "Parasite",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CParasite.cpp"),
         ],
         extra_cflags=["-pool off"],
     ),

@@ -110,8 +110,8 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
 #include "MetroidPrime/ScriptLoader/SLdrSpawnPoint.inc"
 
   rstl::reserved_vector< int, int(CPlayerState::kIT_Max) > amountForItem;
-  amountForItem.resize(CPlayerState::kIT_Max, 0);
   rstl::reserved_vector< int, int(CPlayerState::kIT_Max) > capacityForItem;
+  amountForItem.resize(CPlayerState::kIT_Max, 0);
   capacityForItem.resize(CPlayerState::kIT_Max, 0);
 
   amountForItem[CPlayerState::kIT_PowerBeam] = sldrThis.spawnInventory.powerBeam;
@@ -133,8 +133,8 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   amountForItem[CPlayerState::kIT_BoostBall] = sldrThis.spawnInventory.boostBall;
   amountForItem[CPlayerState::kIT_SpiderBall] = sldrThis.spawnInventory.spiderBall;
   amountForItem[CPlayerState::kIT_MorphBallBombs] = sldrThis.spawnInventory.bomb;
-  amountForItem[CPlayerState::kIT_DarkBomb] = sldrThis.spawnInventory.darkBomb;
   amountForItem[CPlayerState::kIT_LightBomb] = sldrThis.spawnInventory.lightBomb;
+  amountForItem[CPlayerState::kIT_DarkBomb] = sldrThis.spawnInventory.darkBomb;
   amountForItem[CPlayerState::kIT_AnnihilatorBomb] = sldrThis.spawnInventory.annihilatorBomb;
   amountForItem[CPlayerState::kIT_ChargeBeam] = sldrThis.spawnInventory.chargeUpgrade;
   amountForItem[CPlayerState::kIT_GrappleBeam] = sldrThis.spawnInventory.grappleBeam;
@@ -147,6 +147,12 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   amountForItem[CPlayerState::kIT_TempleKey1] = sldrThis.spawnInventory.templeKey1;
   amountForItem[CPlayerState::kIT_TempleKey2] = sldrThis.spawnInventory.templeKey2;
   amountForItem[CPlayerState::kIT_TempleKey3] = sldrThis.spawnInventory.templeKey3;
+  amountForItem[CPlayerState::kIT_TempleKey4] = sldrThis.spawnInventory.templeKey4;
+  amountForItem[CPlayerState::kIT_TempleKey5] = sldrThis.spawnInventory.templeKey5;
+  amountForItem[CPlayerState::kIT_TempleKey6] = sldrThis.spawnInventory.templeKey6;
+  amountForItem[CPlayerState::kIT_TempleKey7] = sldrThis.spawnInventory.templeKey7;
+  amountForItem[CPlayerState::kIT_TempleKey8] = sldrThis.spawnInventory.templeKey8;
+  amountForItem[CPlayerState::kIT_TempleKey9] = sldrThis.spawnInventory.templeKey9;
   amountForItem[CPlayerState::kIT_AgonKey1] = sldrThis.spawnInventory.sandKey1;
   amountForItem[CPlayerState::kIT_AgonKey2] = sldrThis.spawnInventory.sandKey2;
   amountForItem[CPlayerState::kIT_AgonKey3] = sldrThis.spawnInventory.sandKey3;
@@ -203,12 +209,6 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   amountForItem[CPlayerState::kIT_AmberTranslator] = sldrThis.spawnInventory.translatorUpgrade2;
   amountForItem[CPlayerState::kIT_EmeraldTranslator] = sldrThis.spawnInventory.translatorUpgrade3;
   amountForItem[CPlayerState::kIT_CobaltTranslator] = sldrThis.spawnInventory.translatorUpgrade4;
-  amountForItem[CPlayerState::kIT_TempleKey4] = sldrThis.spawnInventory.templeKey4;
-  amountForItem[CPlayerState::kIT_TempleKey5] = sldrThis.spawnInventory.templeKey5;
-  amountForItem[CPlayerState::kIT_TempleKey6] = sldrThis.spawnInventory.templeKey6;
-  amountForItem[CPlayerState::kIT_TempleKey7] = sldrThis.spawnInventory.templeKey7;
-  amountForItem[CPlayerState::kIT_TempleKey8] = sldrThis.spawnInventory.templeKey8;
-  amountForItem[CPlayerState::kIT_TempleKey9] = sldrThis.spawnInventory.templeKey9;
   amountForItem[CPlayerState::kIT_ChargeCombo] = sldrThis.spawnInventory.chargeComboUpgrade;
 
   capacityForItem[CPlayerState::kIT_PowerBeam] = sldrThis.spawnInventoryCapacity.powerBeam;
@@ -232,8 +232,8 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   capacityForItem[CPlayerState::kIT_BoostBall] = sldrThis.spawnInventoryCapacity.boostBall;
   capacityForItem[CPlayerState::kIT_SpiderBall] = sldrThis.spawnInventoryCapacity.spiderBall;
   capacityForItem[CPlayerState::kIT_MorphBallBombs] = sldrThis.spawnInventoryCapacity.bomb;
-  capacityForItem[CPlayerState::kIT_DarkBomb] = sldrThis.spawnInventoryCapacity.darkBomb;
   capacityForItem[CPlayerState::kIT_LightBomb] = sldrThis.spawnInventoryCapacity.lightBomb;
+  capacityForItem[CPlayerState::kIT_DarkBomb] = sldrThis.spawnInventoryCapacity.darkBomb;
   capacityForItem[CPlayerState::kIT_AnnihilatorBomb] =
       sldrThis.spawnInventoryCapacity.annihilatorBomb;
   capacityForItem[CPlayerState::kIT_ChargeBeam] = sldrThis.spawnInventoryCapacity.chargeUpgrade;
@@ -247,6 +247,12 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   capacityForItem[CPlayerState::kIT_TempleKey1] = sldrThis.spawnInventoryCapacity.templeKey1;
   capacityForItem[CPlayerState::kIT_TempleKey2] = sldrThis.spawnInventoryCapacity.templeKey2;
   capacityForItem[CPlayerState::kIT_TempleKey3] = sldrThis.spawnInventoryCapacity.templeKey3;
+  capacityForItem[CPlayerState::kIT_TempleKey4] = sldrThis.spawnInventoryCapacity.templeKey4;
+  capacityForItem[CPlayerState::kIT_TempleKey5] = sldrThis.spawnInventoryCapacity.templeKey5;
+  capacityForItem[CPlayerState::kIT_TempleKey6] = sldrThis.spawnInventoryCapacity.templeKey6;
+  capacityForItem[CPlayerState::kIT_TempleKey7] = sldrThis.spawnInventoryCapacity.templeKey7;
+  capacityForItem[CPlayerState::kIT_TempleKey8] = sldrThis.spawnInventoryCapacity.templeKey8;
+  capacityForItem[CPlayerState::kIT_TempleKey9] = sldrThis.spawnInventoryCapacity.templeKey9;
   capacityForItem[CPlayerState::kIT_AgonKey1] = sldrThis.spawnInventoryCapacity.sandKey1;
   capacityForItem[CPlayerState::kIT_AgonKey2] = sldrThis.spawnInventoryCapacity.sandKey2;
   capacityForItem[CPlayerState::kIT_AgonKey3] = sldrThis.spawnInventoryCapacity.sandKey3;
@@ -323,12 +329,6 @@ CEntity* LoadSpawnPoint(CStateManager& mgr, CInputStream& input, CEntityInfo& in
   capacityForItem[CPlayerState::kIT_AmberTranslator] = sldrThis.spawnInventory.translatorUpgrade2;
   capacityForItem[CPlayerState::kIT_EmeraldTranslator] = sldrThis.spawnInventory.translatorUpgrade3;
   capacityForItem[CPlayerState::kIT_CobaltTranslator] = sldrThis.spawnInventory.translatorUpgrade4;
-  capacityForItem[CPlayerState::kIT_TempleKey4] = sldrThis.spawnInventoryCapacity.templeKey4;
-  capacityForItem[CPlayerState::kIT_TempleKey5] = sldrThis.spawnInventoryCapacity.templeKey5;
-  capacityForItem[CPlayerState::kIT_TempleKey6] = sldrThis.spawnInventoryCapacity.templeKey6;
-  capacityForItem[CPlayerState::kIT_TempleKey7] = sldrThis.spawnInventoryCapacity.templeKey7;
-  capacityForItem[CPlayerState::kIT_TempleKey8] = sldrThis.spawnInventoryCapacity.templeKey8;
-  capacityForItem[CPlayerState::kIT_TempleKey9] = sldrThis.spawnInventoryCapacity.templeKey9;
   capacityForItem[CPlayerState::kIT_ChargeCombo] =
       sldrThis.spawnInventoryCapacity.chargeComboUpgrade;
 
