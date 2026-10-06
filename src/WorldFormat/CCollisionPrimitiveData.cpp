@@ -68,16 +68,17 @@ CCollisionPrimitiveData::~CCollisionPrimitiveData() {
     CMemory::Free(x28_);
   }
 
-  ++CollisionPrimitiveDataCache::gGeometryRevision;
   CollisionPrimitiveDataCache::sGenerations[mCacheId] &=
       ~CollisionPrimitiveDataCache::kRC_Occupied;
+  ++CollisionPrimitiveDataCache::gGeometryRevision;
 }
 
 CCollisionSurface CCollisionPrimitiveData::GetTriangle(uint index) const {
   const ushort triangleIndex = index;
   const u64 flags = mMaterials[mSurfaceMaterials[triangleIndex]];
-  const CCollisionEdge& edge0 = mEdges[mSurfaceIndices[triangleIndex * 3]];
-  const CCollisionEdge& edge1 = mEdges[mSurfaceIndices[triangleIndex * 3 + 1]];
+  const int base = triangleIndex * 3;
+  const CCollisionEdge& edge0 = GetTriangleEdge(mSurfaceIndices[base]);
+  const CCollisionEdge& edge1 = GetTriangleEdge(mSurfaceIndices[base + 1]);
   if (flags & kFlippedTriangle) {
     return CCollisionSurface(mVertices[edge0.GetVertIndex2()], mVertices[edge0.GetVertIndex1()],
                              mVertices[edge1.GetVertIndex1()], flags);
@@ -117,8 +118,11 @@ CCollisionSurface CCollisionPrimitiveData::GetTriangle(ushort index, const CTran
 
 void CCollisionPrimitiveData::GetTriangleVertexIndices(ushort index, ushort indices[3]) const {
   const u64 flags = mMaterials[mSurfaceMaterials[index]];
-  const CCollisionEdge& edge0 = mEdges[mSurfaceIndices[index * 3]];
-  const CCollisionEdge& edge1 = mEdges[mSurfaceIndices[index * 3 + 1]];
+  const int base = index * 3;
+  const ushort e0 = mSurfaceIndices[base];
+  const ushort e1 = mSurfaceIndices[base + 1];
+  const CCollisionEdge& edge0 = GetTriangleEdge(e0);
+  const CCollisionEdge& edge1 = GetTriangleEdge(e1);
   if (flags & kFlippedTriangle) {
     indices[0] = edge0.GetVertIndex2();
     indices[1] = edge0.GetVertIndex1();
