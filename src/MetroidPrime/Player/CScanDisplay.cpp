@@ -210,14 +210,13 @@ void CScanDisplay::StartScan(TUniqueId uid, const CScannableObjectInfo& info, CG
 void CScanDisplay::StopScan() {
   switch (mState) {
   case kSS_Inactive:
-  case kSS_Done:
-    break;
+    return;
   case kSS_Downloading:
   case kSS_DownloadComplete:
   case kSS_ViewingScan:
     mState = kSS_Done;
     break;
-  default:
+  case kSS_Done:
     break;
   }
 }

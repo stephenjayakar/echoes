@@ -38,9 +38,11 @@ CWaypointNavigation::CWaypointNavigation()
 , mHorizontalMovement(false) {}
 
 void CWaypointNavigation::Update(float dt) {
-  if (mPauseRemainingTime > 0.f) {
-    mPauseRemainingTime -= dt;
+  float t = mPauseRemainingTime;
+  if (t > 0.f) {
+    t -= dt;
   }
+  mPauseRemainingTime = t;
 }
 
 void CWaypointNavigation::Patrol(CStateManager& mgr, EStateMsg msg, float, CPatterned& actor) {
@@ -195,7 +197,7 @@ void CWaypointNavigation::ApplyWobbleSteering(CVector3f& movement) const {
 }
 
 void CWaypointNavigation::ConfigureWobbleSteering(bool clockwise, float strength) {
-  if (clockwise) {
+  if (clockwise == true) {
     mWobbleSteering = strength;
   } else {
     mWobbleSteering = -1.f * strength;

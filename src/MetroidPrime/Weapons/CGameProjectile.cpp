@@ -340,7 +340,7 @@ void CGameProjectile::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
     DeleteProjectileLight(mgr);
     break;
   case kSM_XENF:
-    if (!mInWater) {
+    if (mInWater != true) {
       mInWater = true;
       mWaterUpdate = true;
     }

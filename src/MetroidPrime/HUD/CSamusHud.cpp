@@ -1548,10 +1548,11 @@ void CSamusHud::fn_8006653c(const CStateManager&, bool) {}
 
 bool CSamusHud::IsCachedLightInAreaLights(const SCachedHudLight& light,
                                           const CActorLights& lights) const {
+  const CColor color = light.mColor;
   const uint count = lights.GetActiveAreaLightCount();
   for (uint i = 0; i < count; ++i) {
     const CLight& areaLight = lights.GetLight(i);
-    if (areaLight.GetColor() == light.mColor && areaLight.GetPosition() == light.mPosition) {
+    if (areaLight.GetColor() == color && areaLight.GetPosition() == light.mPosition) {
       return true;
     }
   }
