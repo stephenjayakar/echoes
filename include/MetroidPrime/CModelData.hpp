@@ -96,6 +96,7 @@ public:
   CAdvancementDeltas AdvanceAnimationIgnoreParticles(float dt, CRandom16& rand, bool advTree);
   int GetNumShaders() const;
   // Guessed name.
+  void SetRenderUnsortedParts(bool enabled) { mRenderUnsortedParts = enabled; }
   void LockTextures();
   void SetupWorldSpacePortalPlane(const CTransform4f& xf, const CPlane& plane) const;
 

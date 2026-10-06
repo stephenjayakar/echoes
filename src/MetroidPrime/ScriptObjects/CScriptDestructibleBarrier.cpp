@@ -1,4 +1,3 @@
-#define CMODELDATA_WEAK_COPY
 #include "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.hpp"
 
 
