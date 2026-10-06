@@ -9,20 +9,41 @@
 #include "Collision/CRayCastResult.hpp"
 #include "Kyoto/Math/CLine.hpp"
 #include "Kyoto/Math/CMath.hpp"
+#include "MetroidPrime/CAABoxFilter.hpp"
+#include "MetroidPrime/CBallFilter.hpp"
+#include "MetroidPrime/CGroundMovement.hpp"
+#include "MetroidPrime/CMain.hpp"
 #include "MetroidPrime/CPhysicsActor.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPlatform.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "WorldFormat/CAreaOctTree.hpp"
 #include "WorldFormat/CMetroidAreaCollider.hpp"
+#include "WorldFormat/COBBTreeGroup.hpp"
+#include "WorldFormat/COBBTree.hpp"
+#include "WorldFormat/CCollidableOBBTreeGroup.hpp"
+#include "Kyoto/CSimplePool.hpp"
+#include "Kyoto/TToken.hpp"
+#include "Kyoto/Alloc/CMemory.hpp"
+#include "rstl/optional_object.hpp"
 #include "rstl/math.hpp"
 
 #include <float.h>
 
 // The meanings of the two implicit static-geometry materials are not yet known.
-static const CMaterialList skStaticGeometryMaterials(kMT_Unknown59,
-                                                     static_cast< EMaterialTypes >(60));
+static EMaterialTypes sStaticGeometryMaterial0 = kMT_Unknown59;                     // Guessed name.
+static EMaterialTypes sStaticGeometryMaterial1 = static_cast< EMaterialTypes >(60); // Guessed name.
+static const CMaterialList skStaticGeometryMaterials(sStaticGeometryMaterial0,
+                                                     sStaticGeometryMaterial1);
+
+// Guessed names: prebuilt OBB trees for the unit primitives.
+static rstl::optional_object< TLockedToken< COBBTreeGroup > > sUnitCube;
+static rstl::optional_object< TLockedToken< COBBTreeGroup > > sUnitSphereLow;
+static rstl::optional_object< TLockedToken< COBBTreeGroup > > sUnitSphereMedium;
+static rstl::optional_object< TLockedToken< COBBTreeGroup > > sUnitSphereHigh;
+static uchar* sDuplicatePrimitiveBuffer; // Guessed name.
 
 static float CollisionImpulseFiniteVsInfinite(float, float, float);
 static float CollisionImpulseFiniteVsFinite(float, float, float, float);
@@ -32,12 +53,69 @@ static void EnsureCacheBounds(const CStateManager&, CAreaCollisionCache&, const 
 
 CMotionState CPhysicsActor::GetLastNonCollidingState() const { return mLastNonCollidingState; }
 
-void CGameCollision::InitCollision(CStateManager*) {
-  // TODO: OBB-tree-group collider registration, mode-dependent duplicate buffers, and debug models.
+void CGameCollision::InitCollision(CStateManager* mgr) {
+  CCollisionPrimitive::InitBeginTypes();
+  CCollisionPrimitive::InitAddType(CCollidableOBBTreeGroup::GetType());
+  CCollisionPrimitive::InitEndTypes();
+
+  CCollisionPrimitive::InitBeginColliders();
+  CCollisionPrimitive::InitAddCollider(CCollidableOBBTreeGroup::SphereCollide, "CCollidableSphere",
+                                       "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddCollider(CCollidableOBBTreeGroup::AABoxCollide, "CCollidableAABox",
+                                       "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddBooleanCollider(CCollidableOBBTreeGroup::SphereCollideBoolean,
+                                              "CCollidableSphere", "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddBooleanCollider(CCollidableOBBTreeGroup::AABoxCollideBoolean,
+                                              "CCollidableAABox", "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddMovingCollider(CCollidableOBBTreeGroup::CollideMovingAABox,
+                                             "CCollidableAABox", "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddMovingCollider(CCollidableOBBTreeGroup::CollideMovingSphere,
+                                             "CCollidableSphere", "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddCollider(NullCollisionCollider, "CCollidableOBBTreeGroup",
+                                       "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddBooleanCollider(NullBooleanCollider, "CCollidableOBBTreeGroup",
+                                              "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitAddMovingCollider(NullMovingCollider, "CCollidableOBBTreeGroup",
+                                             "CCollidableOBBTreeGroup");
+  CCollisionPrimitive::InitEndColliders();
+
+  if (mgr != nullptr ? mgr->IsMultiplayer() : true) {
+    sDuplicatePrimitiveBuffer = static_cast< uchar* >(CMemory::Alloc(0xc800));
+    CMetroidAreaCollider::SetDuplicatePrimitiveBuffers(
+        sDuplicatePrimitiveBuffer, 0x2800, sDuplicatePrimitiveBuffer + 0x2800, 0x6000,
+        sDuplicatePrimitiveBuffer + 0x6000, 0x4000);
+  } else {
+    sDuplicatePrimitiveBuffer = static_cast< uchar* >(CMemory::Alloc(0x42a0));
+    CMetroidAreaCollider::SetDuplicatePrimitiveBuffers(
+        sDuplicatePrimitiveBuffer, 0xdc0, sDuplicatePrimitiveBuffer + 0xdc0, 0x20e0,
+        sDuplicatePrimitiveBuffer + 0x20e0, 0x1400);
+  }
+
+  sUnitCube = TLockedToken< COBBTreeGroup >(gpSimplePool->GetObj("UnitCube"));
+  sUnitSphereLow = TLockedToken< COBBTreeGroup >(gpSimplePool->GetObj("UnitSphere_Low"));
+  sUnitSphereMedium = TLockedToken< COBBTreeGroup >(gpSimplePool->GetObj("UnitSphere_Med"));
+  sUnitSphereHigh = TLockedToken< COBBTreeGroup >(gpSimplePool->GetObj("UnitSphere_High"));
+  COBBTree::SetPrebuiltTree((*sUnitCube.data())->GetTree(0), COBBTree::kPBT_UnitCube);
+  COBBTree::SetPrebuiltTree((*sUnitSphereLow.data())->GetTree(0),
+                            COBBTree::kPBT_UnitSphereLow);
+  COBBTree::SetPrebuiltTree((*sUnitSphereMedium.data())->GetTree(0),
+                            COBBTree::kPBT_UnitSphereMedium);
+  COBBTree::SetPrebuiltTree((*sUnitSphereHigh.data())->GetTree(0),
+                            COBBTree::kPBT_UnitSphereHigh);
 }
 
 void CGameCollision::UninitializeCollision() {
-  // TODO: release debug-model tokens, unregister their cache views, and free duplicate buffers.
+  sUnitCube = rstl::optional_object< TLockedToken< COBBTreeGroup > >();
+  sUnitSphereLow = rstl::optional_object< TLockedToken< COBBTreeGroup > >();
+  sUnitSphereMedium = rstl::optional_object< TLockedToken< COBBTreeGroup > >();
+  sUnitSphereHigh = rstl::optional_object< TLockedToken< COBBTreeGroup > >();
+  COBBTree::SetPrebuiltTree(nullptr, COBBTree::kPBT_UnitCube);
+  COBBTree::SetPrebuiltTree(nullptr, COBBTree::kPBT_UnitSphereLow);
+  COBBTree::SetPrebuiltTree(nullptr, COBBTree::kPBT_UnitSphereMedium);
+  COBBTree::SetPrebuiltTree(nullptr, COBBTree::kPBT_UnitSphereHigh);
+  CMetroidAreaCollider::SetDuplicatePrimitiveBuffers(nullptr, 0, nullptr, 0, nullptr, 0);
+  CMemory::Free(sDuplicatePrimitiveBuffer);
+  sDuplicatePrimitiveBuffer = nullptr;
   CCollisionPrimitive::Uninitialize();
 }
 
@@ -46,12 +124,12 @@ bool CGameCollision::NullCollisionCollider(const CInternalCollisionStructure&,
   return false;
 }
 
+bool CGameCollision::NullBooleanCollider(const CInternalCollisionStructure&) { return false; }
+
 bool CGameCollision::NullMovingCollider(const CInternalCollisionStructure&, const CVector3f&,
                                         double&, CCollisionInfo&) {
   return false;
 }
-
-bool CGameCollision::NullBooleanCollider(const CInternalCollisionStructure&) { return false; }
 
 CRayCastResult
 CGameCollision::RayWorldIntersection(const CStateManager& mgr, TUniqueId& idOut,
@@ -807,14 +885,47 @@ void CGameCollision::CollideWithStaticBodyNoRot(CPhysicsActor& actor, const CMat
   }
 }
 
-void CGameCollision::Move(CStateManager&, CPhysicsActor&, float,
-                          const rstl::reserved_vector< TUniqueId, 1024 >*) {
-  // TODO: recover the movement/filter dispatch and player failsafe sampling condition.
+void CGameCollision::Move(CStateManager& mgr, CPhysicsActor& actor, float dt,
+                          const rstl::reserved_vector< TUniqueId, 1024 >* colliderList) {
+  if (!actor.GetMovable()) {
+    return;
+  }
+  if (actor.GetMaterialList().HasMaterial(kMT_GroundCollider) || actor.WillMove(mgr)) {
+    if (actor.GetAngularEnabled()) {
+      actor.AddMotionState(actor.PredictAngularMotion(dt));
+    }
+    actor.UseCollisionImpulses();
+    if (actor.GetMaterialList().HasMaterial(kMT_Unknown59)) {
+      if (actor.GetMaterialList().HasMaterial(kMT_Player)) {
+        if (!gpMain->IsMaxSpeed() || mgr.GetPlayer(0)->ShouldSampleFailsafe(mgr)) {
+          MovePlayer(mgr, actor, dt, colliderList);
+        }
+      } else if (actor.GetMaterialList().HasMaterial(kMT_GroundCollider)) {
+        CGroundMovement::MoveGroundCollider(mgr, actor, dt, colliderList);
+      } else {
+        MoveAndCollide(mgr, actor, dt, CAABoxFilter(actor), colliderList);
+      }
+    } else {
+      CMotionState state = actor.PredictMotion_Internal(dt);
+      actor.AddMotionState(state);
+      actor.ClearForcesAndTorques();
+    }
+    mgr.UpdateActorInSortedLists(&actor);
+  }
 }
 
-void CGameCollision::MovePlayer(CStateManager&, CPhysicsActor&, float,
-                                const rstl::reserved_vector< TUniqueId, 1024 >*) {
-  // TODO: recover the ball collision filter and packed-cache movement dispatcher.
+void CGameCollision::MovePlayer(CStateManager& mgr, CPhysicsActor& actor, float dt,
+                                const rstl::reserved_vector< TUniqueId, 1024 >* colliderList) {
+  actor.SetAngularEnabled(true);
+  actor.AddMotionState(actor.PredictAngularMotion(dt));
+  if (actor.IsStandardCollider()) {
+    MoveAndCollide(mgr, actor, dt, CBallFilter(actor), colliderList);
+  } else if (actor.GetMaterialList().HasMaterial(kMT_GroundCollider)) {
+    CGroundMovement::MoveGroundCollider_New(mgr, actor, dt, colliderList);
+  } else {
+    MoveAndCollide(mgr, actor, dt, CBallFilter(actor), colliderList);
+  }
+  actor.SetAngularEnabled(false);
 }
 
 void CGameCollision::CollisionFailsafe(const CStateManager&, CAreaCollisionCache&,
