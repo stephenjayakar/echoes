@@ -1257,7 +1257,7 @@ void CEnvFxManager::Render(const CStateManager& mgr) {
       const float size = random.Range(0.05f, 0.7f);
       const CVector3f up = cameraRotation * CVector3f(0.f, 0.f, size);
       const CVector3f right = cameraRotation * CVector3f(size, 0.f, 0.f);
-      const CVector3f offset = -0.5f * up - 0.5f * right;
+      const CVector3f offset = 0.5f * -up - 0.5f * right;
       upDeltas.push_back(CVectorFixed8_8(real_to_fixed8_8(up.GetX()), real_to_fixed8_8(up.GetY()),
                                          real_to_fixed8_8(up.GetZ())));
       rightDeltas.push_back(CVectorFixed8_8(real_to_fixed8_8(right.GetX()),
