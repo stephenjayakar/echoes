@@ -2940,11 +2940,11 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
     case kSCS_Fire:
       if (!mSeekerTargets.empty()) {
         const float pitch = mSeekerTargets.size() > 1 ? 45.f : 0.f;
-        const float yaw = 180.f + 180.f / mSeekerTargets.size();
         const float yawStep = 360.f / mSeekerTargets.size();
+        const float yaw = 180.f + 180.f / mSeekerTargets.size();
         for (int i = 0; i < mSeekerTargets.size(); ++i) {
           uint attributes = 0x400000;
-          int sound = CSfxManager::kInternalInvalidSfxId;
+          int sound = (ushort)CSfxManager::kInternalInvalidSfxId;
           if (i != 0) {
             attributes |= 0x1800000;
           } else if (!mgr.IsMultiplayer()) {
