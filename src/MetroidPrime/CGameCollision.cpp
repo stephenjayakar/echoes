@@ -448,15 +448,17 @@ bool CGameCollision::DetectStaticCollision_Cached(
     const CStateManager& mgr, CAreaCollisionCache& cache, const CCollisionPrimitive& primitive,
     const CTransform4f& transform, const CMaterialFilter& filter, CCollisionInfoList& collisions) {
   const CMaterialFilter staticFilter = filter.WithImplicitMaterials(skStaticGeometryMaterials);
-  if (staticFilter.GetType() == CMaterialFilter::kFT_Never || primitive.GetPrimType() == 'OBTG') {
+  if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return false;
   }
+  if (primitive.GetPrimType() == 'OBTG') {
+    return false;
+  }
+  bool hit = false;
   const CAABox bounds = primitive.CalculateAABox(transform);
   if (!bounds.Inside(cache.GetCacheBounds())) {
-    CAABox expanded(CVector3f(bounds.GetMinPoint().GetX() - 0.2f, bounds.GetMinPoint().GetY() - 0.2f,
-                              bounds.GetMinPoint().GetZ() - 0.2f),
-                    CVector3f(bounds.GetMaxPoint().GetX() + 0.2f, bounds.GetMaxPoint().GetY() + 0.2f,
-                              bounds.GetMaxPoint().GetZ() + 0.2f));
+    const CVector3f margin(0.2f, 0.2f, 0.2f);
+    CAABox expanded(bounds.GetMinPoint() - margin, bounds.GetMaxPoint() + margin);
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMinPoint());
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMaxPoint());
     cache.SetCacheBounds(expanded);
@@ -466,25 +468,24 @@ bool CGameCollision::DetectStaticCollision_Cached(
   if (cache.HasCacheOverflowed()) {
     return DetectStaticCollision(mgr, primitive, transform, staticFilter, collisions);
   }
-  bool hit = false;
   if (primitive.GetPrimType() == 'AABX') {
     hit = CollideCachedAABox(cache, bounds, staticFilter, collisions, primitive);
   } else if (primitive.GetPrimType() == 'SPHR') {
-    const CSphere& localSphere = static_cast< const CCollidableSphere& >(primitive).GetSphere();
-    const CSphere sphere(transform * localSphere.GetCenter(), localSphere.GetRadius());
-    for (uint i = 0; i < cache.GetNumCaches(); ++i) {
+    const CSphere sphere = static_cast< const CCollidableSphere& >(primitive).Transform(transform);
+    for (int i = 0; i < static_cast< int >(cache.GetNumCaches()); ++i) {
       if (CMetroidAreaCollider::SphereCollisionCheck_Cached(cache.GetOctreeLeafCache(i), bounds,
                                                             sphere, primitive.GetMaterial(),
                                                             staticFilter, collisions)) {
         hit = true;
       }
     }
-  }
-  if (primitive.GetPrimType() == 'ABSH') {
+  } else if (primitive.GetPrimType() == 'ABSH') {
     const CCollidableAABoxSphere& compound =
         static_cast< const CCollidableAABoxSphere& >(primitive);
-    hit = DetectStaticCollision_Cached(mgr, cache, compound.GetCollidableAABox(), transform,
-                                       staticFilter, collisions);
+    if (DetectStaticCollision_Cached(mgr, cache, compound.GetCollidableAABox(), transform,
+                                     staticFilter, collisions)) {
+      hit = true;
+    }
     if (DetectStaticCollision_Cached(mgr, cache, compound.GetCollidableSphere(), transform,
                                      staticFilter, collisions)) {
       hit = true;
@@ -550,10 +551,8 @@ bool CGameCollision::DetectStaticCollisionBoolean_Cached(const CStateManager& mg
   }
   const CAABox bounds = primitive.CalculateAABox(transform);
   if (!bounds.Inside(cache.GetCacheBounds())) {
-    CAABox expanded(CVector3f(bounds.GetMinPoint().GetX() - 0.2f, bounds.GetMinPoint().GetY() - 0.2f,
-                              bounds.GetMinPoint().GetZ() - 0.2f),
-                    CVector3f(bounds.GetMaxPoint().GetX() + 0.2f, bounds.GetMaxPoint().GetY() + 0.2f,
-                              bounds.GetMaxPoint().GetZ() + 0.2f));
+    const CVector3f margin(0.2f, 0.2f, 0.2f);
+    CAABox expanded(bounds.GetMinPoint() - margin, bounds.GetMaxPoint() + margin);
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMinPoint());
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMaxPoint());
     cache.SetCacheBounds(expanded);
@@ -645,10 +644,8 @@ bool CGameCollision::DetectStaticCollision_Cached_Moving(
   sweptBounds.AccumulateBounds(bounds.GetMinPoint() + displacement);
   sweptBounds.AccumulateBounds(bounds.GetMaxPoint() + displacement);
   if (!sweptBounds.Inside(cache.GetCacheBounds())) {
-    CAABox expanded(CVector3f(sweptBounds.GetMinPoint().GetX() - 0.2f, sweptBounds.GetMinPoint().GetY() - 0.2f,
-                              sweptBounds.GetMinPoint().GetZ() - 0.2f),
-                    CVector3f(sweptBounds.GetMaxPoint().GetX() + 0.2f, sweptBounds.GetMaxPoint().GetY() + 0.2f,
-                              sweptBounds.GetMaxPoint().GetZ() + 0.2f));
+    const CVector3f margin(0.2f, 0.2f, 0.2f);
+    CAABox expanded(sweptBounds.GetMinPoint() - margin, sweptBounds.GetMaxPoint() + margin);
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMinPoint());
     expanded.AccumulateBounds(cache.GetCacheBounds().GetMaxPoint());
     cache.SetCacheBounds(expanded);
