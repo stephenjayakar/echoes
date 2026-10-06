@@ -261,16 +261,17 @@ bool CRagDoll::SatisfyWorldConstraints(CStateManager& mgr, int pass) {
 }
 
 void CRagDoll::SatisfyConstraints(CStateManager& mgr) {
-  for (int i = 0; i < mLengthConstraints.size(); ++i) {
+  int i;
+  for (i = 0; i < mLengthConstraints.size(); ++i) {
     mLengthConstraints[i].Update();
   }
-  for (int i = 0; i < mJointConstraints.size(); ++i) {
+  for (i = 0; i < mJointConstraints.size(); ++i) {
     mJointConstraints[i].Update();
   }
-  for (int i = 0; i < mPlaneConstraints.size(); ++i) {
+  for (i = 0; i < mPlaneConstraints.size(); ++i) {
     mPlaneConstraints[i].Update();
   }
-  for (int i = 0; i < mKneeConstraints.size(); ++i) {
+  for (i = 0; i < mKneeConstraints.size(); ++i) {
     mKneeConstraints[i].Update();
   }
   if (SatisfyWorldConstraints(mgr, 1)) {

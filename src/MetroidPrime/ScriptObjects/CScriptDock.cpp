@@ -280,7 +280,7 @@ void CScriptDock::UpdateAreaActivateFlags(CStateManager& mgr) {
 
 TAreaId CScriptDock::GetCurrentConnectedAreaId(const CStateManager& mgr) const {
   if (mgr.GetWorld()->GetNumAreas() > mArea.Value()) {
-    const CGameArea& area = mgr.GetWorld()->GetAreaAlways(mArea);
+    const CGameArea& area = mgr.GetWorld()->GetAreaAlways(TAreaId(mArea));
     if (area.GetDockCount() > mDock) {
       const IGameArea::Dock& dock = area.GetDock(mDock);
       return dock.GetConnectedAreaId(dock.GetReferenceCount());

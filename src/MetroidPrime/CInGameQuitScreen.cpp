@@ -55,8 +55,8 @@ void CInGameQuitScreen::ProcessUserInput(const CFinalInput& input) {
     CSfxManager::SfxStart(0x5e1, 127, 64);
     mAction = kQA_No;
   } else {
-    const bool left = input.DLALeft() || input.DDPLeft();
-    const bool right = input.DLARight() || input.DDPRight();
+    bool left = input.DLALeft() || input.DDPLeft();
+    bool right = input.DLARight() || input.DDPRight();
     if (mLeftRepeat.Update(input.DeltaTime(), left) && left) {
       ChangeChoice(-1);
     } else if (!left && mRightRepeat.Update(input.DeltaTime(), right) && right) {
@@ -71,12 +71,14 @@ EQuitAction CInGameQuitScreen::Update(float dt, CStateManager& mgr) {
       FinishedLoading();
     }
   } else if (!mQuitConfirmation.null()) {
-    const EQuitAction action = mQuitConfirmation->Update(dt);
-    if (action == kQA_No) {
+    switch (mQuitConfirmation->Update(dt)) {
+    case kQA_No:
       mQuitConfirmation = rstl::auto_ptr< CQuitGameScreen >();
-    } else if (action == kQA_Yes) {
+      break;
+    case kQA_Yes:
       mAction = kQA_Yes;
       mQuitConfirmation = rstl::auto_ptr< CQuitGameScreen >();
+      break;
     }
   } else {
     mReadyFrame->Update(dt);
@@ -191,7 +193,7 @@ void CInGameQuitScreen::UpdateChoiceText() {
 void CInGameQuitScreen::ChangeChoice(int direction) {
   SChoice& choice = mChoices[mChoiceTable->GetUserSelection()];
   const int previous = choice.mSelection;
-  choice.mSelection = CMath::Clamp(0, previous + direction, choice.mOptions.size() - 1);
+  choice.mSelection = CMath::Clamp(0, direction + choice.mSelection, choice.mOptions.size() - 1);
   UpdateChoiceText();
   if (previous != choice.mSelection) {
     CSfxManager::SfxStart(0x5e3, 127, 64);
@@ -206,26 +208,28 @@ void CInGameQuitScreen::ApplyMusicSelection(CStateManager& mgr) {
     const CEnvironmentVariable* variable = gpGameState->SystemOptions().FindEnvironmentVariable(
         CBasics::Stringize("UnlockMusic%d", track));
     if (variable != nullptr) {
-      unlocked = variable->GetMaximum() == variable->GetValue();
+      unlocked = variable->GetValue() == variable->GetMaximum();
     }
     if (unlocked) {
-      if (unlockedIndex == mPreviousMusicSelection) {
+      if (mPreviousMusicSelection == unlockedIndex) {
         selectedTrack = track;
       }
       ++unlockedIndex;
     }
   }
 
-  CGameMode& mode = gpGameState->GetGameMode();
+  const CGameState& gameState = *gpGameState;
+  CGameMode& mode = gameState.GetGameMode();
   if (mode.GetGameModeType() == CFrontEndGameMode::kSGM_DeathMatch ||
       mode.GetGameModeType() == CFrontEndGameMode::kSGM_Coin) {
     static_cast< CGMMultiplayer& >(mode).SetMusicIndex(selectedTrack);
   }
 
-  CObjectList& actors = mgr.ObjectListById(kOL_Actor);
+  const CObjectList& actors = mgr.GetObjectListById(kOL_Actor);
   for (int index = actors.GetFirstObjectIndex(); index != -1;
        index = actors.GetNextObjectIndex(index)) {
-    const CScriptSpecialFunction* function = TCastToPtr< CScriptSpecialFunction >(actors[index]);
+    const CScriptSpecialFunction* function =
+        TCastToConstPtr< CScriptSpecialFunction >(actors[index]);
     if (function == nullptr ||
         function->GetFunction() != CScriptSpecialFunction::kSF_MultiplayerMusic) {
       continue;
