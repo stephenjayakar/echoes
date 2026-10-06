@@ -1020,7 +1020,7 @@ void CEnvFxManager::BlankFirstSnowflakeMip(CTexture& tex) {
 }
 
 void CEnvFxManager::SetupSnowTevs(CStateManager& mgr) {
-  const CCameraManager* cameraManager = mgr.GetCameraManager(0);
+  const CCameraManager* cameraManager = mgr.GetCurrentRenderCameraManager();
   const CGameCamera* camera = cameraManager->GetCurrentCamera(mgr, true);
   CColor color = CColor::White();
   if (camera->GetFluidCount() != 0) {
