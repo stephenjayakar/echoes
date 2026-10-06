@@ -31,11 +31,11 @@ void CScriptLayerController::AcceptScriptMsg(CStateManager& mgr, const CScriptMs
   case kSM_Increment:
   case kSM_Unload:
   case kSM_Decrement: {
-    if (mAreaSaveId == 0xffffffff || mLayerId.Value() == -1) {
+    if (mAreaSaveId == 0xffffffff || static_cast< uint >(mLayerId.Value()) == 0xffffffff) {
       break;
     }
 
-    const bool active = msg.GetMessage() == kSM_Load || msg.GetMessage() == kSM_Increment;
+    bool active = msg.GetMessage() == kSM_Load || msg.GetMessage() == kSM_Increment;
     CWorldLayerState* layers = nullptr;
     const TAreaId areaId = GetAreaIdAndWorldLayerState(mgr, &layers);
     if (areaId == kInvalidAreaId) {
@@ -64,18 +64,26 @@ void CScriptLayerController::AcceptScriptMsg(CStateManager& mgr, const CScriptMs
   case kSM_Play:
     if (mIsDynamic) {
       CWorldLayerState* layers = nullptr;
-      CGameArea* area = GetAreaForAreaId(mgr, GetAreaIdAndWorldLayerState(mgr, &layers));
+      const TAreaId areaId = GetAreaIdAndWorldLayerState(mgr, &layers);
+      CGameArea* area = GetAreaForAreaId(mgr, areaId);
       if (area != nullptr) {
         const TLayerId layer = mLayerId;
-        const CGameArea::ELayerPhase phase = area->GetLayerPhase(layer);
-        if (phase == CGameArea::kLP_Ready) {
+        switch (area->GetLayerPhase(layer)) {
+        case CGameArea::kLP_CancelPending:
+          return;
+        case CGameArea::kLP_Ready:
           area->ActivateLayerDynamic(mgr, layer);
-        } else if (phase == CGameArea::kLP_RestartPending || phase == CGameArea::kLP_Loading) {
+          break;
+        case CGameArea::kLP_RestartPending:
+        case CGameArea::kLP_Loading:
           mgr.mLayerRestartPending = true;
           mActivateWhenLoaded = true;
+          break;
         }
       }
     }
+    break;
+  case kSM_AreaLoaded:
     break;
   default:
     break;
