@@ -25,7 +25,7 @@ UpdateLoopedSoundPositions__12CSwarmBasicsCFRCQ24rstl65vector<Q24rstl21pair<10CS
 StartLoopedSound__12CSwarmBasicsFRQ212CSwarmBasics5CBoidRQ24rstl65vector<Q24rstl21pair<10CSfxHandle,Us>,Q24rstl17rmemory_allocator>UsUi = .text:0x00000BB0; // type:function size:0xA0
 AddLoopedSoundToHandlesList__12CSwarmBasicsFRQ212CSwarmBasics5CBoidRQ24rstl65vector<Q24rstl21pair<10CSfxHandle,Us>,Q24rstl17rmemory_allocator>Us = .text:0x00000C50; // type:function size:0x60
 UpdateClosestPartitionLoopedSounds__12CSwarmBasicsFRC9CVector3fRQ24rstl65vector<Q24rstl21pair<10CSfxHandle,Us>,Q24rstl17rmemory_allocator>UiUsQ212CSwarmBasics16ELoopedSoundType = .text:0x00000CB0; // type:function size:0x198
-UpdateLoopedSounds__12CSwarmBasicsFUiScRQ24rstl65vector<Q24rstl21pair<10CSfxHandle,Us>,Q24rstl17rmemory_allocator> = .text:0x00000E48; // type:function size:0x124
+UpdateLoopedSounds__12CSwarmBasicsFUiiRQ24rstl65vector<Q24rstl21pair<10CSfxHandle,Us>,Q24rstl17rmemory_allocator> = .text:0x00000E48; // type:function size:0x124
 GetClosestPartitionList__12CSwarmBasicsCFRC9CVector3f = .text:0x00000F6C; // type:function size:0x154
 FindClosestCell__12CSwarmBasicsCFRC9CVector3f = .text:0x000010C0; // type:function size:0x1C0
 EvaluateActiveBoidCount__12CSwarmBasicsCFv = .text:0x00001280; // type:function size:0x40

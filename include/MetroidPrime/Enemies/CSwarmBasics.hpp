@@ -150,7 +150,7 @@ public:
   int EvaluateActiveBoidCount() const;
   CVector3f FindClosestCell(const CVector3f& pos) const;
   CBoid* GetClosestPartitionList(const CVector3f& pos) const;
-  uint UpdateLoopedSounds(uint maxEmitters, signed char partitionIndex,
+  uint UpdateLoopedSounds(uint maxEmitters, int partitionIndex,
                           rstl::vector< TLoopedSound >& sounds);
   bool AddLoopedSoundToHandlesList(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx);
   void StartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx, uint slot);

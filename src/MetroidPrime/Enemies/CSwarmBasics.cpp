@@ -1698,7 +1698,7 @@ CSwarmBasics::CBoid* CSwarmBasics::GetClosestPartitionList(const CVector3f& pos)
   return result;
 }
 
-uint CSwarmBasics::UpdateLoopedSounds(uint maxEmitters, signed char partitionIndex,
+uint CSwarmBasics::UpdateLoopedSounds(uint maxEmitters, int partitionIndex,
                                       rstl::vector< TLoopedSound >& sounds) {
   uint active = 0;
   for (uint i = 0; i < maxEmitters; ++i) {
@@ -1735,7 +1735,8 @@ void CSwarmBasics::UpdateClosestPartitionLoopedSounds(const CVector3f& listener,
         for (CBoid* boid = list; boid && count < 64; boid = boid->mNext) {
           if (CanStartLoopedSound(*boid, type)) {
             ++count;
-            boid->mDistanceSquaredToSoundListener = (listener - boid->GetTranslation()).MagSquared();
+            const CVector3f delta = listener - boid->GetTranslation();
+            boid->mDistanceSquaredToSoundListener = delta.MagSquared();
             candidates[count - 1] = boid;
           }
         }
@@ -1780,10 +1781,9 @@ void CSwarmBasics::StartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& s
 
 void CSwarmBasics::UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds) const {
   uint count = sounds.size();
-  const TLoopedSound* data = sounds.data();
   for (uint i = 0; i < count; ++i) {
-    if (data[i].first) {
-      CSfxManager::UpdateEmitter(data[i].first, mBoids[data[i].second].GetTranslation(),
+    if (sounds[i].first) {
+      CSfxManager::UpdateEmitter(sounds[i].first, mBoids[sounds[i].second].GetTranslation(),
                                  CVector3f::Zero(), 127);
     }
   }
@@ -1801,8 +1801,9 @@ bool CSwarmBasics::CanStartLoopedSound(const CBoid& boid, ELoopedSoundType type)
 }
 
 CSfxHandle CSwarmBasics::AddLoopedEmitter(const CVector3f& pos, ushort sfx) {
-  CAudioSys::C3DEmitterParmData parms(mMaxAudibleDistance, mSoundFallOff, 1, mMaxVolume,
-                                      mMinVolume);
+  const uchar maxVol = mMaxVolume;
+  const uchar minVol = mMinVolume;
+  CAudioSys::C3DEmitterParmData parms(mMaxAudibleDistance, mSoundFallOff, 1, maxVol, minVol);
   parms.mPos = pos;
   parms.mDir = CVector3f::Zero();
   parms.mSfxId = sfx;
