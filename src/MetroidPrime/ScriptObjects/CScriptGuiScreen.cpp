@@ -52,15 +52,6 @@ static inline float RoundToNearest(float value) {
   return value - lower < upper - value ? lower : upper;
 }
 
-static inline bool IsEnvironmentVariableMaxed(const char* name) {
-  CEnvironmentVariable* var = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(name);
-  bool maxed = true;
-  if (var != nullptr) {
-    maxed = var->GetValue() == var->GetMaximum();
-  }
-  return maxed;
-}
-
 CScriptGuiFrontEndScreen::CScriptGuiFrontEndScreen(TUniqueId uid, const rstl::string& name,
                                                    const CEntityInfo& info, CAssetId stringTable)
 : CScriptGuiScreen(uid, name, info)
@@ -97,15 +88,25 @@ CScriptGuiFrontEndScreen::CScriptGuiFrontEndScreen(TUniqueId uid, const rstl::st
 , mSelectedSlot(0)
 , x32c_(0)
 , mOptionsPage(-1)
+, mSavedBrightness(0x80000000)
+, mSavedStretch(0x80000000)
+, mSavedPositionX(0x80000000)
+, mSavedPositionY(0x80000000)
+, mSavedHudAlpha(0x80000000)
+, mSavedHelmetAlpha(0x80000000)
+, mSavedHintSystem(0x80000000)
+, mSavedHudLag(0x80000000)
+, mSavedInvertY(0x80000000)
+, mSavedRumble(0x80000000)
+, mSavedSfxVolume(0x80000000)
+, mSavedMusicVolume(0x80000000)
+, mSavedSurroundMode(0x80000000)
 , mCardDriverReset(false)
-, mSaveScreenReady(false)
+, mSaveScreenBusy(false)
 , mSaveScreenFailed(false)
 , mGameStarted(false)
 , mOptionsDirty(false)
 , mMultipleControllers(false) {
-  for (int i = 0; i < kO_Count; ++i) {
-    mSavedOptions[i] = 0x80000000;
-  }
   CGameOptions::fn_80161C7C(true);
 }
 
@@ -361,40 +362,33 @@ void CScriptGuiFrontEndScreen::Think(float dt, CStateManager& mgr) {
   CActor::Think(dt, mgr);
 
   CSaveGameScreen* saveScreen = mgr.mSaveGameScreen.get();
-  if (saveScreen == nullptr || !saveScreen->PumpLoad()) {
-    return;
-  }
+  if (saveScreen != nullptr && saveScreen->PumpLoad()) {
+    if (!mCardDriverReset) {
+      saveScreen->ResetCardDriver();
+      mCardDriverReset = true;
+    }
 
-  if (!mCardDriverReset) {
-    saveScreen->ResetCardDriver();
-    mCardDriverReset = true;
-  }
+    const CIOWin::EMessageReturn ret = saveScreen->GetMessageReturn();
+    if (ret == CIOWin::kMR_Exit) {
+      mgr.DeleteSaveGameScreen();
+      mGameStarted = true;
+      SendScriptMsgs(kSS_Arrived, mgr);
+    } else if (ret == CIOWin::kMR_RemoveIOWin || ret == CIOWin::kMR_RemoveIOWinAndExit) {
+      mSaveScreenFailed = true;
+      SendScriptMsgs(kSS_DGNR, mgr);
+      CloseSaveGameScreen(mgr);
+    }
 
-  switch (saveScreen->GetMessageReturn()) {
-  case CIOWin::kMR_Exit:
-    mgr.DeleteSaveGameScreen();
-    mGameStarted = true;
-    SendScriptMsgs(kSS_Arrived, mgr);
-    break;
-  case CIOWin::kMR_RemoveIOWinAndExit:
-  case CIOWin::kMR_RemoveIOWin:
-    mSaveScreenFailed = true;
-    SendScriptMsgs(kSS_DGNR, mgr);
-    CloseSaveGameScreen(mgr);
-    break;
-  default:
-    break;
-  }
-
-  if (!mSaveScreenFailed) {
-    const bool ready = saveScreen->GetUIType() == CSaveGameScreen::kUIT_SaveReady;
-    if (ready != mSaveScreenReady) {
-      mSaveScreenReady = ready;
-      if (ready) {
-        SendScriptMsgs(kSS_Frozen, mgr);
-      } else {
-        SendScriptMsgs(kSS_UnFrozen, mgr);
-        RefreshSaveSlots(mgr);
+    if (!mSaveScreenFailed) {
+      const bool busy = saveScreen->GetUIType() != CSaveGameScreen::kUIT_SaveReady;
+      if (busy != mSaveScreenBusy) {
+        mSaveScreenBusy = busy;
+        if (busy) {
+          SendScriptMsgs(kSS_Frozen, mgr);
+        } else {
+          SendScriptMsgs(kSS_UnFrozen, mgr);
+          RefreshSaveSlots(mgr);
+        }
       }
     }
   }
@@ -453,7 +447,7 @@ void CScriptGuiFrontEndScreen::AcceptScriptMsg(CStateManager& mgr, const CScript
     LoadOptions(mgr, sender);
     break;
   case kSM_InternalMessage09:
-    RecordOptions();
+    RecordOptions(mgr);
     break;
   case kSM_InternalMessage10:
     SaveOptions(mgr);
@@ -496,7 +490,7 @@ void CScriptGuiFrontEndScreen::UpdateControllerCount(CStateManager& mgr) {
 }
 
 void CScriptGuiFrontEndScreen::StartMultiplayerGame(CStateManager& mgr) {
-  CGameMode& gameMode = gpGameState->GetGameMode();
+  CGameMode& gameMode = static_cast< const CGameState* >(gpGameState)->GetGameMode();
   if (gameMode.GetGameModeType() != CFrontEndGameMode::kSGM_FrontEnd) {
     return;
   }
@@ -529,9 +523,9 @@ void CScriptGuiFrontEndScreen::StartMultiplayerGame(CStateManager& mgr) {
   for (int i = 0; i < 4; ++i) {
     const SPlayerSetup& setup = mPlayerSetups[i];
     if (setup.mJoinedSwitch->IsOpened()) {
-      players.push_back(CFrontEndPlayerData(
-          i, CPlayerOptions(setup.mRumbleMenu->GetSelection() == 1,
-                            setup.mInvertMenu->GetSelection() == 1)));
+      const bool rumble = setup.mRumbleMenu->GetSelection() == 1;
+      const bool invert = setup.mInvertMenu->GetSelection() == 1;
+      players.push_back(CFrontEndPlayerData(i, CPlayerOptions(rumble, invert)));
     }
   }
 
@@ -567,8 +561,8 @@ void CScriptGuiFrontEndScreen::SelectSaveSlot(CStateManager& mgr, TUniqueId slot
   for (int i = 0; i < mSaveSlots.size(); ++i) {
     if (slotId == mSaveSlots[i].mSlotEntity->GetUniqueId()) {
       mSelectedSlot = i;
-      const EScriptObjectMessage msg =
-          mgr.mSaveGameScreen->GetGameData(mSelectedSlot) != nullptr ? kSM_Open : kSM_Close;
+      const bool used = mgr.mSaveGameScreen->GetGameData(mSelectedSlot) != nullptr;
+      const EScriptObjectMessage msg = used ? kSM_Open : kSM_Close;
       mgr.SendScriptMsg(mEraseSwitch, GetUniqueId(), msg);
       mgr.SendScriptMsg(mStartSwitch, GetUniqueId(), msg);
       return;
@@ -606,7 +600,7 @@ void CScriptGuiFrontEndScreen::UpdateSaveSlots(CStateManager& mgr) {
       ++usedSlots;
       const char* key = data->mHardMode ? "Hard1" : "Slot1";
       const CStringTable* table = *mStringTable;
-      title.assign(table->GetString(table->GetStringIndex(key) + i));
+      title.assign(table->GetString(table->GetStringIndex(key) + i), -1);
       worldName.reserve(0x80);
       playTime.reserve(0x80);
 
@@ -614,33 +608,33 @@ void CScriptGuiFrontEndScreen::UpdateSaveSlots(CStateManager& mgr) {
       const wchar_t* name =
           data->x21_ ? worldMemory.GetDarkFrontEndName() : worldMemory.GetFrontEndName();
       if (name != nullptr) {
-        worldName.assign(name);
+        worldName.assign(name, -1);
       }
-      if (worldName.size() == 0) {
-        worldName.assign(L"NO NAME WORLD");
+      if (worldName.length() == 0) {
+        worldName.assign(L"NO NAME WORLD", -1);
       }
 
-      char buf[32];
+      char buf[64];
       sprintf(buf, " %02d%%", data->mItemPercent);
       worldName.append(CStringExtras::ConvertToUNICODE(rstl::string_l(buf)));
 
-      const int seconds = static_cast< int >(data->mPlayTime);
-      sprintf(buf, "%02d:%02d ", seconds / 3600, (seconds % 3600) / 60);
+      sprintf(buf, "%02d:%02d ", static_cast< int >(data->mPlayTime) / 3600,
+              static_cast< int >(data->mPlayTime) % 3600 / 60);
       playTime = CStringExtras::ConvertToUNICODE(rstl::string_l(buf));
-      playTime.append((*mStringTable)->GetString("TimeElapsed"));
+      playTime.append((*mStringTable)->GetString("TimeElapsed"), -1);
     } else {
       const CStringTable* table = *mStringTable;
-      title.assign(table->GetString(table->GetStringIndex("New1") + i));
+      title.assign(table->GetString(table->GetStringIndex("New1") + i), -1);
     }
 
-    SSaveSlot& slot = mSaveSlots[i];
-    slot.mTitle->TextSupport().SetText(title);
-    slot.mWorldName->TextSupport().SetText(worldName);
-    slot.mPlayTime->TextSupport().SetText(playTime);
-    mgr.SendScriptMsg(slot.mUsedSwitch, GetUniqueId(), data != nullptr ? kSM_Open : kSM_Close);
-    mgr.SendScriptMsg(slot.mNewGameSwitch, GetUniqueId(),
+    mSaveSlots[i].mTitle->TextSupport().SetText(title);
+    mSaveSlots[i].mWorldName->TextSupport().SetText(worldName);
+    mSaveSlots[i].mPlayTime->TextSupport().SetText(playTime);
+    mgr.SendScriptMsg(mSaveSlots[i].mUsedSwitch, GetUniqueId(),
+                      data != nullptr ? kSM_Open : kSM_Close);
+    mgr.SendScriptMsg(mSaveSlots[i].mNewGameSwitch, GetUniqueId(),
                       data == nullptr && normalCompleted ? kSM_Open : kSM_Close);
-    mgr.SendScriptMsg(slot.mNewGameSwitch, GetUniqueId(), kSM_Activate);
+    mgr.SendScriptMsg(mSaveSlots[i].mNewGameSwitch, GetUniqueId(), kSM_Activate);
     mgr.SendScriptMsg(mEraseSwitch, GetUniqueId(), kSM_Open);
     mgr.SendScriptMsg(mCopySwitch, GetUniqueId(),
                       usedSlots > 0 && usedSlots < 3 ? kSM_Open : kSM_Close);
@@ -656,24 +650,38 @@ void CScriptGuiFrontEndScreen::UpdateSaveSlots(CStateManager& mgr) {
 
 void CScriptGuiFrontEndScreen::UpdateUnlocks(CStateManager& mgr) {
   for (int menu = 0; menu < 2; ++menu) {
-    CScriptGuiMenu* musicMenu = menu == 0 ? mCoinMusicMenu : mDeathMatchMusicMenu;
+    CScriptGuiMenu* musicMenu;
+    if (menu == 0) {
+      musicMenu = mCoinMusicMenu;
+    } else {
+      musicMenu = mDeathMatchMusicMenu;
+    }
     musicMenu->BuildItemList(mgr);
     for (int i = 1; i < musicMenu->GetItems().size(); ++i) {
-      CScriptGuiWidget* item =
-          TCastToPtr< CScriptGuiWidget >(mgr.ObjectById(musicMenu->GetItems()[i]));
-      item->SetLocked(!IsEnvironmentVariableMaxed(CBasics::Stringize("UnlockMusic%d", i)), mgr);
+      CScriptGuiWidget* item = TCastToPtr< CScriptGuiWidget >(mgr.ObjectById(musicMenu->GetItem(i)));
+      CEnvironmentVariable* var = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(
+          CBasics::Stringize("UnlockMusic%d", i));
+      bool unlocked = true;
+      if (var != nullptr) {
+        unlocked = var->GetValue() == var->GetMaximum();
+      }
+      item->SetLocked(!unlocked, mgr);
     }
   }
 
   for (int i = 0; i < mUnlockSwitches.size(); ++i) {
     CScriptSwitch* unlockSwitch = mUnlockSwitches[i];
-    mgr.SendScriptMsg(unlockSwitch, GetUniqueId(),
-                      IsEnvironmentVariableMaxed(CBasics::Stringize("UnlockMap%d", i)) ? kSM_Open
-                                                                                       : kSM_Close);
+    CEnvironmentVariable* var = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(
+        CBasics::Stringize("UnlockMap%d", i));
+    bool unlocked = true;
+    if (var != nullptr) {
+      unlocked = var->GetValue() == var->GetMaximum();
+    }
+    mgr.SendScriptMsg(unlockSwitch, GetUniqueId(), unlocked ? kSM_Open : kSM_Close);
   }
 
-  mgr.SendScriptMsg(mGalleryEntity, GetUniqueId(),
-                    CSlideShow::GetGalleriesUnlocked() != 0 ? kSM_Activate : kSM_Deactivate,
+  const bool galleriesUnlocked = CSlideShow::GetGalleriesUnlocked() != 0;
+  mgr.SendScriptMsg(mGalleryEntity, GetUniqueId(), galleriesUnlocked ? kSM_Activate : kSM_Deactivate,
                     GetUniqueId());
 }
 
@@ -697,31 +705,31 @@ void CScriptGuiFrontEndScreen::StoreOptionWidget(CStateManager& mgr, CEntity* wi
   CScriptGuiMenu* menu = TCastToPtr< CScriptGuiMenu >(widget);
   CGameOptions& options = gpGameState->GameOptions();
   if (slider == mBrightnessSlider) {
-    mSavedOptions[kO_Brightness] = options.GetScreenBrightness();
+    mSavedBrightness = options.GetScreenBrightness();
   } else if (slider == mStretchSlider) {
-    mSavedOptions[kO_Stretch] = options.GetScreenStretch();
+    mSavedStretch = options.GetScreenStretch();
   } else if (slider == mPositionXSlider) {
-    mSavedOptions[kO_PositionX] = options.GetScreenPositionX();
+    mSavedPositionX = options.GetScreenPositionX();
   } else if (slider == mPositionYSlider) {
-    mSavedOptions[kO_PositionY] = options.GetScreenPositionY();
+    mSavedPositionY = options.GetScreenPositionY();
   } else if (slider == mHudAlphaSlider) {
-    mSavedOptions[kO_HudAlpha] = options.GetHudAlphaRaw();
+    mSavedHudAlpha = options.GetHudAlphaRaw();
   } else if (slider == mHelmetAlphaSlider) {
-    mSavedOptions[kO_HelmetAlpha] = options.GetHelmetAlphaRaw();
+    mSavedHelmetAlpha = options.GetHelmetAlphaRaw();
   } else if (menu == mHintSystemMenu) {
-    mSavedOptions[kO_HintSystem] = options.GetIsHintSystemEnabled() != 0;
+    mSavedHintSystem = options.GetIsHintSystemEnabled() != 0;
   } else if (menu == mHudLagMenu) {
-    mSavedOptions[kO_HudLag] = options.GetHUDLag() != 0;
+    mSavedHudLag = options.GetHUDLag() != 0;
   } else if (menu == mInvertYMenu) {
-    mSavedOptions[kO_InvertY] = options.GetInvertYAxis() != 0;
+    mSavedInvertY = options.GetInvertYAxis() != 0;
   } else if (menu == mRumbleMenu) {
-    mSavedOptions[kO_Rumble] = options.GetIsRumbleEnabled() != 0;
+    mSavedRumble = options.GetIsRumbleEnabled() != 0;
   } else if (slider == mSfxVolumeSlider) {
-    mSavedOptions[kO_SfxVolume] = options.GetSfxVolume();
+    mSavedSfxVolume = options.GetSfxVolume();
   } else if (slider == mMusicVolumeSlider) {
-    mSavedOptions[kO_MusicVolume] = options.GetMusicVolume();
+    mSavedMusicVolume = options.GetMusicVolume();
   } else if (menu == mSurroundMenu) {
-    mSavedOptions[kO_SurroundMode] = options.GetSurroundMode();
+    mSavedSurroundMode = options.GetSurroundMode();
   }
   RestoreOptionWidget(mgr, widget);
 }
@@ -731,61 +739,61 @@ void CScriptGuiFrontEndScreen::CompareOptionWidget(CStateManager& mgr, CEntity* 
   CScriptGuiMenu* menu = TCastToPtr< CScriptGuiMenu >(widget);
   CGameOptions& options = gpGameState->GameOptions();
   if (slider == mBrightnessSlider) {
-    SendScriptMsgs(mSavedOptions[kO_Brightness] == options.GetScreenBrightness() ? kSS_Left
+    SendScriptMsgs(mSavedBrightness == options.GetScreenBrightness() ? kSS_Left
                                                                                  : kSS_Right,
                    mgr);
-    mSavedOptions[kO_Brightness] = 0x80000000;
+    mSavedBrightness = 0x80000000;
   } else if (slider == mStretchSlider) {
-    SendScriptMsgs(mSavedOptions[kO_Stretch] == options.GetScreenStretch() ? kSS_Left : kSS_Right,
+    SendScriptMsgs(mSavedStretch == options.GetScreenStretch() ? kSS_Left : kSS_Right,
                    mgr);
-    mSavedOptions[kO_Stretch] = 0x80000000;
+    mSavedStretch = 0x80000000;
   } else if (slider == mPositionXSlider) {
     SendScriptMsgs(
-        mSavedOptions[kO_PositionX] == options.GetScreenPositionX() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_PositionX] = 0x80000000;
+        mSavedPositionX == options.GetScreenPositionX() ? kSS_Left : kSS_Right, mgr);
+    mSavedPositionX = 0x80000000;
   } else if (slider == mPositionYSlider) {
     SendScriptMsgs(
-        mSavedOptions[kO_PositionY] == options.GetScreenPositionY() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_PositionY] = 0x80000000;
+        mSavedPositionY == options.GetScreenPositionY() ? kSS_Left : kSS_Right, mgr);
+    mSavedPositionY = 0x80000000;
   } else if (slider == mHudAlphaSlider) {
-    SendScriptMsgs(mSavedOptions[kO_HudAlpha] == options.GetHudAlphaRaw() ? kSS_Left : kSS_Right,
+    SendScriptMsgs(mSavedHudAlpha == options.GetHudAlphaRaw() ? kSS_Left : kSS_Right,
                    mgr);
-    mSavedOptions[kO_HudAlpha] = 0x80000000;
+    mSavedHudAlpha = 0x80000000;
   } else if (slider == mHelmetAlphaSlider) {
     SendScriptMsgs(
-        mSavedOptions[kO_HelmetAlpha] == options.GetHelmetAlphaRaw() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_HelmetAlpha] = 0x80000000;
+        mSavedHelmetAlpha == options.GetHelmetAlphaRaw() ? kSS_Left : kSS_Right, mgr);
+    mSavedHelmetAlpha = 0x80000000;
   } else if (menu == mHintSystemMenu) {
-    SendScriptMsgs((mSavedOptions[kO_HintSystem] > 0) == options.GetIsHintSystemEnabled()
+    SendScriptMsgs((mSavedHintSystem > 0) == options.GetIsHintSystemEnabled()
                        ? kSS_Left
                        : kSS_Right,
                    mgr);
-    mSavedOptions[kO_HintSystem] = 0x80000000;
+    mSavedHintSystem = 0x80000000;
   } else if (menu == mHudLagMenu) {
-    SendScriptMsgs((mSavedOptions[kO_HudLag] > 0) == options.GetHUDLag() ? kSS_Left : kSS_Right,
+    SendScriptMsgs((mSavedHudLag > 0) == options.GetHUDLag() ? kSS_Left : kSS_Right,
                    mgr);
-    mSavedOptions[kO_HudLag] = 0x80000000;
+    mSavedHudLag = 0x80000000;
   } else if (menu == mInvertYMenu) {
     SendScriptMsgs(
-        (mSavedOptions[kO_InvertY] > 0) == options.GetInvertYAxis() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_InvertY] = 0x80000000;
+        (mSavedInvertY > 0) == options.GetInvertYAxis() ? kSS_Left : kSS_Right, mgr);
+    mSavedInvertY = 0x80000000;
   } else if (menu == mRumbleMenu) {
     SendScriptMsgs(
-        (mSavedOptions[kO_Rumble] > 0) == options.GetIsRumbleEnabled() ? kSS_Left : kSS_Right,
+        (mSavedRumble > 0) == options.GetIsRumbleEnabled() ? kSS_Left : kSS_Right,
         mgr);
-    mSavedOptions[kO_Rumble] = 0x80000000;
+    mSavedRumble = 0x80000000;
   } else if (slider == mSfxVolumeSlider) {
-    SendScriptMsgs(mSavedOptions[kO_SfxVolume] == options.GetSfxVolume() ? kSS_Left : kSS_Right,
+    SendScriptMsgs(mSavedSfxVolume == static_cast< int >(options.GetSfxVolume()) ? kSS_Left : kSS_Right,
                    mgr);
-    mSavedOptions[kO_SfxVolume] = 0x80000000;
+    mSavedSfxVolume = 0x80000000;
   } else if (slider == mMusicVolumeSlider) {
     SendScriptMsgs(
-        mSavedOptions[kO_MusicVolume] == options.GetMusicVolume() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_MusicVolume] = 0x80000000;
+        mSavedMusicVolume == static_cast< int >(options.GetMusicVolume()) ? kSS_Left : kSS_Right, mgr);
+    mSavedMusicVolume = 0x80000000;
   } else if (menu == mSurroundMenu) {
     SendScriptMsgs(
-        mSavedOptions[kO_SurroundMode] == options.GetSurroundMode() ? kSS_Left : kSS_Right, mgr);
-    mSavedOptions[kO_SurroundMode] = 0x80000000;
+        mSavedSurroundMode == options.GetSurroundMode() ? kSS_Left : kSS_Right, mgr);
+    mSavedSurroundMode = 0x80000000;
   }
 }
 
@@ -793,31 +801,31 @@ void CScriptGuiFrontEndScreen::RestoreOptionWidget(CStateManager& mgr, CEntity* 
   CScriptGuiSlider* slider = TCastToPtr< CScriptGuiSlider >(widget);
   CScriptGuiMenu* menu = TCastToPtr< CScriptGuiMenu >(widget);
   if (slider == mBrightnessSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_Brightness], 0.f, 8.f);
+    slider->SetValue(mgr, mSavedBrightness, 0.f, 8.f);
   } else if (slider == mStretchSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_Stretch], -10.f, 10.f);
+    slider->SetValue(mgr, mSavedStretch, -10.f, 10.f);
   } else if (slider == mPositionXSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_PositionX], -30.f, 30.f);
+    slider->SetValue(mgr, mSavedPositionX, -30.f, 30.f);
   } else if (slider == mPositionYSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_PositionY], -19.f, 19.f);
+    slider->SetValue(mgr, mSavedPositionY, -19.f, 19.f);
   } else if (slider == mHudAlphaSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_HudAlpha], 0.f, 255.f);
+    slider->SetValue(mgr, mSavedHudAlpha, 0.f, 255.f);
   } else if (slider == mHelmetAlphaSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_HelmetAlpha], 0.f, 255.f);
+    slider->SetValue(mgr, mSavedHelmetAlpha, 0.f, 255.f);
   } else if (menu == mHintSystemMenu) {
-    menu->SetSelection(mSavedOptions[kO_HintSystem], mgr);
+    menu->SetSelection(mSavedHintSystem, mgr);
   } else if (menu == mHudLagMenu) {
-    menu->SetSelection(mSavedOptions[kO_HudLag], mgr);
+    menu->SetSelection(mSavedHudLag, mgr);
   } else if (menu == mInvertYMenu) {
-    menu->SetSelection(mSavedOptions[kO_InvertY], mgr);
+    menu->SetSelection(mSavedInvertY, mgr);
   } else if (menu == mRumbleMenu) {
-    menu->SetSelection(mSavedOptions[kO_Rumble], mgr);
+    menu->SetSelection(mSavedRumble, mgr);
   } else if (slider == mSfxVolumeSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_SfxVolume], 0.f, 105.f);
+    slider->SetValue(mgr, mSavedSfxVolume, 0.f, 105.f);
   } else if (slider == mMusicVolumeSlider) {
-    slider->SetValue(mgr, mSavedOptions[kO_MusicVolume], 0.f, 105.f);
+    slider->SetValue(mgr, mSavedMusicVolume, 0.f, 105.f);
   } else if (menu == mSurroundMenu) {
-    menu->SetSelection(mSavedOptions[kO_SurroundMode], mgr);
+    menu->SetSelection(mSavedSurroundMode, mgr);
   }
   widget->SendScriptMsgs(kSS_Modify, mgr);
 }
@@ -838,13 +846,13 @@ void CScriptGuiFrontEndScreen::ResetOptionWidget(CStateManager& mgr, CEntity* wi
   } else if (slider == mHelmetAlphaSlider) {
     slider->SetValue(mgr, 255.f, 0.f, 255.f);
   } else if (menu == mHintSystemMenu) {
-    menu->SetSelection(CGameOptions::kDefaultHintSystem, mgr);
+    menu->SetSelection(CGameOptions::kDefaultHintSystem ? 1 : 0, mgr);
   } else if (menu == mHudLagMenu) {
-    menu->SetSelection(CGameOptions::kDefaultHUDLag, mgr);
+    menu->SetSelection(CGameOptions::kDefaultHUDLag ? 1 : 0, mgr);
   } else if (menu == mInvertYMenu) {
-    menu->SetSelection(CGameOptions::kDefaultInvertYAxis, mgr);
+    menu->SetSelection(CGameOptions::kDefaultInvertYAxis ? 1 : 0, mgr);
   } else if (menu == mRumbleMenu) {
-    menu->SetSelection(CGameOptions::kDefaultRumble, mgr);
+    menu->SetSelection(CGameOptions::kDefaultRumble ? 1 : 0, mgr);
   } else if (slider == mSfxVolumeSlider) {
     slider->SetValue(mgr, 105.f, 0.f, 105.f);
   } else if (slider == mMusicVolumeSlider) {
@@ -931,14 +939,14 @@ void CScriptGuiFrontEndScreen::ApplyOptionWidget(CStateManager& mgr, CEntity* wi
     }
   } else if (slider == mSfxVolumeSlider) {
     const int volume = slider->GetRoundedValue(0.f, 105.f);
-    if (volume != options.GetSfxVolume()) {
+    if (volume != static_cast< int >(options.GetSfxVolume())) {
       mOptionsDirty = true;
       options.SetSfxVolume(volume, true);
     }
     SetPercentText(mValuePanes[6], value);
   } else if (slider == mMusicVolumeSlider) {
     const int volume = slider->GetRoundedValue(0.f, 105.f);
-    if (volume != options.GetMusicVolume()) {
+    if (volume != static_cast< int >(options.GetMusicVolume())) {
       mOptionsDirty = true;
       options.SetMusicVolume(volume, true);
       UpdateSoundVolumes();
@@ -1001,8 +1009,11 @@ void CScriptGuiFrontEndScreen::ResetOptionPage(CStateManager& mgr, CEntity* widg
 
 void CScriptGuiFrontEndScreen::CopySelectedGame(CStateManager& mgr) {
   CSaveGameScreen* saveScreen = mgr.mSaveGameScreen.get();
-  int target = 0;
-  for (; saveScreen->GetGameData(target) != nullptr && target < 3; ++target) {
+  int target;
+  for (target = 0; target < 3; ++target) {
+    if (saveScreen->GetGameData(target) == nullptr) {
+      break;
+    }
   }
   saveScreen->CopyGame(mSelectedSlot, target);
 }
@@ -1036,8 +1047,13 @@ void CScriptGuiFrontEndScreen::LoadOptions(CStateManager& mgr, CEntity* page) {
   }
 }
 
-void CScriptGuiFrontEndScreen::RecordOptions() {
+void CScriptGuiFrontEndScreen::RecordOptions(CStateManager& mgr) {
   switch (mOptionsPage) {
+  case 0:
+  case 1:
+  case 2:
+    gpGameState->RecordCompressedGameOptions(mOptionsPage);
+    break;
   case 3:
     gpGameState->RecordCompressedMultiplayerOptions();
     break;
@@ -1045,7 +1061,6 @@ void CScriptGuiFrontEndScreen::RecordOptions() {
     gpGameState->RecordCompressedGameOptions(0);
     break;
   default:
-    gpGameState->RecordCompressedGameOptions(mOptionsPage);
     break;
   }
 }
@@ -1061,14 +1076,15 @@ void CScriptGuiFrontEndScreen::SaveOptions(CStateManager& mgr) {
 
 void CScriptGuiFrontEndScreen::HighlightSelectedSlot(CStateManager& mgr) {
   if (CSaveGameScreen* saveScreen = mgr.mSaveGameScreen.get()) {
-    mgr.SendScriptMsg(mSaveSlots[saveScreen->GetSaveIdx()].mSlotEntity, GetUniqueId(),
-                      kSM_InternalMessage02);
+    CEntity* slotEntity = mSaveSlots[saveScreen->GetSaveIdx()].mSlotEntity;
+    mgr.SendScriptMsg(slotEntity, GetUniqueId(), kSM_InternalMessage02);
   }
 }
 
 void CScriptGuiFrontEndScreen::UpdateSoundVolumes() {
   for (int i = 0; i < mSounds.size(); ++i) {
-    mSounds[i]->SetMaxVolume(mSoundVolumes[i] * gpGameState->GameOptions().GetMusicVolume() / 79);
+    mSounds[i]->SetMaxVolume(
+        mSoundVolumes[i] * static_cast< int >(gpGameState->GameOptions().GetMusicVolume()) / 79);
   }
 }
 
@@ -1079,9 +1095,9 @@ void CScriptGuiFrontEndScreen::SetPercentText(CScriptTextPane* pane, float value
 }
 
 void CScriptGuiFrontEndScreen::ShowSlideShow(CStateManager& mgr) {
-  mgr.ArchQueue().Push(
-      MakeMsg::CreateCreateIOWin(kAMT_IOWinManager, sSlideShowMsgPriority,
-                                 sSlideShowDrawPriority, rs_new CSlideShow()));
+  CArchitectureQueue& queue = mgr.ArchQueue();
+  queue.Push(MakeMsg::CreateCreateIOWin(kAMT_IOWinManager, sSlideShowMsgPriority,
+                                        sSlideShowDrawPriority, rs_new CSlideShow()));
 }
 
 CScriptGuiScreen::CScriptGuiScreen(TUniqueId uid, const rstl::string& name, const CEntityInfo& info)
@@ -1092,10 +1108,11 @@ CEntity* LoadGuiScreen(CStateManager& mgr, CInputStream& input, CEntityInfo& inf
   SLdrGuiScreen sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrGuiScreen.inc"
 
-  if (sldrThis.whichScreen != 1) {
-    return nullptr;
+  switch (sldrThis.whichScreen) {
+  case 1:
+    return rs_new CScriptGuiFrontEndScreen(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+                                           LdrToEntityInfo(info, sldrThis.editorProperties),
+                                           sldrThis.stringTable);
   }
-  return rs_new CScriptGuiFrontEndScreen(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
-                                         LdrToEntityInfo(info, sldrThis.editorProperties),
-                                         sldrThis.stringTable);
+  return nullptr;
 }

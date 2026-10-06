@@ -30,6 +30,7 @@ public:
 
   int GetSelection() const { return mSelection; }
   const rstl::vector< TUniqueId >& GetItems() const { return mItems; }
+  TUniqueId GetItem(int idx) const { return mItems[idx]; }
 
 private:
   // Guessed names.

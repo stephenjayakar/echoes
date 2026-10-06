@@ -36,6 +36,14 @@ public:
     , mUsedSwitch(nullptr)
     , mNewGameSwitch(nullptr)
     , mDifficultyMenu(nullptr) {}
+    SSaveSlot(const SSaveSlot& other)
+    : mTitle(other.mTitle)
+    , mWorldName(other.mWorldName)
+    , mPlayTime(other.mPlayTime)
+    , mSlotEntity(other.mSlotEntity)
+    , mUsedSwitch(other.mUsedSwitch)
+    , mNewGameSwitch(other.mNewGameSwitch)
+    , mDifficultyMenu(other.mDifficultyMenu) {}
 
     CScriptTextPane* mTitle;
     CScriptTextPane* mWorldName;
@@ -79,7 +87,7 @@ public:
   void UpdateSoundVolumes();
   void HighlightSelectedSlot(CStateManager& mgr);
   void SaveOptions(CStateManager& mgr);
-  void RecordOptions();
+  void RecordOptions(CStateManager& mgr);
   void LoadOptions(CStateManager& mgr, CEntity* page);
   void EraseSelectedGame(CStateManager& mgr);
   void CopySelectedGame(CStateManager& mgr);
@@ -144,9 +152,21 @@ private:
   int mSelectedSlot;
   int x32c_;
   int mOptionsPage;
-  int mSavedOptions[kO_Count];
+  int mSavedBrightness;
+  int mSavedStretch;
+  int mSavedPositionX;
+  int mSavedPositionY;
+  int mSavedHudAlpha;
+  int mSavedHelmetAlpha;
+  int mSavedHintSystem;
+  int mSavedHudLag;
+  int mSavedInvertY;
+  int mSavedRumble;
+  int mSavedSfxVolume;
+  int mSavedMusicVolume;
+  int mSavedSurroundMode;
   bool mCardDriverReset : 1;
-  bool mSaveScreenReady : 1;
+  bool mSaveScreenBusy : 1;
   bool mSaveScreenFailed : 1;
   bool mGameStarted : 1;
   bool mOptionsDirty : 1;
