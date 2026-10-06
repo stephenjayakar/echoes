@@ -173,7 +173,7 @@ CSlideShow::~CSlideShow() {
   gpResourceFactory->GetResLoader().RemovePakFile(gpTweakSlideShow->GetPakFile());
 }
 
-uchar CSlideShow::GetGalleriesUnlocked() {
+uint CSlideShow::GetGalleriesUnlocked() {
   uint flags = 0;
   if (gpGameState != nullptr) {
     const int percent =
