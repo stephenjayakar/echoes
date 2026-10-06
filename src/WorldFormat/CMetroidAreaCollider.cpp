@@ -130,7 +130,8 @@ bool CMetroidAreaCollider::AABoxCollisionCheck_Internal(const CAreaOctTree::Node
   case CAreaOctTree::Node::kTT_Leaf: {
     CAreaOctTree::TriListReference list = node.GetTriangleArray();
     int size = list.GetSize();
-    const CAreaOctTree& owner = node.GetOwner();
+    const CAreaOctTree& tree = node.GetOwner();
+    const CAreaOctTree& owner = tree;
     const CMaterialFilter& filter = cache.mFilter;
     const CPlane* planes = cache.mPlanes;
     for (int j = 0; j < size; ++j) {
@@ -299,7 +300,8 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Internal(
       if (cache.mAabb.DoBoundsOverlap(ch.GetBoundingBox())) {
         if (type == CAreaOctTree::Node::kTT_Leaf) {
           CAreaOctTree::TriListReference list = ch.GetTriangleArray();
-          const CAreaOctTree& owner = ch.GetOwner();
+          const CAreaOctTree& tree = ch.GetOwner();
+          const CAreaOctTree& owner = tree;
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
@@ -330,7 +332,8 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(const COctreeLeafCa
     const CAreaOctTree::Node& node = leafCache.GetLeaf(i);
     if (aabb.DoBoundsOverlap(node.GetBoundingBox())) {
       CAreaOctTree::TriListReference list = node.GetTriangleArray();
-      const CAreaOctTree& owner = node.GetOwner();
+      const CAreaOctTree& tree = node.GetOwner();
+      const CAreaOctTree& owner = tree;
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
@@ -397,7 +400,8 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Internal(const CAreaOctTree::Nod
       if (cache.mAabb.DoBoundsOverlap(ch.GetBoundingBox())) {
         if (chTp == CAreaOctTree::Node::kTT_Leaf) {
           CAreaOctTree::TriListReference list = ch.GetTriangleArray();
-          const CAreaOctTree& owner = ch.GetOwner();
+          const CAreaOctTree& tree = ch.GetOwner();
+          const CAreaOctTree& owner = tree;
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
@@ -445,7 +449,8 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Cached(const COctreeLeafCache& l
     const CAreaOctTree::Node& node = leafCache.GetLeaf(i);
     if (aabb.DoBoundsOverlap(node.GetBoundingBox())) {
       CAreaOctTree::TriListReference list = node.GetTriangleArray();
-      const CAreaOctTree& owner = node.GetOwner();
+      const CAreaOctTree& tree = node.GetOwner();
+      const CAreaOctTree& owner = tree;
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
@@ -519,7 +524,8 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Internal(
       if (cache.mAabb.DoBoundsOverlap(ch.GetBoundingBox())) {
         if (type == CAreaOctTree::Node::kTT_Leaf) {
           CAreaOctTree::TriListReference list = ch.GetTriangleArray();
-          const CAreaOctTree& owner = ch.GetOwner();
+          const CAreaOctTree& tree = ch.GetOwner();
+          const CAreaOctTree& owner = tree;
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
@@ -1263,7 +1269,8 @@ void CMetroidAreaCollider::CacheAllNodes(const CAreaOctTree::Node& node,
   if (node.GetTreeType() == CAreaOctTree::Node::kTT_Leaf) {
     writer.BeginLeaf(CAABox::MakeMaxInvertedBox());
     CAreaOctTree::TriListReference list = node.GetTriangleArray();
-    const CAreaOctTree& owner = node.GetOwner();
+    const CAreaOctTree& tree = node.GetOwner();
+    const CAreaOctTree& owner = tree;
     int size = list.GetSize();
     writer.ReserveTriangles(size);
     for (int i = 0; i < size; ++i) {
