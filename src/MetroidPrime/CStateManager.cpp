@@ -2576,7 +2576,7 @@ void CStateManager::ApplyDamageToWorld(TUniqueId owner, CActor& projectile,
     if (bomb && player != nullptr && actor->GetUniqueId() == weapon->GetOwnerId()) {
       if (player->GetFrozenState()) {
         CEnvironmentVariable* const freezeInstructions =
-            gpGameState->SystemOptions().FindEnvironmentVariable("FreezeInstructionsMorphBall");
+            gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("FreezeInstructionsMorphBall");
         freezeInstructions->Set(freezeInstructions->GetValue() + 1);
         const int playerIndex = MaskUIdNumPlayers(player->GetUniqueId());
         CSamusHud::DisplayHudMemo(rstl::wstring_l(L""),

@@ -457,11 +457,19 @@ void CGX::SetVtxDescv_Compressed(uint flags) {
 }
 
 void CGX::SetVtxDesc(GXAttr attr, GXAttrType type) {
-  uint lshift = (attr - GX_VA_POS) * 2;
-  uint rshift = 3 << lshift;
-  uint flags = type << lshift;
-  if (flags != (gpGXState->mDescList & rshift)) {
-    gpGXState->mDescList = flags | (gpGXState->mDescList & ~rshift);
+  uint mask;
+  uint flags;
+  if (attr <= GX_VA_TEX6MTXIDX) {
+    int shift = attr + 24;
+    mask = 1 << shift;
+    flags = (type != GX_NONE) << shift;
+  } else if (attr >= GX_VA_POS) {
+    uint shift = (attr - GX_VA_POS) * 2;
+    mask = 3 << shift;
+    flags = type << shift;
+  }
+  if (flags != (gpGXState->mDescList & mask)) {
+    gpGXState->mDescList = flags | (gpGXState->mDescList & ~mask);
     GXSetVtxDesc(attr, type);
   }
 }
@@ -477,7 +485,11 @@ void CGX::ResetVtxDescv() {
 void CGX::SetVtxDescv(const GXVtxDescList* list) {
   uint flags = 0;
   for (; list->attr != GX_VA_NULL; ++list) {
-    flags |= (list->type & 3) << (list->attr - GX_VA_POS) * 2;
+    if (list->attr <= GX_VA_TEX6MTXIDX) {
+      flags |= (list->type != GX_NONE) << (list->attr + 24);
+    } else {
+      flags |= (list->type & 3) << (list->attr - GX_VA_POS) * 2;
+    }
   }
   SetVtxDescv_Compressed(flags);
 }
@@ -548,7 +560,7 @@ void CGX::GetFog(GXFogType* fogType, float* fogStartZ, float* fogEndZ, float* fo
   }
 }
 
-void CGX::SetDstAlpha(bool enable, uchar alpha) {
+void CGX::SetDstAlpha(bool enable, const uchar alpha) {
   if (!enable) {
     if (gpGXState->mDstAlphaEnabled) {
       gpGXState->mDstAlphaEnabled = false;

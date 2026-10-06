@@ -782,7 +782,7 @@ void CWorldTransManager::UpdateText(float dt) {
     const float completion = endDelay + (1.f + mTextData->GetTotalAnimationTime());
     if (textReadyToFinish && mTextElapsedTime > completion) {
       if (mCurTime - mStopTime > 1.f) {
-        gpGameState->SystemOptions().FindEnvironmentVariable("SeenIntroText")->Set(1);
+        gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("SeenIntroText")->Set(1);
         mTransitionFinished = true;
       }
       if (mIntroText && mIntroTextSeen && !mIntroAudioStopped) {
@@ -833,7 +833,7 @@ void CWorldTransManager::StartTextFadeOut() {
 
 void CWorldTransManager::CheckIntroTextSeen() {
   const CEnvironmentVariable* seen =
-      gpGameState->SystemOptions().FindEnvironmentVariable("SeenIntroText");
+      gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("SeenIntroText");
   if (seen->GetValue() != 0) {
     mIntroTextSeen = true;
   }

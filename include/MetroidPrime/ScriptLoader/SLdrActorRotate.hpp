@@ -15,35 +15,7 @@ struct SLdrRotationSplines {
   SLdrSpline zRotation; // 0xc15ef5ec
 };
 
-inline SLdrRotationSplines::SLdrRotationSplines() : xRotation(), yRotation(), zRotation() {
-}
-
-inline SLdrRotationSplines::~SLdrRotationSplines() {}
-
-inline void LoadTypedefRotationSplines(SLdrRotationSplines& sldrThis, CInputStream& input) {
-  const int propertyCount = input.ReadUint16();
-  for (int i = 0; i < propertyCount; ++i) {
-    const uint propertyId = input.Get< uint >();
-    const u16 propertySize = input.ReadUint16();
-    switch (propertyId) {
-    case 0x69d8447d: {
-      sldrThis.xRotation = SLdrSpline(input, propertySize);
-      break;
-    }
-    case 0xd0239f95: {
-      sldrThis.yRotation = SLdrSpline(input, propertySize);
-      break;
-    }
-    case 0xc15ef5ec: {
-      sldrThis.zRotation = SLdrSpline(input, propertySize);
-      break;
-    }
-    default:
-      input.ReadBytes(nullptr, propertySize);
-      break;
-    }
-  }
-}
+void LoadTypedefRotationSplines(SLdrRotationSplines& sldrThis, CInputStream& input);
 
 struct SLdrScaleSplines {
   SLdrScaleSplines();
@@ -54,35 +26,7 @@ struct SLdrScaleSplines {
   SLdrSpline zScale; // 0x180c38b0
 };
 
-inline SLdrScaleSplines::SLdrScaleSplines() : xScale(), yScale(), zScale() {
-}
-
-inline SLdrScaleSplines::~SLdrScaleSplines() {}
-
-inline void LoadTypedefScaleSplines(SLdrScaleSplines& sldrThis, CInputStream& input) {
-  const int propertyCount = input.ReadUint16();
-  for (int i = 0; i < propertyCount; ++i) {
-    const uint propertyId = input.Get< uint >();
-    const u16 propertySize = input.ReadUint16();
-    switch (propertyId) {
-    case 0xf437a62f: {
-      sldrThis.xScale = SLdrSpline(input, propertySize);
-      break;
-    }
-    case 0x6f92ea40: {
-      sldrThis.yScale = SLdrSpline(input, propertySize);
-      break;
-    }
-    case 0x180c38b0: {
-      sldrThis.zScale = SLdrSpline(input, propertySize);
-      break;
-    }
-    default:
-      input.ReadBytes(nullptr, propertySize);
-      break;
-    }
-  }
-}
+void LoadTypedefScaleSplines(SLdrScaleSplines& sldrThis, CInputStream& input);
 
 struct SLdrActorRotate {
   SLdrActorRotate();
@@ -96,6 +40,7 @@ struct SLdrActorRotate {
 };
 
 inline SLdrActorRotate::SLdrActorRotate() : editorProperties(), rotationControls(), scaleControls() {
+  editorProperties.unknown_0x5d298a43 = 3;
   flagsActorRotate = 0x00000014u;
   duration = 10.0f;
 }

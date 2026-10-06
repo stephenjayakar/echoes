@@ -186,7 +186,7 @@ void CStaticAudioPlayer::Decode(ushort* out, const ushort* in, int numSamples) {
 }
 
 void CStaticAudioPlayer::DecodeMonoAndMix(ushort* out, const ushort* in, int numSamples,
-                                          int startSample, int sampleEnd, int sampleStart, int vol,
+                                          int startSample, int sampleEnd, const int sampleStart, int vol,
                                           g72x_state& state) {
   ushort* outCursor = out;
   const ushort* inCursor = in;

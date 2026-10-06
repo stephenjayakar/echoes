@@ -701,6 +701,14 @@ void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
   model.GetModel()->Touch(shaderIdx);
 }
 
+void CAnimData::Touch(const CSkinnedModel& model) {
+  const CModel& cmodel = **model.GetModel();
+  const int shaderCount = cmodel.GetNumMaterialSets();
+  for (int shader = 0; shader < shaderCount; ++shader) {
+    cmodel.Touch(shader);
+  }
+}
+
 void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVector3f& scale) {
   const uint effectCount = mCharInfo.GetEffects().size();
   for (uint i = 0; i < effectCount; ++i) {

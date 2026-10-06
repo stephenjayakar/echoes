@@ -191,7 +191,7 @@ void CPlayer::FinishSidewaysDash() {
   if (mSidewaysDashing) {
     mDoneSidewaysDashing = true;
     if (mMovementState != NPlayer::kMS_OnGround) {
-      const CVector3f velocity = GetVelocityWR();
+      const CVector3f& velocity = GetVelocityWR();
       const CVector3f flatVelocity(CVector2f(velocity.GetX(), velocity.GetY()), 0.f);
       const float maxSpeed = skDashClampSpeeds[GetSurfaceRestraint()];
       const float speed = flatVelocity.Magnitude();
@@ -1602,7 +1602,7 @@ void CPlayer::ApplyGravityBoost(float dt, CStateManager& mgr) {
 
 void CPlayer::EndGravityBoost(CStateManager& mgr) {
   CVector3f velocity = GetVelocityWR();
-  velocity.SetZ(velocity.GetZ() * GetTweakPlayer()->GetGravityBoostCancelDampening());
+  velocity[kDZ] *= GetTweakPlayer()->GetGravityBoostCancelDampening();
   SetVelocityWR(velocity);
   mGravityBoostDuration = 0.f;
   if (mGravityBoostSfx) {

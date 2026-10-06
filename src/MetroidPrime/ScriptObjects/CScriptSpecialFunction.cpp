@@ -981,7 +981,7 @@ void CScriptSpecialFunction::AcceptAreaDocks(CStateManager& mgr, const CScriptMs
 void CScriptSpecialFunction::AcceptEnvironmentVariable(CStateManager& mgr, const CScriptMsg& msg) {
   CEnvironmentVariable* var;
   if (mFunction == kSF_SystemStateEnvVarController) {
-    var = gpGameState->SystemOptions().FindEnvironmentVariable(mStringParm.data());
+    var = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(mStringParm.data());
   } else {
     var = gpGameState->PersistentOptions().FindEnvironmentVariable(mStringParm.data());
   }

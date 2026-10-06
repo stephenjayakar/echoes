@@ -21,11 +21,16 @@
 #include "MetaRender/SModelRenderData.hpp"
 #include "MetroidPrime/Factories/CCharacterFactory.hpp"
 #include "MetroidPrime/Factories/CCharacterFactoryBuilder.hpp"
+#include "rstl/math.hpp"
 
 #include <dolphin/mtx.h>
 
 // Guessed name.
 struct SModelDataMultipassContext {
+  SModelDataMultipassContext(const CSkinnedModel& model, const CModelFlags* flags, const u64* masks,
+                             const CColor* colors, const CPlane* planes, int count)
+  : mModel(model), mFlags(flags), mMasks(masks), mColors(colors), mPlanes(planes), mCount(count) {}
+
   const CSkinnedModel& mModel;
   const CModelFlags* mFlags;
   const u64* mMasks;
@@ -66,8 +71,9 @@ CModelData::CModelData(const CAnimRes& res)
   if (defaultAnim < 0) {
     defaultAnim = factory->GetCharInfo(res.GetCharacterNodeId()).GetDefaultAnimation();
   }
-  mAnimData = factory->CreateCharacter(res.GetCharacterNodeId(), res.CanLoop(), factory,
-                                       defaultAnim);
+  mAnimData = rstl::auto_ptr< CAnimData >(
+      factory->CreateCharacter(res.GetCharacterNodeId(), res.CanLoop(), factory, defaultAnim)
+          .release());
   mAnimData->SetModelScale(mScale);
 }
 
@@ -79,14 +85,9 @@ void CModelData::Render(EWhichModel which, const CTransform4f& xf, const CActorL
     uchar destinationAlpha = 0;
     if (flags.GetTrans() == CModelFlags::kT_Two) {
       const CColor& color = flags.GetColorRef();
-      uchar intensity = color.GetRedu8();
-      if (intensity < color.GetGreenu8()) {
-        intensity = color.GetGreenu8();
-      }
-      if (intensity < color.GetBlueu8()) {
-        intensity = color.GetBlueu8();
-      }
-      destinationAlpha = intensity * 2 < 255 ? intensity * 2 : 255;
+      const uchar intensity = rstl::max_val(
+          rstl::max_val(color.GetRedu8(), color.GetGreenu8()), color.GetBlueu8());
+      destinationAlpha = rstl::min_val< uint >(255, intensity * 2);
     }
     if (destinationAlpha != 0) {
       gpRender->SetDestinationAlpha(destinationAlpha);
@@ -102,7 +103,8 @@ void CModelData::Render(EWhichModel which, const CTransform4f& xf, const CActorL
     return;
   }
 
-  const CTransform4f modelXf = xf * CTransform4f::Scale(mScale);
+  CTransform4f modelXf = xf;
+  modelXf *= CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ());
   gpRender->SetModelMatrix(modelXf);
   if (lights != nullptr && which != kWM_Dark) {
     lights->ActivateLights();
@@ -135,7 +137,9 @@ void CModelData::RenderUnsortedParts(EWhichModel which, const CTransform4f& xf,
     return;
   }
 
-  gpRender->SetModelMatrix(xf * CTransform4f::Scale(mScale));
+  const CTransform4f modelXf(xf *
+                             CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ()));
+  gpRender->SetModelMatrix(modelXf);
   if (lights != nullptr && which != kWM_Dark) {
     lights->ActivateLights();
   } else {
@@ -229,17 +233,17 @@ void CModelData::RenderModelMultipleTimesWithFlags(EWhichModel which, const CTra
                                                    int count) const {
   const CTransform4f modelXf = xf * CTransform4f::Scale(mScale);
   gpRender->SetModelMatrix(modelXf);
-  if (lights == nullptr || which == kWM_Dark) {
+  if (lights != nullptr && which != kWM_Dark) {
+    lights->ActivateLights();
+  } else {
     CGraphics::DisableAllLights();
     gpRender->SetAmbientColor(mAmbientColor);
-  } else {
-    lights->ActivateLights();
   }
 
   if (HasAnimation()) {
     const CSkinnedModel& model = PickAnimatedModel(which);
     mAnimData->SetupRender();
-    SModelDataMultipassContext context = {model, flags, masks, colors, planes, count};
+    SModelDataMultipassContext context(model, flags, masks, colors, planes, count);
     model.Draw(&mAnimData->Pose(), &MultipassDrawCallback, &context);
   } else {
     const CModel& model = **PickStaticModel(which);
@@ -276,11 +280,7 @@ void CModelData::Touch() const {
   }
   if (HasAnimation()) {
     for (int which = kWM_Normal; which <= kWM_Echo; ++which) {
-      const CModel& model = **PickAnimatedModel(static_cast< EWhichModel >(which)).GetModel();
-      const int shaderCount = model.GetNumMaterialSets();
-      for (int shader = 0; shader < shaderCount; ++shader) {
-        model.Touch(shader);
-      }
+      CAnimData::Touch(PickAnimatedModel(static_cast< EWhichModel >(which)));
     }
   } else {
     for (int which = kWM_Normal; which <= kWM_Echo; ++which) {
@@ -306,7 +306,7 @@ CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CStateManager& mgr, TA
   if (!HasAnimation()) {
     return skNullAdvance;
   }
-  return mAnimData->Advance(dt, cameraDistance, mScale, &mgr, *mgr.Random(), aid, advTree);
+  return mAnimData->Advance(dt, cameraDistance, GetScale(), &mgr, *mgr.Random(), aid, advTree);
 }
 
 CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CRandom16& random, bool advTree) {
@@ -314,7 +314,7 @@ CAdvancementDeltas CModelData::AdvanceAnimation(float dt, CRandom16& random, boo
     return skNullAdvance;
   }
   static const TAreaId areaId = kInvalidAreaId;
-  return mAnimData->Advance(dt, 0.f, mScale, nullptr, random, areaId, advTree);
+  return mAnimData->Advance(dt, 0.f, GetScale(), nullptr, random, areaId, advTree);
 }
 
 CAdvancementDeltas CModelData::AdvanceAnimationIgnoreParticles(float dt, CRandom16& random,
@@ -426,7 +426,7 @@ void CModelData::EnableLooping(bool enable) {
 }
 
 float CModelData::GetAnimationDuration(int anim) const {
-  return HasAnimation() ? mAnimData->GetAnimationDuration(anim) : 0.f;
+  return !HasAnimation() ? 0.f : mAnimData->GetAnimationDuration(anim);
 }
 
 bool CModelData::GetIsLoop() const { return HasAnimation() && mAnimData->GetIsLoop(); }
@@ -435,7 +435,10 @@ bool CModelData::IsDefinitelyOpaque(EWhichModel which) const {
   if (HasAnimation()) {
     return PickAnimatedModel(which).GetModel()->IsDefinitelyOpaque();
   }
-  return mNormalModel && PickStaticModel(which)->IsDefinitelyOpaque();
+  if (mNormalModel) {
+    return PickStaticModel(which)->IsDefinitelyOpaque();
+  }
+  return false;
 }
 
 void CModelData::SetEchoModel(const rstl::pair< CAssetId, CAssetId >& assets) {
@@ -445,9 +448,11 @@ void CModelData::SetEchoModel(const rstl::pair< CAssetId, CAssetId >& assets) {
 
   if (HasAnimation() && assets.second != 0 &&
       gpResourceFactory->GetResourceTypeById(assets.second) == 'CSKR') {
-    TLockedToken< CModel > model(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
-    TLockedToken< CSkinRules > skin(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)));
-    mAnimData->SetXRayModel(model, skin);
+    mAnimData->SetXRayModel(
+        TLockedToken< CModel >(
+            TToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)))),
+        TLockedToken< CSkinRules >(
+            TToken< CSkinRules >(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)))));
   } else {
     mEchoModel = TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
   }
@@ -460,9 +465,11 @@ void CModelData::SetDarkModel(const rstl::pair< CAssetId, CAssetId >& assets) {
 
   if (HasAnimation() && assets.second != 0 &&
       gpResourceFactory->GetResourceTypeById(assets.second) == 'CSKR') {
-    TLockedToken< CModel > model(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
-    TLockedToken< CSkinRules > skin(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)));
-    mAnimData->SetInfraModel(model, skin);
+    mAnimData->SetInfraModel(
+        TLockedToken< CModel >(
+            TToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)))),
+        TLockedToken< CSkinRules >(
+            TToken< CSkinRules >(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)))));
   } else {
     mDarkModel = TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
   }
@@ -524,15 +531,14 @@ void CModelData::Render(const CStateManager& mgr, const CTransform4f& xf,
 
 bool CModelData::IsLoaded(int shaderIdx) const {
   if (HasAnimation()) {
-    if (!mAnimData->GetModelData()->GetModel()->IsLoaded(shaderIdx)) {
+    const CAnimData* animData = mAnimData.get();
+    if (!animData->GetModelData()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
-    const CSkinnedModel* echo = mAnimData->GetXRayModel();
-    const CSkinnedModel* dark = mAnimData->GetInfraModel();
-    if (echo && !echo->GetModel()->IsLoaded(shaderIdx)) {
+    if (animData->GetXRayModel() && !animData->GetXRayModel()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
-    if (dark && !dark->GetModel()->IsLoaded(shaderIdx)) {
+    if (animData->GetInfraModel() && !animData->GetInfraModel()->GetModel()->IsLoaded(shaderIdx)) {
       return false;
     }
   }

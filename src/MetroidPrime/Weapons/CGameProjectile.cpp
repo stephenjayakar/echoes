@@ -105,7 +105,7 @@ CAABox CGameProjectile::GetProjectileBounds() const {
 
 void CGameProjectile::Touch(CActor& actor, CStateManager& mgr) {
   CActor::Touch(actor, mgr);
-  if (CScriptDock* dock = TCastToPtr< CScriptDock >(&actor)) {
+  if (CScriptDock* dock = TCastToPtr< CScriptDock >(actor)) {
     if (dock->GetCurrentAreaId() == GetCurrentAreaId()) {
       mTouchedDock = actor.GetUniqueId();
     }
@@ -246,7 +246,8 @@ CProjectileTouchResult CGameProjectile::CanCollideWith(CActor& actor, CStateMana
   if (TCastToPtr< CScriptTrigger >(actor)) {
     return CanCollideWithTrigger(actor, mgr);
   }
-  CPhysicsActor* physicsActor = TCastToPtr< CPhysicsActor >(&actor);
+  CPhysicsActor* physicsActor =
+      const_cast< CPhysicsActor* >(TCastToConstPtr< CPhysicsActor >(&actor));
   if (TCastToPtr< CCollisionActor >(physicsActor) ||
       (physicsActor && physicsActor->GetCollisionPrimitive()->GetPrimType() == 'OBTG')) {
     return CanCollideWithComplexCollision(actor, mgr);
@@ -504,7 +505,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   CVector3f delta = homingPosition - mProjectile.GetTranslation();
   const bool breakHoming = mProjectile.GetWeaponDescription()->mBHBT;
   if (breakHoming) {
-    const CVector3f movement = GetTranslation() - mPreviousPos;
+    const CVector3f& movement = GetTranslation() - mPreviousPos;
     const bool movingToward = CVector3f::Dot(movement, delta) > 0.f;
     if (mMovingTowardTarget && !movingToward) {
       mHomingTargetId = kInvalidUniqueId;

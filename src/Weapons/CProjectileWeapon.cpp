@@ -771,7 +771,7 @@ CProjectileWeapon::CollisionOccured(EWeaponCollisionResponseTypes type, bool def
     if (useTarget && toTarget.CanBeNormalized()) {
       SetWorldSpaceOrientation(CTransform4f::LookAt(CVector3f::Zero(), toTarget.AsNormalized()));
     } else {
-      const CVector3f forward = GetTransform().GetForward();
+      const CVector3f& forward = GetTransform().GetForward();
       const CTransform4f orientation = CTransform4f::LookAt(
           CVector3f::Zero(), forward - 2.f * CVector3f::Dot(normal, forward) * normal, normal);
       SetWorldSpaceOrientation(orientation);
@@ -903,7 +903,7 @@ rstl::optional_object< CAABox > CProjectileWeapon::GetBounds() const {
         rstl::max_val(rstl::max_val(mGlobalScale.GetX(), mGlobalScale.GetY()), mGlobalScale.GetZ());
     const float radius = (size + CMath::FastSqrtF(offsetSquared)) * scale;
     const CVector3f extent(radius, radius, radius);
-    const CVector3f center = GetTranslation();
+    const CVector3f& center = GetTranslation();
     result.AccumulateBounds(center - extent);
     result.AccumulateBounds(center + extent);
     hasBounds = true;

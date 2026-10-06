@@ -21,10 +21,12 @@ CCameraShakerData::CCameraShakerData(float attenuationDistance, float duration, 
 , mMaxAmplitude(0.f)
 , mLastThresholdTime(duration)
 , mFirstThresholdTime(0.f) {
-  if ((mFlags & kF_ExplicitDuration) == 0) {
+  if ((flags & kF_ExplicitDuration) == 0) {
     mDuration = mHorizontalMotion.GetMaxTime();
-    mDuration = rstl::max_val(mVerticalMotion.GetMaxTime(), mDuration);
-    mDuration = rstl::max_val(mForwardMotion.GetMaxTime(), mDuration);
+    float maxTime = mVerticalMotion.GetMaxTime();
+    mDuration = rstl::max_val(maxTime, mDuration);
+    maxTime = mForwardMotion.GetMaxTime();
+    mDuration = rstl::max_val(maxTime, mDuration);
   }
   mMaxAmplitude = GetMaxAmplitude();
 }
