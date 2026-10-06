@@ -1496,10 +1496,11 @@ void CMorphBall::ApplyBoostBallDamage(CStateManager& mgr, TUniqueId id, const CD
 
       canDamage |= slowHit;
       if (canDamage) {
+        bool shielded;
         CPlayer* otherPlayer = TCastToPtr< CPlayer >(physAct);
         const float knockBackSpeed = gpTweakBall->GetBoostBallCollisionKnockBackSpeed();
         if (otherPlayer) {
-          bool shielded = false;
+          shielded = false;
           const bool otherMorphed =
               otherPlayer->GetMorphballTransitionState() == CPlayer::kMS_Morphed;
           if (otherPlayer->GetMorphBall()->IsBoostShieldActive() && !hasCannonBall) {
@@ -1528,7 +1529,7 @@ void CMorphBall::ApplyBoostBallDamage(CStateManager& mgr, TUniqueId id, const CD
               const float hitSpeed = shielded
                                          ? knockBackSpeed
                                          : gpTweakBall->GetBoostBallHitPlayerBallKnockBackSpeed();
-              otherPlayer->SetVelocityWR(hitSpeed * hitDir + CVector3f(0.f, 0.f, hitSpeed * 0.5f));
+              otherPlayer->SetVelocityWR(hitSpeed * hitDir + CVector3f(0.f, 0.f, hitSpeed / 2.f));
             } else {
               otherPlayer->SetVelocityWR(gpTweakBall->GetBoostBallHitPlayerFPKnockBackSpeed() *
                                          hitDir);
