@@ -1163,11 +1163,12 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
   }
   const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
+  const CPlayerGun& gun = *player.mGun;
   CPlayerState::EBeamId beam;
   if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
     beam = mBallBeamTransition > 0.3f ? mPreviousBallBeam : state.GetCurrentBeam();
   } else {
-    beam = player.mGun->GetPrimaryWeaponId();
+    beam = gun.GetPrimaryWeaponId();
   }
   const float beamFactor = CMath::Clamp(0.f, mBeamMenuTransition, 1.f);
   const int darkAmmo = state.GetItemAmount(CPlayerState::kIT_DarkAmmo, true);
@@ -1225,26 +1226,33 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
           CColor::Lerp(baseDigits, gpTweakGuiColors->GetDarkAmmoDigitWarningColor(), warning);
       if (mDarkAmmoDigits != nullptr) {
         mDarkAmmoDigits->TextSupport().SetFontColor(
-            darkAmmo == 0 ? gpTweakGuiColors->GetDarkAmmoDepletionColor() : digits);
+            darkAmmo != 0 ? digits : gpTweakGuiColors->GetDarkAmmoDepletionColor());
       }
       if (mDarkAmmoSegments.size() != 0) {
         const int perTank =
             CPlayerState::GetPowerUpMaxValue(CPlayerState::kIT_DarkAmmo) / mDarkAmmoSegments.size();
         const int capacity = state.GetItemCapacity(CPlayerState::kIT_DarkAmmo);
-        const int filledTanks = darkAmmo / perTank;
-        const int activeTanks = filledTanks + 1;
         const int capacityTanks = (capacity + perTank - 1) / perTank;
+        const int activeTanks = darkAmmo / perTank + 1;
+        const int remainder = darkAmmo % perTank;
         for (int i = 0; i < mDarkAmmoSegments.size(); ++i) {
           mDarkAmmoSegments[i]->SetVisibility(capacity != 0, kTM_Children);
           mDarkAmmoMeters[i]->SetVisibility(capacity != 0, kTM_Children);
           mDarkAmmoMeters[i]->SetColor(fill);
           mDarkAmmoMeters[i]->SetShadowColor(shadow);
-          mDarkAmmoSegments[i]->SetColor(i < capacityTanks ? full : empty);
-          mDarkAmmoMeters[i]->SetTargetFraction(i < activeTanks ? 1.f : 0.f);
+          if (i < capacityTanks) {
+            mDarkAmmoSegments[i]->SetColor(full);
+          } else {
+            mDarkAmmoSegments[i]->SetColor(empty);
+          }
+          if (i < activeTanks) {
+            mDarkAmmoMeters[i]->SetTargetFraction(1.f);
+          } else {
+            mDarkAmmoMeters[i]->SetTargetFraction(0.f);
+          }
         }
         if (activeTanks > 0 && activeTanks <= mDarkAmmoSegments.size()) {
-          mDarkAmmoMeters[filledTanks]->SetTargetFraction(float(darkAmmo - filledTanks * perTank) /
-                                                          float(perTank));
+          mDarkAmmoMeters[activeTanks - 1]->SetTargetFraction(float(remainder) / float(perTank));
         }
       }
       if (mDarkAmmoDigits != nullptr) {
@@ -1256,7 +1264,11 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
       mDarkAmmo = darkAmmo;
       if (mDarkAmmoIcon != nullptr) {
         mDarkAmmoIcon->SetIsVisible(true);
-        mDarkAmmoIcon->SetColor(darkAmmo < 1 ? empty : full);
+        if (darkAmmo > 0) {
+          mDarkAmmoIcon->SetColor(full);
+        } else {
+          mDarkAmmoIcon->SetColor(empty);
+        }
       }
     } else {
       if (mDarkAmmoIcon != nullptr) {
@@ -1324,26 +1336,33 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
           CColor::Lerp(baseDigits, gpTweakGuiColors->GetLightAmmoDigitWarningColor(), warning);
       if (mLightAmmoDigits != nullptr) {
         mLightAmmoDigits->TextSupport().SetFontColor(
-            lightAmmo == 0 ? gpTweakGuiColors->GetLightAmmoDepletionColor() : digits);
+            lightAmmo != 0 ? digits : gpTweakGuiColors->GetLightAmmoDepletionColor());
       }
       if (mLightAmmoMeters.size() != 0) {
         const int perTank = CPlayerState::GetPowerUpMaxValue(CPlayerState::kIT_LightAmmo) /
                             mLightAmmoSegments.size();
         const int capacity = state.GetItemCapacity(CPlayerState::kIT_LightAmmo);
-        const int filledTanks = lightAmmo / perTank;
-        const int activeTanks = filledTanks + 1;
         const int capacityTanks = (capacity + perTank - 1) / perTank;
+        const int activeTanks = lightAmmo / perTank + 1;
+        const int remainder = lightAmmo % perTank;
         for (int i = 0; i < mLightAmmoSegments.size(); ++i) {
           mLightAmmoSegments[i]->SetVisibility(capacity != 0, kTM_Children);
           mLightAmmoMeters[i]->SetVisibility(capacity != 0, kTM_Children);
           mLightAmmoMeters[i]->SetColor(fill);
           mLightAmmoMeters[i]->SetShadowColor(shadow);
-          mLightAmmoSegments[i]->SetColor(i < capacityTanks ? full : empty);
-          mLightAmmoMeters[i]->SetTargetFraction(i < activeTanks ? 1.f : 0.f);
+          if (i < capacityTanks) {
+            mLightAmmoSegments[i]->SetColor(full);
+          } else {
+            mLightAmmoSegments[i]->SetColor(empty);
+          }
+          if (i < activeTanks) {
+            mLightAmmoMeters[i]->SetTargetFraction(1.f);
+          } else {
+            mLightAmmoMeters[i]->SetTargetFraction(0.f);
+          }
         }
         if (activeTanks > 0 && activeTanks <= mLightAmmoSegments.size()) {
-          mLightAmmoMeters[filledTanks]->SetTargetFraction(
-              float(lightAmmo - filledTanks * perTank) / float(perTank));
+          mLightAmmoMeters[activeTanks - 1]->SetTargetFraction(float(remainder) / float(perTank));
         }
       }
       char buffer[16];
@@ -1353,7 +1372,11 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
       mLightAmmo = lightAmmo;
       if (mLightAmmoIcon != nullptr) {
         mLightAmmoIcon->SetIsVisible(true);
-        mLightAmmoIcon->SetColor(lightAmmo < 1 ? empty : full);
+        if (lightAmmo > 0) {
+          mLightAmmoIcon->SetColor(full);
+        } else {
+          mLightAmmoIcon->SetColor(empty);
+        }
       }
     } else {
       if (mLightAmmoIcon != nullptr) {
@@ -1365,21 +1388,18 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
         mLightAmmoSegments[i]->SetVisibility(false, kTM_Children);
       }
       if (mLightAmmoDigits != nullptr) {
-        mLightAmmoDigits->TextSupport().SetFontColor(
-            gpTweakGuiColors->GetLightAmmoDepletionColor());
+        mLightAmmoDigits->TextSupport().SetFontColor(gpTweakGuiColors->GetMissileDepletionColor());
       }
     }
   }
   if (mNextState != kHS_Scan) {
     if (mLightAmmoDigits != nullptr) {
-      const bool available = state.GetItemAmount(CPlayerState::kIT_LightBeam, true) > 0 ||
-                             state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0;
-      mLightAmmoDigits->SetIsVisible(available);
+      mLightAmmoDigits->SetIsVisible(state.GetItemAmount(CPlayerState::kIT_LightBeam, true) > 0 ||
+                                   state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0);
     }
     if (mDarkAmmoDigits != nullptr) {
-      const bool available = state.GetItemAmount(CPlayerState::kIT_DarkBeam, true) > 0 ||
-                             state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0;
-      mDarkAmmoDigits->SetIsVisible(available);
+      mDarkAmmoDigits->SetIsVisible(state.GetItemAmount(CPlayerState::kIT_DarkBeam, true) > 0 ||
+                                   state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0);
     }
   }
   mAmmoBeam = beam;
