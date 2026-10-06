@@ -464,7 +464,10 @@ void CGameProjectile::UpdateHoming(float dt, CStateManager& mgr) {
 }
 
 void CGameProjectile::Chase(float dt, CStateManager& mgr) {
-  if (!mProjectile.IsProjectileActive() || mHomingTargetId == kInvalidUniqueId) {
+  if (!mProjectile.IsProjectileActive()) {
+    return;
+  }
+  if (mHomingTargetId == kInvalidUniqueId) {
     return;
   }
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mHomingTargetId));
@@ -480,13 +483,13 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   const CPlayer* owner = TCastToConstPtr< CPlayer >(mgr.GetObjectById(GetOwnerId()));
   const CWeaponMode& mode = mCurDamageInfo.GetWeaponMode();
   if (owner && owner->GetOrbitTargetId() != mHomingTargetId &&
-      ((mode.GetRawType() == kWT_Missile && (GetAttribField() & 0x400000) != 0x400000) ||
-       (mode.GetRawType() == kWT_Power && mode.IsComboed()))) {
+      ((mode.GetType() == kWT_Missile && (GetAttribField() & 0x400000) != 0x400000) ||
+       (mode.GetType() == kWT_Power && mode.IsComboed()))) {
     mHomingTargetId = kInvalidUniqueId;
     return;
   }
   CVector3f homingPosition = actor->GetHomingPosition(mgr, 0.f);
-  if (GetType() == kWT_AI && mode.GetRawType() != kWT_Phazon) {
+  if (GetType() == kWT_AI && mode.GetType() != kWT_Phazon) {
     if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
       if (player->GetPlayerState()->GetChargeBeamFactor() == 1.f) {
         if (const CScriptPlayerHint* hint = TCastToConstPtr< CScriptPlayerHint >(
@@ -498,14 +501,15 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
       }
     }
   }
-  const CSwarmBasics* swarm = TCastToConstPtr< CSwarmBasics >(actor);
+  const CSwarmBasics* const swarm = TCastToConstPtr< CSwarmBasics >(actor);
   if (swarm) {
     const int lockOnId = swarm->GetCurrentLockOnId();
-    if (!swarm->GetLockOnLocationValid(lockOnId)) {
+    if (swarm->GetLockOnLocationValid(lockOnId)) {
+      homingPosition = swarm->GetLockOnLocation(lockOnId);
+    } else {
       mHomingTargetId = kInvalidUniqueId;
       return;
     }
-    homingPosition = swarm->GetLockOnLocation(lockOnId);
   }
   CVector3f delta = homingPosition - mProjectile.GetTranslation();
   const bool breakHoming = mProjectile.GetWeaponDescription()->mBHBT;
@@ -518,7 +522,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
     }
     mMovingTowardTarget = movingToward;
   }
-  if (!(mMinHomingDist <= 0.f || mMinHomingDist <= delta.Magnitude())) {
+  if (mMinHomingDist > 0.f && delta.Magnitude() < mMinHomingDist) {
     mHomingTargetId = kInvalidUniqueId;
     return;
   }
@@ -539,7 +543,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   }
   CQuaternion rotation = CQuaternion::ShortestRotationArc(forward, delta);
   const float threshold = 2.f * rotation.GetScalar() * rotation.GetScalar() - 1.f;
-  if (threshold <= 0.99f) {
+  if (!(threshold > 0.99f)) {
     float turnRate = mHomingTurnRateScale * mProjectile.GetMaxTurnRate();
     if (mWaterUpdate) {
       turnRate *= 0.5f;
