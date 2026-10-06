@@ -19,6 +19,7 @@ public:
   void SetSaveIdx(int idx) { mSaveIdx = idx; } // Guessed name
   int GetSaveIdx() const { return mSaveIdx; }
   CGameStateEnvVarManager& EnvVars() { return mEnvVars; }
+  const CGameStateEnvVarManager& EnvVars() const { return mEnvVars; }
 
 private:
   CGameStateEnvVarManager mEnvVars;

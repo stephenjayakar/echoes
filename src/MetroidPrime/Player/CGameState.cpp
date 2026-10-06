@@ -537,7 +537,9 @@ void CGameState::WriteSystemOptions(COutputStream& out) {
   mSystemOptions.PutTo(writer);
 }
 
-void CGameState::SetSystemOptions(const CPersistentOptions& options) { mSystemOptions = options; }
+void CGameState::SetSystemOptions(const CPersistentOptions& options) {
+  mSystemOptions.EnvVars() = options.EnvVars();
+}
 
 void CGameState::ExportPersistentOptions(CPersistentOptions& options) {
   options.SetSaveIdx(mSystemOptions.GetSaveIdx());
