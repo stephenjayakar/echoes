@@ -38,7 +38,8 @@ CScriptBallTrigger::~CScriptBallTrigger() {}
 
 void CScriptBallTrigger::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   if (CPlayer* player = TCastToPtr< CPlayer >(actor)) {
-    if (mCapturedPlayerIndex == kInvalidPlayerIndex || mCapturedPlayerIndex == player->GetPlayerIndex()) {
+    if (mCapturedPlayerIndex == kInvalidPlayerIndex ||
+        mCapturedPlayerIndex == player->GetPlayerIndex()) {
       mCapturedPlayerIndex = player->GetPlayerIndex();
       player->GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostDisabled);
       const CVector3f position =

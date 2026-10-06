@@ -262,14 +262,14 @@ void CWorldTransManager::EndTransition() {
 void CWorldTransManager::Update(float dt) {
   mCurTime += dt;
   switch (mTransType) {
-  case kTT_Disabled:
-    UpdateDisabled(dt);
-    break;
   case kTT_Enabled:
     UpdateEnabled(dt);
     break;
   case kTT_Text:
     UpdateText(dt);
+    break;
+  case kTT_Disabled:
+    UpdateDisabled(dt);
     break;
   case kTT_Portal:
     UpdatePortalTransition(dt);
@@ -357,14 +357,14 @@ void CWorldTransManager::UpdateEnabled(float dt) {
 
 void CWorldTransManager::Draw() const {
   switch (mTransType) {
-  case kTT_Disabled:
-    DrawDisabled();
-    break;
   case kTT_Enabled:
     DrawEnabled();
     break;
   case kTT_Text:
     DrawText();
+    break;
+  case kTT_Disabled:
+    DrawDisabled();
     break;
   case kTT_Portal:
     DrawPortalTransition();
@@ -508,8 +508,8 @@ void CWorldTransManager::DrawAllModels() const {
 
 void CWorldTransManager::DrawFirstPass() const {
   const float fov = GetCameraFov(0);
-  gpRender->SetPerspective(0.7f * fov, 1.42f,
-                           CCameraManager::GetDefaultFirstPersonNearClipDistance(),
+  const float nearClip = CCameraManager::GetDefaultFirstPersonNearClipDistance();
+  gpRender->SetPerspective(0.7f * fov, 1.42f, nearClip,
                            CCameraManager::GetDefaultFirstPersonFarClipDistance());
   CGraphics::SetViewPointMatrix(GetCameraTransform(0));
   DrawAllModels();
@@ -517,8 +517,8 @@ void CWorldTransManager::DrawFirstPass() const {
 
 void CWorldTransManager::DrawSecondPass() const {
   const float fov = GetCameraFov(1);
-  gpRender->SetPerspective(0.7f * fov, 1.42f,
-                           CCameraManager::GetDefaultFirstPersonNearClipDistance(),
+  const float nearClip = CCameraManager::GetDefaultFirstPersonNearClipDistance();
+  gpRender->SetPerspective(0.7f * fov, 1.42f, nearClip,
                            CCameraManager::GetDefaultFirstPersonFarClipDistance());
   CGraphics::SetViewPointMatrix(GetCameraTransform(1));
   DrawAllModels();
@@ -553,8 +553,9 @@ void CWorldTransManager::DrawEnabled() const {
 }
 
 void CWorldTransManager::DrawDisabled() const {
+  const CColor color = CColor(uchar(0), uchar(0), uchar(0), uchar(3));
   CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen,
-                                CColor(uchar(0), uchar(0), uchar(0), uchar(3)), nullptr, 1.f);
+                                color, nullptr, 1.f);
 }
 
 void CWorldTransManager::DrawPortalTransition() const {

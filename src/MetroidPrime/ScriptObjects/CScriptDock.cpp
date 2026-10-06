@@ -70,7 +70,10 @@ void CScriptDock::InitializeConnectedArea(CStateManager& mgr) {
 void CScriptDock::AreaUnloaded(CStateManager&) {}
 
 void CWorld::PropogateAreaChain(CGameArea::EOcclusionState state, CGameArea* area, CWorld* world) {
-  if (!area->IsLoaded() || state == area->GetOcclusionState()) {
+  if (!area->IsLoaded()) {
+    return;
+  }
+  if (state == area->GetOcclusionState()) {
     return;
   }
 
