@@ -223,7 +223,7 @@ void CSlideShow::BuildGalleryLists(uint flags) {
     }
 
     const int textureCount = dep->GetT()->GetObjectTagVector().size();
-    mGalleries.push_back(SGalleryData(i));
+    mGalleries.push_back_unsafe(SGalleryData(i));
     SGalleryData& gallery = mGalleries.back();
     gallery.mTextures.reserve(textureCount);
     gallery.mSlides.reserve(textureCount);
@@ -641,7 +641,7 @@ void CSlideShow::LoadSlide() {
     for (int i = first; i < end; ++i) {
       const SObjectTag* tag = gallery.mTextures[i];
       if (tag != nullptr && gpResourceFactory->GetResourceTypeById(tag->GetId()) == 'TXTR') {
-        mSlideB.mTextures.push_back(STexture());
+        mSlideB.mTextures.push_back_unsafe(STexture());
         mSlideB.mTextures.back().mToken = rs_new TToken< CTexture >(gpSimplePool->GetObj(*tag));
       }
     }
