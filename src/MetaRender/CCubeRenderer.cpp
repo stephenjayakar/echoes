@@ -3065,16 +3065,23 @@ void CCubeRenderer::GenerateScreenMipmaps(int mipCount, GXTexFmt copyFormat, GXT
 
 void CCubeRenderer::GenerateScreenMipmaps(int mipCount, bool alpha) {
   const CViewport& viewport = CGraphics::GetViewport();
-  GenerateScreenMipmaps(mipCount, alpha ? GX_CTF_A8 : GX_CTF_R8, GX_TF_I8, 0, 0, viewport.mWidth,
-                        viewport.mHeight);
+  const int width = viewport.mWidth;
+  const int height = viewport.mHeight;
+  GenerateScreenMipmaps(mipCount, alpha ? GX_CTF_A8 : GX_CTF_R8, GX_TF_I8, 0, 0, width, height);
 }
 
 void CCubeRenderer::SetMaterialMode(int mode) {
+  if (mCurrentMaterialMode == mode) {
+    return;
+  }
   mCurrentMaterialMode = mode;
-  if (mode == 1) {
-    CCubeMaterial::UseThermalTevs();
-  } else if (mode == 0) {
+  switch (mode) {
+  case 0:
     CCubeMaterial::UseNormalTevs();
+    break;
+  case 1:
+    CCubeMaterial::UseThermalTevs();
+    break;
   }
 }
 
@@ -3673,7 +3680,7 @@ void CCubeRenderer::UnpackLightSet(uint lightSet, uchar* lights, float* ambient,
 
   const uchar level = (lightSet >> 24) & 63;
   if (ambient) {
-    *ambient = level * (1.f / 63.f);
+    *ambient = CCast::ToReal32(level) * (1.f / 63.f);
   }
   if (quantizedAmbient) {
     *quantizedAmbient = level;
