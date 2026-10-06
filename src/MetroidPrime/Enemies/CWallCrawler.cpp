@@ -33,7 +33,7 @@ CWallCrawler::CWallCrawler(EPatternedAI character, TUniqueId uid, const rstl::st
                            float f5, float f6)
 : CPatterned(character, uid, name, flavor, info, xf, mData, pInfo, moveType, colType, bodyType,
              actParms)
-, mAlignSurface(CVector3f::Zero(), CVector3f::Right(), CVector3f::Forward(), 0xffffffff)
+, mAlignSurface(CVector3f::Zero(), CVector3f::Right(), CVector3f::Forward(), -1)
 , mColSphere(CSphere(CVector3f::Zero(), sphereRadius), GetMaterialList())
 , mCollisionCloseMargin(collisionCloseMargin)
 , mAlignAngVel(alignAngVel)
@@ -228,29 +228,29 @@ const CCollisionPrimitive* CWallCrawler::GetCollisionPrimitive() const { return 
 
 void CWallCrawler::PreThink(float dt, CStateManager& mgr) {
   CPatterned::PreThink(dt, mgr);
-  if (!GetActive() || mPlayerObstructed) {
-    return;
-  }
-  if (mPatrolPauseRemTime <= 0.f && !mDisableMove &&
-      close_enough(BodyController()->GetPercentageFrozen(), 0.f)) {
-    if (mAlignToFloor) {
-      const CQuaternion oldOrientation = CQuaternion::FromMatrix(GetTransform());
-      AddMotionState(PredictMotion(dt));
-      const CQuaternion newOrientation = CQuaternion::FromMatrix(GetTransform());
-      ClearForcesAndTorques();
-      if (mHasAlignSurface) {
-        const CPlane plane = mAlignSurface.GetPlane();
-        const CVector3f position = GetTranslation();
-        const CVector3f projected =
-            position - (plane.GetHeight(GetTranslation()) - mColSphere.GetSphere().GetRadius() -
-                        0.01f) *
-                           plane.GetNormal();
-        SetTranslation(CVector3f::Lerp(position, projected, 60.f * mFloorSnapRate * dt));
+  if (GetActive() && !mPlayerObstructed) {
+    if (mPatrolPauseRemTime <= 0.f && !mDisableMove &&
+        close_enough(BodyController()->GetPercentageFrozen(), 0.f)) {
+      if (mAlignToFloor) {
+        const CQuaternion oldOrientation = CQuaternion::FromMatrix(GetTransform());
+        const CMotionState motion(PredictMotion(dt));
+        AddMotionState(motion);
+        const CQuaternion newOrientation = CQuaternion::FromMatrix(GetTransform());
+        ClearForcesAndTorques();
+        if (mHasAlignSurface) {
+          const CPlane plane = mAlignSurface.GetPlane();
+          const CVector3f position = GetTranslation();
+          const CVector3f projected =
+              GetTranslation() - (plane.GetHeight(GetTranslation()) -
+                                  mColSphere.GetSphere().GetRadius() - 0.01f) *
+                                     plane.GetNormal();
+          SetTranslation(CVector3f::Lerp(position, projected, 60.f * mFloorSnapRate * dt));
+        }
+        MoveCollisionPrimitive(CVector3f::Zero());
       }
-      MoveCollisionPrimitive(CVector3f::Zero());
+    } else if (mPatrolPauseRemTime > 0.f) {
+      Stop();
     }
-  } else if (mPatrolPauseRemTime > 0.f) {
-    Stop();
   }
 }
 
@@ -287,7 +287,7 @@ void CWallCrawler::Think(float dt, CStateManager& mgr) {
   }
   CPatterned::Think(dt, mgr);
   if (mPatrolPauseRemTime > 0.f) {
-    mPatrolPauseRemTime = rstl::max_val(mPatrolPauseRemTime - dt, 0.f);
+    mPatrolPauseRemTime = rstl::max_val(0.f, mPatrolPauseRemTime - dt);
   }
 
   if (BodyController()->HasBodyState(pas::kAS_AdditiveReaction)) {
@@ -371,8 +371,8 @@ void CWallCrawler::Think(float dt, CStateManager& mgr) {
 }
 
 rstl::optional_object< CAABox > CWallCrawler::GetTouchBounds() const {
-  return GetBaseBoundingBox().GetTransformedAABox(GetPrimitiveTransform() *
-                                                 CTransform4f::Scale(mTouchBoundsScale));
+  return rstl::optional_object< CAABox >(GetBaseBoundingBox().GetTransformedAABox(
+      GetPrimitiveTransform() * CTransform4f::Scale(mTouchBoundsScale)));
 }
 
 void CWallCrawler::UpdateConstraintPlane(CStateManager& mgr) {

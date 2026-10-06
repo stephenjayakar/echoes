@@ -39,7 +39,6 @@ class CMotionState {
 public:
   CMotionState(const CVector3f& translation, const CNUQuaternion& orientation,
                const CVector3f& velocity, const CAxisAngle& angularMomentum);
-  CMotionState(const CMotionState&);
 
   const CVector3f& GetTranslation() const { return mTranslation; }
   void SetTranslation(const CVector3f& translation) { mTranslation = translation; }
