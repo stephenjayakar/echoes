@@ -861,15 +861,25 @@ void CCubeRenderer::BeginPrimitive(EPrimitiveType primitive, int count) {
   CGX::Begin(GXPrimitive(primitive), GX_VTXFMT0, count);
 }
 
-void CCubeRenderer::BeginLines(int count) { BeginPrimitive(kPT_Lines, count); }
+void CCubeRenderer::BeginLines(int count) {
+  CCubeRenderer::BeginPrimitive(kPT_Lines, count);
+}
 
-void CCubeRenderer::BeginLineStrip(int count) { BeginPrimitive(kPT_LineStrip, count); }
+void CCubeRenderer::BeginLineStrip(int count) {
+  CCubeRenderer::BeginPrimitive(kPT_LineStrip, count);
+}
 
-void CCubeRenderer::BeginTriangles(int count) { BeginPrimitive(kPT_Triangles, count); }
+void CCubeRenderer::BeginTriangles(int count) {
+  CCubeRenderer::BeginPrimitive(kPT_Triangles, count);
+}
 
-void CCubeRenderer::BeginTriangleStrip(int count) { BeginPrimitive(kPT_TriangleStrip, count); }
+void CCubeRenderer::BeginTriangleStrip(int count) {
+  CCubeRenderer::BeginPrimitive(kPT_TriangleStrip, count);
+}
 
-void CCubeRenderer::BeginTriangleFan(int count) { BeginPrimitive(kPT_TriangleFan, count); }
+void CCubeRenderer::BeginTriangleFan(int count) {
+  CCubeRenderer::BeginPrimitive(kPT_TriangleFan, count);
+}
 
 void CCubeRenderer::PrimVertex(const CVector3f& vertex) {
   --mPrimVertCount;
@@ -1169,7 +1179,7 @@ void CCubeRenderer::_DrawSpaceWarp(const CVector3f& point, float strength) {
 }
 
 void CCubeRenderer::SetWireframeFlags(int flags) {
-  CCubeModel::SetDrawingOccluders((flags & 1) != 0);
+  CCubeModel::SetModelWireframe((flags & 1) != 0);
   mDrawWireframe = (flags & 2) != 0;
 }
 
@@ -2639,18 +2649,19 @@ void CCubeRenderer::RenderSilhouette(
     if (!mSilhouetteMask.get()) {
       return;
     }
-    const CViewport& viewport = CGraphics::GetViewport();
-    if (mSilhouetteMask->GetWidth() != (viewport.mWidth >> 2) ||
-        mSilhouetteMask->GetHeight() != (viewport.mHeight >> 2)) {
+    if (mSilhouetteMask->GetWidth() != (CGraphics::GetViewport().mWidth >> 2) ||
+        mSilhouetteMask->GetHeight() != (CGraphics::GetViewport().mHeight >> 2)) {
       return;
     }
     DoPhazonSuitIndirectAlphaBlur(blur, blur);
-    CopyScreenTex(4, false, mSilhouetteMask->Lock(), GX_CTF_A8, true);
-    if (!texture || texture->GetObject() == nullptr) {
-      ReallyDrawPhazonSuitEffect(color, *mSilhouetteMask);
+    mSilhouetteMask->SetFlag1(true);
+    CopyScreenTex(4, false, mSilhouetteMask->GetBitMapData(0), GX_CTF_A8, true);
+    if (texture && texture->GetObject() != nullptr) {
+      ReallyDrawPhazonSuitIndirectEffect(CColor(1.f, 1.f, 1.f, 1.f), *mSilhouetteMask,
+                                         *texture->GetObject(), scale, offset, alpha,
+                                         additiveColor);
     } else {
-      ReallyDrawPhazonSuitIndirectEffect(CColor::White(), *mSilhouetteMask, *texture->GetObject(),
-                                         scale, offset, alpha, additiveColor);
+      ReallyDrawPhazonSuitEffect(color, *mSilhouetteMask);
     }
     mSilhouetteMask->UnLock();
     CGraphics::SetViewPointMatrix(view);
@@ -2720,7 +2731,7 @@ bool CCubeRenderer::EnableSilhouetteRender() {
   CGX::SetNumTexGens(1);
   CGX::SetNumChans(0);
   CGX::SetNumIndStages(0);
-  CGraphics::SetAlphaCompare(kAF_Always, 0, kAO_And, kAF_Always, 0);
+  CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_KONST);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_KONST);
   const CColor color(static_cast< uchar >(0), 0, 0, 255);
@@ -4089,8 +4100,11 @@ void CCubeRenderer::DrawModelNoise(const SModelRenderData& model, const CColor& 
                                    bool additive) {
   void* noise = reinterpret_cast< void* >(((mRandom.Next() + 31) & ~31) + 0x8000);
   CGraphics::LoadDolphinSpareTexture(96, 96, GX_TF_IA4, noise, CGraphics::kSpareBufferTexMapID);
-  CGX::SetBlendMode(GX_BM_BLEND, additive ? GX_BL_ONE : GX_BL_SRCALPHA,
-                    additive ? GX_BL_ONE : GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+  if (additive) {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
+  } else {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+  }
   CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
   CGX::SetZMode(true, GX_LEQUAL, false);
   CGX::SetTevDirect(GX_TEVSTAGE0);
@@ -4110,7 +4124,7 @@ void CCubeRenderer::DrawModelNoise(const SModelRenderData& model, const CColor& 
   CGX::SetNumTevStages(1);
   CGX::SetNumTexGens(1);
   CGX::SetNumChans(0);
-  model.DrawFlat(CModelFlags(CModelFlags::kT_Opaque, CColor::White()), true, false);
+  model.DrawFlat(CModelFlags(CModelFlags::kT_Opaque, 1.f), true, false);
 }
 
 const CAABox& SModelRenderData::GetAABB() const {
