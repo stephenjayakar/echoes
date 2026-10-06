@@ -2720,9 +2720,12 @@ void CCubeRenderer::PopulateNoiseTexCoords(float time,
   CRandom16 random(static_cast< uint >(scaledTime) + 200);
   const int index = random.Range(0, 8);
   const int axis = random.Range(0, 1);
-  float fraction = scaledTime - static_cast< int >(scaledTime);
-  if (fraction >= 0.5f) {
-    fraction = -(fraction - 1.f);
+  const float frac = GetFractionalPart(scaledTime, 1.f);
+  float fraction;
+  if (frac < 0.5f) {
+    fraction = frac;
+  } else {
+    fraction = -1.f * (frac - 1.f);
   }
   if (random.Range(0, 1) != 0) {
     fraction *= -1.f;
@@ -3145,28 +3148,26 @@ void CCubeRenderer::DrawScanVisor(float scanTime, float width, float height, con
       {GX_VA_TEX0, GX_DIRECT},
       {GX_VA_NULL, GX_NONE},
   };
-  static const GXVtxDescList colorTwoTexDesc[] = {
-      {GX_VA_POS, GX_DIRECT},  {GX_VA_CLR0, GX_DIRECT}, {GX_VA_TEX0, GX_DIRECT},
-      {GX_VA_TEX1, GX_DIRECT}, {GX_VA_NULL, GX_NONE},
-  };
   const CGraphics::CProjectionState oldProjection(CGraphics::GetProjectionState());
   const CTransform4f oldView(CGraphics::GetViewMatrix());
   const rstl::pair< CVector2f, CVector2f > screen = SetViewportOrtho(true, -4096.f, 4096.f);
   CGX::SetChanCtrl(CGX::Channel0, false, GX_SRC_REG, GX_SRC_REG, GX_LIGHT_NULL, GX_DF_NONE,
                    GX_AF_NONE);
+  void* const spare = CGraphics::GetDolphinSpareBuffer();
   const CViewport& viewport = CGraphics::GetViewport();
-  GXSetTexCopySrc(viewport.mLeft, viewport.mTop, viewport.mWidth, viewport.mHeight);
-  GXSetTexCopyDst(viewport.mWidth, viewport.mHeight, GX_CTF_A8, false);
-  GXCopyTex(CGraphics::GetDolphinSpareBuffer(), false);
+  const int vpWidth = viewport.mWidth;
+  const int vpHeight = viewport.mHeight;
+  GXSetTexCopySrc(viewport.mLeft, viewport.mTop, vpWidth, vpHeight);
+  GXSetTexCopyDst(vpWidth, vpHeight, GX_CTF_A8, false);
+  GXCopyTex(spare, false);
   CGraphicsPalette scanPalette(kPF_RGB565, paletteSize * 4);
-  ushort* entries = static_cast< ushort* >(scanPalette.Lock());
+  scanPalette.Lock();
   for (int i = 0; i < paletteSize * 4; ++i) {
-    entries[i] = palette[i / 4].ToRGB565();
+    scanPalette.GetPaletteData()[i] = palette[i >> 2].ToRGB565();
   }
   scanPalette.UnLock();
   scanPalette.Load();
-  CGraphics::LoadDolphinSpareTexture(viewport.mWidth, viewport.mHeight, GX_TF_C8, GX_TLUT0, nullptr,
-                                     GX_TEXMAP0);
+  CGraphics::LoadDolphinSpareTexture(vpWidth, vpHeight, GX_TF_C8, GX_TLUT0, nullptr, GX_TEXMAP0);
   mScanRamp.Load(GX_TEXMAP1, CTexture::kCM_Repeat);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXA, GX_CC_TEXC, GX_CC_ZERO);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_TEXA, GX_CA_ZERO, GX_CA_TEXA, GX_CA_ZERO);
@@ -3192,55 +3193,54 @@ void CCubeRenderer::DrawScanVisor(float scanTime, float width, float height, con
   CGX::SetDstAlpha(true, 0);
   CGraphics::SetBlendMode(kBM_Blend, kBF_SrcAlpha, kBF_One, kLO_Clear);
   GXPixModeSync();
-  const float left = screen.first.GetX();
-  const float top = screen.first.GetY();
-  const float right = screen.second.GetX();
-  const float bottom = screen.second.GetY();
-  const float rampScale = (bottom - top) / mScanRamp.GetHeight();
+  const float rampScale = (screen.second[1] - screen.first[1]) / mScanRamp.GetHeight();
   CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-  GXPosition3f32(left, 0.f, top);
+  GXPosition3f32(screen.first[0], 0.f, screen.first[1]);
   GXTexCoord2f32(0.f, 1.f);
   GXTexCoord2f32(0.f, rampScale);
-  GXPosition3f32(right, 0.f, top);
+  GXPosition3f32(screen.second[0], 0.f, screen.first[1]);
   GXTexCoord2f32(1.f, 1.f);
   GXTexCoord2f32(rampScale, rampScale);
-  GXPosition3f32(left, 0.f, bottom);
+  GXPosition3f32(screen.first[0], 0.f, screen.second[1]);
   GXTexCoord2f32(0.f, 0.f);
   GXTexCoord2f32(0.f, 0.f);
-  GXPosition3f32(right, 0.f, bottom);
+  GXPosition3f32(screen.second[0], 0.f, screen.second[1]);
   GXTexCoord2f32(1.f, 0.f);
   GXTexCoord2f32(rampScale, 0.f);
   CGX::End();
 
-  const float windowLeft = ((right + left) - width) * 0.5f;
-  const float windowRight = (width + (right + left)) * 0.5f;
-  const float windowTop = ((bottom + top) - height) * 0.5f;
-  const float windowBottom = (height + (bottom + top)) * 0.5f;
-  const float maskLeft = (windowLeft - left) / (right - left);
-  const float maskRight = (windowRight - left) / (right - left);
-  const float maskTop = (windowTop - top) / (bottom - top);
-  const float maskBottom = (windowBottom - top) / (bottom - top);
-  const float rampLeft = 2.f / mScanRamp.GetWidth() + windowLeft / mScanRamp.GetWidth();
-  const float rampTop = 2.f / mScanRamp.GetHeight() + windowTop / mScanRamp.GetHeight();
-  const float rampRight = rampLeft + (windowRight - windowLeft) / mScanRamp.GetWidth();
-  const float rampBottom = rampTop + (windowBottom - windowTop) / mScanRamp.GetHeight();
-  CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-  GXPosition3f32(windowLeft, 0.f, windowTop);
-  GXTexCoord2f32(maskLeft, maskBottom);
-  GXTexCoord2f32(rampLeft, rampBottom);
-  GXPosition3f32(windowRight, 0.f, windowTop);
-  GXTexCoord2f32(maskRight, maskBottom);
-  GXTexCoord2f32(rampRight, rampBottom);
-  GXPosition3f32(windowLeft, 0.f, windowBottom);
-  GXTexCoord2f32(maskLeft, maskTop);
-  GXTexCoord2f32(rampLeft, rampTop);
-  GXPosition3f32(windowRight, 0.f, windowBottom);
-  GXTexCoord2f32(maskRight, maskTop);
-  GXTexCoord2f32(rampRight, rampTop);
-  CGX::End();
+  {
+    const float windowLeft = ((screen.second[0] + screen.first[0]) - width) * 0.5f;
+    const float windowRight = (width + (screen.second[0] + screen.first[0])) * 0.5f;
+    const float windowTop = ((screen.second[1] + screen.first[1]) - height) * 0.5f;
+    const float windowBottom = (height + (screen.second[1] + screen.first[1])) * 0.5f;
+    const float screenWidth = screen.second[0] - screen.first[0];
+    const float screenHeight = screen.second[1] - screen.first[1];
+    const float maskLeft = (windowLeft - screen.first[0]) / screenWidth;
+    const float maskRight = (windowRight - screen.first[0]) / screenWidth;
+    const float maskTop = (windowTop - screen.first[1]) / screenHeight;
+    const float maskBottom = (windowBottom - screen.first[1]) / screenHeight;
+    const float rampTop = 2.f / mScanRamp.GetHeight() + windowTop / mScanRamp.GetHeight();
+    const float rampBottom = rampTop + (windowBottom - windowTop) / mScanRamp.GetHeight();
+    const float rampLeft = 2.f / mScanRamp.GetWidth() + windowLeft / mScanRamp.GetWidth();
+    const float rampRight = rampLeft + (windowRight - windowLeft) / mScanRamp.GetWidth();
+    CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+    GXPosition3f32(windowLeft, 0.f, windowTop);
+    GXTexCoord2f32(maskLeft, maskBottom);
+    GXTexCoord2f32(rampLeft, rampBottom);
+    GXPosition3f32(windowRight, 0.f, windowTop);
+    GXTexCoord2f32(maskRight, maskBottom);
+    GXTexCoord2f32(rampRight, rampBottom);
+    GXPosition3f32(windowLeft, 0.f, windowBottom);
+    GXTexCoord2f32(maskLeft, maskTop);
+    GXTexCoord2f32(rampLeft, rampTop);
+    GXPosition3f32(windowRight, 0.f, windowBottom);
+    GXTexCoord2f32(maskRight, maskTop);
+    GXTexCoord2f32(rampRight, rampTop);
+    CGX::End();
+  }
 
-  CGraphics::LoadDolphinSpareTexture(viewport.mWidth, viewport.mHeight, GX_TF_I8, nullptr,
-                                     GX_TEXMAP0);
+  CGraphics::LoadDolphinSpareTexture(vpWidth, vpHeight, GX_TF_I8, nullptr, GX_TEXMAP0);
   CGX::SetChanCtrl(CGX::Channel0, false, GX_SRC_REG, GX_SRC_VTX, GX_LIGHT_NULL, GX_DF_NONE,
                    GX_AF_NONE);
   CGraphics::SetCullMode(kCM_None);
@@ -3255,114 +3255,66 @@ void CCubeRenderer::DrawScanVisor(float scanTime, float width, float height, con
   CGX::SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVPREV);
   CGX::SetTevAlphaOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVPREV);
   CGX::SetBlendMode(GX_BM_SUBTRACT, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
-  const float uvLeft = (windowLeft - left) / (right - left);
-  const float uvRight = (windowRight - left) / (right - left);
-  const float uvTop = (windowTop - top) / (bottom - top);
-  const float uvBottom = (windowBottom - top) / (bottom - top);
-  struct SScanRect {
-    uint color;
-    float positions[4][2];
-    float coords[4][2];
-  };
-  SScanRect rectangles[5];
-  rectangles[0].color = maskColor.GetColor_u32();
-  rectangles[0].positions[0][0] = left - 1.f;
-  rectangles[0].positions[0][1] = windowBottom;
-  rectangles[0].positions[1][0] = right + 1.f;
-  rectangles[0].positions[1][1] = windowBottom;
-  rectangles[0].positions[2][0] = left - 1.f;
-  rectangles[0].positions[2][1] = bottom;
-  rectangles[0].positions[3][0] = right + 1.f;
-  rectangles[0].positions[3][1] = bottom;
-  rectangles[0].coords[0][0] = 0.f;
-  rectangles[0].coords[0][1] = uvTop;
-  rectangles[0].coords[1][0] = 0.f;
-  rectangles[0].coords[1][1] = uvTop;
-  rectangles[0].coords[2][0] = 0.f;
-  rectangles[0].coords[2][1] = 0.f;
-  rectangles[0].coords[3][0] = 0.f;
-  rectangles[0].coords[3][1] = 1.f;
-  rectangles[1].color = maskColor.GetColor_u32();
-  rectangles[1].positions[0][0] = left - 1.f;
-  rectangles[1].positions[0][1] = windowTop;
-  rectangles[1].positions[1][0] = windowLeft;
-  rectangles[1].positions[1][1] = windowTop;
-  rectangles[1].positions[2][0] = left - 1.f;
-  rectangles[1].positions[2][1] = windowBottom;
-  rectangles[1].positions[3][0] = windowLeft;
-  rectangles[1].positions[3][1] = windowBottom;
-  rectangles[1].coords[0][0] = 0.f;
-  rectangles[1].coords[0][1] = uvBottom;
-  rectangles[1].coords[1][0] = uvLeft;
-  rectangles[1].coords[1][1] = uvBottom;
-  rectangles[1].coords[2][0] = 0.f;
-  rectangles[1].coords[2][1] = uvTop;
-  rectangles[1].coords[3][0] = uvLeft;
-  rectangles[1].coords[3][1] = uvTop;
-  rectangles[2].color = scanColor.GetColor_u32();
-  rectangles[2].positions[0][0] = windowLeft;
-  rectangles[2].positions[0][1] = windowTop;
-  rectangles[2].positions[1][0] = windowRight;
-  rectangles[2].positions[1][1] = windowTop;
-  rectangles[2].positions[2][0] = windowLeft;
-  rectangles[2].positions[2][1] = windowBottom;
-  rectangles[2].positions[3][0] = windowRight;
-  rectangles[2].positions[3][1] = windowBottom;
-  rectangles[2].coords[0][0] = uvLeft;
-  rectangles[2].coords[0][1] = uvBottom;
-  rectangles[2].coords[1][0] = uvRight;
-  rectangles[2].coords[1][1] = uvBottom;
-  rectangles[2].coords[2][0] = uvLeft;
-  rectangles[2].coords[2][1] = uvTop;
-  rectangles[2].coords[3][0] = uvRight;
-  rectangles[2].coords[3][1] = uvTop;
-  rectangles[3].color = maskColor.GetColor_u32();
-  rectangles[3].positions[0][0] = windowRight;
-  rectangles[3].positions[0][1] = windowTop;
-  rectangles[3].positions[1][0] = right + 1.f;
-  rectangles[3].positions[1][1] = windowTop;
-  rectangles[3].positions[2][0] = windowRight;
-  rectangles[3].positions[2][1] = windowBottom;
-  rectangles[3].positions[3][0] = right + 1.f;
-  rectangles[3].positions[3][1] = windowBottom;
-  rectangles[3].coords[0][0] = uvRight;
-  rectangles[3].coords[0][1] = uvBottom;
-  rectangles[3].coords[1][0] = 0.f;
-  rectangles[3].coords[1][1] = uvBottom;
-  rectangles[3].coords[2][0] = uvRight;
-  rectangles[3].coords[2][1] = uvTop;
-  rectangles[3].coords[3][0] = 0.f;
-  rectangles[3].coords[3][1] = uvTop;
-  rectangles[4].color = maskColor.GetColor_u32();
-  rectangles[4].positions[0][0] = left - 1.f;
-  rectangles[4].positions[0][1] = top;
-  rectangles[4].positions[1][0] = right + 1.f;
-  rectangles[4].positions[1][1] = top;
-  rectangles[4].positions[2][0] = left + 1.f;
-  rectangles[4].positions[2][1] = windowTop;
-  rectangles[4].positions[3][0] = right - 1.f;
-  rectangles[4].positions[3][1] = windowTop;
-  rectangles[4].coords[0][0] = 0.f;
-  rectangles[4].coords[0][1] = 0.f;
-  rectangles[4].coords[1][0] = 1.f;
-  rectangles[4].coords[1][1] = 1.f;
-  rectangles[4].coords[2][0] = 1.f;
-  rectangles[4].coords[2][1] = uvBottom;
-  rectangles[4].coords[3][0] = 0.f;
-  rectangles[4].coords[3][1] = uvBottom;
-  for (int i = 0; i < 5; ++i) {
-    const SScanRect& rectangle = rectangles[i];
-    const uint inverseColor = ~rectangle.color;
-    if (!(inverseColor & 0xfcfcfcfc)) {
-      continue;
+  {
+    const float windowLeft = ((screen.second[0] + screen.first[0]) - width) * 0.5f;
+    const float windowRight = (width + (screen.second[0] + screen.first[0])) * 0.5f;
+    const float windowTop = ((screen.second[1] + screen.first[1]) - height) * 0.5f;
+    const float windowBottom = (height + (screen.second[1] + screen.first[1])) * 0.5f;
+    const float uvLeft = (windowLeft - screen.first[0]) / (screen.second[0] - screen.first[0]);
+    const float uvRight = (windowRight - screen.first[0]) / (screen.second[0] - screen.first[0]);
+    const float uvTop = (windowTop - screen.first[1]) / (screen.second[1] - screen.first[1]);
+    const float uvBottom = (windowBottom - screen.first[1]) / (screen.second[1] - screen.first[1]);
+    struct SScanRect {
+      uint color;
+      float positions[4][2];
+      float coords[4][2];
+    };
+    SScanRect rectangles[5] = {
+        {maskColor.GetColor_u32(),
+         {{screen.first[0] - 1.f, windowBottom},
+          {screen.second[0] + 1.f, windowBottom},
+          {screen.first[0] - 1.f, screen.second[1]},
+          {screen.second[0] + 1.f, screen.second[1]}},
+         {{0.f, uvTop}, {1.f, uvTop}, {0.f, 0.f}, {1.f, 0.f}}},
+        {maskColor.GetColor_u32(),
+         {{screen.first[0] - 1.f, windowTop},
+          {windowLeft, windowTop},
+          {screen.first[0] - 1.f, windowBottom},
+          {windowLeft, windowBottom}},
+         {{0.f, uvBottom}, {uvLeft, uvBottom}, {0.f, uvTop}, {uvLeft, uvTop}}},
+        {scanColor.GetColor_u32(),
+         {{windowLeft, windowTop},
+          {windowRight, windowTop},
+          {windowLeft, windowBottom},
+          {windowRight, windowBottom}},
+         {{uvLeft, uvBottom}, {uvRight, uvBottom}, {uvLeft, uvTop}, {uvRight, uvTop}}},
+        {maskColor.GetColor_u32(),
+         {{windowRight, windowTop},
+          {screen.second[0] + 1.f, windowTop},
+          {windowRight, windowBottom},
+          {screen.second[0] + 1.f, windowBottom}},
+         {{uvRight, uvBottom}, {1.f, uvBottom}, {uvRight, uvTop}, {1.f, uvTop}}},
+        {maskColor.GetColor_u32(),
+         {{screen.first[0] - 1.f, screen.first[1]},
+          {screen.second[0] + 1.f, screen.first[1]},
+          {screen.first[0] + 1.f, windowTop},
+          {screen.second[0] - 1.f, windowTop}},
+         {{0.f, 1.f}, {1.f, 1.f}, {0.f, uvBottom}, {1.f, uvBottom}}},
+    };
+    for (uint i = 0; i < sizeof(rectangles) / sizeof(rectangles[0]); ++i) {
+      const SScanRect& rectangle = rectangles[i];
+      const uint inverseColor = ~rectangle.color;
+      if (!(inverseColor & 0xfcfcfcfc)) {
+        continue;
+      }
+      CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
+      for (int j = 0; j < 4; ++j) {
+        GXPosition3f32(rectangle.positions[j][0], 0.f, rectangle.positions[j][1]);
+        GXColor1u32(inverseColor);
+        GXTexCoord2f32(rectangle.coords[j][0], rectangle.coords[j][1]);
+      }
+      CGX::End();
     }
-    CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-    for (int j = 0; j < 4; ++j) {
-      GXPosition3f32(rectangle.positions[j][0], 0.f, rectangle.positions[j][1]);
-      GXColor1u32(inverseColor);
-      GXTexCoord2f32(rectangle.coords[j][0], rectangle.coords[j][1]);
-    }
-    CGX::End();
   }
 
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
@@ -3380,34 +3332,38 @@ void CCubeRenderer::DrawScanVisor(float scanTime, float width, float height, con
   CGX::SetNumTevStages(2);
   CGX::SetNumChans(1);
   CGraphics::SetCullMode(kCM_None);
+  static const GXVtxDescList colorTwoTexDesc[] = {
+      {GX_VA_POS, GX_DIRECT},  {GX_VA_CLR0, GX_DIRECT}, {GX_VA_TEX0, GX_DIRECT},
+      {GX_VA_TEX1, GX_DIRECT}, {GX_VA_NULL, GX_NONE},
+  };
   CGX::SetVtxDescv(colorTwoTexDesc);
-  const float sweepSpeeds[2] = {0.25f, 0.0625f};
-  const float sweepHeights[2] = {1.f, 0.33f};
+  static const float sweepSpeeds[2] = {0.25f, 0.0625f};
+  static const float sweepHeights[2] = {1.f, 0.33f};
   for (int i = 0; i < 2; ++i) {
     CGX::SetAlphaCompare(GX_GREATER, 4, GX_AOP_AND, GX_ALWAYS, 0);
     mScanSweepBar->Load(GX_TEXMAP1, CTexture::kCM_Repeat);
     const float phase = scanTime * sweepSpeeds[i] + scanRange.GetZ();
-    const float sweepOffset = (phase - static_cast< float >(floor(phase))) * (bottom - top);
+    const float sweepOffset = (phase - static_cast< float >(floor(phase))) * (screen.second[1] - screen.first[1]);
     CGraphics::SetBlendMode(kBM_Blend, kBF_One, kBF_One, kLO_Clear);
-    const CVector2f sweepMin(left - 1.f, bottom - sweepOffset);
+    const CVector2f sweepMin(screen.first[0] - 1.f, screen.second[1] - sweepOffset);
     const CVector2f sweepMax(
-        right + 1.f, bottom - -(sweepHeights[i] * mScanSweepBar->GetHeight() - sweepOffset));
-    const float topV = (bottom - sweepMin.GetY()) / (bottom - top);
-    const float bottomV = (bottom - sweepMax.GetY()) / (bottom - top);
+        screen.second[0] + 1.f, screen.second[1] - (sweepOffset - sweepHeights[i] * mScanSweepBar->GetHeight()));
+    const float topV = (screen.second[1] - sweepMin[1]) / (screen.second[1] - screen.first[1]);
+    const float bottomV = (screen.second[1] - sweepMax[1]) / (screen.second[1] - screen.first[1]);
     CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-    GXPosition3f32(sweepMin.GetX(), 0.f, sweepMin.GetY());
+    GXPosition3f32(sweepMin[0], 0.f, sweepMin[1]);
     GXColor1u32(color.GetColor_u32());
     GXTexCoord2f32(0.f, topV);
     GXTexCoord2f32(0.f, 0.f);
-    GXPosition3f32(sweepMin.GetX(), 0.f, sweepMax.GetY());
+    GXPosition3f32(sweepMin[0], 0.f, sweepMax[1]);
     GXColor1u32(color.GetColor_u32());
     GXTexCoord2f32(0.f, bottomV);
     GXTexCoord2f32(0.f, 1.f);
-    GXPosition3f32(sweepMax.GetX(), 0.f, sweepMin.GetY());
+    GXPosition3f32(sweepMax[0], 0.f, sweepMin[1]);
     GXColor1u32(color.GetColor_u32());
     GXTexCoord2f32(1.f, topV);
     GXTexCoord2f32(1.f, 0.f);
-    GXPosition3f32(sweepMax.GetX(), 0.f, sweepMax.GetY());
+    GXPosition3f32(sweepMax[0], 0.f, sweepMax[1]);
     GXColor1u32(color.GetColor_u32());
     GXTexCoord2f32(1.f, bottomV);
     GXTexCoord2f32(1.f, 1.f);
