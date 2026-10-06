@@ -459,14 +459,14 @@ CDamageInfo CGunWeapon::GetDamageInfo(CStateManager& mgr, CPlayerState::EChargeS
   if (chargeState == CPlayerState::kCS_Normal) {
     return info.mNormal.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
   }
+  const CDamageInfo& charged = info.mCharged;
   if (chargeFactor == 1.f) {
-    return info.mCharged.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
+    return charged.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
   }
-  CDamageInfo damage(info.mCharged.GetWeaponMode(), chargeFactor * info.mCharged.GetDamage(),
-                     chargeFactor * info.mCharged.GetRadius(),
-                     chargeFactor * info.mCharged.GetKnockBackPower());
-  damage.SetRadiusDamage(chargeFactor * info.mCharged.GetRadiusDamage());
-  damage.SetApplyRadiusDamage(false);
+  CDamageInfo damage(charged.GetWeaponMode(), chargeFactor * charged.GetDamage(),
+                     chargeFactor * charged.GetRadius(), chargeFactor * charged.GetKnockBackPower(),
+                     false, false);
+  damage.SetRadiusDamage(chargeFactor * charged.GetRadiusDamage());
   return damage.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
 }
 
@@ -673,11 +673,12 @@ void CGunWeapon::ReleaseResources(CStateManager& mgr) {
 
 void CGunWeapon::FillTokenVector(const rstl::vector< SObjectTag >& tags,
                                  rstl::vector< CToken >& objects, bool includeTxtr) {
-  for (int i = 0; i < tags.size(); ++i) {
-    CToken token = gpSimplePool->GetObj(tags[i]);
-    if (includeTxtr || token.GetReferenceType() != 'TXTR') {
-      objects.push_back(token);
+  for (rstl::vector< SObjectTag >::const_iterator it = tags.begin(); it != tags.end(); ++it) {
+    CToken token = gpSimplePool->GetObj(*it);
+    if (!includeTxtr && token.GetReferenceType() == 'TXTR') {
+      continue;
     }
+    objects.push_back_unsafe(token);
   }
 }
 
@@ -685,10 +686,11 @@ void CGunWeapon::BuildDependencyList(CPlayerState::EBeamId beam) {
   const TLockedToken< CDependencyGroup > dependencies =
       gpSimplePool->GetObj(skDependencyNames[beam]);
   const TLockedToken< CDependencyGroup > animDependencies = gpSimplePool->GetObj(lbl_8041D3BC);
-  mDeps.reserve(dependencies->GetObjectTagVector().size() +
-                animDependencies->GetObjectTagVector().size());
-  FillTokenVector(dependencies->GetObjectTagVector(), mDeps, true);
-  FillTokenVector(animDependencies->GetObjectTagVector(), mDeps, false);
+  const rstl::vector< SObjectTag >& depTags = dependencies->GetObjectTagVector();
+  const rstl::vector< SObjectTag >& animTags = animDependencies->GetObjectTagVector();
+  mDeps.reserve(depTags.size() + animTags.size());
+  FillTokenVector(depTags, mDeps, true);
+  FillTokenVector(animTags, mDeps, false);
 }
 
 void CGunWeapon::AsyncLoadFidget(CStateManager& mgr, SamusGun::EFidgetType type, int animSet) {
