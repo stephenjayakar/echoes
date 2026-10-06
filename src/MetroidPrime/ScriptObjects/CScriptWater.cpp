@@ -731,8 +731,9 @@ CEntity* LoadWater(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
   SLdrWater sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrWater.inc"
 
+  const CVector3f negHalfExtent = -(0.5f * sldrThis.editorProperties.transform.scale);
   const CVector3f halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
-  const CAABox bounds = CAABox(-halfExtent, halfExtent);
+  const CAABox bounds = CAABox(negHalfExtent, halfExtent);
   const CFluidUVMotion uvMotion = CFluidUVMotion(
       sldrThis.flowSpeed, M_PIF * sldrThis.flowOrientation / 180.f - M_PIF,
       LdrToFluidLayerMotion(sldrThis.flowColor), LdrToFluidLayerMotion(sldrThis.flowColorWarp),
