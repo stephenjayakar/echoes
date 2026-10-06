@@ -657,17 +657,18 @@ void CElementGen::CreateNewParticles(int count) {
   if (!sStaticListInitialized) {
     Initialize();
   }
+  int genCount = count;
   if (mParticles.size() < mMAXP) {
-    if (count + mParticles.size() > mMAXP) {
-      count = mMAXP - mParticles.size();
+    if (genCount + mParticles.size() > mMAXP) {
+      genCount = mMAXP - mParticles.size();
     }
-    if (count + sParticleAliveCount > 0xa00) {
-      count = 0xa00 - sParticleAliveCount;
+    if (genCount + sParticleAliveCount > 0xa00) {
+      genCount = 0xa00 - sParticleAliveCount;
     }
     CGlobalRandom random(mRandState);
-    mParticles.reserve(count + mParticles.size());
-    if (mEnableADV && mAdvValues.capacity() < count + mParticles.size()) {
-      mAdvValues.reserve(rstl::min_val(mMAXP, (count + mAdvValues.capacity()) * 2));
+    mParticles.reserve(genCount + mParticles.size());
+    if (mEnableADV && mAdvValues.capacity() < genCount + mParticles.size()) {
+      mAdvValues.reserve(rstl::min_val(mMAXP, (genCount + mAdvValues.capacity()) * 2));
       while (mAdvValues.size() < mAdvValues.capacity()) {
         mAdvValues.push_back_unsafe(CAdvancedValues());
       }
@@ -676,7 +677,7 @@ void CElementGen::CreateNewParticles(int count) {
     const CVector3f scaledTranslation =
         (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation;
 
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < genCount; ++i) {
       mParticles.push_back_unsafe(CParticle());
       const int particleIndex = mParticles.size() - 1;
       if (mOrientType == kMOT_One) {
