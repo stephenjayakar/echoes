@@ -3044,20 +3044,24 @@ void CCubeRenderer::DrawDarkWorldVolume(const CVector3f& pos, const CVector3f& s
 
 void CCubeRenderer::GetScreenMipInfo(int width, int height, int mipCount, GXTexFmt format,
                                      int* size, int* mipWidth, int* mipHeight) {
+  int w = width;
+  int h = height;
   int total = 0;
   for (int i = 0; i < mipCount; ++i) {
-    width >>= 1;
-    height >>= 1;
-    total += GXGetTexBufferSize(width, height, format, GX_FALSE, 0);
+    w &= ~1;
+    w >>= 1;
+    h &= ~1;
+    h >>= 1;
+    total += GXGetTexBufferSize(w, h, format, GX_FALSE, 0);
   }
   if (size) {
     *size = total;
   }
   if (mipWidth) {
-    *mipWidth = width;
+    *mipWidth = w;
   }
   if (mipHeight) {
-    *mipHeight = height;
+    *mipHeight = h;
   }
 }
 
