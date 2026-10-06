@@ -498,6 +498,11 @@ public:
     mKnockBack = cmd;
   }
 
+  void DeliverCmd(const CBCLoopAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopAttack = cmd;
+  }
+
   void DeliverCmd(const CBCProjectileAttackCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mProjectileAttack = cmd;
