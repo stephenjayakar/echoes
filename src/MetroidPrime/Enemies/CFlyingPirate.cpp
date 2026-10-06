@@ -1050,10 +1050,10 @@ bool CFlyingPirate::CoverCheck(CStateManager& mgr, const CTriggerData& data) con
 }
 
 bool CFlyingPirate::CoverFind(CStateManager& mgr, const CTriggerData& data) const {
-  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   bool found = false;
   float closestMag = mData.mMaxCoverDistance * mData.mMaxCoverDistance;
   const CScriptCoverPoint* closest = nullptr;
+  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   const CObjectList& list = mgr.GetObjectListById(kOL_AiWaypoint);
   for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
     if (const CScriptCoverPoint* cover = TCastToConstPtr< CScriptCoverPoint >(list[i])) {
@@ -1625,8 +1625,8 @@ void CFlyingPirate::Deactivate(CStateManager& mgr, EStateMsg msg, float dt) {
 }
 
 bool CFlyingPirate::ShouldRetreat(CStateManager& mgr, const CTriggerData& data) const {
-  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   bool shouldRetreat = false;
+  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   if (x6a2_28_) {
     TUniqueId id = GetConnectedObject(mgr, kSS_Patrol, kSM_Follow);
     const CScriptWaypoint* waypoint = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id));
