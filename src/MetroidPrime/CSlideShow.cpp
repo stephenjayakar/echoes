@@ -528,71 +528,71 @@ CAssetId UpdatePersistentScanPercent(int previous, int current, int total) {
 }
 
 CIOWin::EMessageReturn CSlideShow::ProcessUserInput(const CFinalInput& input) {
-  if (mDisableInput || mPhase != 5) {
-    return kMR_Exit;
-  }
-  if (IsControlsAnimating()) {
-    UpdateControlsText(input);
-  }
-  if (input.PB()) {
-    SetPanSfx(false);
-    SetZoomSfx(false);
-    CSfxManager::SfxStart(0x5b7, 127, 64);
-    mDisableInput = true;
-    mOutroFade = true;
-    return kMR_Exit;
-  }
-  if (input.PY()) {
-    SetShowControls(!mShowControls);
-    if (mShowControls) {
-      mGalleryChanged = true;
-      CSfxManager::SfxStart(0x5b3, 127, 64);
-    } else {
-      CSfxManager::SfxStart(0x5b2, 127, 64);
+  if (!mDisableInput && mPhase == 5) {
+    if (IsControlsAnimating()) {
+      UpdateControlsText(input);
     }
-  }
-  bool changed = false;
-  const CControlMapper& mapper = gpGameState->ControlMapper();
-  if (input.PDPRight()) {
-    mGallery = (mGallery + 1) % mGalleries.size();
-    mSlide = -1;
-    mGalleryChanged = true;
-    changed = true;
-    AdvanceSlide(true);
-  } else if (input.PDPLeft()) {
-    --mGallery;
-    if (mGallery < 0) {
-      mGallery = mGalleries.size() - 1;
+    if (input.PB()) {
+      SetPanSfx(false);
+      SetZoomSfx(false);
+      CSfxManager::SfxStart(0x5b7, 127, 64);
+      mDisableInput = true;
+      mOutroFade = true;
+      return kMR_Exit;
     }
-    mSlide = -1;
-    mGalleryChanged = true;
-    changed = true;
-    AdvanceSlide(true);
-  } else if (mapper.GetPressInput(CControlMapper::kC_MapCircleLeft, input) || input.PA()) {
-    changed = true;
-    AdvanceSlide(true);
-  } else if (mapper.GetPressInput(CControlMapper::kC_MapCircleRight, input)) {
-    changed = true;
-    AdvanceSlide(false);
-  } else {
-    const float next = mapper.GetAnalogInput(CControlMapper::kC_MapCircleLeft, input);
-    if (next != 0.f || input.DA()) {
-      mRepeatTimer = rstl::max_val(0.f, mRepeatTimer) + input.DeltaTime();
-    } else {
-      const float previous = mapper.GetAnalogInput(CControlMapper::kC_MapCircleRight, input);
-      if (previous != 0.f) {
-        mRepeatTimer = rstl::min_val(0.f, mRepeatTimer) - input.DeltaTime();
+    if (input.PY()) {
+      SetShowControls(!mShowControls);
+      if (mShowControls) {
+        mGalleryChanged = true;
+        CSfxManager::SfxStart(0x5b3, 127, 64);
       } else {
-        mRepeatTimer = 0.f;
+        CSfxManager::SfxStart(0x5b2, 127, 64);
       }
     }
-  }
-  if (changed) {
-    mRepeatTimer = 0.f;
-    mIdleTimer = 0.f;
-  }
-  if (mSlideA.IsReady()) {
-    return mSlideA.ProcessUserInput(input);
+    bool changed = false;
+    if (input.PDPRight()) {
+      mGallery = (mGallery + 1) % mGalleries.size();
+      mSlide = -1;
+      mGalleryChanged = true;
+      changed = true;
+      AdvanceSlide(true);
+    } else if (input.PDPLeft()) {
+      --mGallery;
+      if (mGallery < 0) {
+        mGallery = mGalleries.size() - 1;
+      }
+      mSlide = -1;
+      mGalleryChanged = true;
+      changed = true;
+      AdvanceSlide(true);
+    } else if (gpGameState->ControlMapper().GetPressInput(CControlMapper::kC_MapCircleLeft,
+                                                            input) ||
+               input.PA()) {
+      changed = true;
+      AdvanceSlide(true);
+    } else if (gpGameState->ControlMapper().GetPressInput(CControlMapper::kC_MapCircleRight,
+                                                            input)) {
+      changed = true;
+      AdvanceSlide(false);
+    } else if (gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapCircleLeft,
+                                                             input) ||
+               input.DA()) {
+      mRepeatTimer = rstl::max_val(0.f, mRepeatTimer);
+      mRepeatTimer += input.DeltaTime();
+    } else if (gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapCircleRight,
+                                                             input)) {
+      mRepeatTimer = rstl::min_val(0.f, mRepeatTimer);
+      mRepeatTimer -= input.DeltaTime();
+    } else {
+      mRepeatTimer = 0.f;
+    }
+    if (changed) {
+      mRepeatTimer = 0.f;
+      mIdleTimer = 0.f;
+    }
+    if (mSlideA.IsReady()) {
+      return mSlideA.ProcessUserInput(input);
+    }
   }
   return kMR_Exit;
 }
