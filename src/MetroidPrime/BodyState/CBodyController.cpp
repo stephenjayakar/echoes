@@ -192,16 +192,27 @@ void CBodyController::FaceDirectionOnSurface(const CVector3f& direction,
       return;
     }
 
-    // The target uses the projected direction without normalizing it.
-    const float dot = CVector3f::Dot(projected, current);
+    const CUnitVector3f desired(projected);
+    const float dot = CVector3f::Dot(desired, current);
     if (!close_enough(dot, 1.f)) {
-      const CRelAngle angle = CRelAngle::FromDegrees(dt * mTurnSpeed);
-      const CQuaternion rotation =
-          dot < -0.99981f ? CQuaternion::AxisAngle(CUnitVector3f(up, CUnitVector3f::kN_No), angle)
-                          : CQuaternion::ShortestRotationArcClamped(current, projected, angle);
-      const CQuaternion localRotation = CQuaternion::ScalarVector(
-          rotation.GetScalar(), GetOwner().GetTransform().TransposeRotate(rotation.GetVector()));
-      actor->RotateInOneFrameOR(localRotation, dt);
+      if (dot < -0.99981f) {
+        const CQuaternion rotation = CQuaternion::AxisAngle(
+            CUnitVector3f(actor->GetTransform().GetUp(), CUnitVector3f::kN_No),
+            CRelAngle::FromDegrees(dt * mTurnSpeed));
+        actor->RotateInOneFrameOR(
+            CQuaternion::ScalarVector(rotation.GetScalar(),
+                                      GetOwner().GetTransform().TransposeRotate(
+                                          rotation.GetVector())),
+            dt);
+      } else {
+        const CQuaternion rotation = CQuaternion::ShortestRotationArcClamped(
+            current, desired, CRelAngle::FromDegrees(dt * mTurnSpeed));
+        actor->RotateInOneFrameOR(
+            CQuaternion::ScalarVector(rotation.GetScalar(),
+                                      GetOwner().GetTransform().TransposeRotate(
+                                          rotation.GetVector())),
+            dt);
+      }
     }
   }
 }
@@ -217,15 +228,24 @@ void CBodyController::FaceDirection3D(const CVector3f& direction, const CVector3
     const CUnitVector3f desired(direction);
     const float dot = CVector3f::Dot(desired, current);
     if (!close_enough(dot, 1.f)) {
-      const CRelAngle angle = CRelAngle::FromDegrees(dt * mTurnSpeed);
-      const CQuaternion rotation =
-          dot < -0.99981f
-              ? CQuaternion::AxisAngle(
-                    CUnitVector3f(actor->GetTransform().GetUp(), CUnitVector3f::kN_No), angle)
-              : CQuaternion::ShortestRotationArcClamped(current, desired, angle);
-      const CQuaternion localRotation = CQuaternion::ScalarVector(
-          rotation.GetScalar(), GetOwner().GetTransform().TransposeRotate(rotation.GetVector()));
-      actor->RotateInOneFrameOR(localRotation, dt);
+      if (dot < -0.99981f) {
+        const CQuaternion rotation = CQuaternion::AxisAngle(
+            CUnitVector3f(actor->GetTransform().GetUp(), CUnitVector3f::kN_No),
+            CRelAngle::FromDegrees(dt * mTurnSpeed));
+        actor->RotateInOneFrameOR(
+            CQuaternion::ScalarVector(rotation.GetScalar(),
+                                      GetOwner().GetTransform().TransposeRotate(
+                                          rotation.GetVector())),
+            dt);
+      } else {
+        const CQuaternion rotation = CQuaternion::ShortestRotationArcClamped(
+            current, desired, CRelAngle::FromDegrees(dt * mTurnSpeed));
+        actor->RotateInOneFrameOR(
+            CQuaternion::ScalarVector(rotation.GetScalar(),
+                                      GetOwner().GetTransform().TransposeRotate(
+                                          rotation.GetVector())),
+            dt);
+      }
     }
   }
 }
