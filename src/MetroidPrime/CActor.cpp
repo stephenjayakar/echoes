@@ -880,10 +880,15 @@ void CActor::RemoveInvalidFluidIds(CStateManager& mgr) {
 }
 
 void CActor::SetInFluid(CStateManager& mgr, bool inFluid, TUniqueId uid) {
-  rstl::reserved_vector< TUniqueId, 4 >::iterator it =
-      rstl::find(mFluidIds.begin(), mFluidIds.end(), uid);
   if (inFluid) {
-    if (it == mFluidIds.end() && mFluidIds.size() != mFluidIds.capacity()) {
+    bool found = false;
+    for (int i = 0; i < mFluidIds.size(); ++i) {
+      if (mFluidIds[i] == uid) {
+        found = true;
+        break;
+      }
+    }
+    if (!found && mFluidIds.size() != mFluidIds.capacity()) {
       if (!mFluidIdsChanged) {
         mFluidIdsChanged = true;
         mPreviousFluidIds = mFluidIds;
@@ -891,14 +896,28 @@ void CActor::SetInFluid(CStateManager& mgr, bool inFluid, TUniqueId uid) {
       mFluidIds.push_back(uid);
       rstl::sort(mFluidIds.begin(), mFluidIds.end(), CFluidHeightCompare(mgr));
     }
-  } else if (it != mFluidIds.end()) {
-    if (!mFluidIdsChanged) {
-      mFluidIdsChanged = true;
-      mPreviousFluidIds = mFluidIds;
+  } else {
+    for (rstl::reserved_vector< TUniqueId, 4 >::iterator it = mFluidIds.begin();
+         it != mFluidIds.end(); ++it) {
+      if (*it == uid) {
+        if (!mFluidIdsChanged) {
+          mFluidIdsChanged = true;
+          mPreviousFluidIds = mFluidIds;
+        }
+        mFluidIds.erase(it);
+        break;
+      }
     }
-    mFluidIds.erase(it);
   }
-  RemoveInvalidFluidIds(mgr);
+
+  rstl::reserved_vector< TUniqueId, 4 >::iterator it = mFluidIds.begin();
+  while (it != mFluidIds.end()) {
+    if (!TCastToConstPtr< CScriptWater >(mgr.GetObjectById(*it))) {
+      it = mFluidIds.erase(it);
+    } else {
+      ++it;
+    }
+  }
 }
 
 const rstl::reserved_vector< TUniqueId, 4 >& CActor::GetFluidList() const { return mFluidIds; }
