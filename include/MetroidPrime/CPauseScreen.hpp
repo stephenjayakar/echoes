@@ -65,6 +65,18 @@ private:
     float mDepth;
     int mStyle;
     float mAlpha;
+
+    SNodeDraw(const rstl::ncrc_ptr< CScanTreeNode >& node, CVector3f position, int style,
+              float alpha)
+    : mNode(node), mPosition(position), mDepth(0.f), mStyle(style), mAlpha(alpha) {}
+    SNodeDraw& operator=(const SNodeDraw& other) {
+      mNode = other.mNode;
+      mPosition = other.mPosition;
+      mDepth = other.mDepth;
+      mStyle = other.mStyle;
+      mAlpha = other.mAlpha;
+      return *this;
+    }
   };
 
   // Guessed names; exact original private method names are not available.

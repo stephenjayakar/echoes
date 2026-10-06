@@ -1023,7 +1023,8 @@ void CPauseScreen::ProcessSelectionInput(const CFinalInput& input) {
     y = 0.f;
   }
   const CTransform4f view = mViewRotation.BuildTransform4f();
-  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+  const int selectedId = mScanTree.GetSelectedNode();
+  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(selectedId);
   const CVector3f direction(x, 0.f, y);
   float best = 10000.f;
   if (!direction.CanBeNormalized()) {
@@ -1037,7 +1038,7 @@ void CPauseScreen::ProcessSelectionInput(const CFinalInput& input) {
     rstl::rc_ptr< CScanTreeNode > selectedNode = mScanTree.GetNode(selected);
     const CVector3f position = node->GetDisplayPosition();
     for (int i = 0; i < count; ++i) {
-      const int childId = category->GetChild(i);
+      int childId = category->GetChild(i);
       rstl::rc_ptr< CScanTreeNode > child = mScanTree.GetNode(childId);
       if (!child->IsVisible()) {
         continue;
@@ -1393,42 +1394,43 @@ void CPauseScreen::DrawScanTree(const CTransform4f& view, const CVector3f& origi
   gpRender->SetBlendMode_AdditiveAlpha();
   gpRender->SetModelMatrix(CTransform4f::Identity());
   if (!skipParent) {
-    SNodeDraw draw;
-    draw.mNode = node;
-    draw.mPosition = position;
-    draw.mDepth = 0.f;
-    draw.mStyle = 1;
-    draw.mAlpha = mScanTree.GetLayoutProgress();
-    nodes.push_back_unsafe(draw);
+    nodes.push_back_unsafe(SNodeDraw(node, position, 1, mScanTree.GetLayoutProgress()));
   }
   if (node->GetNodeType() == CScanTreeNode::kNT_Category) {
     const rstl::rc_ptr< CScanTreeCategory > category(node);
     const int count = category->GetChildCount();
     nodes.reserve(nodes.size() + count);
     for (int i = 0; i < count; ++i) {
+      bool option;
+      bool activeOption;
+      int style;
       const int childId = category->GetChild(i);
       rstl::rc_ptr< CScanTreeNode > child = mScanTree.GetNode(childId);
       if (!child->IsVisible()) {
         continue;
       }
       const bool selected = category->GetSelectedChild() == childId;
-      const bool option = child->GetNodeType() == CScanTreeNode::kNT_Menu ||
-                          child->GetNodeType() == CScanTreeNode::kNT_Slider;
-      const bool activeOption = option && childId == mScanTree.GetSelectedNode();
-      int style = 2;
-      if (selected) {
-        style = activeOption ? 4 : 3;
+      activeOption = false;
+      option = false;
+      if (child->GetNodeType() == CScanTreeNode::kNT_Menu ||
+          child->GetNodeType() == CScanTreeNode::kNT_Slider) {
+        option = true;
       }
-      const float alpha = rstl::min_val(1.f, rstl::max_val(0.f, child->GetOpacity()));
+      if (option && childId == mScanTree.GetSelectedNode()) {
+        activeOption = true;
+      }
+      if (selected) {
+        style = 3;
+        if (activeOption) {
+          style = 4;
+        }
+      } else {
+        style = 2;
+      }
+      const float alpha = CMath::Clamp(0.f, child->GetOpacity(), 1.f);
       const CColor brightness(alpha, alpha, alpha, 1.f);
       const CVector3f childPosition = child->GetDisplayPosition() - origin;
-      SNodeDraw draw;
-      draw.mNode = child;
-      draw.mPosition = childPosition;
-      draw.mDepth = 0.f;
-      draw.mStyle = style;
-      draw.mAlpha = alpha;
-      nodes.push_back_unsafe(draw);
+      nodes.push_back_unsafe(SNodeDraw(child, childPosition, style, alpha));
       DrawConnection(view, position, childPosition,
                      CColor::Modulate(gpTweakGui->GetLogBookNodeColor(), brightness), 1.f);
     }
@@ -1585,8 +1587,8 @@ void CPauseScreen::DrawNodeLabel(const CTransform4f& view, const CVector3f& posi
     mNodeText->SetText(node->GetName(), false);
     mNodeText->SetGeometryColor(color);
     const float scale = gpTweakGui->GetLogBookTextScale();
-    const CVector3f offset(-mNodeText->GetTextBoundingWidth() * 0.5f, 0.f,
-                           -(1.2f * (0.2f * iconScale) * 0.5f) / (0.02f * scale));
+    const CVector3f offset(-mNodeText->GetTextBoundingWidth() / 2.f, 0.f,
+                           -(1.2f * (0.2f * iconScale) / 2.f) / (0.02f * scale));
     const CTransform4f textXf = CTransform4f::Scale(0.02f * textScale) * view.GetRotation() *
                                 CTransform4f::Translate(offset);
     CGraphics::SetModelMatrix(CTransform4f::Translate(position) * textXf);
