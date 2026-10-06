@@ -74,9 +74,10 @@ void CSafeZoneManager::Render(CStateManager& mgr) const {
 }
 
 bool CSafeZoneManager::IsObjectInSafeZone(const CActor& actor, const CStateManager& mgr) const {
-  for (int i = 0; i < mZones.size(); ++i) {
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
     const CScriptSafeZone* zone =
-        TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(mZones[i].mId));
+        TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(it->mId)));
     if (zone && zone->HasInhabitant(actor.GetUniqueId())) {
       return true;
     }
@@ -145,12 +146,12 @@ TUniqueId CSafeZoneManager::SphereTouchingWhichSafeZone(const CStateManager& mgr
 }
 
 void CSafeZoneManager::Update(float, CStateManager& mgr) {
-  rstl::reserved_vector< SZone, 64 >::iterator it = mZones.begin();
-  while (it != mZones.end()) {
-    if (!mgr.GetObjectById(it->mId)) {
-      it = mZones.erase(it);
+  int i = 0;
+  while (i < mZones.size()) {
+    if (!mgr.GetObjectById(mZones[i].mId)) {
+      mZones.erase(mZones.begin() + i);
     } else {
-      ++it;
+      ++i;
     }
   }
 }
