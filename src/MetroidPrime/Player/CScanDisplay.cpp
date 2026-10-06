@@ -235,14 +235,19 @@ void CScanDisplay::UpdateAPulse(float dt) {
 void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr) {
   if (mState == kSS_Inactive) {
     mDataDotTexture.Unlock();
-    mScanTexture.clear();
-    mScanModelToken.clear();
+    if (mScanTexture) {
+      mScanTexture.clear();
+    }
+    if (mScanModelToken) {
+      mScanModelToken.clear();
+    }
     mScanModel = rstl::auto_ptr< CModelData >();
     return;
   }
 
   mDataDotTexture.Lock();
   mDataDotTexture.IsLoaded();
+  bool active = false;
   if (mScanTexture) {
     mScanTexture->Lock();
     mScanTexture->IsLoaded();
@@ -260,12 +265,14 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
       }
     }
     if (it == mHistoryStrings.end()) {
+      it = mHistoryStrings.begin();
       const rstl::wstring spacing(gpStringTable->GetString("LogbookLineSpacing"));
-      for (int i = 0; i < mHistoryStrings.size(); ++i) {
-        const CStringTable* table = mHistoryStrings[i].GetObject();
+      int i = 0;
+      for (; it != mHistoryStrings.end(); ++i, ++it) {
+        const CStringTable* table = it->GetObject();
         if (table) {
-          mHistoryWidgets[i].mHistory->TextSupport().SetText(
-              spacing + rstl::wstring(table->GetString(mHistory[i].mName.data())));
+          const wchar_t* str = table->GetString(mHistory[i].mName.data());
+          mHistoryWidgets[i].mHistory->TextSupport().SetText(spacing + rstl::wstring(str));
         }
       }
       const CStringTable* table = mHistoryStrings[0].GetObject();
@@ -276,7 +283,6 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
     }
   }
 
-  bool active = false;
   if (mState == kSS_Done) {
     mBodyAlpha = rstl::max_val(0.f, mBodyAlpha - 2.f * dt);
     mModelTransition = rstl::max_val(mModelTransition - 2.f * dt, 0.f);
@@ -295,7 +301,8 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
     active = true;
     mBodyAlpha = rstl::min_val(1.f, mBodyAlpha + 2.f * dt);
     if (mHistoryRoot) {
-      mHistoryRoot->SetColor(CColor::White().WithAlphaOf(mBodyAlpha));
+      const CColor color = CColor::White().WithAlphaOf(mBodyAlpha);
+      mHistoryRoot->SetColor(color);
     }
     if (mState == kSS_DownloadComplete) {
       mModelTransition = rstl::min_val(mModelTransition + dt, 1.f);
@@ -324,39 +331,45 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
       }
     } else if (mState == kSS_Downloading) {
       mModelYaw = 0.f;
+      int i = 0;
       if (mHistoryRoot) {
-        if (mHistory.size() > 3) {
+        if (mHistory.size() >= 4) {
           const float fraction = GetDownloadFraction(3, scanningTime);
-          mHistoryRight->SetColor(
+          const CColor color =
               CColor::Lerp(gpTweakGuiColors->GetScanHudHierarchyInactiveFrameColor(),
-                           gpTweakGuiColors->GetScanHudHierarchyFrameColor(), fraction));
+                           gpTweakGuiColors->GetScanHudHierarchyFrameColor(), fraction);
+          mHistoryRight->SetColor(color);
         }
-        for (int i = 0; i < mHistoryWidgets.size(); ++i) {
+        for (rstl::vector< SScanHistoryWidgets >::iterator widgetIt = mHistoryWidgets.begin();
+             widgetIt != mHistoryWidgets.end(); ++i, ++widgetIt) {
           if (i < mHistory.size()) {
             const float fraction = GetDownloadFraction(i, scanningTime);
             const SScanHierarchyNode& node = mHistory[i];
-            SScanHistoryWidgets& widget = mHistoryWidgets[i];
+            SScanHistoryWidgets& widget = *widgetIt;
             int percent;
-            if (node.mTotalScans == 0) {
-              percent = rstl::min_val(int(105.f * fraction), 100);
-            } else if (mScanComplete) {
-              percent = node.mCompletedScans * 100 / node.mTotalScans;
+            if (node.mTotalScans != 0) {
+              if (mScanComplete) {
+                percent = node.mCompletedScans * 100 / node.mTotalScans;
+              } else {
+                const int before = node.mCompletedScans * 100 / node.mTotalScans;
+                const int after = (node.mCompletedScans + 1) * 100 / node.mTotalScans;
+                percent = (1.f - fraction) * before + fraction * after;
+              }
             } else {
-              const int before = node.mCompletedScans * 100 / node.mTotalScans;
-              const int after = (node.mCompletedScans + 1) * 100 / node.mTotalScans;
-              percent = (1.f - fraction) * before + fraction * after;
+              percent = rstl::min_val(100, int(105.f * fraction));
             }
             const bool complete =
-                node.mCompletedScans >= node.mTotalScans - 1 || node.mTotalScans == 0;
+                mHistory[i].mCompletedScans >= mHistory[i].mTotalScans - 1 || mHistory[i].mTotalScans == 0;
             const CColor& color =
                 complete ? gpTweakGuiColors->GetScanHudHierarchyCompleteFlashIconColor()
                          : gpTweakGuiColors->GetScanHudHierarchyFlashIconColor();
             if (fraction < 0.5f) {
               widget.mFlash->SetColor(CColor::White().WithAlphaOf(0.f));
             } else {
-              widget.mFlash->SetColor(
+              const CColor flashColor =
                   CColor::Lerp(gpTweakGuiColors->GetScanHudHierarchyFlashFlashIconColor(), color,
-                               2.f * (fraction - 0.5f)));
+                               2.f * (fraction - 0.5f));
+              widget.mFlash->SetColor(flashColor);
             }
             widget.mPercent->SetTargetFraction(percent / 100.f);
             widget.mPercent->SetCurrentFraction(percent / 100.f);
@@ -390,19 +403,14 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
         }
         mScrollMessage->SetIsVisible(false);
         RequestScanDisplay();
-        const CActor* boss = TCastToConstPtr< CActor >(mgr.GetObjectById(mgr.GetBossId()));
+        const TUniqueId bossId = mgr.GetBossId();
+        const CActor* boss = TCastToConstPtr< CActor >(mgr.GetObjectById(bossId));
         mCanOpenLogbook = (!boss || !boss->GetHealthInfo()) && !CSamusHud::IsHudMemoVisible(0);
       }
     }
   }
 
-  if (active) {
-    const CColor color = CColor::White().WithAlphaOf(mBodyAlpha);
-    mTextGroup->SetColor(color);
-    if (mHistoryRoot) {
-      mHistoryRoot->SetColor(color);
-    }
-  } else {
+  if (!active) {
     mState = kSS_Inactive;
     mObject = kInvalidUniqueId;
     mScannableInfo = rstl::optional_object_null();
@@ -435,6 +443,12 @@ void CScanDisplay::Update(float dt, float scanningTime, const CStateManager& mgr
     mScanString = rstl::optional_object_null();
     mPageCounter = 0;
     mScanComplete = false;
+  } else {
+    const CColor color = CColor::White().WithAlphaOf(mBodyAlpha);
+    mTextGroup->SetColor(color);
+    if (mHistoryRoot) {
+      mHistoryRoot->SetColor(color);
+    }
   }
 }
 
