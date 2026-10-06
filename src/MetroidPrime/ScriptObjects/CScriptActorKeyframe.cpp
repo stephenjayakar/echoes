@@ -1,5 +1,7 @@
 #include "MetroidPrime/ScriptObjects/CScriptActorKeyframe.hpp"
 
+#include "Kyoto/Animation/IMetaTrans.hpp"
+
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CAnimPlaybackParms.hpp"
@@ -73,21 +75,25 @@ void CScriptActorKeyframe::UpdateEntity(TUniqueId uid, CStateManager& mgr) {
                                       kSM_Activate, kSS_InvalidState));
     }
     if (actor->HasAnimation()) {
-      CAnimData* animation = actor->AnimationData();
-      if (animation->IsAdditiveAnimation(mAnimationId)) {
-        animation->AddAdditiveAnimation(mAnimationId, 1.f, mLooping, mFadeOut);
+      if (actor->AnimationData()->IsAdditiveAnimation(mAnimationId)) {
+        actor->AnimationData()->AddAdditiveAnimation(mAnimationId, 1.f, mLooping, mFadeOut);
       } else {
-        // TODO: Echoes derives noTrans from the transition tree's type and clears
-        // an animation-data flag after starting the animation.
-        animation->SetAnimation(CAnimPlaybackParms(mAnimationId, -1, 1.f, true), false);
+        const CAnimPlaybackParms parms(mAnimationId, -1, 1.f, true);
+        const rstl::rc_ptr< IMetaTrans > transition(
+            actor->AnimationData()->BuildTransitionTree(parms));
+        uchar noTrans = false;
+        if (transition.GetPtr() && transition->GetType() == kMTT_Snap) {
+          noTrans = true;
+        }
+        actor->AnimationData()->SetAnimation(parms, noTrans);
         actor->ModelData()->EnableLooping(mLooping);
-        animation->MultiplyPlaybackRate(mPlaybackRate);
+        actor->AnimationData()->MultiplyPlaybackRate(mPlaybackRate);
+        actor->AnimationData()->SetPoseBuilt(false);
       }
     }
   } else if (CPatterned* ai = TCastToPtr< CPatterned >(entity)) {
-    CAnimData* animation = ai->AnimationData();
-    if (animation->IsAdditiveAnimation(mAnimationId)) {
-      animation->AddAdditiveAnimation(mAnimationId, 1.f, mLooping, mFadeOut);
+    if (ai->AnimationData()->IsAdditiveAnimation(mAnimationId)) {
+      ai->AnimationData()->AddAdditiveAnimation(mAnimationId, 1.f, mLooping, mFadeOut);
     } else {
       ai->BodyController()->CommandMgr().DeliverCmd(
           CBCScriptedCmd(mAnimationId, mLooping, mTimedLoop, mInitialLifetime));

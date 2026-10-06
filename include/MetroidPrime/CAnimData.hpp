@@ -28,6 +28,7 @@
 class CAnimationManager;
 class CAnimSysContext;
 class CAnimTreeNode;
+class IMetaTrans;
 class CCharacterFactory;
 class CCharLayoutInfo;
 class CJointData_LinearStorage;
@@ -195,10 +196,12 @@ public:
   static void InitializeCache();
   static void FreeCache();
 
+  // Guessed name. Returns the transition that would be used to start the requested animation.
+  rstl::rc_ptr< IMetaTrans > BuildTransitionTree(const CAnimPlaybackParms& parms) const;
+
 private:
   // Guessed names.
   rstl::ncrc_ptr< CAnimTreeNode > BuildAnimationTree(const CAnimPlaybackParms& parms) const;
-  rstl::ncrc_ptr< CAnimTreeNode > BuildTransitionTree(const CAnimPlaybackParms& parms) const;
 
   TLockedToken< CCharacterFactory > mCharFactory;
   CCharacterInfo mCharInfo;

@@ -207,10 +207,9 @@ CAnimData::BuildAnimationTree(const CAnimPlaybackParms& parms) const {
 }
 
 // Guessed name.
-rstl::ncrc_ptr< CAnimTreeNode >
-CAnimData::BuildTransitionTree(const CAnimPlaybackParms& parms) const {
-  // TODO: Build a transition from the current root to BuildAnimationTree(parms).
-  return rstl::ncrc_ptr< CAnimTreeNode >();
+rstl::rc_ptr< IMetaTrans > CAnimData::BuildTransitionTree(const CAnimPlaybackParms& parms) const {
+  // TODO: Look up the transition from the current animation to the requested one.
+  return rstl::rc_ptr< IMetaTrans >();
 }
 
 void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
