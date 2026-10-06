@@ -57,15 +57,16 @@ void CEchoEmitter::Think(float dt, CStateManager& mgr) {
   }
 
   const CVector3f center = mBounds.GetCenterPoint();
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+    const CPlayer& player = *mgr.GetPlayer(i);
     float visibility =
         rstl::max_val(0.f, mPlayerEchoVisibility[i] - dt / mParameters.mVisibilityDecayTime);
-    const CPlayer& player = *mgr.GetPlayer(i);
     const uint pulseCounter = player.GetEchoPulseCounter();
     if (pulseCounter != mPlayerEchoTokens[i]) {
-      const CVector3f delta = (center - player.GetTranslation()).DropZ();
+      const float dx = center.GetX() - player.GetTranslation().GetX();
+      const float dy = center.GetY() - player.GetTranslation().GetY();
       const float radius = player.GetEchoPulsePhase() * gpTweakGui->GetEchoPulseRadiusScale();
-      if (delta.MagSquared() <= radius * radius) {
+      if (dx * dx + dy * dy + 0.f <= radius * radius) {
         visibility = 1.f;
         mPlayerEchoTokens[i] = pulseCounter;
       }
