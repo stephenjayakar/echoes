@@ -424,52 +424,52 @@ void CPathCamera::UpdateOrientation(float dt, const CTransform4f& xf, const CSta
   const CScriptPathCamera* camera = GetScriptCamera(mgr);
   const CScriptCameraHint* hint = TCastToConstPtr< CScriptCameraHint >(
       CameraManager(const_cast< CStateManager& >(mgr)).GetHintManager()->GetCurrentHint(mgr));
-  if (!camera || !hint) {
-    return;
-  }
-
-  const CVector3f position = xf.GetTranslation();
-  const CVector3f targetForward = xf.GetForward();
-  CVector3f flatForward = targetForward;
-  flatForward.SetZ(0.f);
-  if (!flatForward.IsMagnitudeSafe()) {
-    SetTranslation(position);
-    return;
-  }
-
-  CVector3f currentForward = GetTransform().GetForward();
-  if (!currentForward.IsMagnitudeSafe()) {
-    SetTransform(CTransform4f::LookAt(position, position + targetForward));
-    return;
-  }
-  currentForward.Normalize();
-
-  const float alignment = CMath::Limit(CVector3f::Dot(currentForward, targetForward), 1.f);
-  if (!(CMath::AbsF(alignment) >= 0.999999f)) {
-    if (hint->GetInfo().GetFlags() & 0x40) {
-      SetTransform(xf);
+  if (camera != nullptr && hint != nullptr) {
+    // Copied and never used; the native code still constructs it.
+    const CTransform4f oldTransform = GetTransform();
+    const CVector3f targetForward = xf.GetForward();
+    const CVector3f position = xf.GetTranslation();
+    CVector3f flatForward = targetForward;
+    flatForward.SetZ(0.f);
+    if (!flatForward.IsMagnitudeSafe()) {
+      SetTranslation(position);
       return;
     }
 
-    const float ratio = CMath::Clamp(0.f, acosf(alignment) / (1.0471976f * dt), 1.f);
-    float step = dt * (ratio * camera->GetAngularSpeed());
-    const float vertical =
-        CMath::AbsF(CMath::Limit(CVector3f::Dot(targetForward, CVector3f::Up()), 1.f));
-    const float verticalStep = 12.566371f * dt * (1.f - vertical);
-    if (verticalStep < step &&
-        !Player(const_cast< CStateManager& >(mgr)).IsMorphBallTransitioning() &&
-        vertical > 0.999f) {
-      step = verticalStep;
+    CVector3f currentForward = GetTransform().GetForward();
+    if (currentForward.IsMagnitudeSafe()) {
+      currentForward.Normalize();
+    } else {
+      SetTransform(CTransform4f::LookAt(position, position + targetForward));
+      return;
     }
 
-    const CUnitVector3f from(currentForward);
-    const CUnitVector3f to(targetForward);
-    const CQuaternion rotation = CQuaternion::LookAt(from, to, CRelAngle::FromRadians(step));
-    SetTransform(rotation.BuildTransform4f() * GetTransform().GetRotation());
-  } else {
+    const float alignment = CMath::Limit(CVector3f::Dot(currentForward, targetForward), 1.f);
+    if (CMath::AbsF(alignment) >= 0.999999f) {
+      SetTranslation(position);
+    } else {
+      if (hint->GetInfo().GetFlags() & 0x40) {
+        SetTransform(xf);
+        return;
+      }
+
+      const float ratio = CMath::Clamp(0.f, acosf(alignment) / (1.0471976f * dt), 1.f);
+      CRelAngle step = CRelAngle::FromRadians(dt * (ratio * camera->GetAngularSpeed()));
+      const float vertical =
+          CMath::AbsF(CMath::Limit(CVector3f::Dot(targetForward, CVector3f::Up()), 1.f));
+      const float verticalStep = 12.566371f * dt * (1.f - vertical);
+      if (step.AsRadians() > verticalStep &&
+          !Player(const_cast< CStateManager& >(mgr)).IsMorphBallTransitioning() &&
+          vertical > 0.999f) {
+        step = CRelAngle::FromRadians(verticalStep);
+      }
+
+      const CQuaternion rotation =
+          CQuaternion::LookAt(CUnitVector3f(currentForward), CUnitVector3f(targetForward), step);
+      SetTransform(rotation.BuildTransform4f() * GetTransform().GetRotation());
+    }
     SetTranslation(position);
   }
-  SetTranslation(position);
 }
 
 void CPathCamera::UpdateFov(const CStateManager& mgr) {
