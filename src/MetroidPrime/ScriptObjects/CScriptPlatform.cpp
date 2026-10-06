@@ -494,7 +494,7 @@ void CScriptPlatform::Think(float dt, CStateManager& mgr) {
 bool CScriptPlatform::IsInMovedList(TUniqueId id, const TMovedList& moved) {
   const ushort index = id.Value();
   for (TMovedList::const_iterator it = moved.begin(); it != moved.end(); ++it) {
-    if (*it == index)
+    if (index == *it)
       return true;
   }
   return false;
@@ -899,7 +899,8 @@ void CScriptPlatform::ResetMotion(float time, CStateManager& mgr) {
 }
 
 void CScriptPlatform::SetTransformIfNoPositionSpline(const CTransform4f& xf) {
-  if (!mSplineController.get() || mSplineController->GetPositionKnotCount() == 0) {
+  if (!mSplineController.get() ||
+      (mSplineController.get() && mSplineController->GetPositionKnotCount() == 0)) {
     CActor::SetTransform(xf);
     mMotionTransformed = true;
   }
