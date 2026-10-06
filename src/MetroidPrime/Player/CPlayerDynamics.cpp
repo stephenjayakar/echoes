@@ -302,7 +302,8 @@ void CPlayer::ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr
   orbitPoint += strafeVelocity * -useOrbitToPlayer.AsNormalized();
   const CVector2f flatVelocity(GetVelocityWR().GetX(), GetVelocityWR().GetY());
   const float flatVelocityY = flatVelocity.GetY();
-  CVector3f newVelocity = (1.f / dt) * (orbitPoint - GetTranslation());
+  const float invDt = 1.f / dt;
+  CVector3f newVelocity = invDt * (orbitPoint - GetTranslation());
   newVelocity.SetZ(GetVelocityWR().GetZ());
   CVector3f velocityDelta = newVelocity - CVector3f(flatVelocity.GetX(), flatVelocityY, 0.f);
   velocityDelta.SetZ(0.f);
