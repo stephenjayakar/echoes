@@ -1,6 +1,10 @@
 #include "MetroidPrime/Enemies/CGrenchler.hpp"
 
+#include "Kyoto/Math/CMath.hpp"
+#include "MetroidPrime/CActorParameters.hpp"
+#include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Enemies/CPatternedInfo.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrGrenchler.hpp"
@@ -10,6 +14,22 @@
 typedef CPatterned::StateMachine::TriggerFunc TriggerFunc;
 typedef CPatterned::StateMachine::StateFunc StateFunc;
 typedef CPatterned::StateMachine::CodeFunc CodeFunc;
+
+// Guessed names for the file-scope constants below.
+static const char* const skBubblesLocator = "BodyBubbles";
+static const char* const skGrappleGuardianName = "BossGrappleGuardian";
+static const char* const skElectricLocators[5] = {
+    "Electric", "ElectricBody", "ElectricHead", "ElectricLLeg", "ElectricRLeg",
+};
+static const char* const skHeadBoneName = "head";
+static const char* const skEyeLocator = "eye";
+static const char* const skHornLocator = "horn_LCTR";
+static const char* const skRootLocator = "Skeleton_Root";
+static const char* const skJawLocator = "jaw";
+static const float skGrappleLoopTime = 1.5f;
+static const char* const skAttachLocator = "attach_LCTR_SDK";
+
+static EMaterialTypes skSolidMaterial = kMT_Unknown59;
 
 const CVector3f CGrenchler::skAimOffset(0.f, 0.f, 0.5f);
 
@@ -113,13 +133,174 @@ static CPatterned::StateMachine::SCodeFunction skCodeFuncs[] = {
     {"SetLastActionAsBeam", static_cast< CodeFunc >(&CGrenchler::SetLastActionAsBeam)},
 };
 
+struct SJointSphereInfo {
+  const char* mName;
+  float mRadius;
+  float x8_;
+  int xc_;
+  int x10_;
+  bool x14_;
+};
+
+static const SJointSphereInfo skJointSpheres[] = {
+    {"Skeleton_Root", 1.3f, 1.6f, 0, 75, true}, {"R_hip", 0.9f, 0.9f, 0, 75, true},
+    {"L_hip", 0.9f, 0.9f, 0, 75, true},         {"tailbone_1", 0.6f, 0.9f, 0, 75, true},
+    {"tailbone_2", 0.45f, 0.55f, 0, 75, false}, {"horn_LCTR", 0.8f, 0.7f, 1, 105, true},
+    {"eye", 0.8f, 0.9f, 1, 105, true},          {"jaw", 1.2f, 1.1f, 2, 105, true},
+    {"R_knee", 0.9f, 0.9f, 2, 105, true},       {"L_knee", 0.9f, 0.9f, 2, 105, true},
+};
+
+static EMaterialTypes skAlignExcludeMaterial1 = kMT_Ceiling;
+static EMaterialTypes skAlignExcludeMaterial2 = kMT_Wall;
+
+CGrenchler::CGrenchler(
+    TUniqueId uid, const rstl::string& name, const CEntityInfo& info, const CTransform4f& xf,
+    const CModelData& mData, const CPatternedInfo& pInfo, CAssetId stateMachine,
+    float tailDestroyedHealth, float minTimeBetweenCharges, float f3, float chargeAttackMinRange,
+    float chargeAttackMaxRange, float biteAttackMinRange, float biteAttackMaxRange,
+    float biteAttackMinPause, bool isGrappleGuardian, bool hasHealthBar,
+    const CDamageVulnerability& vulnerability, int tail0, int tail1, int tail2, int tail3,
+    CAssetId taillessModel, CAssetId taillessSkinRules, int tailDark0, int tailDark1,
+    int tailDark2, int tailDark3, CAssetId taillessModelDark, CAssetId taillessSkinRulesDark,
+    ushort tailHitSound, ushort tailDestroyedSound, float biteAttackMaxPause,
+    float biteAttackDamageRadius, const CDamageInfo& biteDamage, const CDamageInfo& beamDamage,
+    float beamAttackMinRange, float beamAttackMaxRange, float beamAttackMinPause,
+    float beamAttackMaxPause, float beamAttackMaxAngle, const SLdrAudioPlaybackParms& beamAttackSound,
+    const CDamageInfo& burstDamage, CAssetId burstProjectile, float burstAttackMinRange,
+    float burstAttackMaxRange, float burstAttackMinPause, float burstAttackMaxPause,
+    float burstAttackDamageRadius, CAssetId surfaceRingsEffect, CAssetId shallowWaterRing,
+    CAssetId shallowWaterSplash, CAssetId part, CAssetId grappleSwoosh, CAssetId grappleBeamPart,
+    CAssetId grappleHitFx, const CDamageInfo& grappleDamage,
+    const SLdrAudioPlaybackParms& grappleBeamSound, CAssetId beamEffect, int unknown,
+    float unknown1, float unknown2, float unknown3, CAssetId grappleVisorEffect,
+    const CDamageInfo& damageInfo, CAssetId part2, const SLdrAudioPlaybackParms& audioPlaybackParms,
+    CAssetId grappleGuardianEyeGlow, CAssetId alternateScannableInfo,
+    const CActorParameters& actParms)
+: CPatterned(kPAI_Grenchler, uid, name, kFT_Zero, info, xf, mData, pInfo, kMT_Ground, kCT_One,
+             kBT_BiPedal, actParms)
+, mPathFindSearch(nullptr, (pInfo.GetIngPossessionData().isAnEncounter ? 0x200 : 0) + 0x11,
+                  pInfo.GetPathfindingIndex(), 1.f, 1.f, 0, CPFRegion::kRP_Center)
+, x8ac_(0.f)
+, x8b0_(CVector3f::Zero())
+, x8bc_(-1000.f)
+, mBoneTracking(*GetModelData()->GetAnimationData(), rstl::string_l(skHeadBoneName), 0.5235988f,
+                0.9424779f, kBTF_NoParent)
+, x8fc_(-1000.f)
+, x900_(-1000.f)
+, x904_(-1000.f)
+, x908_(-1)
+, x90c_24_(false)
+, x90c_25_(false)
+, mIsGrappleGuardian(isGrappleGuardian)
+, mHasHealthBar(hasHealthBar)
+, x90c_28_(false)
+, x90c_29_(false)
+, x90c_30_(false)
+, mSurfaceAlignment(CMaterialFilter::MakeExclude(
+      CMaterialList(skAlignExcludeMaterial1, skAlignExcludeMaterial2)))
+, mAlternateScannableInfo(nullptr)
+, mVulnerability(vulnerability)
+, mStateMachine2(stateMachine)
+, mTailModel(taillessModel, taillessSkinRules)
+, mTailModelDark(taillessModelDark, taillessSkinRulesDark)
+, x9fc_(false)
+, xa00_(-1000.f)
+, xa04_(kInvalidUniqueId)
+, xa06_(false)
+, mCollisionActorManager(nullptr)
+, mBiteAttack(biteDamage, biteAttackMinRange, biteAttackMaxRange, biteAttackMinPause,
+              biteAttackMaxPause, biteAttackDamageRadius)
+, mBeamAttack(beamDamage, beamAttackSound, beamAttackMinRange, beamAttackMaxRange,
+              beamAttackMinPause, beamAttackMaxPause, beamAttackMaxAngle)
+, mBurstAttack(burstProjectile, burstDamage, burstAttackMinRange, burstAttackMaxRange,
+               burstAttackMinPause, burstAttackMaxPause, burstAttackDamageRadius)
+, xc3c_(CTransform4f::Identity())
+, xc6c_(0)
+, xc70_(-1000.f)
+, mTailHealth(tailDestroyedHealth)
+, xc78_(-1000.f)
+, mTailHitSound(tailHitSound)
+, mTailDestroyedSound(tailDestroyedSound)
+, xc80_(false)
+, mChargeData(minTimeBetweenCharges, f3, chargeAttackMinRange, chargeAttackMaxRange)
+, xcb8_(0.f)
+, xcbc_(false)
+, xcc0_(0.f)
+, xcc4_(0.f)
+, xcc8_(0)
+, xccc_(kInvalidUniqueId)
+, xcd0_(CVector3f::Zero())
+, xcdc_(0.f)
+, xce0_(0.f)
+, xce4_(false)
+, xce8_(-1000.f)
+, xcec_(160.f)
+, xcf0_(-1000.f)
+, xcf4_(false)
+, xcf8_(part)
+, mGrappleBeam(surfaceRingsEffect, shallowWaterSplash, beamEffect, grappleHitFx,
+               grappleGuardianEyeGlow)
+, mStruggle(unknown, grappleVisorEffect, unknown1)
+, mBeamHit(grappleSwoosh, grappleBeamPart, grappleDamage, grappleBeamSound)
+, xe24_(0.f)
+, xe28_(0.f)
+, xe2c_(CVector3f::Zero())
+, xe38_(tail0)
+, xe3c_(tail1)
+, xe40_(tail2)
+, xe44_(tail3)
+, xe48_(tailDark0)
+, xe4c_(tailDark1)
+, xe50_(tailDark2)
+, xe54_(tailDark3)
+, xe58_(0.f)
+, xe5c_(0.f)
+, xe60_(0.f)
+, xe64_(unknown2)
+, xe68_(unknown3)
+, xe6c_(0)
+, xe70_(CTransform4f::Identity())
+, xea0_24_(false)
+, xea0_25_(false)
+, xea0_26_(false)
+, xea4_(-1000.f)
+, xea8_24_(false)
+, xea8_25_(false)
+, xeac_(0)
+, xeb0_(audioPlaybackParms)
+, xec8_(0)
+, xecc_(damageInfo, part2)
+, xf18_(5)
+, xf1c_(1.f)
+, xf20_(kInvalidUniqueId)
+, xf24_(shallowWaterRing) {
+  if (!mIsGrappleGuardian) {
+    mSurfaceAlignment.SetMode(CSurfaceAlignmentHelper::kM_NearbySurface);
+    mSurfaceAlignment.SetAngularRate(16.f);
+  } else {
+    KnockBackController().EnableFreeze(false);
+    KnockBackController().EnableSlow(false);
+    KnockBackController().EnableKnockBackPhysics(false);
+    KnockBackController().EnableLaggedBurnDeath(false);
+    KnockBackController().EnableBurnDeath(false);
+    KnockBackController().EnableExplodeDeath(false);
+  }
+  if (mTailHealth < 0.f || mTailHealth > GetHealthInfo()->GetHP()) {
+    mTailHealth = CMath::Clamp(0.f, mTailHealth, GetHealthInfo()->GetHP());
+  }
+  if (alternateScannableInfo != kInvalidAssetId) {
+    mAlternateScannableInfo = rs_new TCachedToken< CScannableObjectInfo >(
+        gpSimplePool->GetObj(SObjectTag('SCAN', alternateScannableInfo)), true);
+  }
+}
+
 bool CGrenchler::InChargeRange(CStateManager& mgr, const CTriggerData& data) const {
   return InPlayerRange(mgr, mChargeData.mMinRange, mChargeData.mMaxRange);
 }
 
 bool CGrenchler::InBeamRange(CStateManager& mgr, const CTriggerData& data) const {
   float maxRange = mBeamAttack.mMaxRange;
-  if (xa88_ > 2.f) { maxRange *= 2.f; }
+  if (mAttackHistory.x28_ > 2.f) { maxRange *= 2.f; }
   return InPlayerRange(mgr, mBeamAttack.mMinRange, maxRange);
 }
 
@@ -222,7 +403,7 @@ bool CGrenchler::TookKnockback(CStateManager& mgr, const CTriggerData& data) con
 }
 
 bool CGrenchler::Frustrated(CStateManager& mgr, const CTriggerData& data) const {
-  return xa7c_ > 1.f;
+  return mAttackHistory.x1c_ > 1.f;
 }
 
 bool CGrenchler::Stuck(CStateManager& mgr, const CTriggerData& data) const {

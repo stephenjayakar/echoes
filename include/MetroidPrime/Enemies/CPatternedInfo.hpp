@@ -25,6 +25,7 @@ public:
   const CDamageVulnerability& GetDamageVulnerability() const { return mDamageVulnerability; }
   float GetHalfExtent() const { return mHalfExtent; }
   uint GetPathfindingIndex() const { return mPathfindingIndex; }
+  const SLdrIngPossessionData& GetIngPossessionData() const { return mIngPossessionData; }
   float GetDetectionRange() const { return mDetectionRange; }
   float GetMinAttackRange() const { return mMinAttackRange; }
   float GetMaxAttackRange() const { return mMaxAttackRange; }

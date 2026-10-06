@@ -342,7 +342,31 @@ private:
 
   struct SGrappleBeam {
     SGrappleBeam(CAssetId part, CAssetId electric, CAssetId weapon, CAssetId part2,
-                 CAssetId part3);
+                 CAssetId part3)
+    : x0_(part)
+    , x4_(rs_new CElementGen(
+          TToken< CGenDescription >(gpSimplePool->GetObj(SObjectTag('PART', part))),
+          CElementGen::kMOT_Normal, CElementGen::kOSF_One))
+    , xc_(electric)
+    , x10_(gpSimplePool->GetObj(SObjectTag('ELSC', xc_)))
+    , x18_(kInvalidUniqueId)
+    , x1c_(gpSimplePool->GetObj(SObjectTag('WPSC', weapon)))
+    , x24_(part2)
+    , x28_(part2 != kInvalidAssetId
+               ? rstl::optional_object< TLockedToken< CGenDescription > >(
+                     TLockedToken< CGenDescription >(
+                         gpSimplePool->GetObj(SObjectTag('PART', part2))))
+               : rstl::optional_object_null())
+    , x38_(kInvalidUniqueId)
+    , x3c_(part3 == kInvalidAssetId
+               ? nullptr
+               : rs_new CElementGen(
+                     TToken< CGenDescription >(gpSimplePool->GetObj(SObjectTag('PART', part3))),
+                     CElementGen::kMOT_Normal, CElementGen::kOSF_One))
+    , x44_(0.f) {
+      x10_.Lock();
+      x1c_.Lock();
+    }
 
     CAssetId x0_;
     rstl::auto_ptr< CElementGen > x4_;
@@ -358,7 +382,20 @@ private:
   };
 
   struct SStruggleData {
-    SStruggleData(int maxCount, CAssetId part, float f1);
+    SStruggleData(int maxCount, CAssetId part, float f1)
+    : xc_(maxCount)
+    , x10_(f1)
+    , x1c_(-1000.f)
+    , x28_(-1)
+    , x2c_(part)
+    , x30_(kInvalidUniqueId)
+    , x34_(part != kInvalidAssetId ? rstl::optional_object< TToken< CGenDescription > >(
+                                         gpSimplePool->GetObj(SObjectTag('PART', part)))
+                                   : rstl::optional_object_null()) {
+      x0_24_ = x0_25_ = x0_26_ = false;
+      x8_ = x14_ = x18_ = x20_ = x24_ = 0.f;
+      x4_ = 0;
+    }
 
     bool x0_24_ : 1;
     bool x0_25_ : 1;
@@ -448,13 +485,41 @@ private:
     float x20_;
   };
 
+  struct SStateMachineRef {
+    SStateMachineRef(CAssetId id) : mToken(gpSimplePool->GetObj(SObjectTag('FSM2', id))) {}
+
+    rstl::optional_object< CToken > mToken;
+  };
+
   struct STailModel {
+    STailModel(CAssetId model, CAssetId skinRules) : mModel(model), mSkinRules(skinRules) {}
+
     CAssetId mModel;
     CAssetId mSkinRules;
     rstl::optional_object< TCachedToken< CModel > > x8_;
   };
 
-  int GetLastAction() const { return mActionHistory.empty() ? xa74_ : mActionHistory.back(); }
+  struct SAttackHistory {
+    SAttackHistory() : x14_(-1), x18_(-1) {
+      x34_ = 160.f;
+      x20_ = 100.f;
+      x24_ = x1c_ = x28_ = x2c_ = x30_ = 0.f;
+    }
+    int GetLastAction() const { return mHistory.empty() ? x14_ : mHistory.back(); }
+
+    rstl::reserved_vector< int, 4 > mHistory;
+    int x14_;
+    int x18_;
+    float x1c_;
+    float x20_;
+    float x24_;
+    float x28_;
+    float x2c_;
+    float x30_;
+    float x34_;
+  };
+
+  int GetLastAction() const { return mAttackHistory.GetLastAction(); }
 
   CPathFindSearch mPathFindSearch;
   float x8ac_;
@@ -477,7 +542,7 @@ private:
   CDamageVulnerability mVulnerability;
   rstl::ncrc_ptr< CNonUniformVulnerability > mNonUniformVulnerability;
   rstl::optional_object< CAABox > mSortingBounds;
-  rstl::optional_object< TToken< CStateMachine > > mStateMachine2;
+  SStateMachineRef mStateMachine2;
   STailModel mTailModel;
   STailModel mTailModelDark;
   bool x9fc_;
@@ -486,16 +551,7 @@ private:
   bool xa06_;
   SJumpData mJumpData;
   CCollisionActorManager* mCollisionActorManager;
-  rstl::reserved_vector< int, 4 > mActionHistory;
-  int xa74_;
-  int xa78_;
-  float xa7c_;
-  float xa80_;
-  float xa84_;
-  float xa88_;
-  float xa8c_;
-  float xa90_;
-  float xa94_;
+  SAttackHistory mAttackHistory;
   SBiteAttack mBiteAttack;
   SBeamAttack mBeamAttack;
   SBurstAttack mBurstAttack;
@@ -530,8 +586,14 @@ private:
   float xe24_;
   float xe28_;
   CVector3f xe2c_;
-  int xe38_[4];
-  int xe48_[4];
+  int xe38_;
+  int xe3c_;
+  int xe40_;
+  int xe44_;
+  int xe48_;
+  int xe4c_;
+  int xe50_;
+  int xe54_;
   float xe58_;
   float xe5c_;
   float xe60_;
