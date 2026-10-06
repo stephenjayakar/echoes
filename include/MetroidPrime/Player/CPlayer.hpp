@@ -615,6 +615,8 @@ public:
                             CGameHint::EBreakHintType breakType);
 
 private:
+  friend class CSamusHud;
+
   NPlayer::EPlayerMovementState mMovementState;                  // 0x2d0
   rstl::vector< CToken > mBallTransitionsRes;                    // 0x2d4
   TUniqueId mAttachedActor;                                      // 0x2e4

@@ -174,7 +174,7 @@ void CSamusHud::InitializeFrameGlueMutable(const CStateManager& mgr) {
   if (mLoadedHudFrame->FindWidget("textpane_beammenu") != nullptr) {
     const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
     const CPlayerState& playerState = *mgr.GetPlayerState(mPlayerIndex);
-    const CPlayerGun& gun = *player.GetPlayerGun();
+    const CPlayerGun& gun = *player.mGun;
     const CPlayerState::EBeamId beam = player.GetMorphballTransitionState() == CPlayer::kMS_Morphed
                                            ? playerState.GetCurrentBeam()
                                            : gun.GetPrimaryWeaponId();
@@ -792,7 +792,7 @@ bool CSamusHud::CheckLoadComplete(const CStateManager& mgr) {
 void CSamusHud::UpdateVisorAndBeamMenus(float dt, const CStateManager& mgr) {
   const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
-  const CPlayerGun& gun = *player.GetPlayerGun();
+  const CPlayerGun& gun = *player.mGun;
   if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
     const CPlayerState::EBeamId currentBeam = state.GetCurrentBeam();
     if (currentBeam != mMenuBeam) {
@@ -1065,7 +1065,7 @@ void CSamusHud::UpdateMissile(float dt, const CStateManager& mgr, bool init) {
   if (mMissileDigits == nullptr) {
     return;
   }
-  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->GetPlayerGun();
+  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->mGun;
   const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   const int enabled = !gun.GetMissileMode();
   const int missiles = state.GetItemAmount(CPlayerState::kIT_Missile, true);
@@ -1164,7 +1164,7 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
   if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
     beam = mBallBeamTransition > 0.3f ? mPreviousBallBeam : state.GetCurrentBeam();
   } else {
-    beam = player.GetPlayerGun()->GetPrimaryWeaponId();
+    beam = player.mGun->GetPrimaryWeaponId();
   }
   const float beamFactor = CMath::Clamp(0.f, mBeamMenuTransition, 1.f);
   const int darkAmmo = state.GetItemAmount(CPlayerState::kIT_DarkAmmo, true);
@@ -1389,7 +1389,7 @@ void CSamusHud::UpdateBallMode(const CStateManager& mgr, bool) {
   }
 
   const CPlayerState& playerState = *mgr.GetPlayerState(mPlayerIndex);
-  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->GetPlayerGun();
+  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->mGun;
   const int powerBombs = playerState.GetItemAmount(CPlayerState::kIT_Powerbomb, false);
   const int powerBombCapacity = playerState.GetItemCapacity(CPlayerState::kIT_Powerbomb);
   const int bombsAvailable = gun.GetBombsAvailable(const_cast< CStateManager& >(mgr));
@@ -1883,11 +1883,11 @@ void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
     mShakeTranslation =
         rstl::min_val(mShakeTranslationAmount, gpTweakGui->GetHUDDamageJostleMaxOffset()) *
         mDamagerToPlayer;
-    if (mHudCamera != nullptr) {
-      const CTransform4f& idle = mHudCamera->GetIdleXform();
+    if (mDecorationRoot != nullptr) {
+      const CTransform4f& idle = mDecorationRoot->GetIdleXform();
       const CVector3f translation =
           idle.GetTranslation() + gpTweakGui->GetHudDecoShakeTranslateGain() * mShakeTranslation;
-      mHudCamera->SetO2PTransform(CTransform4f(idle.BuildMatrix3f() * mShakeRotation, translation));
+      mDecorationRoot->SetLocalTransform(CTransform4f(idle.BuildMatrix3f() * mShakeRotation, translation));
     }
   }
 }
@@ -2063,7 +2063,8 @@ void CSamusHud::UpdateHudMemo(float dt, const CStateManager& mgr) {
         mAButtonPulse -= 2.f;
       }
     }
-    mMessageAButton->SetColor(CColor::White().WithAlphaOf(CMath::AbsF(mAButtonPulse)));
+    const float a = CMath::AbsF(mAButtonPulse);
+    mMessageAButton->SetColor(CColor::White().WithAlphaOf(a));
     const bool pulseSound = !mgr.GetCameraManager(mPlayerIndex)->IsInCinematicCamera() &&
                             oldPulse < 0.f && mAButtonPulse >= 0.f &&
                             mMessageRoot->GetIsVisible() &&
@@ -2096,7 +2097,8 @@ void CSamusHud::UpdateHudMemo(float dt, const CStateManager& mgr) {
         mMessageText = rstl::wstring_l(L"");
       }
     }
-    mMessageRoot->SetColor(CColor::White().WithAlphaOf(rstl::min_val(messageAlpha, 1.f)));
+    const float rootAlpha = rstl::min_val(messageAlpha, 1.f);
+    mMessageRoot->SetColor(CColor::White().WithAlphaOf(rootAlpha));
   }
   const float printed = mMessagePane->TextSupport().GetNumCharactersPrinted();
   const float charsPerSound = gpTweakGui->GetWorldTransManagerCharsPerSfx();
@@ -2155,7 +2157,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     const float halfReduction = 0.5f * (float(CGraphics::GetRenderMode().xfbHeight) *
                                         gpTweakGui->GetBallViewportYReduction());
     const CVector3f idlePosition = mHudCamera->GetIdleXform().GetTranslation();
-    mHudCamera->SetO2PTransform(CTransform4f::Translate(CVector3f(
+    mHudCamera->SetLocalTransform(CTransform4f::Translate(CVector3f(
         idlePosition.GetX(), idlePosition.GetY(),
         ((1.f - morphFactor) * halfReduction - halfReduction) * 0.01f + idlePosition.GetZ())));
   }
@@ -2623,7 +2625,7 @@ void CSamusHud::UpdateHudLag(float dt, const CStateManager& mgr) {
   }
   if (!gpGameState->GameOptions().GetHUDLag()) {
     CGuiWidget* root = mLoadedHelmetFrame->GetRootWidget();
-    root->SetO2PTransform(root->GetIdleXform());
+    root->SetLocalTransform(root->GetIdleXform());
     CGuiCamera* camera = mLoadedHudFrame->GetFrameCamera();
     camera->SetO2WTransform(camera->GetIdleXform());
     mTargetingManager.CompoundTargetReticle().SetLeadingOrientation(CQuaternion::NoRotation());
@@ -2735,7 +2737,7 @@ void CSamusHud::SetMessage(const rstl::wstring& text, const CHUDMemoParms& info)
                               CSfxManager::kMedPriority);
       }
     } else {
-      mMessageRoot->SetO2PTransform(mMessageRoot->GetIdleXform());
+      mMessageRoot->SetLocalTransform(mMessageRoot->GetIdleXform());
     }
   }
 }
