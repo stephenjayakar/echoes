@@ -506,14 +506,14 @@ void CScanDisplay::ProcessInput(const CFinalInput& input) {
 
   if (mStartButton) {
     mStartButton->SetVisibility(dashAlpha > 0.f && !mHistory.empty(), kTM_Children);
-    mStartButton->SetColor(CColor::White().WithAlphaOf(startAlpha));
+    mStartButton->SetColor(CColor(uchar(255), uchar(255), uchar(255), uchar(255)).WithAlphaOf(startAlpha));
   }
   if (mPressStart) {
     if (mCanOpenLogbook) {
       mPressStart->SetVisibility(dashAlpha > 0.f && !mHistory.empty(), kTM_Children);
       const CColor color = gpTweakGuiColors->GetHUDMemoTextForegroundColor();
-      mPressStart->TextSupport().SetFontColor(
-          CColor::Lerp(CColor(0.f, 0.f, 0.f, 0.f), color, startAlpha));
+      const CColor zero(0.f, 0.f, 0.f, 0.f);
+      mPressStart->TextSupport().SetFontColor(CColor::Lerp(zero, color, startAlpha));
     } else {
       mPressStart->SetVisibility(false, kTM_Children);
     }
