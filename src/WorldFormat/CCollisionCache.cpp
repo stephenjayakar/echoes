@@ -364,7 +364,7 @@ void CCollisionCacheIterator::Reset() {
   mLeafStatus = 0;
 }
 
-inline void rstl::locked_cache_allocator::Allocate(void*& out, uint size) {
+inline void rstl::locked_cache_allocator::Allocate(void*& out, int size) {
   if (size == 0) {
     out = 0;
     return;

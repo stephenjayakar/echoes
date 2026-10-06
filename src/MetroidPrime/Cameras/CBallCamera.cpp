@@ -1599,7 +1599,8 @@ CVector3f CBallCamera::ComputeVelocity(CVector3f currentVelocity, CVector3f posi
 void CBallCamera::UpdateAnglePerSecond(float dt) {
   float delta = mTargetAnglePerSecond - mCurAnglePerSecond;
   if (CMath::AbsF(delta) >= 0.0017453292f) {
-    mCurAnglePerSecond += CMath::Limit(delta / M_PIF, 1.f) * (10.471975f * dt);
+    const float limited = CMath::Limit(delta / M_PIF, 1.f);
+    mCurAnglePerSecond += limited * (10.471975f * dt);
   } else {
     mCurAnglePerSecond = mTargetAnglePerSecond;
   }
