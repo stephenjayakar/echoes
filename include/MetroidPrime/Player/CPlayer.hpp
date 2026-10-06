@@ -914,5 +914,7 @@ extern const bool gkFreeLookPreventsOrbitMovement;
 extern const bool gkAutoAim;
 extern const bool gkAutoAimAtOrbitedObject;
 extern const int gkMorphBallOrbitMode;
+extern const char* const kGunLocator;
+extern const char* const kGrappleLocator;
 
 #endif // _CPLAYER

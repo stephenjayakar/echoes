@@ -95,7 +95,8 @@ CPlayer::ESurfaceRestraints gSR_Hack = CPlayer::kSR_Normal;
 static CColor skLaggedBurnDeathColor(uchar(255), uchar(255), uchar(192), uchar(255));
 static CColor skImplosionColor(uchar(170), uchar(84), uchar(255), uchar(255));
 
-static const char* const kGunLocator = "GUN_LCTR";
+const char* const kGunLocator = "GUN_LCTR";
+const char* const kGrappleLocator = "GRAPPLE_LCTR";
 static const char* const kBeamThirdPersonFxGroup = "BeamThirdPersonFx_DGRP";
 
 static const char* const skThirdPersonChargeNames[4] = {
