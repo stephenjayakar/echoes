@@ -2604,15 +2604,15 @@ void CSamusHud::ShowDamage(CVector3f position, float damage, float previousDamag
   if (position.IsNonZero() && !close_enough(damage, 0.f)) {
     const CRelAngle angle = GetRelativeDirection(position, mgr);
     const int sector = CMath::Clamp(0, int(12.f * (angle.AsRadians() / (2.f * M_PIF))), 11);
-    const float gain = damage * gpTweakGui->GetHUDFlashMagnitudeLinear() +
-                       gpTweakGui->GetHUDFlashMagnitudeConstant();
-    mDamageSectorIntensity[sector] = rstl::max_val(mDamageSectorIntensity[sector], gain);
+    mDamageSectorIntensity[sector] =
+        rstl::max_val(mDamageSectorIntensity[sector], damage * gpTweakGui->GetHUDFlashMagnitudeLinear() +
+                                                          gpTweakGui->GetHUDFlashMagnitudeConstant());
     const float duration =
         rstl::max_val(FLT_EPSILON, damage * gpTweakGui->GetHUDFlashTimeScaleLinear() +
                                        gpTweakGui->GetHUDFlashTimeConstant());
-    mDamageSectorRemaining[sector] = rstl::max_val(mDamageSectorRemaining[sector], duration);
-    mDamageSectorDurations[sector] = mDamageSectorRemaining[sector];
-    mDamageHighlightDuration = mDamageSectorRemaining[sector];
+    mDamageSectorDurations[sector] = rstl::max_val(mDamageSectorDurations[sector], duration);
+    mDamageSectorRemaining[sector] = mDamageSectorDurations[sector];
+    mDamageHighlightDuration = mDamageSectorDurations[sector];
   }
   mDamageHighlightRemaining = mDamageHighlightDuration;
 
@@ -2620,22 +2620,22 @@ void CSamusHud::ShowDamage(CVector3f position, float damage, float previousDamag
   if (!player.GetFrozenState()) {
     const float duration =
         damage * gpTweakGui->GetFlashPassTimerLinear() + gpTweakGui->GetFlashPassTimerConstant();
-    if (mDamageFilterRemaining < duration) {
+    if (duration > mDamageFilterRemaining) {
       mDamageFilterGain = damage * gpTweakGui->GetFlashPassMagnitudeLinear() +
                           gpTweakGui->GetFlashPassMagnitudeConstant();
       mDamageFilterDuration = duration;
       mDamageFilterRemaining = mDamageFilterDuration;
       if (!mDamageSound && mgr.GetPendingDockArea() == kInvalidAreaId &&
           player.GetDamageWeaponType() != kWT_AreaDark) {
-        const CVector3f position = player.GetTransform().GetTranslation();
-        const ushort sound = mgr.ReturnFirstIfSingleElseSecond(0x955, 0x264d);
-        mDamageSound = CSfxManager::AddEmitter(sound, position, CSfxManager::kAllAreas, false, true,
+        mDamageSound = CSfxManager::AddEmitter(mgr.ReturnFirstIfSingleElseSecond(0x955, 0x264d),
+                                               player.GetTransform().GetTranslation(),
+                                               CSfxManager::kAllAreas, false, true,
                                                CSfxManager::kMaxPriority);
       }
     }
   }
   if (position.IsNonZero()) {
-    const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+    const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
         mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
     if (camera != nullptr) {
       const CVector3f cameraToDamage = camera->GetTransform().GetQuickInverse() * position;
@@ -2644,7 +2644,7 @@ void CSamusHud::ShowDamage(CVector3f position, float damage, float previousDamag
       mShakeTranslationAmount = mShakeTranslationVelocity;
       const CVector3f& direction = cameraToDamage.CanBeNormalized()
                                        ? cameraToDamage.AsNormalized()
-                                       : CVector3f(CVector3f::Forward());
+                                       : static_cast< const CVector3f& >(CVector3f::Forward());
       mDamagerToPlayer = -1.f * direction;
       mShakeGain = previousDamage * gpTweakGui->GetHUDDamageDistortionMagnitudeLinear() +
                    gpTweakGui->GetHUDDamageDistortionMagnitudeConstant();
