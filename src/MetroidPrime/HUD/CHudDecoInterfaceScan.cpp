@@ -2,6 +2,7 @@
 
 #include "GuiSys/CGuiFrame.hpp"
 #include "GuiSys/CGuiFrameLoader.hpp"
+#include "GuiSys/CGuiWidgetDrawParms.hpp"
 #include "Kyoto/Streams/CInputStream.hpp"
 #include "Kyoto/Streams/CMemoryInStream.hpp"
 #include "MetroidPrime/CActor.hpp"
@@ -77,12 +78,15 @@ void CHudDecoInterfaceScan::Update(float, const CStateManager&) {
   // TODO: finish flat-frame loading, update scanning and manage the optional hierarchy resource.
 }
 
-void CHudDecoInterfaceScan::Draw(const CStateManager&) const {
-  // TODO: draw the flat frame, then the scan display through shared GUI interfaces.
+void CHudDecoInterfaceScan::Draw(const CStateManager& mgr) const {
+  if (mLoadedFlatFrame != nullptr) {
+    mLoadedFlatFrame->Draw(CGuiWidgetDrawParms::Default());
+  }
+  mScanDisplay->Draw(mgr);
 }
 
-void CHudDecoInterfaceScan::ProcessControllerInput(const CFinalInput&) {
-  // TODO: forward to CScanDisplay's input handler.
+void CHudDecoInterfaceScan::ProcessControllerInput(const CFinalInput& input) {
+  mScanDisplay->ProcessInput(input);
 }
 
 void CHudDecoInterfaceScan::UpdateScanDisplay(const CStateManager&, float) {
@@ -95,8 +99,8 @@ const CScannableObjectInfo* CHudDecoInterfaceScan::GetCurrScanInfo(const CStateM
 }
 
 float CHudDecoInterfaceScan::GetMessageTextAlpha() const {
-  // TODO: combine the scanning-text fade with CScanDisplay's body alpha.
-  return 0.f;
+  const float scanningAlpha = rstl::min_val(1.f, mScanningTextAlpha);
+  return 1.f - rstl::max_val(scanningAlpha, mScanDisplay->GetBodyAlpha());
 }
 
 void CHudDecoInterfaceScan::StartHierarchyLoad() {

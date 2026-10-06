@@ -2371,6 +2371,47 @@ void CStateManager::UpdateSortedLists() {
   }
 }
 
+rstl::optional_object< CAABox > CStateManager::CalculateObjectBounds(CActor& actor) {
+  CPhysicsActor* const physAct = TCastToPtr< CPhysicsActor >(actor);
+  const rstl::optional_object< CAABox > touchBounds = actor.GetTouchBounds();
+
+  if (touchBounds) {
+    CAABox aabb = *touchBounds;
+    if (physAct != nullptr) {
+      aabb.Include(physAct->GetBoundingBox());
+    }
+    return aabb;
+  }
+
+  if (physAct != nullptr) {
+    return physAct->GetBoundingBox();
+  }
+
+  return rstl::optional_object_null();
+}
+
+void CStateManager::UpdateActorInSortedLists(CActor* actor) {
+  if (actor->GetTransformDirty()) {
+    actor->SetTransformDirty(false);
+    if (actor->GetUseInSortedLists()) {
+      const rstl::optional_object< CAABox > bounds = CalculateObjectBounds(*actor);
+      const bool actorInLists = mSortedListManager->ActorInLists(actor);
+      const uint hasBounds = bounds.valid();
+      if (actorInLists || hasBounds) {
+        if (actorInLists) {
+          if (!actor->GetActive() || !hasBounds) {
+            mSortedListManager->Remove(actor);
+          } else {
+            mSortedListManager->Move(actor, *bounds);
+          }
+        } else if (actor->GetActive() && hasBounds) {
+          mSortedListManager->Insert(actor, *bounds);
+        }
+      }
+    }
+  }
+}
+
 void CStateManager::AddObject(CEntity& entity) {
   const TUniqueId id = entity.GetUniqueId();
   if (entity.GetEditorId() != kInvalidEditorId) {
