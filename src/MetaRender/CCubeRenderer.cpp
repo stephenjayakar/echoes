@@ -2161,39 +2161,43 @@ int CCubeRenderer::DrawOverlappingWorldModelShadows(int alphaVal, rstl::vector< 
           continue;
         }
         const SAreaSurface& areaSurface = (*surfaces)[word * 32 + bit + 1];
-        if (areaSurface.mModelIndex == -1 || areaSurface.mSurfaceGroupIndex == -1) {
+        const int modelIndex = areaSurface.mModelIndex;
+        const int groupIndex = areaSurface.mSurfaceGroupIndex;
+        if (modelIndex == -1 || groupIndex == -1) {
           continue;
         }
-        const CMetroidModelInstance& instance = (*area->mGeometry)[areaSurface.mModelIndex];
-        const CCubeModel& model = *(*area->mModels)[areaSurface.mModelIndex];
-        CCubeMaterial::KillCachedViewDepState();
-        model.SetArraysCurrent();
+        const CCubeModel* model = (*area->mModels)[modelIndex].get();
+        const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
         const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
-        const ushort count = groups.GetSurfaceCount(areaSurface.mSurfaceGroupIndex);
-        const ushort* indices = groups.GetSurfaceIndices(areaSurface.mSurfaceGroupIndex);
+        CCubeMaterial::KillCachedViewDepState();
+        model->SetArraysCurrent();
+        const ushort count = groups.GetSurfaceCount(groupIndex);
+        const ushort* indices = groups.GetSurfaceIndices(groupIndex);
         for (ushort surfaceIndex = 0; surfaceIndex < count; ++surfaceIndex) {
           const CCubeSurface surface(instance.GetSurfaces()[indices[surfaceIndex]]);
-          const CCubeMaterial material = model.GetMaterial(surface);
+          const CCubeMaterial material = model->GetMaterial(surface);
           const short bank = surface.GetShadowBank();
+          short id = currentId;
           if (bank != lastBank) {
             int idIndex = 0;
             for (; idIndex < ids.size(); ++idIndex) {
               if (ids[idIndex].first == bank) {
-                currentId = ids[idIndex].second;
+                id = ids[idIndex].second;
                 break;
               }
             }
-            if (idIndex == ids.size() && idIndex != ids.capacity() && alphaVal < 65) {
-              currentId = static_cast< short >(alphaVal);
-              ids.push_back(rstl::pair< short, short >(bank, currentId));
+            if (idIndex == ids.size() && idIndex != ids.capacity() && alphaVal <= 64) {
+              id = static_cast< short >(alphaVal);
+              ids.push_back(rstl::pair< short, short >(bank, alphaVal));
               ++alphaVal;
             }
-            CGX::SetDstAlpha(true, static_cast< uchar >(currentId << 2));
             lastBank = bank;
+            currentId = id;
+            CGX::SetDstAlpha(true, id << 2);
           }
           if (!material.IsFlagSet(kStateFlag_DepthSorting) &&
               surface.GetBounds().DoBoundsOverlap(bounds)) {
-            model.DrawSurface(surface, flags);
+            model->DrawSurface(surface, flags);
           }
         }
         hadModel = true;
@@ -2257,56 +2261,63 @@ void CCubeRenderer::DrawWorldModelShadow(const CAABox& bounds) {
 
 void CCubeRenderer::DrawOverlappingWorldModelIDs(int alphaVal, rstl::vector< uint >& models,
                                                  const CAABox& bounds) {
-  CColor color(0u);
+  GXColor color = {0, 0, 0, 0};
   int offset = 0;
   for (rstl::list< CAreaListItem >::iterator area = mAreaListItems.begin();
        area != mAreaListItems.end(); ++area) {
-    if (area->mOctTree == nullptr) {
+    const CAreaRenderOctTree* octTree = area->mOctTree;
+    const rstl::vector< SAreaSurface >* surfaces = area->GetSurfaces();
+    short currentId = static_cast< short >(alphaVal);
+    short lastBank = -1;
+    rstl::reserved_vector< rstl::pair< short, short >, 64 > ids;
+    if (octTree == nullptr) {
       continue;
     }
-    short lastBank = -1;
-    short currentId = static_cast< short >(alphaVal);
-    rstl::reserved_vector< rstl::pair< short, short >, 64 > ids;
-    for (uint word = 0; word < area->mOctTree->GetBitmapWordCount(); ++word) {
-      const uint bits = models[offset + word];
+    const uint* words = models.data();
+    for (uint word = 0; word < octTree->GetBitmapWordCount(); ++word) {
+      const uint bits = words[offset + word];
       if (bits == 0) {
         continue;
       }
       for (int bit = 0; bit < 32; ++bit) {
-        if ((bits & (1u << bit)) == 0) {
+        if ((bits & (1 << bit)) == 0) {
           continue;
         }
-        const SAreaSurface& areaSurface = (*area->mSurfaces)[word * 32 + bit + 1];
-        if (areaSurface.mModelIndex == -1 || areaSurface.mSurfaceGroupIndex == -1) {
+        const SAreaSurface& areaSurface = (*surfaces)[word * 32 + bit + 1];
+        const int modelIndex = areaSurface.mModelIndex;
+        const int groupIndex = areaSurface.mSurfaceGroupIndex;
+        if (modelIndex == -1 || groupIndex == -1) {
           continue;
         }
-        const CMetroidModelInstance& instance = (*area->mGeometry)[areaSurface.mModelIndex];
-        const CCubeModel& model = *(*area->mModels)[areaSurface.mModelIndex];
-        CCubeMaterial::KillCachedViewDepState();
-        model.SetArraysCurrent();
+        const CCubeModel* model = (*area->mModels)[modelIndex].get();
+        const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
         const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
-        const ushort count = groups.GetSurfaceCount(areaSurface.mSurfaceGroupIndex);
-        const ushort* indices = groups.GetSurfaceIndices(areaSurface.mSurfaceGroupIndex);
+        CCubeMaterial::KillCachedViewDepState();
+        model->SetArraysCurrent();
+        const ushort count = groups.GetSurfaceCount(groupIndex);
+        const ushort* indices = groups.GetSurfaceIndices(groupIndex);
         for (ushort surfaceIndex = 0; surfaceIndex < count; ++surfaceIndex) {
           const CCubeSurface surface(instance.GetSurfaces()[indices[surfaceIndex]]);
-          const CCubeMaterial material = model.GetMaterial(surface);
+          const CCubeMaterial material = model->GetMaterial(surface);
           const short bank = surface.GetShadowBank();
+          short id = currentId;
           if (bank != lastBank) {
             int idIndex = 0;
             for (; idIndex < ids.size(); ++idIndex) {
               if (ids[idIndex].first == bank) {
-                currentId = ids[idIndex].second;
+                id = ids[idIndex].second;
                 break;
               }
             }
-            if (idIndex == ids.size() && idIndex != ids.capacity() && alphaVal < 65) {
-              currentId = static_cast< short >(alphaVal);
-              ids.push_back(rstl::pair< short, short >(bank, currentId));
+            if (idIndex == ids.size() && idIndex != ids.capacity() && alphaVal <= 64) {
+              id = static_cast< short >(alphaVal);
+              ids.push_back(rstl::pair< short, short >(bank, alphaVal));
               ++alphaVal;
             }
-            color.SetAlpha(static_cast< uchar >(currentId << 2));
-            CGX::SetTevKColor(GX_KCOLOR0, color.GetGXColor());
             lastBank = bank;
+            color.a = id << 2;
+            currentId = id;
+            CGX::SetTevKColor(GX_KCOLOR0, color);
           }
           if (!material.IsFlagSet(kStateFlag_DepthSorting) &&
               surface.GetBounds().DoBoundsOverlap(bounds)) {
@@ -2320,7 +2331,7 @@ void CCubeRenderer::DrawOverlappingWorldModelIDs(int alphaVal, rstl::vector< uin
         }
       }
     }
-    offset += area->mOctTree->GetBitmapWordCount();
+    offset += octTree->GetBitmapWordCount();
   }
 }
 
