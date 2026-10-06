@@ -1413,11 +1413,13 @@ bool CMorphBall::UpdateMarbleDynamics(CStateManager& mgr, float dt, const CVecto
         const float tireFactor = useTireFactor ? 0.25f : 1.f;
 
         const CVector3f& newVelocityDir = newVelocity.AsNormalized();
-        const CVector3f torque =
-            newVelocityDir *
-            (slipVelocity.Magnitude() *
+        const float torqueScale = slipVelocity.Magnitude() *
              -gpTweakBall->GetBallSlipFactor(mPlayer.GetSurfaceRestraint()) * tireFactor * 0.5f /
-             GetBallRadius());
+             GetBallRadius();
+        CVector3f torque;
+        torque.SetX(newVelocityDir.GetX() * torqueScale);
+        torque.SetY(newVelocityDir.GetY() * torqueScale);
+        torque.SetZ(newVelocityDir.GetZ() * torqueScale);
         const CVector3f worldTorque = CVector3f::Cross(ballToPoint.AsNormalized(), torque);
         mPlayer.ApplyTorqueWR(worldTorque);
       }
@@ -2276,7 +2278,7 @@ void CMorphBall::UpdateEffects(float dt, CStateManager& mgr) {
 
     mWallSparkGen->Update(dt);
 
-    const bool emitRainWake = mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround &&
+    bool emitRainWake = mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround &&
                               mgr.GetWorld()->GetNeededEnvFx() == kEFX_Rain &&
                               mgr.GetEnvFxManager()->GetRainMagnitude() > 0.f &&
                               mgr.GetEnvFxManager()->IsSplashActive();
@@ -2367,7 +2369,10 @@ void CMorphBall::UpdateEffects(float dt, CStateManager& mgr) {
       mBoostEffectGen->Update(dt * rate);
 
       mBoostEffectTime += dt;
-      const bool boostEffectDone = !IsBoosting() && mBoostEffectTime > 1.5f;
+      bool boostEffectDone = false;
+      if (!IsBoosting() && mBoostEffectTime > 1.5f) {
+        boostEffectDone = true;
+      }
       if (boostEffectDone || mBoostEffectGen->IsSystemDeletable()) {
         mBoostEffectGen = nullptr;
       }
