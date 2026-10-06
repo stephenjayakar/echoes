@@ -945,11 +945,12 @@ void CCubeRenderer::SetPerspective(float fovy, float aspect, float znear, float 
 
 rstl::pair< CVector2f, CVector2f > CCubeRenderer::SetViewportOrtho(bool centered, float znear,
                                                                    float zfar) {
-  const CViewport& vp = CGraphics::GetViewport();
-  const float left = static_cast< float >(centered ? -vp.mWidth / 2 : 0);
-  const float top = static_cast< float >(centered ? -vp.mHeight / 2 : 0);
-  const float right = static_cast< float >(centered ? vp.mWidth / 2 : vp.mWidth);
-  const float bottom = static_cast< float >(centered ? vp.mHeight / 2 : vp.mHeight);
+  const int width = CGraphics::GetViewport().mWidth;
+  const int height = CGraphics::GetViewport().mHeight;
+  const float left = centered ? static_cast< float >(-(width / 2)) : 0.f;
+  const float top = centered ? static_cast< float >(-(height / 2)) : 0.f;
+  const float right = static_cast< float >(centered ? width / 2 : width);
+  const float bottom = static_cast< float >(centered ? height / 2 : height);
   CGraphics::SetOrtho(left, right, bottom, top, znear, zfar);
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGraphics::SetModelMatrix(CTransform4f::Identity());
@@ -3895,23 +3896,26 @@ void CCubeRenderer::DrawAreaModel(int areaId, int modelId, const CModelFlags& fl
 }
 
 CAABox CCubeRenderer::GetAreaModelBounds(int areaId, int modelId) {
-  rstl::list< CAreaListItem >::const_iterator area = FindArea(areaId);
-  if (area == mAreaListItems.end()) {
+  rstl::list< CAreaListItem >::const_iterator area =
+      static_cast< const CCubeRenderer* >(this)->FindArea(areaId);
+  if (area != mAreaListItems.end()) {
+    CAABox bounds = CAABox::MakeMaxInvertedBox();
+    const SAreaSurface& areaSurface = (*area->mSurfaces)[modelId + 1];
+    const int groupIndex = areaSurface.mSurfaceGroupIndex;
+    const CMetroidModelInstance& model = (*area->mGeometry)[areaSurface.mModelIndex];
+    const CMetroidModelInstance::CSurfaceGroups groups = model.GetSurfaceGroups();
+    const ushort count = groups.GetSurfaceCount(groupIndex);
+    const ushort* indices = groups.GetSurfaceIndices(groupIndex);
+    for (ushort i = 0; i < count; ++i) {
+      const CCubeSurface surface(model.GetSurfaces()[indices[i]]);
+      const CAABox& surfaceBounds = surface.GetBounds();
+      bounds.AccumulateBounds(surfaceBounds.GetMinPoint());
+      bounds.AccumulateBounds(surfaceBounds.GetMaxPoint());
+    }
+    return bounds;
+  } else {
     return CAABox::Identity();
   }
-  CAABox bounds = CAABox::MakeMaxInvertedBox();
-  const SAreaSurface& areaSurface = (*area->mSurfaces)[modelId + 1];
-  const CMetroidModelInstance& model = (*area->mGeometry)[areaSurface.mModelIndex];
-  const CMetroidModelInstance::CSurfaceGroups groups = model.GetSurfaceGroups();
-  const ushort count = groups.GetSurfaceCount(areaSurface.mSurfaceGroupIndex);
-  const ushort* indices = groups.GetSurfaceIndices(areaSurface.mSurfaceGroupIndex);
-  for (ushort i = 0; i < count; ++i) {
-    const CCubeSurface surface(model.GetSurfaces()[indices[i]]);
-    const CAABox surfaceBounds = surface.GetBounds();
-    bounds.AccumulateBounds(surfaceBounds.GetMinPoint());
-    bounds.AccumulateBounds(surfaceBounds.GetMaxPoint());
-  }
-  return bounds;
 }
 
 void CCubeRenderer::DrawVisibleAreaGeometry(int areaId, const CPVSVisSet& pvs,
@@ -3948,23 +3952,30 @@ void CCubeRenderer::DrawVisibleAreaGeometry(int areaId, const CPVSVisSet& pvs,
 void CCubeRenderer::ActivateLightsForModel(uint lightSet) {
   uchar lights[4];
   uchar ambient;
-  UnpackLightSet(lightSet, lights, nullptr, &ambient);
   uint count = 0;
-  while (count < 4 && lights[count] != 63) {
+  UnpackLightSet(lightSet, lights, nullptr, &ambient);
+  for (; count < 4; ++count) {
+    if (lights[count] == 63) {
+      break;
+    }
     CGraphics::LoadLight(static_cast< ERglLight >(count), mDynamicLights[lights[count]]);
-    ++count;
   }
   const uchar lightState = (1 << count) - 1;
-  const GXColor ambientColor = {ambient, ambient, ambient, 255};
   const GXColor white = {255, 255, 255, 255};
+  GXColor ambientColor;
+  const uchar amb = ambient;
+  ambientColor.r = amb;
+  ambientColor.g = amb;
+  ambientColor.b = amb;
+  ambientColor.a = 255;
   CGX::SetChanAmbColor(CGX::Channel0, ambientColor);
-  if (lightState == 0) {
+  if (lightState != 0) {
+    CGraphics::SetLightState(lightState);
+    CGX::SetChanMatColor(CGX::Channel0, white);
+  } else {
     CGraphics::DisableAllLights();
     const GXColor color = CGX::GetChanAmbColor(CGX::Channel0);
     CGX::SetChanMatColor(CGX::Channel0, color);
-  } else {
-    CGraphics::SetLightState(lightState);
-    CGX::SetChanMatColor(CGX::Channel0, white);
   }
   CGX::SetChanCtrl(CGX::Channel1, false, GX_SRC_REG, GX_SRC_REG, GX_LIGHT_NULL, GX_DF_NONE,
                    GX_AF_NONE);
