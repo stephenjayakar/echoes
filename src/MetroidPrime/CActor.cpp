@@ -256,12 +256,13 @@ void CActor::PreRenderAllViewports(CStateManager& mgr) {
   if (HasModelData()) {
     CAABox bounds = GetModelData()->GetBounds(GetTransform());
     SetRenderBounds(bounds);
-    if (GetModelData()->HasAnimation()) {
+    if (HasAnimation()) {
       rstl::optional_object< CAABox > new_bounds =
           GetModelData()->GetAnimationData()->GetParticleDB().GetTotalBounds();
       if (new_bounds) {
-        bounds.AccumulateBounds(new_bounds->GetMinPoint());
-        bounds.AccumulateBounds(new_bounds->GetMaxPoint());
+        const CAABox& particleBounds = *new_bounds;
+        bounds.AccumulateBounds(particleBounds.GetMinPoint());
+        bounds.AccumulateBounds(particleBounds.GetMaxPoint());
       }
     }
     mOtherBounds = bounds;
