@@ -60,6 +60,12 @@
 #include "Kyoto/Particles/CGenDescription.hpp"
 #include "MetroidPrime/CBasicSwarmData.hpp"
 
+#include "MetroidPrime/Player/CMorphBall.hpp"
+#include "MetroidPrime/Player/CPlayerState.hpp"
+#include "MetroidPrime/Tweaks/CTweakBall.hpp"
+#include "MetroidPrime/Weapons/CEnergyProjectile.hpp"
+#include "MetroidPrime/Weapons/CGameProjectile.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
@@ -1280,6 +1286,104 @@ void CSwarmBasics::ApplyRadiusDamage(CVector3f pos, const CDamageInfo& info, CSt
           KillBoid(*it, mgr, info.GetWeaponMode());
         }
       }
+    }
+  }
+}
+
+void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
+  CActor::Touch(actor, mgr);
+  if (CGameProjectile* projectile = TCastToPtr< CGameProjectile >(actor)) {
+    const CDamageInfo& damage = projectile->GetCurrentDamageInfo();
+    if (mDamageVulnerability.WeaponHits(damage.GetWeaponMode(), 0)) {
+      const rstl::optional_object< CAABox > touchBounds = projectile->GetTouchBounds();
+      if (touchBounds) {
+        const CAABox projectileBounds = *touchBounds;
+        const CVector3f extent = mTouchRadius * CVector3f::One();
+        if (CLightComboProjectile* light = TCastToPtr< CLightComboProjectile >(projectile)) {
+          if (light->CanCreateRay()) {
+            for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+              if (it->GetActive() && it->xaa_ == kInvalidUniqueId) {
+                const CVector3f pos = it->GetTranslation();
+                const CAABox bounds(pos - extent, pos + extent);
+                if (bounds.DoBoundsOverlap(projectileBounds)) {
+                  const TUniqueId rayId = light->CreateRay(0.3f, mgr, pos);
+                  if (rayId != kInvalidUniqueId) {
+                    it->xa8_ = light->GetUniqueId();
+                    it->xaa_ = rayId;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+            if (it->GetActive()) {
+              const CAABox bounds(it->GetTranslation() - extent, it->GetTranslation() + extent);
+              if (bounds.DoBoundsOverlap(projectileBounds)) {
+                CEnergyProjectile* energy = TCastToPtr< CEnergyProjectile >(projectile);
+                if (energy && !TCastToPtr< CLightComboProjectile >(energy)) {
+                  const CVector3f pos = it->GetTranslation();
+                  if (!energy->Explode(pos, -1.f * energy->GetTransform().GetForward(),
+                                       kWCR_EnemyNormal, mgr, mDamageVulnerability, GetUniqueId())) {
+                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XHIT, kInvalidUniqueId);
+                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XXDG,
+                                      kInvalidUniqueId);
+                    SendScriptMsgs(kSS_ReflectedDamage, mgr);
+                  } else {
+                    mgr.ApplyDamageToWorld(energy->GetOwnerId(), *energy, pos,
+                                           energy->GetCurrentDamageInfo(), energy->GetFilter());
+                  }
+                  break;
+                }
+                it->mHealth -= damage.GetDamage(mDamageVulnerability);
+                if (it->mHealth <= 0.f) {
+                  KillBoid(*it, mgr, damage.GetWeaponMode());
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (CPlayer* player = TCastToPtr< CPlayer >(actor)) {
+    float radius = mPlayerTouchRadius;
+    const CVector3f playerPos = player->GetTranslation();
+    if (close_enough(radius, 0.f)) {
+      radius = mTouchRadius;
+    }
+    const CAABox playerBounds = *player->GetTouchBounds();
+    bool ballDamage = true;
+    bool cannonBall = false;
+    if (player->GetMorphballTransitionState() == CPlayer::kMS_Morphed &&
+        player->GetPlayerState()->GetItemAmount(CPlayerState::kIT_CannonBall, true) != 0) {
+      cannonBall = true;
+    }
+    if (!cannonBall && !player->GetMorphBall()->InScrewAttackMode()) {
+      ballDamage = false;
+    }
+    for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+      if (it->GetActive() && it->mFreezeTimer <= 0.f) {
+        const CVector3f extent(radius, radius, radius);
+        const CAABox bounds = CAABox(it->GetTranslation() - extent, it->GetTranslation() + extent);
+        if (playerBounds.DoBoundsOverlap(bounds) && mDamageCooldownTimer <= 0.f) {
+          if (!ballDamage) {
+            mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), mDamage,
+                            CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                                CMaterialList()),
+                            CVector3f::Zero());
+            mDamageCooldownTimer = mDamageCooldown;
+          }
+          BoidCollidedWithPlayerCallback(mgr, *it);
+          break;
+        }
+      }
+    }
+    if (ballDamage || player->GetMorphBall()->GetBallState() == CMorphBall::kBS_Boost) {
+      const CDamageInfo ballInfo =
+          ballDamage ? gpTweakBall->GetCannonBallDamage() : gpTweakBall->GetBoostBallDamage();
+      ApplyRadiusDamage(playerPos, ballInfo, mgr);
     }
   }
 }
