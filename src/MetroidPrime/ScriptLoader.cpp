@@ -539,15 +539,21 @@ ERglFogMode FogSelectionToFogMode(int selection) {
   return mode;
 }
 
+// Guessed name.
+int g_LoaderFuncCount = ARRAY_SIZE(g_LoaderFuncs);
+
 FScriptLoader GetScriptLoaderForType(FourCC type) {
   static bool sorted = false;
-  NamedScriptLoader* const end = g_LoaderFuncs + ARRAY_SIZE(g_LoaderFuncs);
   if (!sorted) {
-    rstl::sort(g_LoaderFuncs, end);
+    rstl::sort(g_LoaderFuncs, g_LoaderFuncs + g_LoaderFuncCount);
     sorted = true;
   }
 
   const NamedScriptLoader key(type, nullptr);
-  const NamedScriptLoader* const loader = rstl::binary_find(g_LoaderFuncs, end, key);
-  return loader == end ? nullptr : loader->mLoader;
+  const NamedScriptLoader* const loader =
+      rstl::binary_find(g_LoaderFuncs, g_LoaderFuncs + g_LoaderFuncCount, key);
+  if (loader != nullptr && loader != g_LoaderFuncs + g_LoaderFuncCount) {
+    return loader->mLoader;
+  }
+  return nullptr;
 }
