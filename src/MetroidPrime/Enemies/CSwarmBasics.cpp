@@ -638,13 +638,6 @@ void CSwarmBasics::ApplySteeringBehaviors(CStateManager& mgr, CBoid& boid, CVect
           }
         }
         break;
-      case 1:
-      case 2:
-        break;
-      case 3:
-        ApplyAttraction(boid, mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f), mAttractionRadius,
-                        mAttractionMagnitude, ahead);
-        break;
       case 4:
         ApplySeparation(boid, nearList, ahead);
         break;
@@ -656,6 +649,12 @@ void CSwarmBasics::ApplySteeringBehaviors(CStateManager& mgr, CBoid& boid, CVect
         break;
       case 7:
         ApplyAlignment(boid, nearList, ahead);
+        break;
+      case 3:
+        ApplyAttraction(boid, mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f), mAttractionRadius,
+                        mAttractionMagnitude, ahead);
+        break;
+      default:
         break;
       }
       if (ahead.MagSquared() >= 9.f) {
@@ -1219,7 +1218,7 @@ void CSwarmBasics::ApplyBoundsAvoidance(CBoid& boid,
     const CPlane plane = GetClosestBoxFacePlane(bounds, future);
     const float distance = plane.GetHeight(future);
     const float factor = distance > 5.f ? 1.f : 5.f / (0.00001f + distance);
-    ahead -= factor * plane.GetNormal();
+    ahead = ahead - factor * plane.GetNormal();
   }
 }
 

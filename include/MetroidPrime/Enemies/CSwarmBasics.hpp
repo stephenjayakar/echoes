@@ -77,7 +77,7 @@ public:
     float mMagnitude;
 
   public:
-    CRepulsor(const CVector3f& center, float magnitude) : mCenter(center), mMagnitude(magnitude) {}
+    CRepulsor(CVector3f center, float magnitude) : mCenter(center), mMagnitude(magnitude) {}
   };
 
   // Original Wii enum type; enumerator names are guessed from native sound consumers.
