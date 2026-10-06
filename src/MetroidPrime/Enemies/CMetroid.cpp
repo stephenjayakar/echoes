@@ -5,45 +5,46 @@
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrMetroidAlpha.hpp"
 
-#include "Kyoto/Math/CQuaternion.hpp"
-#include "Kyoto/Animation/CPASAnimParmData.hpp"
-#include "MetroidPrime/CAnimData.hpp"
-#include "MetroidPrime/BodyState/CBodyController.hpp"
-#include "MetroidPrime/BodyState/CBodyState.hpp"
-#include "MetroidPrime/Player/CPlayerState.hpp"
-#include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
 #include "Collision/CRayCastResult.hpp"
+#include "Kyoto/Animation/CPASAnimParmData.hpp"
+#include "Kyoto/Math/CQuaternion.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
 #include "Kyoto/Math/CUnitVector3f.hpp"
+#include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/BodyState/CBodyState.hpp"
+#include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
+#include "MetroidPrime/CAnimData.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
+#include "MetroidPrime/CGameArea.hpp"
+#include "MetroidPrime/CGameCollision.hpp"
+#include "MetroidPrime/CKnockBackInfo.hpp"
 #include "MetroidPrime/CSafeZoneManager.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/CWorld.hpp"
+#include "MetroidPrime/Cameras/CFirstPersonCamera.hpp"
 #include "MetroidPrime/Enemies/CSpacePirate.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
-#include "MetroidPrime/CCameraManager.hpp"
-#include "MetroidPrime/CGameCollision.hpp"
-#include "MetroidPrime/Cameras/CFirstPersonCamera.hpp"
-#include "MetroidPrime/CKnockBackInfo.hpp"
-#include "MetroidPrime/CWorld.hpp"
-#include "MetroidPrime/CGameArea.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
-#include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
-#include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
-#include "MetroidPrime/TCastTo.hpp"
+#include "MetroidPrime/Player/CPlayerState.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
+#include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
 
 static EMaterialTypes skSolidMaterial = kMT_Unknown59;
 
 static const char* skJointNameList[] = {
-    "Head_1",  "L_ankle", "L_elbow",       "L_hip",   "L_knee",  "L_shoulder",
-    "L_varias2_SDK", "L_wrist", "Pelvis",  "R_ankle", "R_elbow", "R_hip",
-    "R_knee",  "R_shoulder", "R_varias2_SDK", "Spine_1", "Spine_2",
+    "Head_1",        "L_ankle",    "L_elbow",       "L_hip",   "L_knee",  "L_shoulder",
+    "L_varias2_SDK", "L_wrist",    "Pelvis",        "R_ankle", "R_elbow", "R_hip",
+    "R_knee",        "R_shoulder", "R_varias2_SDK", "Spine_1", "Spine_2",
 };
 static const char* const skPirateSuckJoint = "Head_1";
 static const char* const skPirateRootJoint = "Skeleton_Root";
 
 static CDamageVulnerability::TWeaponVulnerability skFaceHugOverrides[] = {
-    CDamageVulnerability::TWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false)),
+    CDamageVulnerability::TWeaponVulnerability(
+        kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false)),
 };
 
 static CDamageVulnerability FaceHugVulnerability() {
@@ -665,9 +666,8 @@ void CMetroid::DetachFromTarget(CStateManager& mgr, bool fromDock) {
         direction = player->GetTransform().GetForward();
         xf = player->GetTransform();
       } else {
-        const CQuaternion rot =
-            CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw())) *
-            CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
+        const CQuaternion rot = CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw())) *
+                                CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
         const CMatrix3f mat = rot.BuildTransform();
         direction = mat * CVector3f::Forward();
         xf = CTransform4f(mat, player->GetTranslation());
@@ -801,33 +801,32 @@ bool CMetroid::InDetectionRange(CStateManager& mgr, const CTriggerData&) const {
     }
     const float rangeSq = mDetectionRange * mDetectionRange;
     CObjectList& list = mgr.ObjectListById(kOL_Actor);
-    const float x = GetTranslation().GetX();
-    const float y = GetTranslation().GetY();
-    const float z = GetTranslation().GetZ();
+    const CVector3f pos = GetTranslation();
     for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
       CActor* actor = static_cast< CActor* >(list[i]);
-      if (actor != nullptr && actor->GetUniqueId() != GetUniqueId() &&
-          (actor->GetTranslation() - CVector3f(x, y, z)).MagSquared() < rangeSq) {
-        CSpacePirate* pirate = TCastToPtr< CSpacePirate >(actor);
-        if (pirate != nullptr && IsPirateValidTarget(*pirate)) {
-          pirate->SetAttackTarget(mgr, GetUniqueId());
-          return true;
-        }
-        const CPlayer* player = TCastToConstPtr< CPlayer >(actor);
-        if (player != nullptr && !IsPlayerInFluid(*player, mgr) &&
-            !mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) &&
-            player->GetCurrentAreaId() == GetCurrentAreaId()) {
-          return true;
+      if (actor != nullptr && actor->GetUniqueId() != GetUniqueId()) {
+        const CVector3f delta = actor->GetTranslation() - pos;
+        if (delta.MagSquared() < rangeSq) {
+          CSpacePirate* pirate = TCastToPtr< CSpacePirate >(actor);
+          if (pirate != nullptr && IsPirateValidTarget(*pirate)) {
+            pirate->SetAttackTarget(mgr, GetUniqueId());
+            return true;
+          }
+          const CPlayer* player = TCastToConstPtr< CPlayer >(actor);
+          if (player != nullptr && !IsPlayerInFluid(*player, mgr) &&
+              !mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) &&
+              player->GetCurrentAreaId() == GetCurrentAreaId()) {
+            return true;
+          }
         }
       }
     }
   } else {
     CEntity* target = mgr.ObjectById(mAttackTarget);
     const CPlayer* player = TCastToConstPtr< CPlayer >(target);
-    if (player != nullptr &&
-        (IsPlayerInFluid(*player, mgr) ||
-         mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) ||
-         player->GetCurrentAreaId() != GetCurrentAreaId())) {
+    if (player != nullptr && (IsPlayerInFluid(*player, mgr) ||
+                              mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) ||
+                              player->GetCurrentAreaId() != GetCurrentAreaId())) {
       return false;
     }
     if (target != nullptr) {
@@ -1193,8 +1192,7 @@ void CMetroid::TelegraphAttack(CStateManager& mgr, EStateMsg msg, float dt) {
         if (speed > 0.f) {
           extraTime = 1.15f / speed;
         }
-        mMaxSeekTime =
-            extraTime + distance / BodyController()->GetBodyStateInfo().GetMaxSpeed();
+        mMaxSeekTime = extraTime + distance / BodyController()->GetBodyStateInfo().GetMaxSpeed();
         BodyController()->SetTurnSpeed(speed > 0.f ? 20.f / speed : 20.f);
       } else if (mAttackTarget != kInvalidUniqueId) {
         if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
@@ -1220,11 +1218,11 @@ void CMetroid::TelegraphAttack(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Deactivate:
     BodyController()->SetTurnSpeed(mTurnSpeed);
     if (Attacked(mgr, CTriggerData(0.f))) {
-      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId,
-                                  GetUniqueId(), false);
+      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId, GetUniqueId(),
+                                  false);
     } else if (PatternShagged(mgr, CTriggerData(0.f))) {
-      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId,
-                                  GetUniqueId(), false);
+      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId, GetUniqueId(),
+                                  false);
       mAttackTarget = kInvalidUniqueId;
     }
     break;
@@ -1266,7 +1264,8 @@ void CMetroid::Generate(CStateManager& mgr, EStateMsg msg, float dt) {
           } else {
             const float duration = 0.75f * mGrowthDuration;
             const CVector3f halfScale = 0.5f * mScale2;
-            scale = halfScale + (duration - timeRemaining) * ((1.f / duration) * (mScale1 - halfScale));
+            scale =
+                halfScale + (duration - timeRemaining) * ((1.f / duration) * (mScale1 - halfScale));
           }
           ModelData()->SetScale(scale);
         }
@@ -1362,18 +1361,17 @@ void CMetroid::SuckEnergyFromTarget(float dt, CStateManager& mgr) {
               CMaterialFilter::MakeIncludeExclude(CMaterialList(skSolidMaterial), CMaterialList()),
               CVector3f::Zero());
           player->SetNoDamageLoopSfx(false);
-          mIsEnergyDrainVulnerable =
-              (player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
-                   ? player->GetMorphballTransitionState()
-                   : CPlayer::kMS_Unmorphed) == CPlayer::kMS_Morphed;
+          mIsEnergyDrainVulnerable = (player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
+                                          ? player->GetMorphballTransitionState()
+                                          : CPlayer::kMS_Unmorphed) == CPlayer::kMS_Morphed;
         } else {
           mIsEnergyDrainVulnerable = true;
           if (actor->GetHealthInfo()->GetHP() > 0.f) {
             const CDamageInfo info(CWeaponMode(kWT_Power), damage, 0.f, 0.f, true);
-            mgr.ApplyDamage(
-                GetUniqueId(), mAttackTarget, GetUniqueId(), info,
-                CMaterialFilter::MakeIncludeExclude(CMaterialList(skSolidMaterial), CMaterialList()),
-                CVector3f::Zero());
+            mgr.ApplyDamage(GetUniqueId(), mAttackTarget, GetUniqueId(), info,
+                            CMaterialFilter::MakeIncludeExclude(CMaterialList(skSolidMaterial),
+                                                                CMaterialList()),
+                            CVector3f::Zero());
           }
         }
         if (GetGrowthStage() < 2.f) {
@@ -1416,8 +1414,7 @@ void CMetroid::SuckEnergyFromTarget(float dt, CStateManager& mgr) {
 
 void CMetroid::ComputeSuckPlayerPosRot(const CPlayer& player, CStateManager& mgr, CVector3f& pos,
                                        CQuaternion& rot) const {
-  const CCameraManager* camMgr =
-      mgr.GetCameraManager(mgr.MaskUIdNumPlayers(player.GetUniqueId()));
+  const CCameraManager* camMgr = mgr.GetCameraManager(mgr.MaskUIdNumPlayers(player.GetUniqueId()));
   pos = player.GetTranslation();
   const float scaleY = GetModelData()->GetScale().GetY();
   switch (player.GetMorphballTransitionState()) {
@@ -1477,9 +1474,7 @@ void CMetroid::ComputeSuckPlayerPosRot(const CPlayer& player, CStateManager& mgr
   }
 }
 
-const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {
-  return &mCollisionPrimitive;
-}
+const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const { return &mCollisionPrimitive; }
 
 bool CMetroid::StateOver(CStateManager&, const CTriggerData&) const {
   return mState == kAiState_Over;
@@ -1503,14 +1498,12 @@ void CMetroid::OnDockTouch(CStateManager& mgr) {
 static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
     {"StateOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::StateOver)},
     {"AttackOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::AttackOver)},
-    {"LostInterest",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::LostInterest)},
+    {"LostInterest", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::LostInterest)},
     {"PatternShagged",
      static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::PatternShagged)},
     {"Attacked", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::Attacked)},
     {"ShotAt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::ShotAt)},
-    {"ShouldAttack",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::ShouldAttack)},
+    {"ShouldAttack", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::ShouldAttack)},
     {"InAttackPosition",
      static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::InAttackPosition)},
     {"InPosition", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::InPosition)},

@@ -27,6 +27,11 @@ public:
   // CPatterned
   void SetupStateMachine(CStateManager& mgr) override;
 
+  // CMetroid
+  bool ShouldDodge(CStateManager& mgr, const CTriggerData& data) const override;
+  void PathFind(CStateManager& mgr, EStateMsg msg, float dt) override;
+  void Dodge(CStateManager& mgr, EStateMsg msg, float dt) override;
+
   // Triggers
   bool AnimOver(CStateManager& mgr, const CTriggerData& data) const;
   bool ShouldSeekEnergySource(CStateManager& mgr, const CTriggerData& data) const;
@@ -42,6 +47,10 @@ public:
 
   // Code functions
   void SetEnergySourceDest(CStateManager& mgr, float dt);
+
+  void ApplyContactDamage(CStateManager& mgr, CActor& target,
+                          const CDamageInfo& info); // Guessed name.
+  void TryJoinHive(CStateManager& mgr);             // Guessed name.
 
 private:
   float xa48_;
@@ -62,6 +71,7 @@ private:
   CDamageVulnerability mGrowthVulnerability;
   bool mShouldSeekEnergySource : 1;
   bool xac8_25_ : 1;
+  bool mShouldDodge : 1;
 };
 CHECK_SIZEOF(CBabyMetroid, 0xAD0)
 

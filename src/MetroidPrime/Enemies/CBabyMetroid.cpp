@@ -2,8 +2,15 @@
 
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/SObjectTag.hpp"
+#include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptActor.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptCounter.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptEffect.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
+#include "MetroidPrime/TCastTo.hpp"
 
 typedef CPatterned::StateMachine::TriggerFunc TriggerFunc;
 typedef CPatterned::StateMachine::StateFunc StateFunc;
@@ -28,11 +35,9 @@ static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
     {"ShouldWallHang", static_cast< TriggerFunc >(&CMetroid::ShouldWallHang)},
     {"ShouldDodge", static_cast< TriggerFunc >(&CMetroid::ShouldDodge)},
     {"AnimOver", static_cast< TriggerFunc >(&CBabyMetroid::AnimOver)},
-    {"ShouldSeekEnergySource",
-     static_cast< TriggerFunc >(&CBabyMetroid::ShouldSeekEnergySource)},
+    {"ShouldSeekEnergySource", static_cast< TriggerFunc >(&CBabyMetroid::ShouldSeekEnergySource)},
     {"AbsorbFinished", static_cast< TriggerFunc >(&CBabyMetroid::AbsorbFinished)},
-    {"InEnergySourcePosition",
-     static_cast< TriggerFunc >(&CBabyMetroid::InEnergySourcePosition)},
+    {"InEnergySourcePosition", static_cast< TriggerFunc >(&CBabyMetroid::InEnergySourcePosition)},
 };
 
 static CPatterned::StateMachine::SStateFunction skStates[] = {
@@ -124,5 +129,126 @@ void CBabyMetroid::Generate(CStateManager& mgr, EStateMsg msg, float dt) {
     break;
   default:
     break;
+  }
+}
+
+void CBabyMetroid::ApplyContactDamage(CStateManager& mgr, CActor& target, const CDamageInfo& info) {
+  if (mCurDamageRemTime <= 0.f) {
+    mgr.ApplyDamage(
+        GetUniqueId(), target.GetUniqueId(), GetUniqueId(), info,
+        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59), CMaterialList()),
+        CVector3f::Zero());
+    mCurDamageRemTime = mDamageWaitTime;
+  }
+}
+
+void CBabyMetroid::TryJoinHive(CStateManager& mgr) {
+  CScriptCounter* counter = TCastToPtr< CScriptCounter >(mgr.ObjectById(xa66_));
+  if (counter != nullptr && counter->GetCurrent() < counter->GetMax()) {
+    if (mgr.Random()->Float() <= xa48_) {
+      mShouldSeekEnergySource = true;
+      counter->AcceptScriptMsg(mgr,
+                               CScriptMsg(GetUniqueId(), counter->GetUniqueId(), kSM_Increment));
+    }
+  }
+}
+
+void CBabyMetroid::Dodge(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mDodgeDirection = mgr.Random()->Float() < 0.5f ? pas::kSD_Left : pas::kSD_Right;
+    mShouldDodge = false;
+    break;
+  }
+  CMetroid::Dodge(mgr, msg, dt);
+}
+
+void CBabyMetroid::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (!mShouldSeekEnergySource) {
+    xa84_ = rstl::min_val(xa84_ + dt, mDodgeCheckTimeInterval);
+  }
+  CMetroid::PathFind(mgr, msg, dt);
+}
+
+bool CBabyMetroid::ShouldDodge(CStateManager&, const CTriggerData&) const { return mShouldDodge; }
+
+void CBabyMetroid::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
+  CMetroid::AcceptScriptMsg(mgr, msg);
+  switch (message) {
+  case kSM_Create:
+    BodyController()->SetLocomotionType(pas::kLT_Internal7);
+    break;
+  case kSM_AreaLoaded: {
+    xa54_.reserve(8);
+    rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+    for (; it != GetConnectionList().end(); ++it) {
+      const EScriptObjectState state = it->state;
+      const TUniqueId id = mgr.GetIdForScript(it->objId);
+      if (state == kSS_Approach) {
+        if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id))) {
+          xa54_.push_back(id);
+        } else if (CScriptActor* actor = TCastToPtr< CScriptActor >(mgr.ObjectById(id))) {
+          xa64_ = id;
+          actor->AddMaterial(kMT_AIPassthrough, mgr);
+          actor->RemoveMaterial(kMT_AIBlock, mgr);
+          actor->SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
+              actor->GetMaterialFilter().GetIncludeList(), CMaterialList(kMT_Character)));
+        }
+      } else if (state == kSS_MaxReached) {
+        if (TCastToConstPtr< CScriptCounter >(mgr.GetObjectById(id))) {
+          xa66_ = id;
+        } else if (TCastToConstPtr< CScriptEffect >(mgr.GetObjectById(id))) {
+          xa68_ = id;
+        }
+      }
+    }
+    break;
+  }
+  case kSM_Damage:
+  case kSM_ResistedDamage:
+  case kSM_Delete:
+  case kSM_Decrement:
+  case kSM_Deactivate:
+  case kSM_Alert:
+    break;
+  default:
+    break;
+  }
+}
+
+void CBabyMetroid::Think(float dt, CStateManager& mgr) {
+  if (mHitByPlayerProjectile) {
+    if (mShouldSeekEnergySource) {
+      mShouldSeekEnergySource = false;
+      xac8_25_ = false;
+      if (CScriptCounter* counter = TCastToPtr< CScriptCounter >(mgr.ObjectById(xa66_))) {
+        counter->AcceptScriptMsg(mgr,
+                                 CScriptMsg(GetUniqueId(), counter->GetUniqueId(), kSM_Decrement));
+      }
+      xa78_ = 0.f;
+    }
+  }
+  if (xa84_ >= mDodgeCheckTimeInterval && !mShouldDodge) {
+    if (mgr.Random()->Float() < mChanceToDodge) {
+      mShouldDodge = true;
+    }
+    xa84_ = 0.f;
+  }
+  CPlayer* player = mgr.Player(0);
+  const CVector3f delta = player->GetTranslation() - GetTranslation();
+  if (delta.MagSquared() < 5.f) {
+    ApplyContactDamage(mgr, *player, GetContactDamage());
+  }
+  if (!mShouldSeekEnergySource) {
+    xa78_ = rstl::min_val(xa78_ + dt, xa74_);
+    if (xa78_ >= xa74_) {
+      TryJoinHive(mgr);
+      xa78_ = 0.f;
+    }
+  }
+  CMetroid::Think(dt, mgr);
+  if (mHitByPlayerProjectile) {
+    mHitByPlayerProjectile = false;
   }
 }
