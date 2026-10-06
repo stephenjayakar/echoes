@@ -39,15 +39,13 @@ struct SRenderItem {
     kT_Selected = 3,
   };
 
-  SRenderItem(const SDataNetworkNode* node, CVector3f pos, int type)
-  : mNode(node), mPos(pos), mDepth(0.f) {
-    mType = type;
-  }
+  SRenderItem(const SDataNetworkNode* node, CVector3f pos, EType type)
+  : mNode(node), mPos(pos), mDepth(0.f), mType(type) {}
 
   const SDataNetworkNode* mNode;
   CVector3f mPos;
   float mDepth;
-  int mType;
+  EType mType;
 };
 
 struct SRenderItemDepthSort {
@@ -948,6 +946,8 @@ void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTra
     const float itemAlpha = (0.5f * itemNode->x5c + 0.5f) * itemNode->x60;
     const CScriptFrontEndDataNetwork* net = itemNode->GetConstNetwork(mgr);
     switch (it->mType) {
+    case SRenderItem::kT_Center:
+      break;
     case SRenderItem::kT_Child: {
       const CColor color =
           itemNode->GetConstNetwork(mgr)->mCanBeSelected
@@ -959,32 +959,34 @@ void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTra
       DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookNodeScale(), color, true);
       break;
     }
-    case SRenderItem::kT_Selected:
+    case SRenderItem::kT_Selected: {
       hotDot->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-      DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(),
-                    CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
-                        .WithAlphaModulatedBy(itemAlpha),
-                    true);
+      const CColor dotColor =
+          CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+              .WithAlphaModulatedBy(itemAlpha);
+      DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(), dotColor, true);
       if (!net->mIsLocked || !net->x2d2) {
         hotDotHalo->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(),
-                      CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
-                          .WithAlphaModulatedBy(itemAlpha),
+        const CColor haloColor =
+            CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                .WithAlphaModulatedBy(itemAlpha);
+        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(), haloColor,
                       true);
         hotDotAButton->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-        DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(),
-                      CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
-                          .WithAlphaModulatedBy(itemAlpha),
-                      false);
+        const CColor buttonColor =
+            CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                .WithAlphaModulatedBy(itemAlpha);
+        DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(), buttonColor, false);
       }
       if (x1a8 > 0.f) {
         hotDotHalo->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(),
-                      CColor::Lerp(CColor(0.f, 0.f, 0.f, 0.f), CColor::White(), x1a8)
-                          .WithAlphaModulatedBy(itemAlpha),
+        const CColor flashColor = CColor::Lerp(CColor(0.f, 0.f, 0.f, 0.f), CColor::White(), x1a8)
+                                      .WithAlphaModulatedBy(itemAlpha);
+        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(), flashColor,
                       true);
       }
       break;
+    }
     }
   }
 }
