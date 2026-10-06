@@ -271,16 +271,17 @@ bool CPFArea::PathExists(const CPFRegion* source, const CPFRegion* destination, 
   int numRegions = GetNumRegions();
   int sourceIndex = source->GetIndex();
   int destinationIndex = destination->GetIndex();
+  const rstl::prereserved_vector< uint >& connections =
+      (flags & 2) ? mConnectionsFlyers : mConnectionsGround;
+  int lowIndex = sourceIndex;
   if (sourceIndex > destinationIndex) {
-    rstl::swap(sourceIndex, destinationIndex);
+    lowIndex = destinationIndex;
+    destinationIndex = sourceIndex;
   }
   int totalConnections = numRegions * (numRegions - 1) / 2;
-  int remainingConnections = (numRegions - sourceIndex - 1) * (numRegions - sourceIndex) / 2;
-  uint bit = totalConnections - remainingConnections + destinationIndex - (sourceIndex + 1);
-  if (flags & 2) {
-    return (mConnectionsFlyers[bit / 32] >> (bit % 32)) & 1;
-  }
-  return (mConnectionsGround[bit / 32] >> (bit % 32)) & 1;
+  int remainingConnections = (numRegions - lowIndex - 1) * (numRegions - lowIndex) / 2;
+  uint bit = totalConnections - remainingConnections + destinationIndex - (lowIndex + 1);
+  return (connections[bit / 32] >> (bit % 32)) & 1;
 }
 
 void CPFArea::SetTransform(const CTransform4f& transform) {
