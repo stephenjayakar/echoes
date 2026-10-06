@@ -728,7 +728,7 @@ void CSwarmBasics::Think(float dt, CStateManager& mgr) {
            mBoidGenCooldownTimer <= 0.f) {
       bool created = false;
       for (int i = 0; i < mBoids.size(); ++i) {
-        if (!mBoids[i].GetActive()) {
+        if (!mBoids[i].mActive) {
           CreateBoid(mgr, i);
           ++mCreatedBoids;
           mBoidGenCooldownTimer += 1.f / mBoidGenRate;
@@ -744,7 +744,7 @@ void CSwarmBasics::Think(float dt, CStateManager& mgr) {
   }
   if (x52c_ != 0) {
     for (int i = 0; i < mBoids.size(); ++i) {
-      if (!mBoids[i].GetActive()) {
+      if (!mBoids[i].mActive) {
         CreateBoid(mgr, i);
         ++mCreatedBoids;
         if (--x52c_ <= 0) {
@@ -769,7 +769,7 @@ void CSwarmBasics::Think(float dt, CStateManager& mgr) {
           }
           for (; boid != nullptr; boid = boid->mNext) {
             ++count;
-            if (boid->GetActive()) {
+            if (boid->mActive) {
               mAabox.AccumulateBounds(boid->GetTranslation());
             }
             if (((mThinkCounter & 1) == (count & 1) && boid->mActive &&
@@ -784,7 +784,7 @@ void CSwarmBasics::Think(float dt, CStateManager& mgr) {
   }
   for (CBoid* boid = mOutlierBoidList; boid != nullptr; boid = boid->mNext) {
     ++count;
-    if (boid->GetActive()) {
+    if (boid->mActive) {
       mAabox.AccumulateBounds(boid->GetTranslation());
     }
     if (((mThinkCounter & 1) == (count & 1) && boid->mActive && boid->mFreezeTimer < 0.1f) ||
@@ -833,7 +833,7 @@ void CSwarmBasics::UpdateSwarmAnimations(CStateManager& mgr, float dt) {
 
 void CSwarmBasics::MoveBoid(CStateManager& mgr, CBoid& boid, const CVector3f& offsetDelta,
                             float dt) {
-  if (boid.GetActive()) {
+  if (boid.mActive) {
     if (boid.mFreezeTimer > 0.f) {
       boid.mFreezeTimer -= dt;
       if (boid.mFreezeTimer < 0.7f * mgr.Random()->Float()) {
@@ -856,15 +856,15 @@ void CSwarmBasics::UpdatePartition() {
   mOutlierBoidList = nullptr;
   const CAABox bounds = GetBoundingBox();
   const CVector3f extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
-  const CVector3f size(extent.GetX() / 5.f, extent.GetY() / 5.f, extent.GetZ() / 5.f);
+  const CVector3f size = extent / 5.f;
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (!it->GetActive()) {
+    if (!it->mActive) {
       if (it->mHasLoopedSound) {
         StopLoopedSound(*it, mLocomotionSounds);
       }
     } else {
       mActiveBoidIndices.push_back_unsafe(uint(it->mIndex));
-      const CVector3f pos = it->GetTranslation();
+      const CVector3f& pos = it->GetTranslation();
       const CVector3f delta = pos - bounds.GetMinPoint();
       const int x = CCast::ToInt32(delta.GetX() / size.GetX());
       const int y = CCast::ToInt32(delta.GetY() / size.GetY());
@@ -1048,7 +1048,7 @@ void CSwarmBasics::Render(const CStateManager& mgr) const {
               if ((index & 3) == (mThinkCounter & 3)) {
                 const CColor color = SoftwareLight(mgr, bounds);
                 for (CBoid* it = boid; it != nullptr; it = it->mNext) {
-                  if (it->GetActive()) {
+                  if (it->mActive) {
                     it->mAmbientLighting = CColor::Lerp(it->mAmbientLighting, color, 0.3f);
                   }
                 }
@@ -1078,7 +1078,7 @@ void CSwarmBasics::Render(const CStateManager& mgr) const {
         if (useSoftwareLight) {
           if ((index & 3) == (mThinkCounter & 3)) {
             const CColor color = SoftwareLight(mgr, bounds);
-            if (boid->GetActive()) {
+            if (boid->mActive) {
               boid->mAmbientLighting = CColor::Lerp(boid->mAmbientLighting, color, 0.3f);
             }
           }
@@ -1288,7 +1288,7 @@ TUniqueId CSwarmBasics::GetWaypointForState(EScriptObjectState state, CStateMana
 void CSwarmBasics::ApplyRadiusDamage(CVector3f pos, const CDamageInfo& info, CStateManager& mgr) {
   const float radiusSquared = info.GetRadius() * info.GetRadius();
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (it->GetActive()) {
+    if (it->mActive) {
       if ((it->GetTranslation() - pos).MagSquared() < radiusSquared) {
         it->mHealth -= info.GetRadiusDamage(mDamageVulnerability);
         if (it->mHealth <= 0.f) {
@@ -1311,7 +1311,7 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
         if (CLightComboProjectile* light = TCastToPtr< CLightComboProjectile >(projectile)) {
           if (light->CanCreateRay()) {
             for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-              if (it->GetActive() && it->xaa_ == kInvalidUniqueId) {
+              if (it->mActive && it->xaa_ == kInvalidUniqueId) {
                 const CVector3f pos = it->GetTranslation();
                 const CAABox bounds(pos - extent, pos + extent);
                 if (bounds.DoBoundsOverlap(projectileBounds)) {
@@ -1327,7 +1327,7 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
           }
         } else {
           for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-            if (it->GetActive()) {
+            if (it->mActive) {
               const CVector3f boidPos = it->GetTranslation();
               const CAABox bounds(boidPos - extent, boidPos + extent);
               if (bounds.DoBoundsOverlap(projectileBounds)) {
@@ -1375,7 +1375,7 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
       ballDamage = false;
     }
     for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-      if (it->GetActive() && it->mFreezeTimer <= 0.f) {
+      if (it->mActive && it->mFreezeTimer <= 0.f) {
         const CVector3f extent(radius, radius, radius);
         const CVector3f boidPos = it->GetTranslation();
         const CAABox bounds = CAABox(boidPos - extent, boidPos + extent);
@@ -1405,7 +1405,7 @@ void CSwarmBasics::SetExplodeTimers(const CVector3f& pos, float radius, float mi
                                     float maxTime) {
   const float radiusSquared = radius * radius;
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (it->GetActive() && it->mFreezeTimer <= 0.f) {
+    if (it->mActive && it->mFreezeTimer <= 0.f) {
       const float distanceSquared = (it->GetTranslation() - pos).MagSquared();
       if (distanceSquared < radiusSquared) {
         const float time = (distanceSquared / radiusSquared) * (maxTime - minTime) + minTime;
@@ -1443,7 +1443,7 @@ int CSwarmBasics::GetLockOnIndex(CStateManager& mgr) const {
   const bool playerOrbiting = mgr.GetPlayer(0)->GetOrbitTargetId() == GetUniqueId();
   if (mLockOnIndex != -1) {
     int result = -1;
-    if (mBoids[mLockOnIndex].GetActive() &&
+    if (mBoids[mLockOnIndex].mActive &&
         IsBoidVisibleForLockOn(mgr, mBoids[mLockOnIndex], cameraPos, cameraForward)) {
       result = mLockOnIndex;
     }
@@ -1466,7 +1466,7 @@ int CSwarmBasics::FindBestLockOnIndex(CStateManager& mgr) const {
   const CVector3f cameraForward = cameraXf.GetForward();
   for (rstl::vector< CBoid >::const_iterator it = mBoids.begin(); it != mBoids.end();
        ++it, ++index) {
-    if (it->GetActive()) {
+    if (it->mActive) {
       const CVector3f delta = it->GetTranslation() - cameraPos;
       if (delta.MagSquared() <= maxDistanceSq && delta.CanBeNormalized()) {
         const float dot = CVector3f::Dot(cameraForward, delta.AsNormalized());
@@ -1497,7 +1497,7 @@ void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< uin
   rstl::vector< rstl::pair< uint, float > > candidates;
   candidates.reserve(mBoids.size());
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (it->GetActive()) {
+    if (it->mActive) {
       CVector3f delta = it->GetTranslation() - camPos;
       if (delta.MagSquared() <= maxDistSq && delta.CanBeNormalized()) {
         float dot = CVector3f::Dot(camFwd, delta.AsNormalized());
@@ -1618,7 +1618,7 @@ void CSwarmBasics::FreezeCollision(const CMarkerGrid& grid) {
   const float xy = radius + 0.3f;
   const float z = radius + 0.5f;
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (it->GetActive()) {
+    if (it->mActive) {
       const CVector3f extent(xy, xy, z);
       const CAABox bounds = CAABox(it->GetTranslation() - extent, it->GetTranslation() + extent);
       if (grid.AABoxTouchesData(bounds, 1)) {
@@ -1631,7 +1631,7 @@ void CSwarmBasics::FreezeCollision(const CMarkerGrid& grid) {
 int CSwarmBasics::EvaluateActiveBoidCount() const {
   int count = 0;
   for (int i = 0; i < mBoids.size(); ++i) {
-    if (mBoids[i].GetActive()) {
+    if (mBoids[i].mActive) {
       ++count;
     }
   }
@@ -1865,7 +1865,7 @@ void CSwarmBasics::FlushDeathMessages(CStateManager& mgr) {
 
 void CSwarmBasics::FreezeBoids(const CVector3f& position, float radius) {
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-    if (it->GetActive()) {
+    if (it->mActive) {
       CVector3f delta = position - it->GetTranslation();
       if (delta.MagSquared() < radius * radius) {
         it->mFreezeTimer = mFreezeDuration;
@@ -1972,5 +1972,5 @@ CVector3f CSwarmBasics::GetLockOnLocation(int index) const {
 }
 
 bool CSwarmBasics::GetLockOnLocationValid(int index) const {
-  return index > -1 && index < mBoids.size() && mBoids[index].GetActive();
+  return index > -1 && index < mBoids.size() && mBoids[index].mActive;
 }
