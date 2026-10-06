@@ -18,7 +18,7 @@ public:
   ~CGameCamera() override;
   CEntity* TypesMatch(int typeId) const override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
-  void SetActive(bool active) override;
+  void SetActive(const bool active) override;
 
   // CActor
   void ClearFluidList(CStateManager& mgr) override;

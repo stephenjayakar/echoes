@@ -215,7 +215,7 @@ void CWorldState::PutTo(CBitStreamWriter& out, const CWorldSaveGameInfo& saveWor
   out.WriteBits(mDesiredAreaAssetId, 32);
   mMailbox->PutTo(out, saveWorld);
   mMapWorldInfo->PutTo(out, saveWorld, mWorldId);
-  mLayerState->PutTo(out);
+  mLayerState->PutTo(out, saveWorld);
 }
 
 CAssetId CWorldState::GetWorldAssetId() const { return mWorldId; }

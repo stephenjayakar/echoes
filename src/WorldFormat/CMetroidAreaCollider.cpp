@@ -376,7 +376,6 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean(const CAreaOctTree& octTre
                                                       const CAABox& aabb,
                                                       const CMaterialFilter& filter) {
   CBooleanAABoxAreaCache cache(aabb, filter);
-  ResetInternalCounters();
   return AABoxCollisionCheckBoolean_Internal(octTree.GetRootNode(), cache);
 }
 

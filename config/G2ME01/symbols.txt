@@ -4991,7 +4991,7 @@ DetectCollision_Cached__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCache
 DetectCollisionBoolean_Cached__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCacheRC19CCollisionPrimitiveRC12CTransform4fRC15CMaterialFilterRCQ24rstl32reserved_vector<9TUniqueId,1024> = .text:0x801272D8; // type:function size:0xB0
 DetectCollisionBoolean__14CGameCollisionFRC13CStateManagerRC19CCollisionPrimitiveRC12CTransform4fRC15CMaterialFilterRCQ24rstl32reserved_vector<9TUniqueId,1024> = .text:0x80127388; // type:function size:0xB0
 BuildAreaCollisionCache__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCache = .text:0x80127438; // type:function size:0x104
-fn_8012753C = .text:0x8012753C; // type:function size:0x48
+GetRootNode__12CAreaOctTreeCFv = .text:0x8012753C; // type:function size:0x48
 RayStaticIntersection__14CGameCollisionFRC13CStateManagerRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x80127584; // type:function size:0x288
 RayStaticLineOfSightTest__14CGameCollisionFRC9CGameAreaRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x8012780C; // type:function size:0x118 align:4
 RayStaticLineOfSightTest__14CGameCollisionFRC13CStateManagerRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x80127924; // type:function size:0x134
@@ -6083,7 +6083,7 @@ clear__Q24rstl56vector<Q212CWorldLayers4Area,Q24rstl17rmemory_allocator>Fv = .te
 GetLayerName__16CWorldLayerStateCF7TAreaId8TLayerId = .text:0x80172078; // type:function size:0xC4 align:4
 IsLayerActive__16CWorldLayerStateCF7TAreaId8TLayerId = .text:0x8017213C; // type:function size:0x50
 SetLayerActive__16CWorldLayerStateF7TAreaId8TLayerIdb = .text:0x8017218C; // type:function size:0x70
-PutTo__16CWorldLayerStateCFR16CBitStreamWriter = .text:0x801721FC; // type:function size:0xF0
+PutTo__16CWorldLayerStateCFR16CBitStreamWriterRC18CWorldSaveGameInfo = .text:0x801721FC; // type:function size:0xF0
 __ct__16CWorldLayerStateFR16CBitStreamReader = .text:0x801722EC; // type:function size:0x114 align:4
 __ct__16CWorldLayerStateFv = .text:0x80172400; // type:function size:0x58
 __sinit_CWorldLayerState_cpp = .text:0x80172458; // type:function size:0x74 scope:local align:4

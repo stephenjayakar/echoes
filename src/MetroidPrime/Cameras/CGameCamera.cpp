@@ -120,7 +120,7 @@ void CGameCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
 }
 
-void CGameCamera::SetActive(bool active) {
+void CGameCamera::SetActive(const bool active) {
   CActor::SetActive(active);
   SetDrawEnabled(false);
 }
