@@ -2067,11 +2067,11 @@ void CAutoMapper::ResetInterpolationTimer(float duration) {
 CAutoMapper::SAutoMapperRenderState
 CAutoMapper::BuildMiniMapWorldRenderState(const CStateManager& mgr, const CQuaternion& rot,
                                           int areaId) const {
-  const CTweakAutoMapper* tweak = gpTweakAutoMapper.get();
   SAutoMapperRenderState ret(
       GetMiniMapViewportSize(),
       CQuaternion::MadeLocalToFirst(rot, GetMiniMapCameraOrientation(mgr)),
-      tweak->GetMiniCamDistance(), tweak->GetMiniCamAngle(), GetAreaPointOfInterest(mgr, areaId),
+      gpTweakAutoMapper->GetMiniCamDistance(), gpTweakAutoMapper->GetMiniCamAngle(),
+      GetAreaPointOfInterest(mgr, areaId),
       GetMapAreaMiniMapDrawDepth(), GetMapAreaMiniMapDrawDepth(),
       GetMapAreaMiniMapDrawAlphaSurfaceVisited(mgr), GetMapAreaMiniMapDrawAlphaOutlineVisited(mgr),
       GetMapAreaMiniMapDrawAlphaSurfaceUnvisited(mgr),
@@ -2127,9 +2127,9 @@ CAutoMapper::SAutoMapperRenderState::SAutoMapperRenderState(const SAutoMapperRen
 CAutoMapper::SAutoMapperRenderState
 CAutoMapper::BuildMapScreenUniverseRenderState(const CStateManager& mgr, const CQuaternion& rot,
                                                int areaId) const {
-  const CTweakAutoMapper* tweak = gpTweakAutoMapper.get();
-  SAutoMapperRenderState ret(GetMapScreenViewportSize(), rot, tweak->GetMapScreenMapUniverseDefaultCameraDistance(),
-                             tweak->GetCamAngle(), GetAreaPointOfInterest(mgr, areaId),
+  SAutoMapperRenderState ret(GetMapScreenViewportSize(), rot,
+                             gpTweakAutoMapper->GetMapScreenMapUniverseDefaultCameraDistance(),
+                             gpTweakAutoMapper->GetCamAngle(), GetAreaPointOfInterest(mgr, areaId),
                              GetMapAreaMaxDrawDepth(mgr, areaId),
                              GetMapAreaMaxDrawDepth(mgr, areaId), 0.f, 0.f, 0.f, 0.f);
   ret.mViewportEase = SAutoMapperRenderState::kE_Out;
