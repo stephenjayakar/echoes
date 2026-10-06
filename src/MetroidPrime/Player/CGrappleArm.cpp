@@ -280,30 +280,34 @@ void CGrappleArm::Update(float dt, CStateManager& mgr) {
   if (!player) {
     return;
   }
-  const CPlayerState& state = *player->GetPlayerState();
-  if (state.GetCurrentBeam() != mBeamId) {
-    LoadBeamDependencies(state.GetCurrentBeam());
+  const CPlayerState::EBeamId beam = player->GetPlayerState()->GetCurrentBeam();
+  if (beam != mBeamId) {
+    LoadBeamDependencies(beam);
   } else if (mDependenciesLoading && NWeaponTypes::are_tokens_ready(mAnimations)) {
     mDependenciesLoading = false;
   }
   if (!mgr.IsMultiplayer() && mArmModel) {
-    UpdateGrappleModel(mgr, state.GetCurrentSuitRaw(), false);
-    if (mCurrentSuit != state.GetCurrentSuitRaw()) {
-      mCurrentSuit = state.GetCurrentSuitRaw();
-      CAnimData& animData = *mArmModel->AnimationData();
-      const CAssetId modelId =
-          mCurrentSuit == CPlayerState::kPS_Varia
-              ? animData.GetCharacterInfo().GetModelId()
-              : NWeaponTypes::get_asset_id_from_name(kSuitModels[mCurrentSuit].first);
-      const CAssetId skinId =
-          mCurrentSuit == CPlayerState::kPS_Varia
-              ? animData.GetCharacterInfo().GetSkinRulesId()
-              : NWeaponTypes::get_asset_id_from_name(kSuitModels[mCurrentSuit].second);
-      TLockedToken< CModel > model = gpSimplePool->GetObj(SObjectTag('CMDL', modelId));
-      TLockedToken< CSkinRules > skin = gpSimplePool->GetObj(SObjectTag('CSKR', skinId));
-      const TToken< CSkinnedModel > skinnedModel(
-          rs_new CSkinnedModel(model, skin, animData.GetModelData()->GetLayoutInfo()));
-      animData.SetSkinnedModel(skinnedModel);
+    const CPlayerState::EPlayerSuit suit = player->GetPlayerState()->GetCurrentSuitRaw();
+    if (!mgr.IsMultiplayer()) {
+      UpdateGrappleModel(mgr, suit, false);
+    }
+    if (suit != mCurrentSuit) {
+      mCurrentSuit = suit;
+      CAssetId modelId;
+      CAssetId skinId;
+      if (mCurrentSuit == CPlayerState::kPS_Varia) {
+        const CCharacterInfo& info = mArmModel->AnimationData()->GetCharacterInfo();
+        modelId = info.GetModelId();
+        skinId = info.GetSkinRulesId();
+      } else {
+        modelId = NWeaponTypes::get_asset_id_from_name(kSuitModels[mCurrentSuit].first);
+        skinId = NWeaponTypes::get_asset_id_from_name(kSuitModels[mCurrentSuit].second);
+      }
+      TLockedToken< CSkinnedModel > skinnedModel(rs_new CSkinnedModel(
+          TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', modelId))),
+          TLockedToken< CSkinRules >(gpSimplePool->GetObj(SObjectTag('CSKR', skinId))),
+          mArmModel->AnimationData()->GetModelData()->GetLayoutInfo()));
+      mArmModel->AnimationData()->SetSkinnedModel(skinnedModel);
     }
   }
   if (mStateFlags == 0) {
@@ -316,20 +320,23 @@ void CGrappleArm::Update(float dt, CStateManager& mgr) {
     return;
   }
 
-  const float speed = (mStateFlags & kSF_Grappling) &&
-                              player->GetPlayerMovementState() != NPlayer::kMS_OnGround &&
-                              mAnimationState != kAS_OutOfGrapple
-                          ? 4.f
-                          : 1.f;
+  CPlayer* grapplePlayer = GetPlayer(mgr);
+  float speed = 1.f;
+  if (mStateFlags & kSF_Grappling) {
+    speed = grapplePlayer->GetPlayerMovementState() != NPlayer::kMS_OnGround &&
+                    mAnimationState != kAS_OutOfGrapple
+                ? 4.f
+                : 1.f;
+  }
   mArmModel->AdvanceAnimation(dt * speed, mgr, kInvalidAreaId, true);
   if (!mGrappleGearModel.IsNull()) {
     mGrappleLocatorXf = mArmModel->GetScaledLocatorTransformDynamic(mGrappleLocator, nullptr);
   }
   mStateMachine.Update(mgr, *this, dt);
-  if (mStateFlags & kSF_Grappling) {
-    UpdateSwingAction(dt, mgr);
-  } else {
+  if (!(mStateFlags & kSF_Grappling)) {
     UpdateArmMovement(dt, mgr);
+  } else {
+    UpdateSwingAction(dt, mgr);
   }
   if (mRainSplashGenerator.get()) {
     mRainSplashGenerator->Update(dt, mgr);
