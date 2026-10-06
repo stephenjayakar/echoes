@@ -348,7 +348,7 @@ static void HandleTransparency(uint& finalTevCount, uint& finalKColorCount,
     return;
   }
 
-  const CModelFlags::ETrans blendMode = modelFlags.GetTrans();
+  const CModelFlags::ETrans blendMode = modelFlags.GetTransSigned();
   const CColor color = modelFlags.GetColor();
 
   if (blendMode == 2) {
