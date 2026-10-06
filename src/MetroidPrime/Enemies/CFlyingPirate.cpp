@@ -1041,10 +1041,11 @@ void CFlyingPirate::Lurk(CStateManager& mgr, EStateMsg msg, float dt) {
 }
 
 bool CFlyingPirate::CoverCheck(CStateManager& mgr, const CTriggerData& data) const {
-  if (x888_ <= 0.f) {
+  const float zero = 0.f;
+  if (x888_ <= zero) {
     const_cast< CFlyingPirate* >(this)->x888_ = 10.f;
     const float chance = mData.mCoverCheckChance;
-    return mgr.Random()->Range(0.f, 100.f) < chance;
+    return mgr.Random()->Range(zero, 100.f) < chance;
   }
   return false;
 }
@@ -1523,7 +1524,6 @@ void CFlyingPirate::ProjectileAttack(CStateManager& mgr, EStateMsg msg, float dt
 }
 
 bool CFlyingPirate::ShouldMove(CStateManager& mgr, const CTriggerData& data) const {
-  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   CVector3f delta = GetTranslation() - mgr.GetPlayer(0)->GetTranslation();
   float random = mgr.Random()->Float();
   if (random < 0.5f) {
@@ -1534,8 +1534,8 @@ bool CFlyingPirate::ShouldMove(CStateManager& mgr, const CTriggerData& data) con
   CVector3f cross = CVector3f::Cross(delta, CVector3f::Up()).AsNormalized();
   CVector3f dest = GetTranslation() + random * cross;
   dest.SetZ(mgr.GetPlayer(0)->GetTranslation().GetZ() + mData.mFlyingHeight);
-  self->SetDestPos(dest);
-  self->mIsMoving = true;
+  const_cast< CFlyingPirate* >(this)->SetDestPos(dest);
+  const_cast< CFlyingPirate* >(this)->mIsMoving = true;
   return true;
 }
 
@@ -1554,6 +1554,7 @@ void CFlyingPirate::Enraged(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Update:
     x87c_ = (dt * (dt * mData.mFlightThrust)) * CVector3f::Up();
+    x898_ = 1.5f;
     x870_ += x87c_;
     BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(
         CVector3f::Up(), (GetTargetPos(mgr) - GetTranslation()).AsNormalized(), 1.f));
@@ -1713,7 +1714,7 @@ void CFlyingPirate::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& nod
       CEnergyProjectile* projectile = rs_new CEnergyProjectile(
           true, info.Token(), kWT_AI, xf, kMT_Character, info.GetDamage(), mgr.AllocateUniqueId(),
           GetCurrentAreaId(), GetUniqueId(),
-          mIsAttackingObject ? mAttackObjectId : mgr.GetPlayer(0)->GetUniqueId(),
+          mIsAttackingObject ? TUniqueId(mAttackObjectId) : mgr.GetPlayer(0)->GetUniqueId(),
           CWeapon::kPA_None, false, CVector3f::One(), CImpactVisorEffect(), false, true, false,
           1.f, 4.f, 4.f);
       if (projectile != nullptr) {
@@ -1834,8 +1835,9 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
       }
     }
   }
-  if (GetBodyController()->GetPercentageFrozen() == 0.f) {
-    x86c_ = rstl::max_val(x86c_ - dt, 0.f);
+  const float zero = 0.f;
+  if (GetBodyController()->GetPercentageFrozen() == zero) {
+    x86c_ = rstl::max_val(x86c_ - dt, zero);
     x860_ = rstl::max_val(x860_ - dt, 0.f);
     x888_ = rstl::max_val(x888_ - dt, 0.f);
     if (mAlive) {
@@ -1887,9 +1889,7 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
   if (mAlive && !GetBodyController()->IsFrozen() && !GetBodyController()->IsElectrocuting() &&
       x6a0_28_ && !IsAquaPirate()) {
     BodyController()->CommandMgr().DeliverCmd(CBCAdditiveAimCmd());
-    const CVector3f target = GetTargetPos(mgr);
-    const CVector3f aim =
-        GetTransform().TransposeRotate(target - GetTransform().GetTranslation());
+    const CVector3f aim = GetTransform().TransposeMultiply(GetTargetPos(mgr));
     BodyController()->CommandMgr().DeliverAdditiveTargetVector(aim);
   } else {
     BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_AdditiveIdle));
@@ -1925,9 +1925,10 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
   if (movement.CanBeNormalized()) {
     movement.Normalize();
   }
-  const CVector3f& offset = rstl::min_val(0.333f, 0.333f * x87c_.Magnitude()) * movement;
-  const CVector3f targetUp = (CVector3f::Up() + offset).AsNormalized();
-  const CVector3f& currentUp = GetTransform().GetUp();
+  const float maxTilt = 0.333f;
+  const float tilt = rstl::min_val(maxTilt, maxTilt * x87c_.Magnitude());
+  const CVector3f targetUp = (CVector3f::Up() + tilt * movement).AsNormalized();
+  const CVector3f currentUp = GetTransform().GetUp();
   const float angle = CMath::AbsF(CVector3f::GetAngleDiff(currentUp, targetUp));
   if (angle > 0.f) {
     const float maxStep = 30.f * ((M_PIF * dt) / 180.f);
