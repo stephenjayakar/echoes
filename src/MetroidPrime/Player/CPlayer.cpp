@@ -95,16 +95,13 @@ CPlayer::ESurfaceRestraints gSR_Hack = CPlayer::kSR_Normal;
 static CColor skLaggedBurnDeathColor(uchar(255), uchar(255), uchar(192), uchar(255));
 static CColor skImplosionColor(uchar(170), uchar(84), uchar(255), uchar(255));
 
-static const char* const kGunLocator = "GUN_LCTR";
-static const char* const kBeamThirdPersonFxGroup = "BeamThirdPersonFx_DGRP";
+const char* const kGunLocator = "GUN_LCTR";
+const char* const kGrappleLocator = "GRAPPLE_LCTR";
 
-static const char* const skThirdPersonChargeNames[4] = {
-    "PowerChargeThirdPerson", "DarkChargeThirdPerson", "LightChargeThirdPerson",
-    "AnnihilatorChargeThirdPerson"};
-
-static const char* const skThirdPersonMuzzleNames[4] = {
-    "PowerMuzzleThirdPerson", "DarkMuzzleThirdPerson", "LightMuzzleThirdPerson",
-    "AnnihilatorMuzzleThirdPerson"};
+// Defined with the other gun resource names (CPlayerGunBase.cpp data).
+extern const char* const kBeamThirdPersonFxGroup;
+extern const char* const skThirdPersonChargeNames[4];
+extern const char* const skThirdPersonMuzzleNames[4];
 
 typedef rstl::pair< const char*, const char* > TSuitTransitionModelNames;
 static TSuitTransitionModelNames skSuitTransitionModelNames[6] = {
@@ -627,7 +624,7 @@ bool CPlayer::IsMorphBallTransitioning() const {
 }
 
 void CPlayer::SetAimTarget(TUniqueId target) {
-  if (target == kInvalidUniqueId || target != mAimTarget) {
+  if (target == kInvalidUniqueId || mAimTarget != target) {
     mAimTargetAverage.clear();
   }
   mAimTarget = target;
@@ -1362,7 +1359,7 @@ void CPlayer::SetSpawnedMorphBallState(EPlayerMorphBallState state, CStateManage
     case kMS_Morphed: {
       EnterMorphBallState(mgr, kMS_Unmorphed);
       ActivateMorphBallCamera(mgr);
-      mCameraManager->HintManager()->Reset(mgr);
+      mCameraManager->HintManager()->RefreshHint(mgr);
       mCameraManager->BallCamera()->Reset(CreateTransformFromMovementDirection(), mgr);
       mGun->Holster(mgr);
       break;
@@ -1419,7 +1416,7 @@ void CPlayer::UpdateCinematicState(CStateManager& mgr) {
       case kMS_Morphed:
         EnterMorphBallState(mgr, kMS_Unmorphed);
         ActivateMorphBallCamera(mgr);
-        mCameraManager->HintManager()->Reset(mgr);
+        mCameraManager->HintManager()->RefreshHint(mgr);
         mCameraManager->BallCamera()->Reset(CreateTransformFromMovementDirection(), mgr);
         break;
       default:
@@ -1950,7 +1947,8 @@ void CPlayer::Think(float dt, CStateManager& mgr) {
   }
   if (mMorphBallState != kMS_Morphing && mMorphBallState != kMS_Unmorphing &&
       !mMorphBall->InScrewAttackMode()) {
-    CalculatePlayerMovementDirection(dt, GetTranslation() - mLastPosForDirCalc);
+    const CVector3f delta = GetTranslation() - mLastPosForDirCalc;
+    CalculatePlayerMovementDirection(dt, delta);
   }
   UpdatePlayerControlDirection(dt, mgr);
   if (gUseSurfaceHack) {
@@ -3699,7 +3697,7 @@ void CPlayer::PostUpdate(float dt, CStateManager& mgr) {
   UpdateOrbitOrientation(mgr);
 }
 
-bool CPlayer::StartSamusVoiceSfx(ushort sfx, short volume, int priority) {
+const bool CPlayer::StartSamusVoiceSfx(ushort sfx, short volume, int priority) {
   bool started = true;
   if (mMorphBallState == kMS_Morphed) {
     return false;
@@ -4301,7 +4299,7 @@ void CPlayer::EmitMultiplayerBeamParticles(CStateManager& mgr) {
 }
 
 void CPlayer::RenderMultiplayerBeamParticles(const CStateManager& mgr) const {
-  if (mgr.IsMultiplayer() && mgr.GetCurrentRenderPlayerIndex() != GetPlayerIndex()) {
+  if (mgr.IsMultiplayer() && mgr.GetCurrentRenderPlayerIndex() != static_cast< uint >(GetPlayerIndex())) {
     if (mBeamParticles.get()) {
       mBeamParticles->Render();
     }

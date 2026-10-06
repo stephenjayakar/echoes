@@ -449,7 +449,7 @@ public:
   bool GetSelectFluidBallSound() const { return mSelectFluidBallSound; }
   void SetSelectFluidBallSound(bool select) { mSelectFluidBallSound = select; }
 
-  bool StartSamusVoiceSfx(ushort sfx, short volume, int priority);
+  const bool StartSamusVoiceSfx(ushort sfx, short volume, int priority);
   void ApplySubmergedPitchBend(CSfxHandle handle);
   void UpdateDamageTimers(float dt);
   bool IsPlayerDeadEnough(const CStateManager& mgr) const;
@@ -930,5 +930,7 @@ extern const bool gkFreeLookPreventsOrbitMovement;
 extern const bool gkAutoAim;
 extern const bool gkAutoAimAtOrbitedObject;
 extern const int gkMorphBallOrbitMode;
+extern const char* const kGunLocator;
+extern const char* const kGrappleLocator;
 
 #endif // _CPLAYER
