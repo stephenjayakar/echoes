@@ -108,7 +108,8 @@ CAABox CAnimData::GetBoundingBox() const {
   const rstl::vector< rstl::pair< uint, CAABox > >& bounds = mCharInfo.GetAnimBoundsById();
   if (bounds.size() > 0) {
     const CAnimTreeEffectiveContribution contrib = mAnimRoot->GetContributionOfHighestInfluence();
-    if (mCachedBoundsAnimId != contrib.GetAnimDatabaseIndex()) {
+    const uint animId = contrib.GetAnimDatabaseIndex();
+    if (animId != mCachedBoundsAnimId) {
       rstl::vector< rstl::pair< uint, CAABox > >::const_iterator it =
           rstl::find_by_key(bounds, contrib.GetAnimDatabaseIndex());
       if (it == bounds.end()) {
