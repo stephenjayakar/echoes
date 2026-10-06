@@ -54,7 +54,7 @@ void CGroundMovement::MoveGroundCollider(
     actor.SetMotionState(oldState);
   }
   CMotionState newState = actor.PredictMotion_Internal(dt);
-  if (actor.IsStandardCollider() && newState.IsZero()) {
+  if (actor.IsOnStaticGround() == true && newState.IsZero() == true) {
     actor.ClearForcesAndTorques();
     actor.MoveCollisionPrimitive(CVector3f::Zero());
     return;
@@ -79,7 +79,7 @@ void CGroundMovement::MoveGroundCollider(
         0.5f * CGameCollision::GetMinExtentForCollisionPrimitive(*actor.GetCollisionPrimitive())) {
       CAABox bounds = actor.GetCollisionPrimitive()->CalculateAABox(actor.GetPrimitiveTransform());
       CVector3f point = bounds.GetCenterPoint();
-      CVector3f direction = newState.GetTranslation() / deltaMag;
+      CVector3f direction = newState.GetTranslation() * (1.f / deltaMag);
       TUniqueId intersectId = kInvalidUniqueId;
       const CMaterialFilter& rayFilter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Solid));
       CRayCastResult result =
