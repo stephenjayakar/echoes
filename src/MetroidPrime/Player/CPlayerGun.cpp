@@ -1959,38 +1959,46 @@ void CPlayerGun::DoUserAnimEvents(float dt, CStateManager& mgr) {
   const CVector3f origin = mTransform.GetTranslation();
   const CVector3f posToCamera = camera.GetTranslation() - origin;
 
-  int soundCount = 0;
-  const CSoundPOINode* sounds = animData.GetSoundPOIList(soundCount);
-  for (int i = 0; i < soundCount; ++i) {
-    const CSoundPOINode& sound = sounds[i];
-    if (sound.GetPoiType() == kPT_Sound &&
-        (sound.GetCharacterIndex() == -1 ||
-         sound.GetCharacterIndex() == animData.GetCharacterIndex())) {
-      NWeaponTypes::do_sound_event(mAnimSfx, mAnimSfxPitch, false, sound.GetSoundId(),
-                                   sound.GetWeight(), sound.GetFlags(), sound.GetFallOff(),
-                                   sound.GetMaxDistance(), 0x14, CAudioSys::kMaxVolume, posToCamera,
-                                   origin, area, mSoundVolume, mgr);
+  int soundNodeCount = 0;
+  const CSoundPOINode* soundNodes = animData.GetSoundPOIList(soundNodeCount);
+  if (soundNodeCount > 0) {
+    for (int i = 0; i < soundNodeCount; ++i) {
+      const CSoundPOINode* soundNode = &soundNodes[i];
+      const int charIdx = soundNode->GetCharacterIndex();
+      if (soundNode->GetPoiType() != kPT_Sound)
+        continue;
+      if (charIdx != -1 && charIdx != animData.GetCharacterIndex())
+        continue;
+      NWeaponTypes::do_sound_event(mAnimSfx, mAnimSfxPitch, false, soundNode->GetSoundId(),
+                                   soundNode->GetWeight(), soundNode->GetFlags(),
+                                   soundNode->GetFallOff(), soundNode->GetMaxDistance(), 0x14,
+                                   CAudioSys::kMaxVolume, posToCamera, origin, area, mSoundVolume,
+                                   mgr);
     }
   }
 
-  int intCount = 0;
-  const CInt32POINode* nodes = animData.GetInt32POIList(intCount);
-  for (int i = 0; i < intCount; ++i) {
-    const CInt32POINode& node = nodes[i];
-    switch (node.GetPoiType()) {
-    case kPT_SoundInt32:
-      if (node.GetCharacterIndex() == -1 ||
-          node.GetCharacterIndex() == animData.GetCharacterIndex()) {
-        NWeaponTypes::do_sound_event(
-            mAnimSfx, mAnimSfxPitch, false, node.GetValue(), node.GetWeight(), node.GetFlags(),
-            0.1f, 150.f, 0x14, CAudioSys::kMaxVolume, posToCamera, origin, area, mSoundVolume, mgr);
+  int intNodeCount = 0;
+  const CInt32POINode* intNodes = animData.GetInt32POIList(intNodeCount);
+  if (intNodeCount > 0) {
+    for (int i = 0; i < intNodeCount; ++i) {
+      const CInt32POINode* intNode = &intNodes[i];
+      switch (intNode->GetPoiType()) {
+      case kPT_UserEvent:
+        DoUserAnimEvent(dt, mgr, *intNode, static_cast< EUserEventType >(intNode->GetValue()));
+        break;
+      case kPT_SoundInt32: {
+        const int charIdx = intNode->GetCharacterIndex();
+        if (charIdx != -1 && charIdx != animData.GetCharacterIndex())
+          break;
+        NWeaponTypes::do_sound_event(mAnimSfx, mAnimSfxPitch, false, intNode->GetValue(),
+                                     intNode->GetWeight(), intNode->GetFlags(), 0.1f, 150.f, 0x14,
+                                     CAudioSys::kMaxVolume, posToCamera, origin, area,
+                                     mSoundVolume, mgr);
+        break;
       }
-      break;
-    case kPT_UserEvent:
-      DoUserAnimEvent(dt, mgr, node, static_cast< EUserEventType >(node.GetValue()));
-      break;
-    default:
-      break;
+      default:
+        break;
+      }
     }
   }
 }
