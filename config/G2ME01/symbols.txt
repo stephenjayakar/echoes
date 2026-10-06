@@ -5060,7 +5060,7 @@ IsInAir__11CBSWallHangCFRC15CBodyController = .text:0x8012DCD8; // type:function
 SetLaunchVelocity__11CBSWallHangFR15CBodyController = .text:0x8012DD08; // type:function size:0x8C
 __ct__11CBSWallHangFv = .text:0x8012DD94; // type:function size:0x68
 __dt__14CScriptEMPulseFv = .text:0x8012DDFC; // type:function size:0xA8 align:4
-fn_8012DEA4 = .text:0x8012DEA4; // type:function size:0x2B0 align:4
+LoadEMPulse__FR13CStateManagerR12CInputStreamR11CEntityInfo = .text:0x8012DEA4; // type:function size:0x2B0 align:4
 AddToRenderer__14CScriptEMPulseCFRC13CStateManager = .text:0x8012E154; // type:function size:0x50 align:4
 Touch__14CScriptEMPulseFR6CActorR13CStateManager = .text:0x8012E1A4; // type:function size:0x14C align:4
 PreRenderAllViewports__14CScriptEMPulseFR13CStateManager = .text:0x8012E2F0; // type:function size:0xAC align:4
@@ -5750,7 +5750,7 @@ EnableTransition__18CWorldTransManagerFRC8CAnimResbUiRC9CVector3fUiRC9CVector3fb
 __as__Q24rstl33optional_object<14CDarkWorldInfo>FRC14CDarkWorldInfo = .text:0x8015AAF0; // type:function size:0x30
 assign__Q24rstl33optional_object<14CDarkWorldInfo>FRC14CDarkWorldInfo = .text:0x8015AB20; // type:function size:0x48
 __as__14CDarkWorldInfoFRC14CDarkWorldInfo = .text:0x8015AB68; // type:function size:0x108
-fn_8015AC70 = .text:0x8015AC70; // type:function size:0xC8 scope:weak
+__as__Q24rstl40optional_object<21TLockedToken<6CModel>>FRCQ24rstl40optional_object<21TLockedToken<6CModel>> = .text:0x8015AC70; // type:function size:0xC8 scope:local
 construct<14CDarkWorldInfo>__4rstlFPvRC14CDarkWorldInfo = .text:0x8015AD38; // type:function size:0x20
 construct__Q24rstl39construction_policy<14CDarkWorldInfo,0>FPvRC14CDarkWorldInfo = .text:0x8015AD58; // type:function size:0x28
 __ct__14CDarkWorldInfoFRC14CDarkWorldInfo = .text:0x8015AD80; // type:function size:0x168
