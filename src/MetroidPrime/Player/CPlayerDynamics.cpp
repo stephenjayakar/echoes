@@ -161,7 +161,7 @@ void CPlayer::UpdateStepCameraZBias(float dt, CStateManager& mgr) {
 }
 
 bool CPlayer::SidewaysDashAllowed(float strafeInput, float forwardInput,
-                                  const CFinalInput& input) const {
+                                  const CFinalInput& input, CStateManager& mgr) const {
   if (mSlidingOnWall || mHitWallDuringMove || mOrbitState != kOS_OrbitObject) {
     return false;
   }
@@ -188,7 +188,7 @@ bool CPlayer::SidewaysDashAllowed(float strafeInput, float forwardInput,
   return false;
 }
 
-void CPlayer::FinishSidewaysDash() {
+void CPlayer::FinishSidewaysDash(CStateManager& mgr) {
   if (mSidewaysDashing) {
     mDoneSidewaysDashing = true;
     if (mMovementState != NPlayer::kMS_OnGround) {
@@ -236,7 +236,7 @@ void CPlayer::BeginSidewaysDash(float strafeInput, CStateManager& mgr) {
 
 void CPlayer::ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr) {
   const float strafeInput = StrafeInput(input);
-  const float forwardInput = ForwardInput(input, TurnInput(input));
+  const float forwardInput = ForwardInput(input, TurnInput(input, mgr));
   CVector3f orbitPoint = mOrbitPoint;
   orbitPoint.SetZ(GetTranslation().GetZ());
   const CVector3f orbitToPlayer = GetTranslation() - orbitPoint;
@@ -249,7 +249,7 @@ void CPlayer::ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr
     mDashButtonHoldTime += dt;
   }
   if (!mSidewaysDashing) {
-    if (SidewaysDashAllowed(strafeInput, forwardInput, input)) {
+    if (SidewaysDashAllowed(strafeInput, forwardInput, input, mgr)) {
       BeginSidewaysDash(strafeInput, mgr);
     }
     strafeVelocity *= strafeInput;
@@ -257,13 +257,13 @@ void CPlayer::ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr
     mDashTimer += dt;
     if (mMovementState == NPlayer::kMS_OnGround || mDashTimer >= mDashDuration || mSlidingOnWall ||
         mHitWallDuringMove || mOrbitState != kOS_OrbitObject) {
-      FinishSidewaysDash();
+      FinishSidewaysDash(mgr);
       strafeVelocity *= strafeInput;
-      CSfxManager::SfxStop(mDashSfx);
+      CSfxManager::RemoveEmitter(mDashSfx);
     } else {
       const ESurfaceRestraints restraint = GetSurfaceRestraint();
       if (mNoStrafeDashBlend) {
-        strafeVelocity = dt * (mDashSpeedMultiplier * skDashStrafeDistances[restraint]);
+        strafeVelocity = dt * (mDashSpeedMultiplier * skDashStrafeDistances[GetSurfaceRestraint()]);
       } else {
         float blend = CMath::Limit(mDashTimer / mStrafeDashBlendDuration, 1.f);
         blend = 1.f - blend;
@@ -314,7 +314,7 @@ void CPlayer::ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr
 
 void CPlayer::ComputeMovement(const CFinalInput& input, CStateManager& mgr, float dt) {
   const float jumpInput = JumpInput(input, mgr);
-  float turnInput = TurnInput(input);
+  float turnInput = TurnInput(input, mgr);
   const float forwardInput = ForwardInput(input, turnInput);
   const float strafeInput = StrafeInput(input);
   SetVelocityWR(GetDampedClampedVelocityWR());
@@ -415,7 +415,7 @@ void CPlayer::ComputeMovement(const CFinalInput& input, CStateManager& mgr, floa
       ApplyForceOR(CVector3f::Zero(),
                    CAxisAngle(CUnitVector3f(0.f, 0.f, 1.f, CUnitVector3f::kN_Yes), turnInput));
     }
-    FinishSidewaysDash();
+    FinishSidewaysDash(mgr);
   } else {
     switch (mOrbitState) {
     case kOS_OrbitObject:
@@ -509,7 +509,7 @@ float CPlayer::StrafeInput(const CFinalInput& input) const {
   return right - left;
 }
 
-float CPlayer::TurnInput(const CFinalInput& input) const {
+float CPlayer::TurnInput(const CFinalInput& input, CStateManager& mgr) const {
   float left = mControlMapper.GetAnalogInput(CControlMapper::kC_TurnLeft, input);
   float right = mControlMapper.GetAnalogInput(CControlMapper::kC_TurnRight, input);
   if (GetTweakPlayerControls()->GetFreeLookTurnsPlayer()) {

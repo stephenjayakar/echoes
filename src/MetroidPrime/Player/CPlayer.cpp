@@ -1151,7 +1151,7 @@ void CPlayer::UpdateFootstepSounds(float dt, const CFinalInput& input, CStateMan
       !mLookButtonHeld) {
     char sfxVol = 127;
     mFootstepSfxTimer += dt;
-    float turn = TurnInput(input);
+    float turn = TurnInput(input, mgr);
     const float forward = fabsf(ForwardInput(input, turn));
     turn = fabsf(turn);
     float sfxDelay = 0.f;

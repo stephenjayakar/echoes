@@ -503,15 +503,16 @@ public:
   void CalculatePlayerMovementDirection(float dt, const CVector3f& displacement);
   void SetMoveState(NPlayer::EPlayerMovementState state, CStateManager& mgr);
   float JumpInput(const CFinalInput& input, CStateManager& mgr);
-  float TurnInput(const CFinalInput& input) const;
+  float TurnInput(const CFinalInput& input, CStateManager& mgr) const;
   float StrafeInput(const CFinalInput& input) const;
   float ForwardInput(const CFinalInput& input, float turnInput) const;
   void ComputeMovement(const CFinalInput& input, CStateManager& mgr, float dt);
   void ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr);
   CVector3f CalculateLeftStickEdgePosition(float strafeInput, float forwardInput) const;
   void BeginSidewaysDash(float strafeInput, CStateManager& mgr);
-  void FinishSidewaysDash();
-  bool SidewaysDashAllowed(float strafeInput, float forwardInput, const CFinalInput& input) const;
+  void FinishSidewaysDash(CStateManager& mgr);
+  bool SidewaysDashAllowed(float strafeInput, float forwardInput, const CFinalInput& input,
+                           CStateManager& mgr) const;
   void UpdateStepCameraZBias(float dt, CStateManager& mgr);
   void UpdateBombJumpStuff();
   float GetGravity() const;
