@@ -1884,6 +1884,142 @@ void CSandBoss::SyncAttackOrder(CStateManager& mgr, int offset) {
   }
 }
 
+void CSandBoss::UpdateTripleChargeBeams(CStateManager& mgr, float dt) {
+  if (mChargeBeams.size() == 3) {
+    rstl::reserved_vector< TUniqueId, 3 > bosses;
+    GetActiveBosses(mgr, bosses);
+    if (bosses.size() == 3) {
+      CSandBoss* boss0 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[0]));
+      CSandBoss* boss1 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[1]));
+      CSandBoss* boss2 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[2]));
+      if (boss0 != nullptr && boss1 != nullptr && boss2 != nullptr) {
+        const CTransform4f headXf = GetLctrTransform(mHeadSegId);
+        const CVector3f pos = GetTranslation();
+        const CVector3f fwd0 = boss0->GetTransform().GetForward();
+        const CVector3f fwd1 = boss1->GetTransform().GetForward();
+        const CVector3f fwd2 = boss2->GetTransform().GetForward();
+        const CVector3f sum01 = fwd0 + fwd1;
+        const CVector3f sum12 = fwd1 + fwd2;
+        const CVector3f sum20 = fwd2 + fwd0;
+        const CVector3f dir0 = sum01.IsMagnitudeSafe() ? sum01.AsNormalized() : fwd0;
+        const CVector3f dir1 = sum12.IsMagnitudeSafe() ? sum12.AsNormalized() : fwd1;
+        const CVector3f dir2 = sum20.IsMagnitudeSafe() ? sum20.AsNormalized() : fwd2;
+        const SLdrSandBossChargeBeamData& data = mData.unknown_0x7619e561.tripleCharge;
+        mBeamAngle += dt * (6.2831855f * data.unknown_0x47cde539);
+        const float inner = data.innerRadius;
+        const float outer = data.outerRadius;
+        const float sin = CMath::FastSinR(mBeamAngle);
+        const float radius = 0.5f * (sin * (outer - inner) + (outer + inner));
+        mChargeBeams[0].mEnd = pos + radius * dir0;
+        mChargeBeams[1].mEnd = pos + radius * dir1;
+        mChargeBeams[2].mEnd = pos + radius * dir2;
+      }
+    }
+  }
+}
+
+void CSandBoss::UpdateDoubleChargeBeams(CStateManager& mgr, float dt) {
+  if (mChargeBeams.size() == 2) {
+    rstl::reserved_vector< TUniqueId, 3 > bosses;
+    GetActiveBosses(mgr, bosses);
+    if (bosses.size() == 2) {
+      CSandBoss* boss0 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[0]));
+      CSandBoss* boss1 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[1]));
+      if (boss0 != nullptr && boss1 != nullptr) {
+        const CTransform4f headXf = GetLctrTransform(mHeadSegId);
+        const CVector3f pos = GetTranslation();
+        const CVector3f fwd0 = boss0->GetTransform().GetForward();
+        const CVector3f fwd1 = boss1->GetTransform().GetForward();
+        const CVector3f sum = fwd0 + fwd1;
+        const CVector3f opposite = CVector3f(-sum.GetX(), -sum.GetY(), sum.GetZ());
+        const CVector3f dir0 = sum.IsMagnitudeSafe() ? sum.AsNormalized() : fwd0;
+        const CVector3f dir1 = opposite.IsMagnitudeSafe() ? opposite.AsNormalized() : fwd1;
+        const SLdrSandBossChargeBeamData& data = mData.unknown_0x7619e561.doubleCharge;
+        mBeamAngle += dt * (6.2831855f * data.unknown_0x47cde539);
+        const float inner = data.innerRadius;
+        const float outer = data.outerRadius;
+        const float sin = CMath::FastSinR(mBeamAngle);
+        const float radius = 0.5f * (sin * (outer - inner) + (outer + inner));
+        mChargeBeams[0].mEnd = pos + radius * dir0;
+        mChargeBeams[1].mEnd = pos + radius * dir1;
+      }
+    }
+  }
+}
+
+void CSandBoss::FireTripleChargeBeams(CStateManager& mgr, const rstl::string& locator) {
+  ResetChargeBeams(mgr);
+  rstl::reserved_vector< TUniqueId, 3 > bosses;
+  GetActiveBosses(mgr, bosses);
+  if (bosses.size() == 3) {
+    CSandBoss* boss0 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[0]));
+    CSandBoss* boss1 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[1]));
+    CSandBoss* boss2 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[2]));
+    if (boss0 != nullptr && boss1 != nullptr && boss2 != nullptr) {
+      CVector3f center = CVector3f::Zero();
+      for (const TUniqueId* it = bosses.begin(); it != bosses.end(); ++it) {
+        if (CSandBoss* boss = TCastToPtr< CSandBoss >(mgr.ObjectById(*it))) {
+          center += boss->GetLctrTransform(locator).GetTranslation();
+        }
+      }
+      center *= 0.33333334f;
+      const CVector3f pos = GetTranslation();
+      const CVector3f fwd0 = boss0->GetTransform().GetForward();
+      const CVector3f fwd1 = boss1->GetTransform().GetForward();
+      const CVector3f fwd2 = boss2->GetTransform().GetForward();
+      const CVector3f sum01 = fwd0 + fwd1;
+      const CVector3f sum12 = fwd1 + fwd2;
+      const CVector3f sum20 = fwd2 + fwd0;
+      const CVector3f dir0 = sum01.IsMagnitudeSafe() ? sum01.AsNormalized() : fwd0;
+      const CVector3f dir1 = sum12.IsMagnitudeSafe() ? sum12.AsNormalized() : fwd1;
+      const CVector3f dir2 = sum20.IsMagnitudeSafe() ? sum20.AsNormalized() : fwd2;
+      const SLdrSandBossChargeBeamData& data = mData.unknown_0x7619e561.tripleCharge;
+      const float inner = data.innerRadius;
+      const ushort sfx = data.sound_ChargeBeam;
+      FireChargeBeam(mgr, center, pos + inner * dir0, sfx, false, 150.f);
+      FireChargeBeam(mgr, center, pos + inner * dir1, sfx, false, 150.f);
+      FireChargeBeam(mgr, center, pos + inner * dir2, sfx, false, 150.f);
+      if (mChargeBeams.size() != 0) {
+        ActivateBeamEffect(mgr, center);
+      }
+    }
+  }
+}
+
+void CSandBoss::FireDoubleChargeBeams(CStateManager& mgr, const rstl::string& locator) {
+  ResetChargeBeams(mgr);
+  rstl::reserved_vector< TUniqueId, 3 > bosses;
+  GetActiveBosses(mgr, bosses);
+  if (bosses.size() == 2) {
+    CSandBoss* boss0 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[0]));
+    CSandBoss* boss1 = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[1]));
+    if (boss0 != nullptr && boss1 != nullptr) {
+      CVector3f center = CVector3f::Zero();
+      for (const TUniqueId* it = bosses.begin(); it != bosses.end(); ++it) {
+        if (CSandBoss* boss = TCastToPtr< CSandBoss >(mgr.ObjectById(*it))) {
+          center += boss->GetLctrTransform(locator).GetTranslation();
+        }
+      }
+      center *= 0.5f;
+      const CVector3f pos = GetTranslation();
+      const CVector3f fwd0 = boss0->GetTransform().GetForward();
+      const CVector3f fwd1 = boss1->GetTransform().GetForward();
+      const CVector3f sum = fwd0 + fwd1;
+      const CVector3f opposite = CVector3f(-sum.GetX(), -sum.GetY(), sum.GetZ());
+      const CVector3f dir0 = sum.IsMagnitudeSafe() ? sum.AsNormalized() : fwd0;
+      const CVector3f dir1 = opposite.IsMagnitudeSafe() ? opposite.AsNormalized() : fwd1;
+      const SLdrSandBossChargeBeamData& data = mData.unknown_0x7619e561.doubleCharge;
+      const float inner = data.innerRadius;
+      const ushort sfx = data.sound_ChargeBeam;
+      FireChargeBeam(mgr, center, pos + inner * dir0, sfx, false, 150.f);
+      FireChargeBeam(mgr, center, pos + inner * dir1, sfx, false, 150.f);
+      if (mChargeBeams.size() != 0) {
+        ActivateBeamEffect(mgr, center);
+      }
+    }
+  }
+}
+
 void CSandBoss::UpdateChargeBeams(CStateManager& mgr, float dt) {
   const CPlayer* player = mgr.GetPlayer(0);
   const CVector3f playerPos = player->GetTranslation();
