@@ -530,8 +530,9 @@ bool CElementGen::UpdateVelocitySource(int sourceIndex, int particleFrame, CPart
   }
   if (expired) {
     particle.mEndFrame = -1;
+    return true;
   }
-  return expired;
+  return false;
 }
 
 void CElementGen::UpdateExistingParticles() {
@@ -715,7 +716,7 @@ void CElementGen::CreateNewParticles(int count) {
 
 void CElementGen::UpdatePSTranslationAndOrientation() {
   CGlobalRandom random(mRandState);
-  if (mCurFrame <= mPSLT) {
+  if (mPSLT >= mCurFrame) {
     if (mLoadedGenDesc->mPOFS) {
       mLoadedGenDesc->mPOFS->GetValue(mCurFrame, mPOFS);
     }
@@ -813,9 +814,9 @@ CParticleGen* CElementGen::ConstructChildParticleSystem(
 
 CParticleGen* CElementGen::ConstructChildParticleSystem(const CToken& description, uint type,
                                                         ushort seed) const {
-  const EOptionalSystemFlags boundsFlags = mEnableDynamicBounds ? kOSF_One : kOSF_DisableBounds;
-  const EOptionalSystemFlags flags =
-      EOptionalSystemFlags((mEnableOPTS ? kOSF_Two : kOSF_One) | boundsFlags);
+  const int boundsFlags = mEnableDynamicBounds ? kOSF_One : kOSF_DisableBounds;
+  const int optsFlags = mEnableOPTS ? kOSF_Two : kOSF_One;
+  const EOptionalSystemFlags flags = EOptionalSystemFlags(optsFlags | boundsFlags);
   return ConstructChildParticleSystem(
       description, type, seed, flags, mModelsUseLights, mParticleEmission, mTranslation,
       mOrientation, mGlobalTranslation, mGlobalOrientation, mGlobalScale, mModuColor, mLocalScale);
@@ -1015,10 +1016,10 @@ void CElementGen::RenderBasicParticlesNoRotTS(const CTransform4f& xf) const {
     const CParticle& particle = mParticles[i];
     const CVector3f viewPos = xf * particle.mPos;
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
-    const uint color = particle.mColor.GetColor_u32();
     float x = viewPos.GetX() + halfSize;
     const float y = viewPos.GetY();
     float z = viewPos.GetZ() + halfSize;
+    const uint color = particle.mColor.GetColor_u32();
 
     GXPosition3f32(x, y, z);
     GXColor1u32(color);
@@ -1045,6 +1046,9 @@ void CElementGen::RenderBasicParticlesRotTS(const CTransform4f& xf) const {
   for (int i = 0; i < mParticles.size(); ++i) {
     const CParticle& particle = mParticles[i];
     const CVector3f viewPos = xf * particle.mPos;
+    const float x = viewPos.GetX();
+    const float y = viewPos.GetY();
+    const float z = viewPos.GetZ();
     const uint color = particle.mColor.GetColor_u32();
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
     const float theta = CRelAngle::FromDegrees(particle.mLineWidthOrRota).AsRadians();
@@ -1052,9 +1056,6 @@ void CElementGen::RenderBasicParticlesRotTS(const CTransform4f& xf) const {
     const float cosT = CMath::FastCosR(theta) * halfSize;
     const float sinPlusCos = sinT + cosT;
     const float sinMinusCos = sinT - cosT;
-    const float x = viewPos.GetX();
-    const float y = viewPos.GetY();
-    const float z = viewPos.GetZ();
 
     GXPosition3f32(x + sinPlusCos, y, z - sinMinusCos);
     GXColor1u32(color);
@@ -1079,11 +1080,11 @@ void CElementGen::RenderBasicParticlesNoRotNoTS(const CTransform4f& xf) const {
     const CParticle& particle = mParticles[i];
     const CVector3f viewPos =
         xf * ((particle.mPos - particle.mPrevPos) * mTimeDeltaScale + particle.mPrevPos);
-    const uint color = particle.mColor.GetColor_u32();
     const float halfSize = 0.5f * particle.mLineLengthOrSize;
     float x = viewPos.GetX() + halfSize;
     const float y = viewPos.GetY();
     float z = viewPos.GetZ() + halfSize;
+    const uint color = particle.mColor.GetColor_u32();
 
     GXPosition3f32(x, y, z);
     GXColor1u32(color);
@@ -3004,8 +3005,10 @@ float CElementGen::GetGenerationRate() {
   float rate = 0.f;
   if (mLoadedGenDesc->mGRTE->GetValue(mCurFrame, rate)) {
     return 0.f;
+  } else {
+    rate = rstl::max_val(0.f, rate * mGeneratorRate);
+    return rate;
   }
-  return rstl::max_val(0.f, rate * mGeneratorRate);
 }
 
 void CElementGen::SetGeneratorRate(float rate) {
