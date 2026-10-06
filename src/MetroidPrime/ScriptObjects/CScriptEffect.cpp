@@ -40,7 +40,7 @@ CScriptEffect::CScriptEffect(
     bool darkVisorVisible, bool echoVisorVisible, const CLightParameters& lightParameters,
     bool dieWhenSystemsDone, const CGameSplineDesc& spline, bool useLocalTranslation,
     bool destroyParticlesOnDeactivate, bool orientToSpline, ERenderOrder renderOrder)
-: CActor(uid, name, info, 0, xf, CModelData(), CMaterialList(kMT_NoStepLogic),
+: CActor(uid, name, info, 0, xf, CModelData::CModelDataNull(), CMaterialList(kMT_NoStepLogic),
          CActorParameters::None().WithAlphaSorting(true), kInvalidUniqueId)
 , mLightId(kInvalidUniqueId)
 , mEffectId(effectId)
@@ -56,8 +56,8 @@ CScriptEffect::CScriptEffect(
 , mEffectLights(lightParameters.MakeActorLights().release())
 , mTriggerId(kInvalidUniqueId)
 , mDestroyDelayTimer(0.f)
-, mSpline(spline.GetDuration(), spline.IsClosedLoop(), spline.GetSpline(), SLdrSpline(),
-          spline.GetType(), spline.GetType())
+, mSpline(spline.GetDuration(), spline.IsClosedLoop() ? CGameSpline::kF_LoopPosition : 0,
+          spline.GetSpline(), SLdrSpline(), spline.GetType(), spline.GetType())
 , mSplineTime(0.f)
 , mEmitting(emitting)
 , mEnable(emitting)
@@ -67,7 +67,7 @@ CScriptEffect::CScriptEffect(
 , mCombatVisorVisible(combatVisorVisible)
 , mDarkVisorVisible(darkVisorVisible)
 , mEchoVisorVisible(echoVisorVisible)
-, mAnyVisorVisible(combatVisorVisible && darkVisorVisible && echoVisorVisible)
+, mAnyVisorVisible(echoVisorVisible && darkVisorVisible && combatVisorVisible)
 , mUseRateCamDistRange(useRateCamDistRange)
 , mDieWhenSystemsDone(dieWhenSystemsDone)
 , mCanRender(false)
@@ -78,8 +78,8 @@ CScriptEffect::CScriptEffect(
 , mOrientToSpline(orientToSpline)
 , mRenderOrder(renderOrder) {
   if (effectId != kInvalidAssetId) {
-    const FourCC type = gpResourceFactory->GetResourceTypeById(effectId);
-    mDescription = rs_new CToken(gpSimplePool->GetObj(SObjectTag(type, effectId)));
+    const FourCC type = gpResourceFactory->GetResourceTypeById(mEffectId);
+    mDescription = rs_new CToken(gpSimplePool->GetObj(SObjectTag(type, mEffectId)));
     CreateSystem(scale, lightParameters.GetAmbientColor());
   }
   SetDrawEnabled(true);
