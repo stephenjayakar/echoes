@@ -134,8 +134,7 @@ void CScriptColorModulate::End(CStateManager& mgr) {
     SetTargetFlags(mgr, flags);
   }
   if (mIsFadeOutHelper) {
-    mgr.SendScriptMsg(
-        CScriptMsg(GetUniqueId(), mParent, kInvalidUniqueId, kSM_Deactivate, kSS_InvalidState));
+    mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), mParent, kSM_Deactivate, kSS_InvalidState));
   }
   SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
   if (mDieOnEnd) {

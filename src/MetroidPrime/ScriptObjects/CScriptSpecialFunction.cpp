@@ -1018,8 +1018,8 @@ void CScriptSpecialFunction::AcceptMultiplayerResult(CStateManager& mgr, const C
           CStateManager::TIdList::const_iterator current = search.first;
           CStateManager::TIdList::const_iterator end = search.second;
           while (current != end) {
-            mgr.SendScriptMsg(
-                CScriptMsg(GetUniqueId(), current->second, msg.GetOriginator(), conn.msg, conn.state));
+            mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), current->second, conn.msg, conn.state,
+                                         msg.GetOriginator()));
             ++current;
           }
         }

@@ -173,11 +173,13 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     }
     mEmitting = false;
     break;
-  case kSM_ToggleActive:
+  case kSM_ToggleActive: {
     handled = true;
-    AcceptScriptMsg(mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), msg.GetOriginator(),
-                                    mEmitting ? kSM_Deactivate : kSM_Activate, msg.GetState()));
+    EScriptObjectMessage next = mEmitting ? kSM_Deactivate : kSM_Activate;
+    AcceptScriptMsg(
+        mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), next, msg.GetState(), msg.GetOriginator()));
     break;
+  }
   case kSM_AreaLoaded: {
     for (int i = 0; i < GetConnectionList().size(); ++i) {
       const SConnection& conn = GetConnectionList()[i];

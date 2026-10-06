@@ -139,7 +139,7 @@ void CScriptGenerator::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg
             }
           }
           mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), generatedEntity->GetUniqueId(),
-                                          kInvalidUniqueId, kSM_Activate, kSS_InvalidState));
+                                          kSM_Activate, kSS_InvalidState));
         }
       }
 

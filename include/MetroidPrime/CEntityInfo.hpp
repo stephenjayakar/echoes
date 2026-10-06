@@ -278,8 +278,8 @@ public:
   , m_msg(kSM_None)
   , m_state(kSS_InvalidState) {}
 
-  CScriptMsg(TUniqueId sender, TUniqueId id, TUniqueId originator, EScriptObjectMessage msg,
-             EScriptObjectState state)
+  CScriptMsg(TUniqueId sender, TUniqueId id, EScriptObjectMessage msg, EScriptObjectState state,
+             TUniqueId originator = kInvalidUniqueId)
   : mSenderId(sender), m_originator(originator), m_id(id), m_msg(msg), m_state(state) {}
 
   TUniqueId GetSenderId() const { return mSenderId; } // Guessed name; native sender UID.

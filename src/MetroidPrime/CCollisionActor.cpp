@@ -118,7 +118,7 @@ CVector3f CCollisionActor::GetOrbitPosition(const CStateManager&) const {
 void CCollisionActor::Touch(CActor& actor, CStateManager& mgr) {
   mLastTouched = actor.GetUniqueId();
   mgr.DeliverScriptMsg(
-      CScriptMsg(GetUniqueId(), mOwner, actor.GetUniqueId(), kSM_XHIT, kSS_InvalidState));
+      CScriptMsg(GetUniqueId(), mOwner, kSM_XHIT, kSS_InvalidState, actor.GetUniqueId()));
 }
 
 const CCollisionPrimitive* CCollisionActor::GetCollisionPrimitive() const {
@@ -149,8 +149,8 @@ void CCollisionActor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
   case kSM_XRDG:
     if (CEntity* owner = mgr.ObjectById(mOwner)) {
       mLastTouched = sender;
-      mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), owner->GetUniqueId(), kInvalidUniqueId,
-                                      message, kSS_InvalidState));
+      mgr.DeliverScriptMsg(
+          CScriptMsg(GetUniqueId(), owner->GetUniqueId(), message, kSS_InvalidState));
     }
     break;
   default:
