@@ -40,7 +40,7 @@ const CMaterialFilter skLineOfSightFilter = CMaterialFilter::MakeIncludeExclude(
 
 CBallCamera::CBallCamera(TUniqueId uid, TUniqueId watchedId, const CTransform4f& xf, float fovY,
                          float nearZ, float farZ, float aspect, int index, int controllerIdx)
-: CGameCamera(uid, rstl::string("Ball Camera"),
+: CGameCamera(uid, rstl::string_l("Ball Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, true), xf, fovY, nearZ, farZ, aspect,
               watchedId, index, controllerIdx)
 , mBehaviour(kBCB_Default)
@@ -736,11 +736,12 @@ void CBallCamera::UpdateTransform(const CVector3f& lookDirection, const CVector3
   }
 
   CVector3f currentLook = GetTransform().GetForward();
-  if (!currentLook.IsMagnitudeSafe()) {
+  if (currentLook.IsMagnitudeSafe()) {
+    currentLook.Normalize();
+  } else {
     SetTransform(CTransform4f::LookAt(usePosition, usePosition + desiredLook, CVector3f::Up()));
     return;
   }
-  currentLook.Normalize();
 
   const float dot = CMath::Limit(CVector3f::Dot(currentLook, desiredLook), 1.f);
   if (CMath::AbsF(dot) >= 0.99999988f) {
