@@ -30,17 +30,18 @@ static const char* const skPressStartTextureName = "TXTR_HealthWarningPressStart
 
 // Guessed name; converts splash artwork coordinates to framebuffer coordinates.
 static CVector2f SplashToScreen(const CVector2f& point, bool healthWarning) {
+  const float videoWidth = CGraphics::Is50Hz() ? 720.f : 720.f;
   const float videoHeight = CGraphics::Is50Hz() ? 574.f : 480.f;
-  const float imageHeight = CGraphics::Is50Hz() ? 528.f : 448.f;
-  const float borderX = (720.f - 666.f) * 0.5f;
+  const float borderX = (videoWidth - 666.f) * 0.5f;
   const float borderY = (videoHeight - 448.f) * 0.5f;
+  const float imageHeight = CGraphics::Is50Hz() ? 528.f : 448.f;
+  const GXRenderModeObj& mode = CGraphics::GetRenderMode();
+  const float x = (borderX + 666.f * point.GetX() / 608.f - (videoWidth - 660.f) / 2.f) *
+                  (float(int(mode.fbWidth)) / 660.f);
   const float healthWarningTop = -23.f;
   const float y = healthWarning ? 448.f * (point.GetY() - healthWarningTop) / 471.f : point.GetY();
-  const GXRenderModeObj& mode = CGraphics::GetRenderMode();
-  return CVector2f((borderX + 666.f * point.GetX() / 608.f - (720.f - 660.f) * 0.5f) *
-                       (float(mode.fbWidth) / 660.f),
-                   (borderY + 448.f * (448.f - y) / imageHeight - borderY) *
-                       (float(mode.xfbHeight) / 448.f));
+  return CVector2f(x, (borderY + 448.f * (448.f - y) / imageHeight - borderY) *
+                          (float(int(mode.xfbHeight)) / 448.f));
 }
 
 // Guessed name; the progressive-check stage deliberately has no texture.
