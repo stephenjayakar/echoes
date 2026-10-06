@@ -182,7 +182,7 @@ void CBallCamera::TeleportLookAtStuff(CStateManager& mgr) {
 void CBallCamera::TeleportCamera(const CTransform4f& xf, CStateManager& mgr) {
   SetTransform(xf);
   TeleportCamera(xf.GetTranslation(), mgr);
-  CameraManager(mgr).UpdateCameraTriggers(GetUniqueId(), mgr);
+  const_cast< CCameraManager& >(GetCameraManager(mgr)).UpdateCameraTriggers(GetUniqueId(), mgr);
 }
 
 void CBallCamera::ResetToTweaks(CStateManager& mgr) {
@@ -2076,8 +2076,9 @@ void CBallCamera::ProcessInput(const CFinalInput& input, CStateManager& mgr) {
 }
 
 void CBallCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
   CGameCamera::AcceptScriptMsg(mgr, msg);
-  switch (msg.GetMessage()) {
+  switch (message) {
   case kSM_Create: {
     mCollisionActorId = mgr.AllocateUniqueId();
     CCollisionActor* actor = rs_new CCollisionActor(mCollisionActorId, GetAreaIdForPersistence(),
