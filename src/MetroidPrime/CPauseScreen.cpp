@@ -448,13 +448,13 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
         }
       }
       for (int i = 0; i < 11; ++i) {
-        if (scan.GetAnimatedModelId(i) != kInvalidAssetId) {
-          mModelTokens.push_back(
-              gpSimplePool->GetObj(SObjectTag('ANCS', scan.GetAnimatedModelId(i))));
+        const CAssetId staticModel = scan.GetStaticModelId(i);
+        const CAssetId animatedModel = scan.GetAnimatedModelId(i);
+        if (animatedModel != kInvalidAssetId) {
+          mModelTokens.push_back(gpSimplePool->GetObj(SObjectTag('ANCS', animatedModel)));
           mModelTokens[i]->Lock();
-        } else if (scan.GetStaticModelId(i) != kInvalidAssetId) {
-          mModelTokens.push_back(
-              gpSimplePool->GetObj(SObjectTag('CMDL', scan.GetStaticModelId(i))));
+        } else if (staticModel != kInvalidAssetId) {
+          mModelTokens.push_back(gpSimplePool->GetObj(SObjectTag('CMDL', staticModel)));
           mModelTokens[i]->Lock();
         } else {
           mModelTokens.push_back(rstl::optional_object< CToken >());
@@ -471,7 +471,7 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
       if (!mScanStrings->IsLoaded()) {
         return true;
       }
-      mMessage->TextSupport().SetText(rstl::wstring(mScanStrings->GetObject()->GetString(2)), true);
+      mMessage->TextSupport().SetText(rstl::wstring_l(mScanStrings->GetObject()->GetString(2)), true);
       if (!mMessage->TextSupport().GetIsTextSupportFinishedLoading()) {
         return true;
       }
@@ -498,33 +498,37 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
       }
     }
     if (mModels.empty()) {
-      for (int i = 0; i < mModelTokens.size(); ++i) {
-        if (mModelTokens[i].valid() && mModelTokens[i]->HasLock() && mModelTokens[i]->IsLoaded() &&
-            !mScanInfo.null() && mScanInfo->GetObject() != nullptr) {
+      int i = 0;
+      for (rstl::reserved_vector< rstl::optional_object< CToken >, 11 >::iterator it =
+               mModelTokens.begin();
+           it != mModelTokens.end(); ++it, ++i) {
+        if (it->valid() && (*it)->HasLock() && (*it)->IsLoaded() && !mScanInfo.null() &&
+            mScanInfo->GetObject() != nullptr) {
           mModels.push_back(mScanInfo->GetObject()->CreateModel(i));
         } else {
           mModels.push_back(rstl::auto_ptr< CModelData >(nullptr));
         }
       }
     }
-    for (int i = 0; i < mModels.size(); ++i) {
-      CModelData* model = mModels[i].get();
-      if (model != nullptr) {
-        if (!model->IsNull()) {
-          model->Touch(CModelData::kWM_Normal, 0);
+    for (rstl::reserved_vector< rstl::auto_ptr< CModelData >, 11 >::iterator it = mModels.begin();
+         it != mModels.end(); ++it) {
+      if (it->get() != nullptr) {
+        if (!(*it)->IsNull()) {
+          (*it)->Touch(CModelData::kWM_Normal, 0);
         }
-        if (!model->IsLoaded(0)) {
+        if (!(*it)->IsLoaded(0)) {
           return true;
         }
-        if (!model->HasAnimation()) {
+        if (!(*it)->HasAnimation()) {
           const CCubeModel* instance =
-              model->PickStaticModel(CModelData::kWM_Normal)->GetModelInstance();
+              (*it)->PickStaticModel(CModelData::kWM_Normal)->GetModelInstance();
           if (instance != nullptr) {
             const rstl::vector< TCachedToken< CTexture > >& textures = instance->GetTextures();
             for (rstl::vector< TCachedToken< CTexture > >::const_iterator it = textures.begin();
                  it != textures.end(); ++it) {
               const TCachedToken< CTexture > texture = *it;
-              if (!EnsureTextureLoaded(CToken(texture))) {
+              const CToken token(texture);
+              if (!EnsureTextureLoaded(token)) {
                 return true;
               }
             }
@@ -533,27 +537,23 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
       }
     }
     CAABox bounds = CAABox::MakeMaxInvertedBox();
-    for (int i = 0; i < mModels.size(); ++i) {
-      CModelData* model = mModels[i].get();
-      if (model != nullptr && !model->IsNull()) {
+    for (rstl::reserved_vector< rstl::auto_ptr< CModelData >, 11 >::iterator it = mModels.begin();
+         it != mModels.end(); ++it) {
+      if (it->get() != nullptr && !(*it)->IsNull()) {
         mModelFade = 0.f;
-        model->Touch(CModelData::kWM_Normal, 0);
-        model->EnableLooping(true);
-        if (model->HasAnimation()) {
+        (*it)->Touch(CModelData::kWM_Normal, 0);
+        (*it)->EnableLooping(true);
+        if ((*it)->HasAnimation()) {
           CRandom16 random(0);
-          model->AdvanceAnimation(0.02f, random, true);
-          const CAABox& modelBounds = model->AnimationData()->CalcBoundingBoxFromModelVerts();
-          bounds.AccumulateBounds(modelBounds.GetMinPoint());
-          bounds.AccumulateBounds(modelBounds.GetMaxPoint());
+          (*it)->AdvanceAnimation(0.02f, random, true);
+          bounds.Include((*it)->AnimationData()->CalcBoundingBoxFromModelVerts());
         } else {
-          const CAABox& modelBounds = model->GetBounds();
-          bounds.AccumulateBounds(modelBounds.GetMinPoint());
-          bounds.AccumulateBounds(modelBounds.GetMaxPoint());
+          bounds.Include((*it)->GetBounds());
         }
         mModelCenterOffset = -bounds.GetCenterPoint();
-        const CVector3f extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
-        const float maxExtent =
-            rstl::max_val(rstl::max_val(extent.GetX(), extent.GetZ()), extent.GetY());
+        float maxExtent = bounds.GetMaxPoint().GetX() - bounds.GetMinPoint().GetX();
+        maxExtent = rstl::max_val(maxExtent, bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ());
+        maxExtent = rstl::max_val(maxExtent, bounds.GetMaxPoint().GetY() - bounds.GetMinPoint().GetY());
         const float scale =
             (gpTweakGui->GetLogBookScanModelScale() * mScanInfo->GetObject()->GetModelScale()) /
             maxExtent;
