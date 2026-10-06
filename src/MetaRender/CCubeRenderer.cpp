@@ -75,47 +75,55 @@ void CCubeRenderer::DrawGeometry(int areaId, const char* name, const SGeometryTa
   }
   SetMaterialMode(mRequestedMaterialMode);
 
+  CAreaListItem* area = nullptr;
   rstl::list< CAreaListItem >::iterator areaIt = FindArea(areaId);
   if (areaIt != mAreaListItems.end()) {
-    CAreaListItem& area = *areaIt;
-    for (int modelIndex = 0; modelIndex < area.mGeometry->size(); ++modelIndex) {
-      const CMetroidModelInstance& instance = (*area.mGeometry)[modelIndex];
-      const CCubeModel& model = *(*area.mModels)[modelIndex];
-      const SModelSurfaceOrder& order = area.mModelSurfaceOrders[modelIndex];
+    area = &*areaIt;
+  }
+  if (area) {
+    const rstl::vector< CMetroidModelInstance >* geometry = area->mGeometry;
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->mModels.get();
+    for (int modelIndex = 0; modelIndex < geometry->size(); ++modelIndex) {
+      const CMetroidModelInstance& instance = (*geometry)[modelIndex];
+      const CCubeModel* model = (*models)[modelIndex].get();
+      const SModelSurfaceOrder& order = area->mModelSurfaceOrders[modelIndex];
       const ushort* begin = order.mSurfaceIndices.get() + (Special ? order.mSortedEnd : 0);
       const ushort* end =
           order.mSurfaceIndices.get() + (Special ? order.mTotalCount : order.mOpaqueEnd);
-      model.TryLockTextures();
-      model.SetArraysCurrent();
-      for (uint lightSet = 0; lightSet < mLightSets.size(); ++lightSet) {
-        const ushort* surface = begin;
-        while (surface != end &&
-               area.mLightSetIndices[instance.GetSurfaceAreaIndex(*surface)] != lightSet) {
-          ++surface;
-        }
-        if (surface == end) {
-          continue;
-        }
-        const CCubeSurface firstSurface(instance.GetSurfaces()[*surface]);
-        ActivateLightsForModel(mLightSets[lightSet]);
-        if (Alpha) {
-          const uchar alpha = area.mPVSAlpha[instance.GetSurfaceAreaIndex(*surface)];
-          if (alpha != lastAlpha) {
-            CGX::SetDstAlpha(true, alpha);
-            lastAlpha = alpha;
-          }
-        }
-        model.DrawSurface(firstSurface, CModelFlags::Normal());
-        for (++surface; surface != end; ++surface) {
-          const ushort areaIndex = instance.GetSurfaceAreaIndex(*surface);
-          if (area.mLightSetIndices[areaIndex] != lightSet) {
+      model->TryLockTextures();
+      model->SetArraysCurrent();
+      const ushort* records = instance.GetSurfaceRecords();
+      for (int lightSet = 0; lightSet < mLightSets.size(); ++lightSet) {
+        for (const ushort* surface = begin; surface != end; ++surface) {
+          ushort areaIndex = records[*surface * 2 + 2];
+          if (lightSet != area->mLightSetIndices[areaIndex]) {
             continue;
           }
-          if (Alpha && area.mPVSAlpha[areaIndex] != lastAlpha) {
-            lastAlpha = area.mPVSAlpha[areaIndex];
-            CGX::SetDstAlpha(true, lastAlpha);
+          const CCubeSurface firstSurface(instance.GetSurfaces()[*surface]);
+          ActivateLightsForModel(mLightSets[lightSet]);
+          if (Alpha) {
+            const uchar alpha = area->mPVSAlpha[areaIndex];
+            if (alpha != lastAlpha) {
+              CGX::SetDstAlpha(true, alpha);
+              lastAlpha = alpha;
+            }
           }
-          model.DrawSurface(CCubeSurface(instance.GetSurfaces()[*surface]), CModelFlags::Normal());
+          model->DrawSurface(firstSurface, CModelFlags(CModelFlags::kT_Opaque, 1.f));
+          for (++surface; surface != end; ++surface) {
+            areaIndex = records[*surface * 2 + 2];
+            if (lightSet == area->mLightSetIndices[areaIndex]) {
+              const CCubeSurface nextSurface(instance.GetSurfaces()[*surface]);
+              if (Alpha) {
+                const uchar alpha = area->mPVSAlpha[areaIndex];
+                if (alpha != lastAlpha) {
+                  CGX::SetDstAlpha(true, alpha);
+                  lastAlpha = alpha;
+                }
+              }
+              model->DrawSurface(nextSurface, CModelFlags(CModelFlags::kT_Opaque, 1.f));
+            }
+          }
+          break;
         }
       }
     }
