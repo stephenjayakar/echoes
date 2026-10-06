@@ -295,8 +295,9 @@ void CScriptWater::UpdateSplashInhabitants(CStateManager& mgr) {
       const rstl::optional_object< CAABox > bounds = actor->GetTouchBounds();
       if (bounds) {
         const float surfaceZ = GetTriggerBoundsWR().GetMaxPoint().GetZ();
-        intersects =
-            bounds->GetMinPoint().GetZ() <= surfaceZ && surfaceZ <= bounds->GetMaxPoint().GetZ();
+        if (bounds->GetMinPoint().GetZ() <= surfaceZ && bounds->GetMaxPoint().GetZ() >= surfaceZ) {
+          intersects = true;
+        }
       }
     }
     if (actor && it->second) {
