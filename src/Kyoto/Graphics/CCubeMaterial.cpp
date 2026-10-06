@@ -901,8 +901,7 @@ void CCubeMaterial::EnsureViewDepStateCached(const CCubeSurface* surface) {
   }
 
   const CTransform4f& modelMtx = CGraphics::GetModelMatrix();
-  const CVector3f& playerPos =
-      modelMtx.TransposeRotate(sPlayerPosition - modelMtx.GetTranslation());
+  const CVector3f& playerPos = modelMtx.TransposeMultiply(sPlayerPosition);
   CVector3f points[2];
   points[1] = playerPos;
   sLastModelCached = sRenderingModel;
