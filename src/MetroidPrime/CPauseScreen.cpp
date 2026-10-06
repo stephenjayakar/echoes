@@ -86,6 +86,12 @@ const char* const skLogBookPak = "logbook";
 
 // Echoes combines the scan tree, options and model viewer in this screen.
 
+static inline bool IsLegendVisible() {
+  const CEnvironmentVariable* legend =
+      gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("LogbookLegendVisible");
+  return legend->GetValue() == legend->GetMaximum();
+}
+
 CPauseScreen::CPauseScreen()
 : mSelectedNodeTexture(gpSimplePool->GetObj(skSelectedNodeTexture))
 , mUnselectedNodeTexture(gpSimplePool->GetObj(skUnselectedNodeTexture))
@@ -137,22 +143,19 @@ CPauseScreen::CPauseScreen()
 , mModelFade(0.f)
 , x508_(CVector3f::Zero())
 , mPendingScanNode(-1)
-, mActorLights(rs_new CActorLights(8, CVector3f::Zero(), 4, 4, 0.1f, false, false, false, false))
+, mActorLights(rs_new CActorLights(8, CVector3f::Zero(), 4, 4, CActorLights::kDefaultMinPosChange,
+                                   false, false, false, false))
 , mModelTransform(CTransform4f::Identity())
 , mDone(false)
 , x568_25_(true)
-, mLegendVisible(false)
+, mLegendVisible(IsLegendVisible())
 , mHistoryTextReady(false)
 , mModelZoomed(false)
-, mNodesTouched(false)
 , x568_30_(false)
 , mOpenedFromScan(false)
 , mModelsReady(false) {
-  const CEnvironmentVariable* legend =
-      gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("LogbookLegendVisible");
-  mLegendVisible = legend->GetMaximum() == legend->GetValue();
   InitializeStripedTexture();
-  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string(skLogBookPak), false, false);
+  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string_l(skLogBookPak), false, false);
 
   mSelectedNodeTexture.Lock();
   mUnselectedNodeTexture.Lock();
@@ -167,10 +170,10 @@ CPauseScreen::CPauseScreen()
   mOptionBackgroundModel.Lock();
   mScanSweepTexture.Lock();
 
-  const CViewport& viewport = CGraphics::GetViewport();
+  const SObjectTag* fontTag = gpResourceFactory->GetResourceIdByName(skFont);
+  const CViewport viewport = CGraphics::GetViewport();
   mNodeText = rs_new CGuiTextSupport(
-      gpResourceFactory->GetResourceIdByName(skFont)->id, viewport.mWidth,
-      viewport.mHeight,
+      fontTag->id, viewport.mWidth, viewport.mHeight,
       CGuiTextProperties(false, kJustification_Center, kVerticalJustification_Top), CColor::White(),
       CColor::Black(), CColor::White(), gpSimplePool);
 
