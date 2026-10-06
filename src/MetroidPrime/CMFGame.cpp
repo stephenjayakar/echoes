@@ -134,12 +134,10 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
         }
         break;
       case kTP_Load:
-        if (mPortalTransition.null() || mPortalTransition->IsReady()) {
-          if (mTransitionFadeTime == 0.f) {
-            mTransitionPhase = kTP_Play;
-          }
-        } else {
+        if (!mPortalTransition.null() && !mPortalTransition->IsReady()) {
           mTransitionFadeTime = 1.f;
+        } else if (mTransitionFadeTime == 0.f) {
+          mTransitionPhase = kTP_Play;
         }
         break;
       case kTP_FadeIn:
@@ -167,29 +165,29 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
         mGuiManager->Update(*mStateManager, dt, queue, IsCameraActiveFlow(), i);
       }
       mPortalTransitionTime += dt;
-      if (mTransitionPhase > kTP_FadeOut && mTransitionPhase < kTP_Complete &&
+      if (mTransitionPhase >= kTP_Load && mTransitionPhase <= kTP_FadeIn &&
           !mPortalTransition.null()) {
         mPortalTransition->Update(dt);
       }
-      if (!mStateManager->IsFullyInitialized()) {
-        mStateManager->InitializeState(mStateManager->GetWorld()->GetWorldAssetId(),
-                                       mStateManager->mPendingDockArea, kInvalidAssetId);
+      if (mStateManager->IsFullyInitialized()) {
+        if (mPortalTransition.null() || mPortalTransition->IsFinished()) {
+          if (mTransitionPhase == kTP_Play) {
+            mTransitionPhase = kTP_FadeIn;
+            mTransitionFadeTime = 1.f;
+          }
+          if (mTransitionPhase == kTP_Complete) {
+            mStateManager->SetRandomAvailable(true);
+            mStateManager->Update(dt, queue);
+            mStateManager->SetRandomAvailable(false);
+            mStateManager->SetPendingDockArea(kInvalidAreaId);
+            SetFlowState(kFS_InGame);
+            mPortalTransition = nullptr;
+          }
+        }
         return kMR_Exit;
       }
-      if (mPortalTransition.null() || mPortalTransition->IsFinished()) {
-        if (mTransitionPhase == kTP_Play) {
-          mTransitionPhase = kTP_FadeIn;
-          mTransitionFadeTime = 1.f;
-        }
-        if (mTransitionPhase == kTP_Complete) {
-          mStateManager->SetRandomAvailable(true);
-          mStateManager->Update(dt, queue);
-          mStateManager->SetRandomAvailable(false);
-          mStateManager->mPendingDockArea = kInvalidAreaId;
-          SetFlowState(kFS_InGame);
-          mPortalTransition = nullptr;
-        }
-      }
+      mStateManager->InitializeState(mStateManager->GetWorld()->GetWorldAssetId(),
+                                     mStateManager->GetPendingDockArea(), kInvalidAssetId);
       return kMR_Exit;
     case kFS_State8:
       mFlowTime += dt;
@@ -229,7 +227,7 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
         }
         if (mTransitionPhase == kTP_Load) {
           mStateManager->SetRandomAvailable(true);
-          if (mStateManager->PrepareAreaTransition(mStateManager->mPendingDockArea)) {
+          if (mStateManager->PrepareAreaTransition(mStateManager->GetPendingDockArea())) {
             SetFlowState(kFS_PortalTransition);
             mPortalTransition = mStateManager->TakePortalTransition();
             mPortalTransitionTime = 0.f;
@@ -272,10 +270,10 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
         break;
       }
       if (gpGameState->GetGameMode().IsGameOver()) {
-        if (mStateManager->IsMultiplayer()) {
-          SetFlowState(kFS_MultiplayerEndFade);
-        } else {
+        if (!mStateManager->IsMultiplayer()) {
           EndGame(queue);
+        } else {
+          SetFlowState(kFS_MultiplayerEndFade);
         }
       }
       if (!mStateManager->IsMultiplayer() && mPlayerAlive &&
@@ -335,7 +333,8 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
     CArchMsgParmUserInput parm = MakeMsg::GetParmUserInput(message);
     CFinalInput input = parm.GetUserInput();
     bool stopRumble = true;
-    if (input.ControllerNumber() == 0 && !mStateManager->mSaveGameScreen.null()) {
+    if (static_cast< int >(input.ControllerNumber()) == 0 &&
+        !mStateManager->mSaveGameScreen.null()) {
       mStateManager->mSaveGameScreen->ProcessUserInput(input);
     }
     if (mFlowState == kFS_InGame) {
@@ -346,21 +345,23 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
       if (mStateManager->mLayerRestartPending) {
         SetFlowState(kFS_State8);
         mFlowTime = 0.f;
-        return kMR_Normal;
+        break;
       }
-      const CCinematicCamera* cineCam = TCastToConstPtr< CCinematicCamera >(
+      const CCinematicCamera* const cineCam = TCastToConstPtr< CCinematicCamera >(
           *mStateManager->GetCameraManager(0)->GetCurrentCamera(*mStateManager, true));
-      if (input.PStart() && !cineCam && gpGameState->GetGameMode().GetGameModeType() != 'FRND' &&
+      const bool start = input.PStart();
+      if (start && !cineCam && gpGameState->GetGameMode().GetGameModeType() != 'FRND' &&
           gpGameState->GetGameMode().GetGameModeType() != 'SNGL') {
-        for (uint i = 0; i < uint(mStateManager->GetNumPlayers()); ++i) {
-          if (mStateManager->GetPlayerState(i)->GetPlayerSelection() == input.ControllerNumber()) {
+        for (int i = 0; i < mStateManager->GetNumPlayers(); ++i) {
+          if (static_cast< int >(mStateManager->GetPlayerState(i)->GetPlayerSelection()) ==
+              static_cast< int >(input.ControllerNumber())) {
             mGuiManager->GetPlayerGuiManager(i).PauseGame(*mStateManager, kIGGS_QuitGame);
             SetFlowState(kFS_Paused);
             break;
           }
         }
       }
-      if (input.ControllerNumber() == 0 && input.PStart()) {
+      if (static_cast< int >(input.ControllerNumber()) == 0 && input.PStart()) {
         if (cineCam) {
           const bool canSkip = (cineCam->GetFlags() & 0x800) ||
                                ((cineCam->GetFlags() & 8) && cineCam->CanSkip(*mStateManager));
@@ -370,9 +371,10 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
             mSkippedCineCam = cineCam->GetScriptCameraId();
             SetFlowState(kFS_CinematicSkip);
             mFlowTime = 0.f;
-            return kMR_Normal;
+            break;
           }
-        } else if (gpGameState->GetGameMode().GetGameModeType() != 'FRND') {
+        }
+        if (!cineCam && gpGameState->GetGameMode().GetGameModeType() != 'FRND') {
           mStateManager->DeferStateTransition(kSMT_Unk);
         }
       }
@@ -380,6 +382,10 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
       mStateManager->ProcessInput(input);
       mStateManager->SetRandomAvailable(false);
       stopRumble = false;
+    } else if (mFlowState != kFS_PlayerDied && mFlowState != kFS_MultiplayerEndFade &&
+               mFlowState != kFS_MultiplayerResults && mFlowState != kFS_CinematicSkip &&
+               mFlowState != kFS_State8) {
+      stopRumble = true;
     }
     mGuiManager->ProcessControllerInput(*mStateManager, input, queue);
     if (stopRumble) {
