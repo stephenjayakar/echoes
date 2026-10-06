@@ -435,24 +435,26 @@ void CEnvFxManager::Update(float dt, CStateManager& mgr) {
   if (gpMain->IsMaxSpeed()) {
     return;
   }
-  const CCameraManager* cameraManager = mgr.GetCameraManager(0);
-  const CTransform4f camXf = cameraManager->GetCurrentCameraTransform(mgr, true);
+  const CTransform4f camXf = mgr.GetCameraManager(0)->GetCurrentCameraTransform(mgr, true);
   const EEnvFxType type = static_cast< EEnvFxType >(mgr.GetWorld()->GetNeededEnvFx());
-  if (type == kEFX_Unknown7) {
-    g_TrailPeriod = 8;
-    g_TrailPrimaryScale = 1.5f;
-    g_TrailDecayRate = 1.f / 3.f;
-    g_TrailPrimaryAxis = 0;
-    g_TrailSecondaryAxis = 2;
-  } else if (type == kEFX_Unknown6) {
+  switch (type) {
+  case kEFX_Unknown6:
     g_TrailPeriod = 2;
     g_TrailPrimaryScale = 6.f;
     g_TrailDecayRate = 1.f / 3.f;
     g_TrailPrimaryAxis = 2;
     g_TrailSecondaryAxis = 0;
+    break;
+  case kEFX_Unknown7:
+    g_TrailPeriod = 8;
+    g_TrailPrimaryScale = 1.5f;
+    g_TrailDecayRate = 1.f / 3.f;
+    g_TrailPrimaryAxis = 0;
+    g_TrailSecondaryAxis = 2;
+    break;
   }
 
-  if (cameraManager->GetCurrentCamera(mgr, true)->GetFluidCount() != 0) {
+  if (mgr.GetCameraManager(0)->GetCurrentCamera(mgr, true)->GetFluidCount() != 0) {
     mLastBlockedGridIdx = -1;
     mEnableSplash = false;
     SetSplashEffectRate(0.f, mgr);
@@ -478,9 +480,9 @@ void CEnvFxManager::Update(float dt, CStateManager& mgr) {
   const CVector3f scale = GetParticleBoundsToWorldScale();
   const CVector3f inverseScale(1.f / scale.GetX(), 1.f / scale.GetY(), 1.f / scale.GetZ());
   const CVector3f forwardPoint = camXf.GetTranslation() + 23.8125f * camXf.GetForward();
-  const CVector3f cellBase(forwardPoint.GetX() - CMath::ModF(forwardPoint.GetX(), 7.9375f),
-                           forwardPoint.GetY() - CMath::ModF(forwardPoint.GetY(), 7.9375f),
-                           forwardPoint.GetZ());
+  const CVector3f cellBase =
+      forwardPoint - CVector3f(CMath::ModF(forwardPoint.GetX(), 7.9375f),
+                               CMath::ModF(forwardPoint.GetY(), 7.9375f), 0.f);
   const CVector3f delta = mFocusCellPosition - cellBase;
   mFocusCellPosition = cellBase;
   MoveWrapCells(type, static_cast< int >(delta.GetX() / 7.9375f),
