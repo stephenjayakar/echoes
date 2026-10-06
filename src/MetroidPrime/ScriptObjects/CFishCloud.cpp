@@ -33,6 +33,8 @@
 
 // The original divides by multiplying with the reciprocal (Echoes' CVector3f::operator/ divides
 // each component); the operator is kept as is for the DOL units that already match.
+static inline float FishPow(const float x, const float y) { return pow(x, y); }
+
 static inline CVector3f VecDiv(const CVector3f& vec, const float f) {
   const float inv = 1.f / f;
   float x = vec.GetX() * inv;
@@ -227,7 +229,7 @@ void CFishCloud::InitAnimBoids(CStateManager& mgr, CModelData::EWhichModel which
         SwarmRenderHelpers::CSwarmSkinnedModelState(mModels[i]->PickAnimatedModel(which)));
     mModels[i]->EnableLooping(true);
     mModels[i]->AdvanceAnimation(
-        (float(i) * 0.25f) *
+        (float(i) / 4.f) *
             mModels[i]->GetAnimationData()->GetAnimTimeRemaining(rstl::string_l("Whole Body")),
         mgr, GetCurrentAreaId(), true);
   }
@@ -235,6 +237,7 @@ void CFishCloud::InitAnimBoids(CStateManager& mgr, CModelData::EWhichModel which
 
 void CFishCloud::PreRenderAllViewports(CStateManager& mgr) {
   const CAABox aabb = GetBoundingBox();
+  SetOtherBounds(aabb);
   SetRenderBounds(aabb);
   UpdatePortalSystemState(mgr);
 }
@@ -367,7 +370,7 @@ void CFishCloud::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
                           random.Float() * bounds.GetDepth() + min[kDZ]);
       mBoids.push_back_unsafe(
           CBoid(GetTransform() * pos, CVector3f(random.Float() - 0.5f, random.Float() - 0.5f, 0.f),
-                0.2f * CMath::PowF(random.Float(), 7.f) + 0.9f));
+                0.2f * FishPow(random.Float(), 7.f) + 0.9f));
     }
     CreatePartitionList();
     if (mValidModel) {
@@ -615,15 +618,14 @@ void CFishCloud::Render(const CStateManager& mgr) const {
     const CCubeModel& cubeModel = *model.GetModelInstance();
     cubeModel.TryLockTextures();
     model.PreDrawModel(flags);
-    const CCubeMaterial material = cubeModel.GetMaterialByIndex(0);
-    const CCubeSurface surface(cubeModel.GetModelInstance().Surfaces()[0]);
-    material.SetCurrent(flags, surface, cubeModel);
+    cubeModel.GetMaterialByIndex(0).SetCurrent(
+        flags, CCubeSurface(cubeModel.GetModelInstance().Surfaces()[0]), cubeModel);
     gpRender->SetModelMatrix(CTransform4f::Identity());
     for (TBoidVector::const_iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
       if (it->mActive) {
         const float scale = it->mScale;
-        gpRender->SetModelMatrix(CTransform4f::LookAt(it->mPos, it->mPos + it->mVel) *
-                                 CTransform4f::Scale(scale));
+        const CTransform4f xf = CTransform4f::LookAt(it->mPos, it->mPos + it->mVel);
+        gpRender->SetModelMatrix(xf * CTransform4f::Scale(scale));
         model.DolphinDrawFlat(CModel::kDF_All);
       }
     }
@@ -641,7 +643,7 @@ void CFishCloud::KillBoid(CBoid& boid) {
   parms.mPos = boid.mPos;
   parms.mDir = CVector3f::Up();
   parms.mSfxId = mDeathSfx;
-  CSfxManager::AddEmitter(parms, areaId, true, false, CSfxManager::kMedPriority);
+  CSfxManager::AddEmitter(parms, areaId, true, false);
 }
 
 void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
