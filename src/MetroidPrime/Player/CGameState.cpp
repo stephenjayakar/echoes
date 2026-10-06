@@ -24,11 +24,16 @@
 
 #include <string.h>
 
-// Guessed name. Layer-name prefixes select which game mode owns each layer.
-static rstl::pair< const char*, uint > sGameModeLayers[] = {
-    rstl::pair< const char*, uint >("Deathmatch", 'DTHM'),
-    rstl::pair< const char*, uint >("Samus01", 'SNGL'),
-    rstl::pair< const char*, uint >("Coins", 'COIN'),
+// Guessed names. Layer-name prefixes select which game mode owns each layer.
+struct SGameModeLayer {
+  SGameModeLayer(const char* prefix, uint mode) : first(prefix), second(mode) {}
+  const char* first;
+  uint second;
+};
+static SGameModeLayer sGameModeLayers[] = {
+    SGameModeLayer("Deathmatch", 'DTHM'),
+    SGameModeLayer("Samus01", 'SNGL'),
+    SGameModeLayer("Coins", 'COIN'),
 };
 
 uint CEnvironmentVariable::GetBitCount(uint value) {
@@ -389,14 +394,15 @@ void ConfigureGameModeLayers() {
        area < gpMemoryCard->GetSaveWorldMemory(gpGameState->CurrentWorldAssetId()).GetAreaCount();
        ++area) {
     rstl::rc_ptr< CWorldLayerState > layers = gpGameState->CurrentWorldState().GetLayerState();
-    int layerCount = layers->GetAreaLayerCount(TAreaId(area));
+    CWorldLayerState& state = *layers;
+    int layerCount = state.GetAreaLayerCount(TAreaId(area));
     for (int layer = 0; layer < layerCount; ++layer) {
       for (int i = 0; i < 3; ++i) {
-        bool active = sGameModeLayers[i].second == gpGameState->GetGameMode().GetGameModeType();
+        bool active = sGameModeLayers[i].second - gpGameState->GetGameMode().GetGameModeType() == 0;
         const char* prefix = sGameModeLayers[i].first;
-        const rstl::string& name = layers->GetLayerName(TAreaId(area), TLayerId(layer));
+        const rstl::string& name = state.GetLayerName(TAreaId(area), TLayerId(layer));
         if (strncmp(prefix, name.data(), strlen(prefix)) == 0) {
-          layers->SetLayerActive(TAreaId(area), TLayerId(layer), active);
+          state.SetLayerActive(TAreaId(area), TLayerId(layer), active);
         }
       }
     }
