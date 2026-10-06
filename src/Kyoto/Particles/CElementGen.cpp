@@ -2797,7 +2797,7 @@ void CElementGen::EndModelRender(const SModelRenderState& state) {
   }
 }
 
-void CElementGen::EndIndirectModelRender() {
+void CElementGen::EndIndirectModelRender(const SModelRenderState& state) {
   CGraphics::SetCullMode(kCM_Front);
   CGX::SetNumIndStages(0);
   CGX::SetTevDirect(GX_TEVSTAGE1);
@@ -2810,13 +2810,13 @@ void CElementGen::RenderModels() {
   CGlobalRandom gr(mRandState);
   CParticleGlobals::SetParticleAccessParameters(nullptr);
   SModelRenderState state;
-  if (IsIndirectTextured()) {
+  if (!IsIndirectTextured()) {
+    BeginModelRender(state);
+  } else {
     if (!mLoadedGenDesc->mPMUS) {
       return;
     }
     BeginIndirectModelRender(state);
-  } else {
-    BeginModelRender(state);
   }
 
   CVector3f offset(CVector3f::Zero());
@@ -2914,17 +2914,17 @@ void CElementGen::RenderModels() {
       color = CColor::Modulate(color, mModuColor);
     }
     CGraphics::SetModelMatrix(mGlobalScaleTransform * transform * mLocalScaleTransform);
-    if (IsIndirectTextured()) {
-      RenderIndirectModelParticle(state, color, particle);
-    } else {
+    if (!IsIndirectTextured()) {
       RenderModelParticle(state, color, particle);
+    } else {
+      RenderIndirectModelParticle(state, color, particle);
     }
   }
 
-  if (IsIndirectTextured()) {
-    EndIndirectModelRender();
-  } else {
+  if (!IsIndirectTextured()) {
     EndModelRender(state);
+  } else {
+    EndIndirectModelRender(state);
   }
 }
 
