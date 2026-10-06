@@ -239,7 +239,8 @@ CProjectileTouchResult CGameProjectile::CanCollideWithOrientatedTrigger(CActor& 
 }
 
 CProjectileTouchResult CGameProjectile::CanCollideWith(CActor& actor, CStateManager& mgr) {
-  if (actor.GetDamageVulnerability()->GetVulnerability(mCurDamageInfo.GetWeaponMode()).mEffect ==
+  const CDamageVulnerability& vuln = *actor.GetDamageVulnerability();
+  if (vuln.GetVulnerability(mCurDamageInfo.GetWeaponMode()).mEffect ==
       CWeaponTypeVulnerability::kE_PassThrough) {
     return CProjectileTouchResult(kInvalidUniqueId, rstl::optional_object_null());
   }
