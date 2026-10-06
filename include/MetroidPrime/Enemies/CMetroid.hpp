@@ -152,6 +152,7 @@ public:
   void SuckEnergyFromTarget(float dt, CStateManager& mgr);
   void PreventWorldCollisions(float dt, CStateManager& mgr);
   void RestoreSolidCollision(CStateManager& mgr);
+  void DisableSolidCollision(CMetroid& target);
   float GetDamageMultiplier() const;
   float GetGrowthStage() const;
   bool AttachToTarget(CStateManager& mgr);

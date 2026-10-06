@@ -14,6 +14,7 @@
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Enemies/CSpacePirate.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
+#include "MetroidPrime/CGameCollision.hpp"
 #include "MetroidPrime/CKnockBackInfo.hpp"
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/CGameArea.hpp"
@@ -745,6 +746,224 @@ void CMetroid::UpdateAttackTarget(CStateManager& mgr) {
   } else {
     SelectNewTarget(mgr);
   }
+}
+
+void CMetroid::SelectTarget(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mState = xa40_27_ ? kAiState_Over : kAiState_One;
+    SelectNewTarget(mgr);
+    SendScriptMsgs(kSS_Attack, mgr, kSM_None);
+    break;
+  case kStateMsg_Update:
+    switch (mState) {
+    case kAiState_One:
+      if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+        mState = kAiState_Two;
+      } else {
+        BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Three, -1));
+      }
+      break;
+    case kAiState_Two:
+      if (BodyController()->GetCurrentStateId() != pas::kAS_Generate) {
+        mState = kAiState_Over;
+      } else if (mAttackTarget != kInvalidUniqueId) {
+        if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+          BodyController()->CommandMgr().SetTargetVector(actor->GetTranslation() -
+                                                         GetTranslation());
+        }
+      }
+      break;
+    }
+    break;
+  }
+}
+
+bool CMetroid::InDetectionRange(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget == kInvalidUniqueId) {
+    if (mAlert) {
+      return true;
+    }
+    const float rangeSq = mDetectionRange * mDetectionRange;
+    CObjectList& list = mgr.ObjectListById(kOL_Actor);
+    const float x = GetTranslation().GetX();
+    const float y = GetTranslation().GetY();
+    const float z = GetTranslation().GetZ();
+    for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+      CActor* actor = static_cast< CActor* >(list[i]);
+      if (actor != nullptr && actor->GetUniqueId() != GetUniqueId() &&
+          (actor->GetTranslation() - CVector3f(x, y, z)).MagSquared() < rangeSq) {
+        CSpacePirate* pirate = TCastToPtr< CSpacePirate >(actor);
+        if (pirate != nullptr && IsPirateValidTarget(*pirate)) {
+          pirate->SetAttackTarget(mgr, GetUniqueId());
+          return true;
+        }
+        const CPlayer* player = TCastToConstPtr< CPlayer >(actor);
+        if (player != nullptr && !IsPlayerInFluid(*player, mgr) &&
+            !mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) &&
+            player->GetCurrentAreaId() == GetCurrentAreaId()) {
+          return true;
+        }
+      }
+    }
+  } else {
+    CEntity* target = mgr.ObjectById(mAttackTarget);
+    const CPlayer* player = TCastToConstPtr< CPlayer >(target);
+    if (player != nullptr &&
+        (IsPlayerInFluid(*player, mgr) ||
+         mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) ||
+         player->GetCurrentAreaId() != GetCurrentAreaId())) {
+      return false;
+    }
+    if (target != nullptr) {
+      const CVector3f delta = static_cast< CActor* >(target)->GetTranslation() - GetTranslation();
+      const float heightRange = mDetectionHeightRange;
+      if (delta.MagSquared() < mDetectionRange * mDetectionRange && heightRange > 0.f) {
+        return delta.GetZ() * delta.GetZ() < heightRange * heightRange;
+      }
+    }
+  }
+  return false;
+}
+
+CVector3f CMetroid::GetOrigin(const CStateManager& mgr, const CTeamAiRole& role,
+                              const CVector3f& aimPos) const {
+  CVector3f result = GetTranslation();
+  const float range = 0.5f * (mMinAttackRange + mMaxAttackRange);
+  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(GetAttackTargetId()));
+  if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
+    if (player->GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+      const CVector3f direction((GetTranslation() - player->GetTranslation()).ToVec2f(), 0.f);
+      const CVector3f& face = direction.CanBeNormalized() ? direction.AsNormalized()
+                                                          : player->GetTransform().GetForward();
+      const float height = 0.5f + player->GetTranslation().GetZ();
+      result = player->GetTranslation() + range * face;
+      result.SetZ(height);
+    } else {
+      const CVector3f forward = player->GetTransform().GetForward();
+      const float height = 0.5f + aimPos.GetZ();
+      result = aimPos + range * forward;
+      result.SetZ(height);
+    }
+  } else if (actor != nullptr) {
+    const CVector3f direction((GetTranslation() - actor->GetTranslation()).ToVec2f(), 0.f);
+    const CVector3f& face =
+        direction.CanBeNormalized() ? direction.AsNormalized() : actor->GetTransform().GetForward();
+    const float height = 0.5f + actor->GetTranslation().GetZ();
+    result = actor->GetTranslation() + range * face;
+    result.SetZ(height);
+  }
+  return result;
+}
+
+void CMetroid::PreventWorldCollisions(float dt, CStateManager& mgr) {
+  const float size = 2.f * mCollisionPrimitive.GetSphere().GetRadius();
+  if (IsSuckingEnergy()) {
+    if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+      float mass = 300.f;
+      if (player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed) {
+        const float scale = rstl::min_val(1.33f * x9c0_, 1.f);
+        mass = 300.f * (1.f - scale) + 7500.f * scale;
+      }
+      CGameCollision::PushActorAwayFromWalls(mgr, *player, dt, 0.25f, size, mass, 8, 0.5f);
+    }
+    x9c4_ = 0.f;
+  } else if (mRestoreSolidCollision || mRestoreCharacterCollision) {
+    x9c4_ += dt;
+    if (x9c4_ > 6.f) {
+      MassiveDeath(mgr);
+    } else if (mRestoreSolidCollision && x9c4_ > 0.25f) {
+      RemoveMaterial(kMT_Unknown59, mgr);
+    }
+    CGameCollision::PushActorAwayFromWalls(mgr, *this, dt, 0.25f, size, 15000.f, 8, 0.5f);
+  } else {
+    x9c4_ = 0.f;
+  }
+}
+
+void CMetroid::RestoreSolidCollision(CStateManager& mgr) {
+  const CMaterialFilter filter =
+      CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59, kMT_AIBlock));
+  if (mRestoreSolidCollision && !CGameCollision::DetectStaticCollisionBoolean(
+                                    mgr, mCollisionPrimitive, GetTransform(), filter)) {
+    bool add = true;
+    if (mDetachPos.IsNonZero()) {
+      const CVector3f dir = GetTranslation() - mDetachPos;
+      const float mag = dir.Magnitude();
+      if (mag > 0.f) {
+        add = CGameCollision::RayStaticLineOfSightTest(mgr, mDetachPos, (1.f / mag) * dir, mag,
+                                                       filter);
+      }
+    }
+    if (add) {
+      AddMaterial(kMT_Unknown59, mgr);
+      mRestoreSolidCollision = false;
+    }
+  }
+  if (mRestoreCharacterCollision) {
+    rstl::reserved_vector< TUniqueId, 1024 > nearList;
+    const CMaterialFilter nearFilter =
+        CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59, kMT_Player, kMT_Character));
+    const float radius = mLoopAttackDistance * GetModelData()->GetScale().GetY();
+    const CVector3f extent(radius, radius, radius);
+    const CAABox box(GetTranslation() - extent, GetTranslation() + extent);
+    mgr.BuildNearList(nearList, box, nearFilter, this);
+    if (!CGameCollision::DetectDynamicCollisionBoolean(mCollisionPrimitive, GetTransform(),
+                                                       nearList, mgr)) {
+      mRestoreCharacterCollision = false;
+      CMaterialFilter matFilter = GetMaterialFilter();
+      matFilter.ExcludeList().Remove(CMaterialList(kMT_Character, kMT_Player));
+      SetMaterialFilter(matFilter);
+    }
+  }
+}
+
+void CMetroid::DisableSolidCollision(CMetroid& target) {
+  CMaterialFilter filter = target.GetMaterialFilter();
+  filter.ExcludeList().Add(CMaterialList(kMT_Character, kMT_Player));
+  target.SetMaterialFilter(filter);
+}
+
+bool CMetroid::InAttackPosition(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    const CActor* actor = static_cast< const CActor* >(mgr.GetObjectById(mAttackTarget));
+    if (actor != nullptr && actor->GetCurrentAreaId() == GetCurrentAreaId()) {
+      const CVector3f direction = GetTranslation() - actor->GetTranslation();
+      const CVector3f actorForward = actor->GetTransform().GetForward();
+      float maxAngle = M_PIF;
+      if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
+        if (IsPlayerInFluid(*player, mgr)) {
+          return false;
+        }
+        if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed && !xa40_28_) {
+          maxAngle = CRelAngle::FromDegrees(45.f).AsRadians();
+        }
+      }
+      if (CVector2f::GetAngleDiff(direction.ToVec2f(), actorForward.ToVec2f()) < maxAngle &&
+          CVector3f::Dot(direction, GetTransform().GetForward()) < 0.f) {
+        bool inPosition =
+            (x7c0_ - GetTranslation()).MagSquared() < mMaxAttackRange * mMaxAttackRange;
+        if (inPosition) {
+          const float myZ = GetTranslation().GetZ();
+          const float targetZ = actor->GetTranslation().GetZ();
+          inPosition = myZ > targetZ && myZ < 0.5f + x7c0_.GetZ();
+          if (inPosition) {
+            const CVector3f start = GetTranslation();
+            const CVector3f attackDelta = GetAttackTargetPos(mgr) - start;
+            if (attackDelta.CanBeNormalized()) {
+              const CMaterialFilter filter =
+                  CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59, kMT_AIBlock));
+              const float length = attackDelta.Magnitude();
+              inPosition = CGameCollision::RayStaticLineOfSightTest(
+                  mgr, start, (1.f / length) * attackDelta, length, filter);
+            }
+          }
+        }
+        return inPosition;
+      }
+    }
+  }
+  return false;
 }
 
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {
