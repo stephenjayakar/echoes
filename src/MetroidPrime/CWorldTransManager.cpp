@@ -438,21 +438,20 @@ CTransform4f CWorldTransManager::GetCameraTransform(int pass) const {
           CTransform4f::RotateZ(angle) *
           CTransform4f::Translate(mModelData->mShakeResult.GetX(),
                                   -3.5f * (1.f - translationT) + -3.5f,
-                                  mModelData->mShakeResult.GetY() + 2.f);
+                                  2.f + mModelData->mShakeResult.GetY());
       return xf;
     }
     spline = &*mFirstPassCamera;
     time = mCurTime;
-  } else if (pass == 1) {
+  }
+  if (pass == 1) {
     if (!mSecondPassCamera) {
       const float t =
           CMath::Clamp(0.f, (4.f + (mCurTime - mModelData->mDissolveStartTime)) / 5.f, 1.f);
       const CRelAngle angle = CRelAngle::FromDegrees(48.f * t + 180.f - 24.f);
       const CVector3f& scale = mModelData->mSamusRes.GetScale();
-      const CTransform4f xf =
-          CTransform4f::RotateZ(angle) *
-          CTransform4f::Translate(
-              CVector3f(-0.1f * scale.GetX(), -0.5f * scale.GetY(), 1.5f * scale.GetZ()));
+      const CVector3f offset(-0.1f * scale.GetX(), -0.5f * scale.GetY(), 1.5f * scale.GetZ());
+      const CTransform4f xf = CTransform4f::RotateZ(angle) * CTransform4f::Translate(offset);
       return xf;
     }
     spline = &*mSecondPassCamera;
