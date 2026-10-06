@@ -130,7 +130,7 @@ private:
   void fn_8006653c(const CStateManager& mgr, bool init);
   void UpdateThreatAssessment(float dt, const CStateManager& mgr);
   void ResolveLockOnTexture();
-  void UpdateBallMode(const CStateManager& mgr);
+  void UpdateBallMode(const CStateManager& mgr, bool init);
   void UpdateBeamAmmo(const CStateManager& mgr, bool init);
   void UpdateMissile(float dt, const CStateManager& mgr, bool init);
   void UpdateEnergy(float dt, const CStateManager& mgr, bool init);

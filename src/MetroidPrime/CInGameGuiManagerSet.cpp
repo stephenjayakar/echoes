@@ -197,8 +197,9 @@ void CInGameGuiManagerSet::DrawMultiplayerGui() const {
 void CInGameGuiManagerSet::ProcessControllerInput(const CStateManager& mgr,
                                                   const CFinalInput& input,
                                                   CArchitectureQueue& queue) {
+  int i = 0;
   const int controller = input.ControllerNumber();
-  for (uint i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
+  for (; i < mgr.GetNumPlayers(); ++i) {
     const int selection = mgr.GetPlayerState(i)->GetPlayerSelection();
     if (selection == controller) {
       mPlayerGuiManagers[i]->ProcessControllerInput(mgr, input, queue);

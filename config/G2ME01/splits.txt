@@ -119,7 +119,9 @@ MetroidPrime/Tweaks/TweakGlobals.cpp:
 
 MetroidPrime/Weapons/CGameProjectile.cpp:
 	.text       start:0x80032C3C end:0x80036200
+	.rodata     start:0x803A64B0 end:0x803A64D8
 	.data       start:0x803B1A40 end:0x803B1ACC
+	.sdata2     start:0x8041A7C4 end:0x8041A808 align:4
 
 MetroidPrime/CStateManager.cpp:
 	.text       start:0x80036200 end:0x800476A8
@@ -843,7 +845,9 @@ MetroidPrime/ScriptObjects/CScriptBallTrigger.cpp:
 MetroidPrime/Weapons/CPlasmaProjectile.cpp:
 	.text       start:0x80119598 end:0x8011BFA8
 	.ctors      start:0x803A5520 end:0x803A5524
+	.rodata     start:0x803A8D08 end:0x803A8D68
 	.sbss       start:0x80419160 end:0x80419168
+	.sdata2     start:0x8041BCE8 end:0x8041BD58
 
 MetroidPrime/Player/CPlayerOrbit.cpp:
 	.text       start:0x8011BFA8 end:0x80123510

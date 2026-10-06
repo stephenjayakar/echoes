@@ -63,9 +63,10 @@ public:
   void SetShadowDynamicRangeThreshold(float t) { mShadowDynamicRangeThreshold = t; }
   void SetWorldLightingLevel(float level) { mWorldLightingLevel = level; }
   // Guessed name; native registration reserves the final available slot.
-  void AddExplicitLightId(TUniqueId id) {
-    if (mExplicitLightIds.size() + 1 < mExplicitLightIds.capacity()) {
-      mExplicitLightIds.push_back(id);
+  void AddExplicitLightId(const TUniqueId& id) {
+    rstl::reserved_vector< TUniqueId, 4 >& ids = mExplicitLightIds;
+    if (ids.size() + 1 < ids.capacity()) {
+      ids.push_back(id);
     }
   }
   void SetNeedsRelight(bool v) { mDirty = v; }

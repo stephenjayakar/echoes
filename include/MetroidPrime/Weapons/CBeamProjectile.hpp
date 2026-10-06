@@ -35,7 +35,7 @@ public:
   float GetMaxLength() const { return mMaxLength; }
   float GetInvMaxLength() const { return mInvMaxLength; }
   float GetMaxRadius() const { return mBeamRadius; }
-  TUniqueId GetCollisionActorId() const { return mCollisionActorId; }
+  const TUniqueId& GetCollisionActorId() const { return mCollisionActorId; }
   const rstl::reserved_vector< CVector3f, 8 >& GetPointCache() const { return mPointCache; }
   rstl::reserved_vector< CVector3f, 8 >& PointCache() { return mPointCache; }
 

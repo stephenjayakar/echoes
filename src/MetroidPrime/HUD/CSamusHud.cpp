@@ -127,9 +127,9 @@ const char* CSamusHud::GetHudFrameName(int viewportLayout) {
 }
 
 rstl::pair< CVector3f, CVector3f > CSamusHud::CombatEnergyCoordFunc(float t) {
-  const float angle = 0.5294118f * t - 0.20262942f;
-  const float x = 17.f * sin(angle);
-  const float y = 0.2f + (17.f * cos(angle) - 17.f);
+  const float angle = 0.5294118f * t + -0.20262942f;
+  const float x = 17.f * CMath::FastSinR(angle);
+  const float y = 0.2f + (17.f * CMath::FastCosR(angle) + -17.f);
   return rstl::pair< CVector3f, CVector3f >(CVector3f(x, y, 0.4f), CVector3f(x, y, 0.f));
 }
 
@@ -538,7 +538,7 @@ void CSamusHud::UpdateHudWidgetColors() {
 
 void CSamusHud::DisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& info) {
   for (int i = 0; i < 4; ++i) {
-    if (gpSamusHud[i] != nullptr && info.EnabledForPlayer(i)) {
+    if (info.EnabledForPlayer(i) && gpSamusHud[i] != nullptr) {
       gpSamusHud[i]->InternalDisplayHudMemo(text, info);
     }
   }
@@ -546,18 +546,22 @@ void CSamusHud::DisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& i
 
 void CSamusHud::DeferHintMemo(CAssetId stringTable, uint index, const CHUDMemoParms& info) {
   for (int i = 0; i < 4; ++i) {
-    if (gpSamusHud[i] != nullptr && info.EnabledForPlayer(i)) {
+    if (info.EnabledForPlayer(i) && gpSamusHud[i] != nullptr) {
       gpSamusHud[i]->InternalDeferHintMemo(stringTable, index, info);
     }
   }
 }
 
 bool CSamusHud::IsHudMemoVisible(int playerIndex) {
-  const CSamusHud* hud = gpSamusHud[playerIndex];
-  if (hud == nullptr || hud->mMessageRoot == nullptr || hud->mMessagePane == nullptr) {
+  if (gpSamusHud[playerIndex] == nullptr) {
     return false;
   }
-  return hud->mMessageRoot->GetIsVisible() || hud->mMessagePane->GetIsVisible();
+  if (gpSamusHud[playerIndex]->mMessageRoot == nullptr ||
+      gpSamusHud[playerIndex]->mMessagePane == nullptr) {
+    return false;
+  }
+  return gpSamusHud[playerIndex]->mMessageRoot->GetIsVisible() ||
+         gpSamusHud[playerIndex]->mMessagePane->GetIsVisible();
 }
 
 void CSamusHud::InternalDisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& info) {
@@ -699,11 +703,13 @@ CSamusHud::CSamusHud(const CStateManager& mgr, CGuiFrameLoader& hud, CGuiFrameLo
 }
 
 void CSamusHud::RefreshBeamMenu(const CStateManager& mgr, int playerIndex) {
-  CSamusHud* hud = gpSamusHud[playerIndex];
-  if (hud != nullptr) {
-    const rstl::reserved_vector< bool, 4 > enables = hud->BuildPlayerHasBeams(mgr);
-    if (!hud->mBeamMenu.null()) {
-      hud->mBeamMenu->SetPlayerHas(enables, mgr.GetPlayerState(playerIndex)->GetCurrentBeam());
+  if (gpSamusHud[playerIndex] != nullptr) {
+    const rstl::reserved_vector< bool, 4 > enables =
+        gpSamusHud[playerIndex]->BuildPlayerHasBeams(mgr);
+    CHudVisorBeamMenu* menu = gpSamusHud[playerIndex]->mBeamMenu.get();
+    const CPlayerState::EBeamId beam = mgr.GetPlayerState(playerIndex)->GetCurrentBeam();
+    if (menu != nullptr) {
+      menu->SetPlayerHas(enables, beam);
     }
   }
 }
@@ -755,24 +761,26 @@ CSamusHud::~CSamusHud() {
 bool CSamusHud::CheckLoadComplete(const CStateManager& mgr) {
   switch (mLoadPhase) {
   case kLP_Targeting:
-    if (!mTargetingManager.CheckLoadComplete()) {
+    if (mTargetingManager.CheckLoadComplete()) {
+      mLoadPhase = kLP_Frames;
+      InitializeFrameGlueMutable(mgr);
+      UpdateEnergy(0.f, mgr, true);
+      UpdateMissile(0.f, mgr, true);
+      UpdateBeamAmmo(mgr, true);
+      UpdateBallMode(mgr, true);
+      fn_8006653c(mgr, true);
+      ResolveLockOnTexture();
+    } else {
       return false;
     }
-    mLoadPhase = kLP_Frames;
-    InitializeFrameGlueMutable(mgr);
-    UpdateEnergy(0.f, mgr, true);
-    UpdateMissile(0.f, mgr, true);
-    UpdateBeamAmmo(mgr, true);
-    UpdateBallMode(mgr);
-    fn_8006653c(mgr, true);
-    ResolveLockOnTexture();
     // Fall through.
   case kLP_Frames:
-    if (!mLoadedHudFrame->GetIsFinishedLoading() ||
-        (mLoadedHelmetFrame != nullptr && !mLoadedHelmetFrame->GetIsFinishedLoading())) {
+    if (mLoadedHudFrame->GetIsFinishedLoading() &&
+        (mLoadedHelmetFrame == nullptr || mLoadedHelmetFrame->GetIsFinishedLoading())) {
+      mLoadPhase = kLP_Complete;
+    } else {
       return false;
     }
-    mLoadPhase = kLP_Complete;
     // Fall through.
   case kLP_Complete:
     return true;
@@ -1375,7 +1383,7 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
   mAmmoBeam = beam;
 }
 
-void CSamusHud::UpdateBallMode(const CStateManager& mgr) {
+void CSamusHud::UpdateBallMode(const CStateManager& mgr, bool) {
   if (mPowerBombDigits == nullptr && mPowerBombIcon == nullptr && mBombIndicators.size() != 3) {
     return;
   }
@@ -1548,10 +1556,11 @@ void CSamusHud::fn_8006653c(const CStateManager&, bool) {}
 
 bool CSamusHud::IsCachedLightInAreaLights(const SCachedHudLight& light,
                                           const CActorLights& lights) const {
+  const CColor color = light.mColor;
   const uint count = lights.GetActiveAreaLightCount();
   for (uint i = 0; i < count; ++i) {
     const CLight& areaLight = lights.GetLight(i);
-    if (areaLight.GetColor() == light.mColor && areaLight.GetPosition() == light.mPosition) {
+    if (areaLight.GetColor() == color && areaLight.GetPosition() == light.mPosition) {
       return true;
     }
   }
@@ -1561,8 +1570,8 @@ bool CSamusHud::IsCachedLightInAreaLights(const SCachedHudLight& light,
 bool CSamusHud::IsAreaLightInCachedLights(const CLight& light) const {
   for (int i = 0; i < 3; ++i) {
     const SCachedHudLight& cached = mHudLights[i];
-    if (cached.mFade != 0.f && cached.mColor == light.GetColor() &&
-        cached.mPosition == light.GetPosition()) {
+    if (cached.mFade != 0.f && light.GetColor() == cached.mColor &&
+        light.GetPosition() == cached.mPosition) {
       return true;
     }
   }
@@ -1582,7 +1591,7 @@ void CSamusHud::UpdateHudDynamicLights(float dt, const CStateManager& mgr) {
   if (mgr.GetViewportLayoutIndex() != 0) {
     return;
   }
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     return;
@@ -1740,10 +1749,11 @@ CColor CSamusHud::GetVisorHudLightColor(const CColor& color, const CStateManager
   const float t = state.GetVisorTransitionFactor();
   CColor result = color;
   switch (visor) {
+  case CPlayerState::kPV_Combat:
+    break;
   case CPlayerState::kPV_Scan: {
-    const CColor& white = CColor::White();
     const CColor multiplier =
-        CColor::Lerp(white, gpTweakGuiColors->GetScanVisorHUDLightMultiply(), t);
+        CColor::Lerp(CColor::White(), gpTweakGuiColors->GetScanVisorHUDLightMultiply(), t);
     result = CColor::Modulate(result, multiplier);
     break;
   }
@@ -1916,11 +1926,11 @@ void CSamusHud::UpdateStateTransition(float dt, const CStateManager& mgr) {
       return;
     }
   case kTS_Loading:
-    if (!mPendingHudFrame.null()) {
-      if (!mPendingHudFrame->IsFinishedLoading()) {
+    if (CGuiFrameLoader* loader = mPendingHudFrame.get()) {
+      if (!loader->IsFinishedLoading()) {
         return;
       }
-      mHudFrame = mPendingHudFrame->CreateFrame();
+      mHudFrame = loader->CreateFrame();
       mLoadedHudFrame = mHudFrame.get();
       mPendingHudFrame = nullptr;
       mPreviousState = mNextState;
@@ -1963,7 +1973,7 @@ void CSamusHud::UpdateStateTransition(float dt, const CStateManager& mgr) {
       mTransitionState = kTS_Idle;
     }
     break;
-  default:
+  case kTS_Idle:
     break;
   }
 }
@@ -2194,7 +2204,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     UpdateBeamAmmo(mgr, false);
     UpdateMissile(dt, mgr, false);
     UpdateVisorAndBeamMenus(dt, mgr);
-    UpdateBallMode(mgr);
+    UpdateBallMode(mgr, false);
     ResolveLockOnTexture();
     if (!mRadar.null()) {
       mRadar->SetColor(ModulateColor(gpTweakGuiColors->GetRadarWidgetColor()));
@@ -2237,8 +2247,8 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
 }
 
 rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasVisors(const CStateManager& mgr) const {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   rstl::reserved_vector< bool, 4 > result;
+  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   result.push_back(state.HasPowerUp(CPlayerState::kIT_CombatVisor));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_EchoVisor));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_ScanVisor));
@@ -2247,8 +2257,8 @@ rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasVisors(const CStateMan
 }
 
 rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasBeams(const CStateManager& mgr) const {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   rstl::reserved_vector< bool, 4 > result;
+  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   result.push_back(state.HasPowerUp(CPlayerState::kIT_PowerBeam));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_DarkBeam));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_LightBeam));
@@ -2473,16 +2483,16 @@ void CSamusHud::Draw(const CStateManager& mgr, float alpha, uint helmetVisibilit
 }
 
 void CSamusHud::DrawHelmet(const CStateManager& mgr, float cameraYOffset) const {
-  if (mLoadedHelmetFrame == nullptr || mgr.GetPlayer(mPlayerIndex)->IsInTurret()) {
-    return;
-  }
-  const bool unmorphed =
-      mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
-  if (mLoadedHelmetFrame != nullptr && unmorphed && mNextState != kHS_Ball) {
-    const float alpha = mPreviousState == kHS_Ball ? mTransitionFactor : 1.f;
-    const CGuiWidgetDrawParms parms(alpha * gpGameState->GameOptions().GetHelmetAlpha(),
-                                    CVector3f(0.f, 15.f * cameraYOffset, 0.f));
-    mLoadedHelmetFrame->Draw(parms);
+  if (mLoadedHelmetFrame != nullptr && !mgr.GetPlayer(mPlayerIndex)->IsInTurret()) {
+    const bool unmorphed =
+        mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
+    if (mLoadedHelmetFrame != nullptr && unmorphed && mNextState != kHS_Ball) {
+      const CGameOptions& options = gpGameState->GameOptions();
+      const float alpha = mPreviousState == kHS_Ball ? mTransitionFactor : 1.f;
+      const CGuiWidgetDrawParms parms(alpha * options.GetHelmetAlpha(),
+                                      CVector3f(0.f, 15.f * cameraYOffset, 0.f));
+      mLoadedHelmetFrame->Draw(parms);
+    }
   }
 }
 
@@ -2531,7 +2541,7 @@ CSamusHud::EHudState CSamusHud::GetDesiredHudState(const CStateManager& mgr) con
 
 CRelAngle CSamusHud::GetRelativeDirection(const CVector3f& position,
                                           const CStateManager& mgr) const {
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     return CRelAngle::FromRadians(0.f);
@@ -2545,7 +2555,10 @@ CRelAngle CSamusHud::GetRelativeDirection(const CVector3f& position,
   const CVector3f direction = flatPosition.AsNormalized();
   const float angle = acosf(CVector3f::Dot(forward, direction));
   const CVector3f cross = CVector3f::Cross(forward, direction);
-  return CRelAngle::FromRadians(cross.GetZ() <= 0.f ? angle : 2.f * M_PIF - angle);
+  if (cross.GetZ() > 0.f) {
+    return CRelAngle::FromRadians(2.f * M_PIF - angle);
+  }
+  return CRelAngle::FromRadians(angle);
 }
 
 void CSamusHud::ShowDamage(CVector3f position, float damage, float previousDamage,
@@ -2618,7 +2631,7 @@ void CSamusHud::UpdateHudLag(float dt, const CStateManager& mgr) {
   }
 
   CUnitVector3f cameraDirection(mPreviousCameraDirection, CUnitVector3f::kN_No);
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     mHudLag = CQuaternion::NoRotation();

@@ -1,5 +1,7 @@
 #include "MetroidPrime/ScriptObjects/CScriptDynamicLight.hpp"
 
+#include "MetroidPrime/CEffectWaypointPredicate.hpp"
+
 #include "Kyoto/Math/CGameSplineDesc.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "MetroidPrime/CActorLights.hpp"
@@ -64,8 +66,9 @@ void CScriptDynamicLight::Think(float dt, CStateManager& mgr) {
 }
 
 void CScriptDynamicLight::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_AreaLoaded) {
-    if (CheckConnectedObject_if(mgr, kSS_CameraPath, kSM_Attach, CValidEntityPredicate()) !=
+  switch (msg.GetMessage()) {
+  case kSM_AreaLoaded:
+    if (CheckConnectedObject_if(mgr, kSS_CameraPath, kSM_Attach, CEffectWaypointPredicate()) !=
         kInvalidUniqueId) {
       mHasSpline = true;
       ScriptCameraSpline::Initialise(*this, kSS_CameraPath, kSM_Attach, kSS_CameraTarget,
@@ -75,15 +78,24 @@ void CScriptDynamicLight::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& 
     FindParent(mgr);
     FindTarget(mgr);
     UpdateLight(0.f);
+    break;
+  case kSM_Activate:
+    break;
+  case kSM_Create:
+    break;
+  case kSM_Delete:
+    break;
+  default:
+    break;
   }
   CActor::AcceptScriptMsg(mgr, msg);
 }
 
 void CScriptDynamicLight::FindLightReceivers(CStateManager& mgr) {
-  const rstl::vector< TUniqueId > receivers = FindConnectedObjects(mgr, kSS_Play, kSM_Activate);
   bool found = false;
+  const rstl::vector< TUniqueId > receivers = FindConnectedObjects(mgr, kSS_Play, kSM_Activate);
   for (int i = 0; i < receivers.size(); ++i) {
-    CActor* actor = TCastToPtr< CActor >(mgr.GetObjectByIdFromListAll(receivers[i]));
+    CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(receivers[i]));
     if (actor && actor->HasActorLights()) {
       actor->ActorLights()->AddExplicitLightId(GetUniqueId());
       found = true;
@@ -98,7 +110,7 @@ void CScriptDynamicLight::FindLightReceivers(CStateManager& mgr) {
 void CScriptDynamicLight::FindParent(CStateManager& mgr) {
   const rstl::vector< TUniqueId > parents = FindConnectedObjects(mgr, kSS_Connect, kSM_Attach);
   for (int i = 0; i < parents.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(parents[i]))) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(parents[i]))) {
       mParentId = actor->GetUniqueId();
       mParentTransform = ConvertEditorEulerToTransform4f(mDescription.mParentRotation,
                                                          mDescription.mParentTranslation);
@@ -107,8 +119,7 @@ void CScriptDynamicLight::FindParent(CStateManager& mgr) {
       if (!mDescription.mUseParentRotation) {
         mParentTransform = actor->GetTransform() * mParentTransform;
         SetTransform(mParentTransform);
-        mParentTransform.SetTranslation(mParentTransform.GetTranslation() +
-                                        actor->GetTranslation() * -1.f);
+        mParentTransform.AddTranslation(actor->GetTranslation() * -1.f);
       }
       break;
     }
@@ -172,52 +183,51 @@ void CScriptDynamicLight::UpdateSpline(float dt) {
     if (mSplineTime >= mSpline.GetPositionSpline().GetDuration()) {
       mSplineTime = mSplineLoops ? 0.f : mSpline.GetPositionSpline().GetDuration();
     }
-    SetTranslation(mSpline.GetPositionByTime(mSplineTime));
+    const CVector3f position = mSpline.GetPositionByTime(mSplineTime);
+    SetTranslation(position);
   }
 }
 
 void CScriptDynamicLight::UpdateParent(CStateManager& mgr) {
-  if (!GetActive() || mParentId == kInvalidUniqueId) {
-    return;
-  }
-  CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mParentId));
-  if (!actor) {
-    mParentId = kInvalidUniqueId;
-    return;
-  }
-  if (mUseParentLocator && mParentLocator == CSegId::Invalid() && actor->HasAnimation()) {
-    mParentLocator = actor->GetAnimationData()->GetLocatorSegId(mDescription.mLocatorName);
-    if (mParentLocator == CSegId::Invalid()) {
-      mUseParentLocator = false;
+  if (GetActive() && mParentId != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mParentId))) {
+      if (mUseParentLocator && mParentLocator == CSegId::Invalid() && actor->HasModelData()) {
+        if (const CAnimData* animData = actor->GetAnimationData()) {
+          mParentLocator = animData->GetLocatorSegId(mDescription.mLocatorName);
+          if (mParentLocator == CSegId::Invalid()) {
+            mUseParentLocator = false;
+          }
+        }
+      }
+      if (mDescription.mUseParentRotation) {
+        const CTransform4f parent =
+            mParentLocator != CSegId::Invalid()
+                ? actor->GetTransform() * actor->GetScaledLocatorTransform(mParentLocator)
+                : actor->GetTransform();
+        SetTransform(parent * mParentTransform);
+      } else {
+        const CVector3f position =
+            mParentLocator != CSegId::Invalid()
+                ? (actor->GetTransform() * actor->GetScaledLocatorTransform(mParentLocator))
+                      .GetTranslation()
+                : actor->GetTranslation();
+        SetTranslation(position + mParentTransform.GetTranslation());
+      }
+    } else {
+      mParentId = kInvalidUniqueId;
     }
-  }
-  if (mDescription.mUseParentRotation) {
-    const CTransform4f parent =
-        mParentLocator == CSegId::Invalid()
-            ? actor->GetTransform()
-            : actor->GetTransform() * actor->GetScaledLocatorTransform(mParentLocator);
-    SetTransform(parent * mParentTransform);
-  } else {
-    const CVector3f position =
-        mParentLocator == CSegId::Invalid()
-            ? actor->GetTranslation()
-            : (actor->GetTransform() * actor->GetScaledLocatorTransform(mParentLocator))
-                  .GetTranslation();
-    SetTranslation(position + mParentTransform.GetTranslation());
   }
 }
 
 void CScriptDynamicLight::UpdateTarget(CStateManager& mgr) {
-  if (!GetActive() || mTargetId == kInvalidUniqueId) {
-    return;
-  }
-  CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mTargetId));
-  if (!actor) {
-    mTargetId = kInvalidUniqueId;
-  } else {
-    CTransform4f xf = CTransform4f::LookAt(GetTranslation(), actor->GetTranslation());
-    xf.SetTranslation(GetTranslation());
-    SetTransform(xf);
+  if (GetActive() && mTargetId != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mTargetId))) {
+      CTransform4f xf = CTransform4f::LookAt(GetTranslation(), actor->GetTranslation());
+      xf.SetTranslation(GetTranslation());
+      SetTransform(xf);
+    } else {
+      mTargetId = kInvalidUniqueId;
+    }
   }
 }
 

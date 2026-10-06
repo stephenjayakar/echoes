@@ -315,17 +315,19 @@ void CPlasmaProjectile::Render(const CStateManager& mgr) const {
     gpRender->SetModelMatrix(xf);
     RenderBeam(3, 0.25f * mBeamWidth, mCoreColor, 4);
   }
+  const CColor& innerColor = mInnerColor;
+  const CColor& outerColor = mOuterColor;
   if (!(mBeamAttributes & 0x20)) {
     gpRender->SetModelMatrix(xf * CTransform4f::RotateY(CRelAngle::FromDegrees(mBeamAngle)));
-    RenderBeam(4, 0.5f * mBeamWidth, mInnerColor, 1);
+    RenderBeam(4, 0.5f * mBeamWidth, innerColor, 1);
   }
   if (!(mBeamAttributes & 0x40)) {
     gpRender->SetModelMatrix(xf * CTransform4f::RotateY(CRelAngle::FromDegrees(-mBeamAngle)));
-    RenderBeam(8, mBeamWidth, mOuterColor, 3);
+    RenderBeam(8, mBeamWidth, outerColor, 3);
   }
   if (!(mBeamAttributes & 0x80)) {
     gpRender->SetModelMatrix(xf);
-    RenderBeam(6, 1.25f * mBeamWidth, mOuterColor, 0xd);
+    RenderBeam(6, 1.25f * mBeamWidth, outerColor, 0xd);
   }
 }
 
@@ -339,7 +341,7 @@ void CPlasmaProjectile::Fire(const CTransform4f& xf, CStateManager& mgr, bool fl
   mInitialDamagePending = mInitialDamageEnabled;
   if (mBeamAttributes & 1) {
     rstl::reserved_vector< CVector3f, 8 >& cache = PointCache();
-    for (int i = 0; i < cache.size(); ++i) {
+    for (int i = 0; i < cache.capacity(); ++i) {
       cache[i] = xf.GetTranslation();
     }
   }
@@ -353,14 +355,16 @@ void CPlasmaProjectile::ResetBeam(CStateManager& mgr, bool fullReset) {
     mExpansionT = 0.f;
     mBeamAngle = 0.f;
     mShutdownTimer = 0.f;
+    mBeamAngle = 0.f;
     mContactPulseTimer = 0.f;
     mEnergyPulseTimer = 0.f;
     mPlayerEffectPulseTimer = 0.f;
     mExpansionState = kES_Inactive;
+    mFiring = false;
   } else {
+    mFiring = false;
     mExpansionState = kES_Release;
   }
-  mFiring = false;
   mPulseGen->SetParticleEmission(false);
   if (mContactGen.get()) {
     mContactGen->SetParticleEmission(false);
@@ -442,7 +446,7 @@ void CPlasmaProjectile::RenderBeam(int subdivisions, float width, const CColor& 
 }
 
 void CPlasmaProjectile::UpdateEnergyPulse(float dt) {
-  if (GetDamageType() != kDT_None && mEnableEnergyPulse) {
+  if (GetDamageType() != kDT_None ? mEnableEnergyPulse : false) {
     mEnergyPulseTimer -= dt;
     if (mEnergyPulseTimer <= 0.f) {
       mEnergyPulseTimer = 2.f * dt;
@@ -450,7 +454,7 @@ void CPlasmaProjectile::UpdateEnergyPulse(float dt) {
       const float lengthRatio = GetCurrentLength() / GetMaxLength();
       for (float t = 0.f; t <= lengthRatio; t += 0.1f) {
         const float y = t * GetMaxLength() + mEnergyPulseStartY;
-        if (y <= GetCurrentLength()) {
+        if (!(y > GetCurrentLength())) {
           mPulseGen->SetTranslation(CVector3f(0.f, y, 0.f));
           mPulseGen->ForceParticleCreation(1);
         }
@@ -467,7 +471,9 @@ void CPlasmaProjectile::RenderMotionBlur() const {
   gpRender->SetModelMatrix(CTransform4f::Identity());
   gpRender->SetBlendMode_AlphaBlended();
   const CVector3f origin = GetBeamTransform().GetTranslation();
-  const uint outerColor = mOuterColor.GetColor_u32();
+  CColor blurColor = mOuterColor;
+  blurColor.SetAlpha(mExpansion);
+  const uint outerColor = blurColor.GetColor_u32();
   const uint color0 = (outerColor & 0xffffff00) | 0x3f;
   const uint color1 = outerColor & 0xffffff00;
   static const GXVtxDescList vtxDesc[] = {
@@ -565,8 +571,9 @@ void CPlasmaProjectile::UpdateLights(float expansion, float dt, CStateManager& m
     for (rstl::vector< TUniqueId >::const_iterator it = mLights.begin(); it != mLights.end();
          ++it) {
       if (CGameLight* gameLight = TCastToPtr< CGameLight >(mgr.ObjectById(*it))) {
+        const CVector3f offset(0.f, y, 0.f);
         gameLight->SetTransform(CTransform4f::Identity());
-        gameLight->SetTranslation(GetBeamTransform() * CVector3f(0.f, y, 0.f));
+        gameLight->SetTranslation(GetBeamTransform() * offset);
         gameLight->SetLight(light);
       }
       y += spacing;
@@ -575,6 +582,6 @@ void CPlasmaProjectile::UpdateLights(float expansion, float dt, CStateManager& m
 }
 
 void CPlasmaProjectile::SetInitialDamage(float damage) {
-  mInitialDamage = damage;
   mInitialDamageEnabled = damage > 0.f;
+  mInitialDamage = damage;
 }

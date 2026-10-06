@@ -77,3 +77,8 @@ CFBStreamedCompression::CFBStreamedCompression(CInputStream& in, IObjectStore&)
 CFBStreamedCompression::~CFBStreamedCompression() {
   CCharAnimMemoryMetrics::SubtractFromTotalSize(mScratchSize, CCharAnimMemoryMetrics::kASS_Two);
 }
+
+// Out-of-line in the original; the target emits it at the end of CFBStreamedAnimReader.cpp.
+CCharAnimTime CFBStreamedCompression::GetAnimationDuration() const {
+  return MainHeader().GetMaxTime();
+}

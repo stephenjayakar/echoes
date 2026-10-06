@@ -94,7 +94,7 @@ void CGameProjectile::Render(const CStateManager& mgr) const {
 }
 
 CAABox CGameProjectile::GetProjectileBounds() const {
-  const CVector3f& position = GetTranslation();
+  const CVector3f position = GetTranslation();
   return CAABox(rstl::min_val(mPreviousPos.GetX(), position.GetX()) - mProjExtent,
                 rstl::min_val(mPreviousPos.GetY(), position.GetY()) - mProjExtent,
                 rstl::min_val(mPreviousPos.GetZ(), position.GetZ()) - mProjExtent,
@@ -120,13 +120,14 @@ rstl::optional_object< CAABox > CGameProjectile::GetTouchBounds() const {
 }
 
 CProjectileTouchResult CGameProjectile::CanCollideWithTrigger(CActor& actor, CStateManager& mgr) {
-  const bool isWater = TCastToPtr< CScriptWater >(&actor) != nullptr;
+  const bool isWater = TCastToPtr< CScriptWater >(actor) != nullptr;
   if (isWater) {
-    const bool enteredWater = GetFluidCount() == 0 && !mProjectile.GetWeaponDescription()->mEWTR;
+    const bool enteredWater =
+        isWater && GetFluidCount() == 0 && !mProjectile.GetWeaponDescription()->mEWTR;
     const bool leftWater =
         !isWater && GetFluidCount() != 0 && !mProjectile.GetWeaponDescription()->mLWTR;
-    return CProjectileTouchResult(enteredWater || leftWater ? actor.GetUniqueId()
-                                                            : kInvalidUniqueId,
+    const bool collide = enteredWater || leftWater;
+    return CProjectileTouchResult(collide ? actor.GetUniqueId() : kInvalidUniqueId,
                                   rstl::optional_object_null());
   }
   return CProjectileTouchResult(kInvalidUniqueId, rstl::optional_object_null());
@@ -340,7 +341,7 @@ void CGameProjectile::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
     DeleteProjectileLight(mgr);
     break;
   case kSM_XENF:
-    if (!mInWater) {
+    if (mInWater != true) {
       mInWater = true;
       mWaterUpdate = true;
     }
@@ -371,11 +372,11 @@ void CGameProjectile::FluidFXThink(EFluidState state, CScriptWater& water, CStat
 void CGameProjectile::ApplyDamageToOneActor(CStateManager& mgr, const CDamageInfo& damageInfo,
                                             TUniqueId id, const CVector3f& direction) {
   if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(id))) {
-    if (!damageInfo.ShouldApplyRadiusDamage()) {
+    if (damageInfo.ShouldApplyRadiusDamage()) {
+      mgr.ApplyRadiusDamage(*this, GetTranslation(), *actor, GetOwnerId(), damageInfo);
+    } else {
       mgr.ApplyDamage(GetUniqueId(), actor->GetUniqueId(), GetOwnerId(), damageInfo, GetFilter(),
                       direction);
-    } else {
-      mgr.ApplyRadiusDamage(*this, GetTranslation(), *actor, GetOwnerId(), damageInfo);
     }
     mAppliedDamage = true;
     if (CPlayer* player = TCastToPtr< CPlayer >(actor)) {
@@ -388,14 +389,15 @@ void CGameProjectile::ApplyDamageToOneActor(CStateManager& mgr, const CDamageInf
 }
 
 void CGameProjectile::ApplyDamageToActors(CStateManager& mgr, const CDamageInfo& damageInfo) {
+  const CVector3f forward = GetTransform().GetForward();
   if (mPendingDamagee != kInvalidUniqueId) {
-    ApplyDamageToOneActor(mgr, damageInfo, mPendingDamagee, GetTransform().GetForward());
+    ApplyDamageToOneActor(mgr, damageInfo, mPendingDamagee, forward);
     mPendingDamagee = kInvalidUniqueId;
   }
 }
 
 CRayCastResult CGameProjectile::DoCollisionCheck(TUniqueId& idOut, CStateManager& mgr) {
-  CRayCastResult result;
+  CRayCastResult result = CRayCastResult::MakeInvalid();
   if (mActive) {
     const CVector3f delta = GetTranslation() - mPreviousPos;
     rstl::reserved_vector< TUniqueId, 1024 > nearList;
@@ -552,7 +554,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
 
 void CGameProjectile::CreateProjectileLight(const rstl::string& name, const CLight& light,
                                             CStateManager& mgr) {
-  if (mgr.GetNumPlayers() < 3) {
+  if (mgr.GetNumPlayers() < 3u) {
     DeleteProjectileLight(mgr);
     mProjectileLight = mgr.AllocateUniqueId();
     const uint sourceId = mWpscId;
@@ -572,14 +574,14 @@ void CGameProjectile::DeleteProjectileLight(CStateManager& mgr) {
 
 CWeapon::EProjectileAttrib CGameProjectile::GetBeamAttribType(EWeaponType type) {
   switch (type) {
+  case kWT_Phazon:
+    return kPA_Phazon;
   case kWT_Dark:
     return kPA_Dark;
   case kWT_Light:
     return kPA_Light;
   case kWT_Annihilator:
     return kPA_Annihilator;
-  case kWT_Phazon:
-    return kPA_Phazon;
   default:
     return kPA_None;
   }
