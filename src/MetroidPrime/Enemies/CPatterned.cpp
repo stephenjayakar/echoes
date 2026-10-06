@@ -453,12 +453,16 @@ bool CPatterned::IsBeingSnatched() const {
   return mIngPossessionBlend > 0.f && mIngPossessionBlend < 1.f && mIngModel.valid() == true;
 }
 
-void CPatterned::RenderSystemsToBeDrawnFirst(const CStateManager&, uint, uint) const {
-  // TODO: Draw the animation particle database's first-pass systems.
+void CPatterned::RenderSystemsToBeDrawnFirst(const CStateManager&, uint mask, uint target) const {
+  if (mDrawParticles) {
+    GetAnimationData()->GetParticleDB().RenderSystemsToBeDrawnFirstPOICheck(mask, target);
+  }
 }
 
-void CPatterned::RenderSystemsToBeDrawnLast(const CStateManager&, uint, uint) const {
-  // TODO: Draw the animation particle database's last-pass systems.
+void CPatterned::RenderSystemsToBeDrawnLast(const CStateManager&, uint mask, uint target) const {
+  if (mDrawParticles) {
+    GetAnimationData()->GetParticleDB().RenderSystemsToBeDrawnLastPOICheck(mask, target);
+  }
 }
 
 void CPatterned::fn_80074e54(const CModelFlags&) const {
