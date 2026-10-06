@@ -1011,10 +1011,22 @@ void CBallCamera::UpdateUsingSpline(float dt, CStateManager& mgr) {
     mSplineState = kBSS_Invalid;
     return;
   }
-  if (mSplineState == kBSS_One && ((mBehaviour >= kBCB_Unknown4 && mBehaviour <= kBCB_Unknown9) ||
-                                   mBehaviour == kBCB_FixedTransform)) {
-    mSplineState = kBSS_Invalid;
-    return;
+  if (mSplineState == kBSS_One) {
+    switch (mBehaviour) {
+    case kBCB_Unknown4:
+    case kBCB_Unknown5:
+    case kBCB_Unknown6:
+    case kBCB_Unknown7:
+    case kBCB_Unknown8:
+    case kBCB_Unknown9:
+    case kBCB_FixedTransform:
+      InvalidateSpline();
+      return;
+    case kBCB_HintLocalOffset:
+      break;
+    default:
+      break;
+    }
   }
 
   float distance = mCurMinDistance;
@@ -1029,52 +1041,50 @@ void CBallCamera::UpdateUsingSpline(float dt, CStateManager& mgr) {
     direction = Player(mgr).GetMovementDirection();
   }
 
-  const CVector3f endPosition = mCamSpline.GetKnot(mCamSpline.GetKnotCount() - 1);
-  CVector3f desiredPosition = FindDesiredPosition(distance, elevation, direction, mgr, false);
+  // Unused, like the Prime version's knot3.
+  const CVector3f endKnot = mCamSpline.GetKnot(mCamSpline.GetControlPointCount() - 1);
+  CVector3f desiredPos = FindDesiredPosition(distance, elevation, direction, mgr, false);
   mSplineCtrl -= dt;
-  const float remaining = CMath::Clamp(0.f, mSplineCtrl / mSplineCtrlRange, 1.f);
-  const float progress = 1.f - remaining;
-  if (mCamBehindFloorOrWall && !close_enough(desiredPosition, GetTranslation(), 0.1f)) {
-    desiredPosition += remaining * (GetTranslation() - desiredPosition);
+  const float progress = 1.f - CMath::Clamp(0.f, mSplineCtrl / mSplineCtrlRange, 1.f);
+  if (mReevalSplineEnd && !close_enough(desiredPos, GetTranslation(), 0.1f)) {
+    desiredPos += (1.f - progress) * (GetTranslation() - desiredPos);
   }
 
   if (mSplineCtrl <= 0.f || (progress > 0.95f && mClearLOS)) {
     mSplineState = kBSS_Invalid;
-    const CTransform4f previous = GetTransform();
-    const CTransform4f desired = FindDesiredTransform(direction, mgr);
-    TeleportCamera(desired, mgr);
-    CameraManager(mgr).SetupInterpolation(
-        previous, GetUniqueId(), GetUniqueId(), false, CInterpolationCamera::kPM_Direct,
-        CInterpolationCamera::kRM_LinearSlerp, mgr, true, 0.5f, GetFov());
-    return;
-  }
+    const CTransform4f previous(GetTransform());
+    TeleportCamera(FindDesiredTransform(direction, mgr), mgr);
+    const_cast< CCameraManager& >(GetCameraManager(mgr))
+        .SetupInterpolation(previous, GetUniqueId(), GetUniqueId(), false,
+                            CInterpolationCamera::kPM_Direct, CInterpolationCamera::kRM_LinearSlerp,
+                            mgr, true, 0.5f, GetTargetFov());
+  } else {
+    x498_ = progress * mCamSpline.GetLength();
+    const CVector3f splinePos = mCamSpline.GetPositionByLength(x498_);
+    if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mCollisionActorId))) {
+      const CMaterialFilter oldFilter = actor->GetMaterialFilter();
+      CMaterialList include = oldFilter.GetIncludeList();
+      include.Add(kMT_Wall);
+      CMaterialList exclude = oldFilter.GetExcludeList();
+      exclude.Add(mCollisionExcludeList);
+      const CMaterialFilter newFilter = CMaterialFilter::MakeIncludeExclude(include, exclude);
+      actor->SetMaterialFilter(newFilter);
+      desiredPos = MoveCollisionActor(splinePos, dt, mgr);
+      actor->SetMaterialFilter(oldFilter);
+    }
 
-  const float splineLength = progress * mCamSpline.GetLength();
-  CVector3f cameraPos = mCamSpline.GetPositionByLength(splineLength);
-  const CCollisionActor* collisionActor =
-      TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(mCollisionActorId));
-  if (collisionActor != nullptr) {
-    const CMaterialFilter previousFilter = collisionActor->GetMaterialFilter();
-    CMaterialList include = previousFilter.GetIncludeList();
-    include.Add(kMT_Wall);
-    CMaterialList exclude = previousFilter.GetExcludeList();
-    exclude.Add(mCollisionExcludeList);
-    CCollisionActor* mutableCollisionActor =
-        static_cast< CCollisionActor* >(mgr.ObjectById(mCollisionActorId));
-    mutableCollisionActor->SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(include, exclude));
-    cameraPos = MoveCollisionActor(cameraPos, dt, mgr);
-    mutableCollisionActor->SetMaterialFilter(previousFilter);
-  }
-
-  const CVector3f lookAt = mLookAtBall ? ballPos : mLookPos;
-  CVector3f lookDir = lookAt - cameraPos;
-  if (lookDir.IsMagnitudeSafe()) {
-    lookDir.Normalize();
-    UpdateTransform(lookDir, cameraPos, dt, mgr);
-  }
-  TeleportCamera(cameraPos, mgr);
-  if (mCamBehindFloorOrWall && mSplineCtrl / mSplineCtrlRange < 0.5f) {
-    mSplineState = kBSS_Invalid;
+    CVector3f lookDir = mLookPos - desiredPos;
+    if (mLookAtBall) {
+      lookDir = ballPos - desiredPos;
+    }
+    if (lookDir.IsMagnitudeSafe()) {
+      lookDir.Normalize();
+      UpdateTransform(lookDir, desiredPos, dt, mgr);
+    }
+    TeleportCamera(desiredPos, mgr);
+    if (mCamBehindFloorOrWall && mSplineCtrl / mSplineCtrlRange < 0.5f) {
+      mSplineState = kBSS_Invalid;
+    }
   }
 }
 
