@@ -939,13 +939,14 @@ void CActor::UpdateSfxEmitters(CStateManager& mgr) {
 
 CSfxHandle CActor::PlayCustomSound(const CVector3f& position, const CVector3f& direction,
                                    const SLdrAudioPlaybackParms& parameters, bool looped) const {
+  const int areaId = GetCurrentAreaId().Value();
   CAudioSys::C3DEmitterParmData emitter(parameters.maximumDistance, parameters.fallOff, 1,
                                         parameters.maxVolume, parameters.minVolume);
   emitter.mPos = position;
   emitter.mDir = direction;
   emitter.mSfxId = parameters.sound_Id;
-  return CSfxManager::AddEmitter(emitter, GetCurrentAreaId().Value(), parameters.useRoomAcoustics,
-                                 looped, CSfxManager::kMedPriority);
+  return CSfxManager::AddEmitter(emitter, areaId, parameters.useRoomAcoustics, looped,
+                                 CSfxManager::kMedPriority);
 }
 
 void CActor::StopLoopedSound(ushort sfxId) {

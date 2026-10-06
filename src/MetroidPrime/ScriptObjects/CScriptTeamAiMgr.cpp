@@ -490,9 +490,10 @@ TUniqueId CScriptTeamAiMgr::ChoosePlayer(const CStateManager& mgr, const CActor&
   TUniqueId target = kInvalidUniqueId;
   float bestScore = FLT_MAX;
   const CVector3f forward = actor.GetTransform().GetForward();
+  const CVector3f actorPos = actor.GetTranslation();
   for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     const CPlayer& player = *mgr.GetPlayer(i);
-    const CVector3f delta = player.GetTranslation() - actor.GetTranslation();
+    const CVector3f delta = player.GetTranslation() - actorPos;
     const float distanceSquared = delta.MagSquared();
     if (distanceSquared < bestScore) {
       const float score =
