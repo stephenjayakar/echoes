@@ -60,7 +60,7 @@ private:
   };
   enum ETransitionState { kTS_Loading, kTS_FadeIn, kTS_Active, kTS_FadeOut };
   struct SNodeDraw {
-    rstl::rc_ptr< CScanTreeNode > mNode;
+    rstl::ncrc_ptr< CScanTreeNode > mNode;
     CVector3f mPosition;
     float mDepth;
     int mStyle;

@@ -240,6 +240,10 @@ void CAnimData::Render(const CSkinnedModel& model, const CModelFlags& flags) con
   DrawSkinnedModel(model, flags);
 }
 
+void CAnimData::RenderAuxiliary(const CFrustumPlanes& planes) const {
+  mParticleDB.AddToRendererClipped(planes);
+}
+
 void CAnimData::RecalcPoseBuilder(const CCharAnimTime* time) const {
   // TODO: Sample the root into joint storage, add additive segments and build the linear pose.
   // The inherited IAnimReader virtual interface must be recovered before dispatching here.
@@ -319,6 +323,10 @@ rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() const { retur
 int CAnimData::CountUserEventsForAnimation(int anim, EUserEventType type) const {
   // TODO: Build the selected animation and count events over its duration.
   return 0;
+}
+
+void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
+  model.GetModel()->Touch(shaderIdx);
 }
 
 void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVector3f& scale) {

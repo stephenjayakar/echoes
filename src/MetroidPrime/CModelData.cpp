@@ -264,7 +264,7 @@ void CModelData::Touch(EWhichModel which, int shaderIdx) const {
     return;
   }
   if (HasAnimation()) {
-    PickAnimatedModel(which).GetModel()->Touch(shaderIdx);
+    CAnimData::Touch(PickAnimatedModel(which), shaderIdx);
   } else {
     PickStaticModel(which)->Touch(shaderIdx);
   }
@@ -295,7 +295,7 @@ void CModelData::Touch() const {
 
 void CModelData::RenderParticles(const CFrustumPlanes& planes) const {
   if (HasAnimation()) {
-    mAnimData->GetParticleDB().AddToRendererClipped(planes);
+    mAnimData->RenderAuxiliary(planes);
   }
 }
 
@@ -382,7 +382,7 @@ CTransform4f CModelData::GetScaledLocatorTransformDynamic(const CSegId& id,
 }
 
 CAABox CModelData::GetBounds(const CTransform4f& xf) const {
-  const CTransform4f scaledXf = xf * CTransform4f::Scale(mScale);
+  const CTransform4f scaledXf = xf * CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ());
   if (HasAnimation()) {
     return mAnimData->GetBoundingBox(scaledXf);
   }
@@ -399,7 +399,7 @@ CAABox CModelData::GetBounds(const CTransform4f& xf) const {
 
 CAABox CModelData::GetBounds() const {
   if (HasAnimation()) {
-    return mAnimData->GetBoundingBox(CTransform4f::Scale(mScale));
+    return mAnimData->GetBoundingBox(CTransform4f::Scale(mScale.GetX(), mScale.GetY(), mScale.GetZ()));
   }
 
   CAABox bounds = (*mNormalModel)->GetAABB();

@@ -1069,7 +1069,7 @@ void CPauseScreen::ProcessSelectionInput(const CFinalInput& input) {
 void CPauseScreen::SetPanSound(bool playing) {
   if (playing) {
     if (mPanSfx == CSfxHandle()) {
-      mPanSfx = CSfxManager::SfxStart(300, 0x7f, 0x3f, CSfxManager::kAllAreas, false, true,
+      mPanSfx = CSfxManager::SfxStart(300, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                                       CSfxManager::kMedPriority);
     }
   } else if (mPanSfx != CSfxHandle()) {
@@ -1081,7 +1081,7 @@ void CPauseScreen::SetPanSound(bool playing) {
 void CPauseScreen::SetZoomSound(bool playing) {
   if (playing) {
     if (mZoomSfx == CSfxHandle()) {
-      mZoomSfx = CSfxManager::SfxStart(0x78, 0x7f, 0x3f, CSfxManager::kAllAreas, false, true,
+      mZoomSfx = CSfxManager::SfxStart(0x78, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                                        CSfxManager::kMedPriority);
     }
   } else if (mZoomSfx != CSfxHandle()) {

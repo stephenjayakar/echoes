@@ -103,6 +103,7 @@ public:
   void PreRender();
   void SetupRender() const;
   void Render(const CSkinnedModel& model, const CModelFlags& flags) const;
+  void RenderAuxiliary(const CFrustumPlanes& planes) const;
   void RecalcPoseBuilder(const CCharAnimTime* time) const;
   float GetAnimationDuration(int anim) const;
   float GetAnimTimeRemaining(const rstl::string& name) const;
@@ -118,6 +119,7 @@ public:
                                    const rstl::ncrc_ptr< CAnimTreeNode >& tree) const;
   // Guessed names.
   int CountUserEventsForAnimation(int anim, EUserEventType type) const;
+  static void Touch(const CSkinnedModel& model, int shaderIdx);
   int CountUserEvents(EUserEventType type, const CCharAnimTime& time,
                       const rstl::ncrc_ptr< CAnimTreeNode >& tree) const;
 

@@ -45,6 +45,7 @@
 
 static const char* const skFRME_MapScreen = "FRME_MapScreen";
 static const char* const skFRME_MapScreenBackground = "FRME_MapScreenBackground";
+static const char* const skModelHex = "model_hex";
 
 // Guessed name
 struct SMapKeyEntry {
@@ -307,9 +308,9 @@ bool CAutoMapper::CheckLoadComplete() {
   // Fall through after the map resources are ready.
   case kLP_LoadUniverse:
     if (mMapu.IsLoaded()) {
-      const int numWorlds = mMapu.GetObject()->GetNumMapWorldDatas();
-      mDummyWorlds =
-          rstl::vector< rstl::auto_ptr< IWorld > >(numWorlds, rstl::auto_ptr< IWorld >());
+      const CMapUniverse* mapu = mMapu.GetObject();
+      mDummyWorlds = rstl::vector< rstl::auto_ptr< IWorld > >(mapu->GetNumMapWorldDatas(),
+                                                              rstl::auto_ptr< IWorld >());
       SetCurWorldAssetId(mWorld->IGetWorldAssetId());
       mLoadPhase = kLP_Done;
     } else {
@@ -1441,7 +1442,7 @@ void CAutoMapper::Update(float dt, CStateManager& mgr) {
     mBackgroundHexagons.reserve(100);
     for (int i = 0; i < 100; ++i) {
       CGuiWidget* hexagon =
-          mFrmeBackgroundInitialized->FindWidget(CBasics::Stringize("%s%d", "model_hex", i));
+          mFrmeBackgroundInitialized->FindWidget(CBasics::Stringize("%s%d", skModelHex, i));
       if (hexagon != nullptr) {
         mBackgroundHexagons.push_back_unsafe(hexagon);
         hexagon->SetDepthWrite(false);
@@ -2239,6 +2240,10 @@ int CAutoMapper::FindTeleportArea(const CMapWorld& world) const {
   return -1;
 }
 
+namespace rstl {
+bool operator==(const string& lhs, const char* rhs) { return lhs.compare(rhs) == 0; }
+} // namespace rstl
+
 rstl::pair< int, int > CAutoMapper::FindClosestVisibleWorld(const CVector3f& point,
                                                             const CUnitVector3f& camDir,
                                                             const CStateManager& mgr) const {
@@ -2486,7 +2491,7 @@ void CAutoMapper::UpdateTempleKeys(const CStateManager& mgr) {
 }
 
 void CAutoMapper::SetCurAreaId(int areaId) {
-  if (mCurAreaId.Value() != areaId &&
+  if (mCurAreaId != TAreaId(areaId) &&
       (close_enough(mDarkWorldBlend, 0.f) || close_enough(mDarkWorldBlend, 1.f)) &&
       mState != kAMS_MiniMap) {
     if (mTransitionState == kTS_Idle) {
