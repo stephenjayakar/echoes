@@ -1519,6 +1519,14 @@ config.libs = [
         ],
     ),
     Rel(
+        "Grenchler",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CGrenchler.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CGrenchlerTail.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Metaree",
         [
             Object(Matching, "MetroidPrime/Enemies/CMetaree.cpp"),
