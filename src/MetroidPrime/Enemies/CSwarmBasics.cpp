@@ -456,8 +456,7 @@ CCollisionSurface CSwarmBasics::FindBestCollisionInBox(CStateManager& mgr, const
   CCollisionSurface result(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f),
                            CVector3f(0.f, 0.f, 1.f), ~0);
   const CAABox& bounds = GetBoundingBox();
-  const CVector3f extent(0.5f * bounds.GetWidth(), 0.5f * bounds.GetHeight(),
-                         0.5f * bounds.GetDepth());
+  const CVector3f extent = 0.5f * (bounds.GetMaxPoint() - bounds.GetMinPoint());
   for (float scale = 0.1f; scale < 1.f; scale += 0.1f) {
     const CAABox searchBounds(pos - extent * scale, pos + extent * scale);
     CAreaCollisionCache cache(searchBounds);
@@ -815,10 +814,10 @@ void CSwarmBasics::Think(float dt, CStateManager& mgr) {
 }
 
 void CSwarmBasics::UpdateAllBoidMovement(CStateManager& mgr, float dt) {
-  int count = mBoids.size();
+  uint count = mBoids.size();
   if (x4f0_27_) {
-    int mask = mModelDatas.size() - 1;
-    for (int i = 0; i < count; ++i) {
+    uint mask = mModelDatas.size() - 1;
+    for (uint i = 0; i < count; ++i) {
       MoveBoid(mgr, mBoids[i], mAdvancementDeltas[i & mask].GetOffsetDelta(), dt);
     }
   }
@@ -943,7 +942,8 @@ CColor CSwarmBasics::SoftwareLight(const CStateManager& mgr, const CAABox& bound
 void CSwarmBasics::PreRender(CStateManager& mgr) {
   bool active = false;
   if (x4f0_27_) {
-    for (uint i = 0; i < mModelDatas.size(); ++i) {
+    uint count = mModelDatas.size();
+    for (uint i = 0; i < count; ++i) {
       mModelDatas[i].AnimationData()->PreRender();
     }
   }
