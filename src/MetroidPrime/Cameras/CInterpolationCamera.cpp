@@ -207,7 +207,8 @@ void CInterpolationCamera::SetInterpolation(const CTransform4f& xf, TUniqueId fr
   mRotationFinished = false;
   mTime = 0.f;
 
-  CGameCamera* source = TCastToPtr< CGameCamera >(mgr.ObjectById(from));
+  CGameCamera* source = const_cast< CGameCamera* >(
+      TCastToConstPtr< CGameCamera >(mgr.GetObjectById(from)));
   const CGameCamera* target = TCastToConstPtr< CGameCamera >(mgr.GetObjectById(to));
   SetTransform(mStartTransform);
   if (!target) {
@@ -222,7 +223,7 @@ void CInterpolationCamera::SetInterpolation(const CTransform4f& xf, TUniqueId fr
   mLookPosition = target->GetScanObjectIndicatorPosition(mgr);
   mInitialDistance = (target->GetTranslation() - xf.GetTranslation()).Magnitude();
   if (source) {
-    CameraManager(mgr).TransferCameraState(*source, *this, mgr);
+    const_cast< CCameraManager& >(GetCameraManager(mgr)).TransferCameraState(*source, *this, mgr);
     SetTransform(xf);
     SetFov(source->GetFov());
     InterpolateFOV(source->GetFov(), duration, 0.f, to, mgr);
@@ -235,7 +236,7 @@ void CInterpolationCamera::SetInterpolation(const CTransform4f& xf, TUniqueId fr
 
 void CInterpolationCamera::EndInterpolation(EEndReason reason, CStateManager& mgr) {
   SetActive(false);
-  CCameraManager& cameraManager = CameraManager(mgr);
+  CCameraManager& cameraManager = const_cast< CCameraManager& >(GetCameraManager(mgr));
   CGameCamera* target = TCastToPtr< CGameCamera >(mgr.ObjectById(mTargetId));
   if (!target) {
     return;
@@ -246,18 +247,21 @@ void CInterpolationCamera::EndInterpolation(EEndReason reason, CStateManager& mg
     }
     cameraManager.SetCurrentCameraId(mTargetId, mgr);
   } else {
-    const CPlayer::EPlayerMorphBallState state = GetPlayer(mgr).GetMorphballTransitionState();
-    if (state == CPlayer::kMS_Unmorphed || state == CPlayer::kMS_Unmorphing) {
-      CFirstPersonCamera* camera = cameraManager.FirstPersonCamera();
+    switch (Player(mgr).GetMorphballTransitionState()) {
+    case CPlayer::kMS_Unmorphed:
+    case CPlayer::kMS_Unmorphing:
       if (reason == kER_Completed) {
-        cameraManager.TransferCameraState(*this, *camera, mgr);
+        cameraManager.TransferCameraState(*this, *cameraManager.FirstPersonCamera(), mgr);
       }
-      cameraManager.SetCurrentCameraId(camera->GetUniqueId(), mgr);
-    } else {
+      cameraManager.SetCurrentCameraId(cameraManager.FirstPersonCamera()->GetUniqueId(), mgr);
+      break;
+    default: {
       const CBallCamera* camera = cameraManager.GetBallCamera();
       cameraManager.SetupInterpolation(GetTransform(), GetUniqueId(), camera->GetUniqueId(), false,
                                        kPM_Direct, kRM_LinearSlerp, mgr, true, 1.f,
                                        camera->GetFov());
+      break;
+    }
     }
   }
 }
