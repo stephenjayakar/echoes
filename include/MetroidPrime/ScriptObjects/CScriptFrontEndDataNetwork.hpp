@@ -20,7 +20,7 @@ struct SDataNetworkNode {
 
   TUniqueId GetId() const { return mId; }
   CScriptFrontEndDataNetwork* GetNetwork(CStateManager& mgr);
-  const CScriptFrontEndDataNetwork* GetNetwork(const CStateManager& mgr) const;
+  const CScriptFrontEndDataNetwork* GetConstNetwork(const CStateManager& mgr) const;
 
   void SetX64(float v);
   void SetX60(float v);
@@ -85,6 +85,7 @@ public:
   bool CanRenderUnsorted(const CStateManager&) const override;
 
   TUniqueId GetPlatformId() const;
+  float GetConnectionRadius() const { return mConnectionRadius; }
   void SetRootId(TUniqueId id);
 
 private:
@@ -106,9 +107,9 @@ private:
                       const CColor& colorA, const CColor& colorB, float width) const;
   void DrawBillboard(const CTransform4f& xf, const CVector3f& pos, float size,
                      const CColor& color, bool additive) const;
-  bool HandleRotation(const CFinalInput& input, CStateManager& mgr);
-  bool HandleButtons(const CFinalInput& input, CStateManager& mgr);
-  bool HandleStick(const CFinalInput& input, CStateManager& mgr);
+  uchar HandleRotation(const CFinalInput& input, CStateManager& mgr);
+  uchar HandleButtons(const CFinalInput& input, CStateManager& mgr);
+  uchar HandleStick(const CFinalInput& input, CStateManager& mgr);
   void SetSelection(CStateManager& mgr, int index, bool immediate);
   CVector3f GetFalloff(float radius, float strength, const CVector3f& a,
                        const CVector3f& b) const;

@@ -80,7 +80,7 @@ CScriptFrontEndDataNetwork* SDataNetworkNode::GetNetwork(CStateManager& mgr) {
   return TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(mId));
 }
 
-const CScriptFrontEndDataNetwork* SDataNetworkNode::GetNetwork(const CStateManager& mgr) const {
+const CScriptFrontEndDataNetwork* SDataNetworkNode::GetConstNetwork(const CStateManager& mgr) const {
   return TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(mId));
 }
 
@@ -240,7 +240,10 @@ void CScriptFrontEndDataNetwork::AcceptScriptMsg(CStateManager& mgr, const CScri
 
 void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
   CActor::Think(dt, mgr);
-  if (!GetActive() || !mIsRoot) {
+  if (!GetActive()) {
+    return;
+  }
+  if (!mIsRoot) {
     return;
   }
 
@@ -258,18 +261,17 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
   if (mTransitionState == 0 && !mIsLocked) {
     SDataNetworkNode& node = mNodes[mCurIndex];
     const CTransform4f xf(mOrientation.BuildTransform4f());
-    const CVector3f target = (-1.f * node.GetNetwork(mgr)->mConnectionRadius) * xf.GetForward();
+    const CVector3f target = (-1.f * node.GetConstNetwork(mgr)->GetConnectionRadius()) * xf.GetForward();
     float best = 10000.f;
-    if (!node.GetNetwork(mgr)->x2d3) {
+    if (!node.GetConstNetwork(mgr)->x2d3) {
       const int prevSelected = node.GetSelectedChild();
       const CVector3f& pos = node.GetPos();
       for (int i = 0; i < node.mChildren.size(); ++i) {
         SDataNetworkNode& child = mNodes[node.mChildren[i]];
-        const CScriptFrontEndDataNetwork* net = child.GetNetwork(mgr);
+        const CScriptFrontEndDataNetwork* net = child.GetConstNetwork(mgr);
         if (net->GetActive() && net->mCanBeSelected) {
           const CVector3f delta = (child.GetPos() - pos) - target;
-          const float distSq = delta.MagSquared();
-          const float score = (prevSelected == i ? 1.f : 1.5f) * distSq;
+          const float score = (prevSelected == i ? 1.f : 1.5f) * delta.MagSquared();
           if (score < best) {
             node.SetSelectedChild(i);
             best = score;
@@ -282,10 +284,12 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
           SendScriptMsgs(kSS_Modify, mgr);
         }
         if (prevSelected != -1) {
-          mNodes[node.mChildren[prevSelected]].GetNetwork(mgr)->SendScriptMsgs(kSS_Zero, mgr);
+          CScriptFrontEndDataNetwork* prevNet = mNodes[node.mChildren[prevSelected]].GetNetwork(mgr);
+          prevNet->SendScriptMsgs(kSS_Zero, mgr);
         }
-        mNodes[node.mChildren[node.GetSelectedChild()]].GetNetwork(mgr)->SendScriptMsgs(
-            kSS_MaxReached, mgr);
+        CScriptFrontEndDataNetwork* selNet =
+            mNodes[node.mChildren[node.GetSelectedChild()]].GetNetwork(mgr);
+        selNet->SendScriptMsgs(kSS_MaxReached, mgr);
       }
     }
     node.GetNetwork(mgr)->SendScriptMsgs(kSS_Inside, mgr);
@@ -300,16 +304,16 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
       HandleStick(input, mgr);
     } else {
       const CFinalInput& input = mgr.mFinalInputs[mControllers[mActiveController]];
-      bool handled = HandleRotation(input, mgr);
-      handled |= HandleButtons(input, mgr);
-      handled |= HandleStick(input, mgr);
+      uchar handled = HandleRotation(input, mgr);
+      handled = handled | HandleButtons(input, mgr);
+      handled = handled | HandleStick(input, mgr);
       if (!handled) {
         for (int i = 0; i < mControllers.size(); ++i) {
           if (i != mActiveController) {
             const CFinalInput& other = mgr.mFinalInputs[mControllers[i]];
-            bool otherHandled = HandleRotation(other, mgr);
-            otherHandled |= HandleButtons(other, mgr);
-            otherHandled |= HandleStick(other, mgr);
+            uchar otherHandled = HandleRotation(other, mgr);
+            otherHandled = otherHandled | HandleButtons(other, mgr);
+            otherHandled = otherHandled | HandleStick(other, mgr);
             if (otherHandled) {
               mActiveController = i;
               break;
@@ -358,7 +362,7 @@ int CScriptFrontEndDataNetwork::AddNode(CStateManager& mgr, TUniqueId id, int pa
   }
   const CScriptFrontEndDataNetwork* net =
       TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(id));
-  const CScriptFrontEndDataNetwork* parentNet = mNodes[parent].GetNetwork(mgr);
+  const CScriptFrontEndDataNetwork* parentNet = mNodes[parent].GetConstNetwork(mgr);
   mNodes.push_back_unsafe(
       SDataNetworkNode(id, count, parent, net->mIsProxy, parentNet->mIsProxy));
   return count;
@@ -366,16 +370,16 @@ int CScriptFrontEndDataNetwork::AddNode(CStateManager& mgr, TUniqueId id, int pa
 
 void CScriptFrontEndDataNetwork::LayoutChildren(int idx, CStateManager& mgr) {
   SDataNetworkNode& node = mNodes[idx];
-  const CScriptFrontEndDataNetwork* net = node.GetNetwork(mgr);
+  const CScriptFrontEndDataNetwork* net = node.GetConstNetwork(mgr);
   for (rstl::vector< int >::iterator it = node.mChildren.begin(); it != node.mChildren.end();
        ++it) {
     const int childIdx = *it;
     SDataNetworkNode& child = mNodes[childIdx];
-    const CVector3f offset = child.GetNetwork(mgr)->GetTranslation() - net->GetTranslation();
+    const CVector3f offset = child.GetConstNetwork(mgr)->GetTranslation() - net->GetTranslation();
     child.SetOffset(offset);
     CVector3f dir = offset;
     if (dir.CanBeNormalized()) {
-      dir = net->mConnectionRadius * dir.AsNormalized();
+      dir = net->GetConnectionRadius() * dir.AsNormalized();
     }
     child.SetPos((node.GetPos() + dir) - mNodes[0].GetPos());
     child.SetRenderPos(child.GetPos());
@@ -407,14 +411,14 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
       case 1: {
         float duration;
         if (mTransitionForward == 1) {
-          duration = mNodes[mPrevIndex].GetNetwork(const_cast< const CStateManager& >(mgr))
+          duration = mNodes[mPrevIndex].GetConstNetwork(mgr)
                          ->mMoveInTime;
         } else {
           const SDataNetworkNode& prev = mNodes[mPrevIndex];
           const SDataNetworkNode& cur = mNodes[mCurIndex];
           if (mCurIndex == prev.mParent ||
               (prev.mParentIsProxy && mCurIndex == mNodes[prev.mParent].mParent)) {
-            duration = cur.GetNetwork(mgr)->mMoveTime;
+            duration = cur.GetConstNetwork(mgr)->mMoveTime;
           } else {
             duration = 0.f;
           }
@@ -578,7 +582,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
     if (mNodes.data() != &*it) {
       SDataNetworkNode& parent = mNodes[it->mParent];
       pos -= parent.GetPos();
-      radius = parent.GetNetwork(const_cast< const CStateManager& >(mgr))->mConnectionRadius;
+      radius = parent.GetConstNetwork(mgr)->GetConnectionRadius();
     }
     const CVector3f local = xf.TransposeRotate(pos - xf.GetTranslation());
     float facing = (-1.f * local).GetY() / radius;
@@ -605,8 +609,8 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
           selected = true;
         }
         bool disabled = false;
-        if (it->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsLocked &&
-            it->GetNetwork(const_cast< const CStateManager& >(mgr))->x2d2) {
+        if (it->GetConstNetwork(mgr)->mIsLocked &&
+            it->GetConstNetwork(mgr)->x2d2) {
           disabled = true;
         }
         CVector3f center = current.GetRenderPos();
@@ -652,7 +656,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
 void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, float dt) {
   SDataNetworkNode& node = mNodes[idx];
   const CVector3f& center = node.GetPos();
-  const float radius = node.GetNetwork(mgr)->mConnectionRadius;
+  const float radius = node.GetConstNetwork(mgr)->GetConnectionRadius();
   const float maxAttractStep = 1.83f * radius;
   const float maxFlockStep = 0.83f * radius;
   for (int i = 0; i < node.mChildren.size(); ++i) {
@@ -661,12 +665,12 @@ void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, f
     CVector3f pos = child.GetPos();
     if (node.GetSelectedChild() != -1 &&
         childIdx == node.mChildren[node.GetSelectedChild()] &&
-        node.GetNetwork(mgr)->x2ce) {
+        node.GetConstNetwork(mgr)->x2ce) {
       child.SetX38(CVector3f::Zero());
       child.SetVelocity(CVector3f::Zero());
     } else {
       CVector3f accel = CVector3f::Zero();
-      const bool attract = child.GetNetwork(mgr)->x2cd;
+      const bool attract = child.GetConstNetwork(mgr)->x2cd;
       if (attract) {
         CVector3f target = child.GetOffset();
         target = mOrientation.BuildTransform4f().Rotate(target);
@@ -691,7 +695,7 @@ void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, f
     const CVector3f delta = pos - center;
     if (delta.CanBeNormalized()) {
       const CVector3f dir = delta.AsNormalized();
-      child.SetPos(child.GetNetwork(mgr)->x2cd ? pos : center + radius * dir);
+      child.SetPos(child.GetConstNetwork(mgr)->x2cd ? pos : center + radius * dir);
     }
   }
 }
@@ -717,7 +721,7 @@ void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int i
     SDataNetworkNode& child = mNodes[childIdx];
     CScriptFrontEndDataNetwork* net = node.GetNetwork(mgr);
     const float invT = 1.f - mTransitionT;
-    const float radius = net->mConnectionRadius;
+    const float radius = net->GetConnectionRadius();
     float scale = 1.f;
     switch (mTransitionState) {
     case 1:
@@ -748,7 +752,7 @@ void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int i
     const CVector3f delta = child.GetPos() - pos;
     if (delta.CanBeNormalized()) {
       const CVector3f dir = delta.AsNormalized();
-      if (child.GetNetwork(mgr)->x2cd) {
+      if (child.GetConstNetwork(mgr)->x2cd) {
         child.SetRenderPos(pos + scale * delta);
       } else {
         child.SetRenderPos(pos + scale * (radius * dir));
@@ -774,7 +778,7 @@ void CScriptFrontEndDataNetwork::OpenNode(TUniqueId id, CStateManager& mgr) {
     SDataNetworkNode* node = &mNodes[i];
     if (node->mId == id) {
       SDataNetworkNode* target = node;
-      if (node->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsProxy) {
+      if (node->GetConstNetwork(mgr)->mIsProxy) {
         node->GetNetwork(mgr)->SendScriptMsgs(kSS_Entered, mgr);
         idx = node->mChildren[0];
         target = &mNodes[idx];
@@ -800,7 +804,7 @@ void CScriptFrontEndDataNetwork::CloseNode(CStateManager& mgr) {
   if (parent != -1) {
     node.SetSelectedChild(-1);
     SDataNetworkNode* parentNode = &mNodes[parent];
-    if (parentNode->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsProxy) {
+    if (parentNode->GetConstNetwork(mgr)->mIsProxy) {
       parentNode->GetNetwork(mgr)->SendScriptMsgs(kSS_PressB, mgr);
       selection = parentNode->mParent;
       parentNode = &mNodes[selection];
@@ -908,7 +912,7 @@ void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTra
   for (int i = 0; i < node.mChildren.size(); ++i) {
     const int childIdx = node.mChildren[i];
     const SDataNetworkNode& child = mNodes[childIdx];
-    if (child.GetNetwork(mgr)->GetActive() && 0.f != child.x64 && 0.f != node.x64) {
+    if (child.GetConstNetwork(mgr)->GetActive() && 0.f != child.x64 && 0.f != node.x64) {
       bool selected = false;
       if (node.GetSelectedChild() != -1 &&
           childIdx == node.mChildren[node.GetSelectedChild()]) {
@@ -933,11 +937,11 @@ void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTra
   for (rstl::vector< SRenderItem >::iterator it = items.begin(); it != items.end(); ++it) {
     const SDataNetworkNode* itemNode = it->mNode;
     const float itemAlpha = (0.5f * itemNode->x5c + 0.5f) * itemNode->x60;
-    const CScriptFrontEndDataNetwork* net = itemNode->GetNetwork(mgr);
+    const CScriptFrontEndDataNetwork* net = itemNode->GetConstNetwork(mgr);
     switch (it->mType) {
     case SRenderItem::kT_Child: {
       const CColor color =
-          itemNode->GetNetwork(mgr)->mCanBeSelected
+          itemNode->GetConstNetwork(mgr)->mCanBeSelected
               ? CColor::Modulate(gpTweakGui->GetLogBookNodeColor(), nodeColor)
                     .WithAlphaModulatedBy(itemAlpha)
               : CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
@@ -1025,7 +1029,7 @@ void CScriptFrontEndDataNetwork::DrawBillboard(const CTransform4f& xf, const CVe
   CGraphics::StreamEnd();
 }
 
-bool CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CStateManager& mgr) {
+uchar CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CStateManager& mgr) {
   const float scale = 100.f * input.DeltaTime();
   bool handled = false;
   float x = scale * (-input.GetAnalogLeftX() * gpTweakGui->GetLogBookRotationSpeed());
@@ -1062,7 +1066,7 @@ bool CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CState
   return handled;
 }
 
-bool CScriptFrontEndDataNetwork::HandleButtons(const CFinalInput& input, CStateManager& mgr) {
+uchar CScriptFrontEndDataNetwork::HandleButtons(const CFinalInput& input, CStateManager& mgr) {
   bool handled = false;
   SDataNetworkNode* node = &mNodes[mCurIndex];
   CScriptFrontEndDataNetwork* net = node->GetNetwork(mgr);
@@ -1070,13 +1074,16 @@ bool CScriptFrontEndDataNetwork::HandleButtons(const CFinalInput& input, CStateM
     if (input.PA()) {
       handled = true;
       CScriptFrontEndDataNetwork* current = node->GetNetwork(mgr);
-      if (node->mChildren.size() != 0 && node->GetSelectedChild() != -1) {
-        node = &mNodes[node->mChildren[node->GetSelectedChild()]];
-        if (node->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsLocked) {
-          node->GetNetwork(mgr)->SendScriptMsgs(kSS_ResistedDamage, mgr);
-        } else {
-          current->SendScriptMsgs(kSS_PressA, mgr);
-          OpenNode(node->mId, mgr);
+      if (node->mChildren.size() != 0) {
+        const int selected = node->GetSelectedChild();
+        if (selected != -1) {
+          node = &mNodes[node->mChildren[selected]];
+          if (node->GetConstNetwork(mgr)->mIsLocked) {
+            node->GetNetwork(mgr)->SendScriptMsgs(kSS_ResistedDamage, mgr);
+          } else {
+            current->SendScriptMsgs(kSS_PressA, mgr);
+            OpenNode(node->GetId(), mgr);
+          }
         }
       }
     } else if (input.PB()) {
@@ -1111,7 +1118,7 @@ bool CScriptFrontEndDataNetwork::HandleButtons(const CFinalInput& input, CStateM
   return handled;
 }
 
-bool CScriptFrontEndDataNetwork::HandleStick(const CFinalInput& input, CStateManager& mgr) {
+uchar CScriptFrontEndDataNetwork::HandleStick(const CFinalInput& input, CStateManager& mgr) {
   bool handled = false;
   SDataNetworkNode& node = mNodes[mCurIndex];
   CScriptFrontEndDataNetwork* net = node.GetNetwork(mgr);
@@ -1127,14 +1134,14 @@ bool CScriptFrontEndDataNetwork::HandleStick(const CFinalInput& input, CStateMan
     } else {
       CVector3f dir(x, 0.f, y);
       handled = true;
-      dir = net->mConnectionRadius * dir.AsNormalized();
+      dir = net->GetConnectionRadius() * dir.AsNormalized();
       dir = mOrientation.Transform(dir);
       const CVector3f& pos = node.GetPos();
       float best = FLT_MAX;
       int bestIdx = 0;
       for (int i = 0; i < node.mChildren.size(); ++i) {
         SDataNetworkNode& child = mNodes[node.mChildren[i]];
-        if (!child.GetNetwork(const_cast< const CStateManager& >(mgr))->mIsLocked) {
+        if (!child.GetConstNetwork(mgr)->mIsLocked) {
           const CVector3f delta = (child.GetPos() - pos) - dir;
           const float distSq = delta.MagSquared();
           if (distSq < best) {
@@ -1161,7 +1168,7 @@ void CScriptFrontEndDataNetwork::SetSelection(CStateManager& mgr, int index, boo
     mTransitionDuration = 1.f;
   } else {
     const SDataNetworkNode& node = mNodes[mPrevIndex];
-    float time = node.GetNetwork(mgr)->mShrinkTime;
+    float time = node.GetConstNetwork(mgr)->mShrinkTime;
     if (mCurIndex < mPrevIndex) {
       mTransitionForward = 0;
     } else {
@@ -1198,20 +1205,19 @@ CVector3f CScriptFrontEndDataNetwork::GetSeparation(const CStateManager& mgr,
   CVector3f result = CVector3f::Zero();
   float best = 999999.f;
   const CVector3f& pos = mNodes[idx].GetPos();
-  const int* children = node.mChildren.data();
-  const int count = node.mChildren.size();
-  for (int i = 0; i < count; ++i) {
-    const int childIdx = children[i];
+  for (int i = 0; i < node.mChildren.size(); ++i) {
+    const int childIdx = node.mChildren[i];
     if (idx != childIdx) {
-      const CVector3f delta = mNodes[childIdx].GetPos() - pos;
+      const SDataNetworkNode& child = mNodes[childIdx];
+      const CVector3f delta = child.GetPos() - pos;
       const float distSq = delta.MagSquared();
       if (distSq < best) {
         best = distSq;
-        result = mNodes[childIdx].GetPos();
+        result = child.GetPos();
       }
     }
   }
-  const float radius = 1.53f * node.GetNetwork(mgr)->mConnectionRadius;
+  const float radius = 1.53f * node.GetConstNetwork(mgr)->GetConnectionRadius();
   result = GetFalloff(radius, 0.8f, pos, result);
   if (node.mParent != -1) {
     result += GetFalloff(radius, 0.8f, pos, mNodes[node.mParent].GetPos());
@@ -1225,17 +1231,16 @@ CVector3f CScriptFrontEndDataNetwork::GetCohesion(const CStateManager& mgr,
   CVector3f sum = CVector3f::Zero();
   const CVector3f& pos = mNodes[idx].GetPos();
   int count = 0;
-  const float maxDist = 6.667f * node.GetNetwork(mgr)->mConnectionRadius;
+  const float maxDist = 6.667f * node.GetConstNetwork(mgr)->GetConnectionRadius();
   const float maxDistSq = maxDist * maxDist;
-  const int* children = node.mChildren.data();
-  const int numChildren = node.mChildren.size();
-  for (int i = 0; i < numChildren; ++i) {
-    const int childIdx = children[i];
+  for (int i = 0; i < node.mChildren.size(); ++i) {
+    const int childIdx = node.mChildren[i];
     if (idx != childIdx) {
-      const CVector3f delta = pos - mNodes[childIdx].GetPos();
+      const SDataNetworkNode& child = mNodes[childIdx];
+      const CVector3f delta = pos - child.GetPos();
       if (delta.MagSquared() < maxDistSq) {
+        sum += child.GetPos();
         ++count;
-        sum += mNodes[childIdx].GetPos();
       }
     }
   }
@@ -1260,9 +1265,9 @@ CVector3f CScriptFrontEndDataNetwork::GetAttraction(const SDataNetworkNode& node
                                                     const CVector3f& pos) const {
   const CVector3f delta = pos - node.GetPos();
   if (delta.CanBeNormalized()) {
-    const float maxDist = 0.2f * mConnectionRadius;
-    const float maxDistSq = maxDist * maxDist;
     const float distSq = delta.MagSquared();
+    const float maxDist = 0.2f * GetConnectionRadius();
+    const float maxDistSq = maxDist * maxDist;
     float t;
     if (distSq < maxDistSq) {
       t = distSq / maxDistSq;
