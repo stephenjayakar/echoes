@@ -12471,7 +12471,7 @@ do_insert_before__Q24rstl66list<Q24rstl24ncrc_ptr<12CInstruction>,Q24rstl17rmemo
 fn_802B7A24 = .text:0x802B7A24; // type:function size:0x78
 MoveWordLTR__18CTextExecuteBufferFv = .text:0x802B7A9C; // type:function size:0x198
 insert__Q24rstl66list<Q24rstl24ncrc_ptr<12CInstruction>,Q24rstl17rmemory_allocator>FRCQ34rstl66list<Q24rstl24ncrc_ptr<12CInstruction>,Q24rstl17rmemory_allocator>8iteratorRCQ24rstl24ncrc_ptr<12CInstruction> = .text:0x802B7C34; // type:function size:0x40
-fn_802B7C74 = .text:0x802B7C74; // type:function size:0x50
+__ct__16CLineInstructionFiii14EJustification22EVerticalJustificationb = .text:0x802B7C74; // type:function size:0x50
 StartNewLine__18CTextExecuteBufferFv = .text:0x802B7CC4; // type:function size:0x10C
 StartNewWord__18CTextExecuteBufferFv = .text:0x802B7DD0; // type:function size:0xDC
 TerminateLine__18CTextExecuteBufferFb = .text:0x802B7EAC; // type:function size:0x30
