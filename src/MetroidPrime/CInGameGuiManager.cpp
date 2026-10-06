@@ -239,7 +239,7 @@ void CInGameGuiManager::Draw(const CStateManager& mgr) const {
     const CPlayer::EPlayerMorphBallState morphState =
         mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState();
     const bool drawVisor = !inTurret && notInCine &&
-                           (mPrevState == kIGGS_InGame || mNextState == kIGGS_InGame ||
+                           (IsInOrTransitioningToOrFromState(kIGGS_InGame) ||
                             morphState == CPlayer::kMS_Morphed);
     const bool targeting = morphState != CPlayer::kMS_Morphed;
     if (inTurret && !mTurretHud.null()) {
@@ -268,16 +268,14 @@ void CInGameGuiManager::Draw(const CStateManager& mgr) const {
   }
 
   const bool preDrawBlur =
-      (InGameGuiStates::IsGameplayState(mPrevState) &&
-       InGameGuiStates::IsGameplayState(mNextState)) ||
-      mPrevState == kIGGS_MapScreen || mNextState == kIGGS_MapScreen;
+      IsInGameplayStateNotTransitioning() || IsInOrTransitioningToOrFromState(kIGGS_MapScreen);
   if (preDrawBlur) {
     mPauseScreenBlur->Draw(mgr);
   }
   if (!mAutoMapper.null() && notInCine &&
-      (!inTurret || mPrevState == kIGGS_MapScreen || mNextState == kIGGS_MapScreen) &&
-      (mPauseScreenBlur->IsGameDraw() || mPrevState == kIGGS_MapScreen ||
-       mNextState == kIGGS_MapScreen) && mgr.GetPendingDockArea() == kInvalidAreaId) {
+      (!inTurret || IsInOrTransitioningToOrFromState(kIGGS_MapScreen)) &&
+      (mPauseScreenBlur->IsGameDraw() || IsInOrTransitioningToOrFromState(kIGGS_MapScreen)) &&
+      mgr.GetPendingDockArea() == kInvalidAreaId) {
     const CPlayerState& playerState = *mgr.GetPlayerState(mPlayerIndex);
     float mapAlpha = 1.f;
     if (playerState.GetCurrentVisor() == CPlayerState::kPV_Scan) {
@@ -482,7 +480,7 @@ void CInGameGuiManager::Update(const CStateManager& mgr, float dt, CRandom16& ra
       BeginStateTransition(kIGGS_InGame, mgr);
     }
   }
-  if (mNextState != mPrevState) {
+  if (IsStateTransitioning()) {
     if (InGameGuiStates::IsGameplayState(mNextState)) {
       TryReloadAreaTextures();
     }
@@ -498,8 +496,7 @@ void CInGameGuiManager::ProcessControllerInput(const CStateManager& mgr,
   if (!mQuitScreen.null()) {
     mQuitScreen->ProcessUserInput(input);
   } else if (IsInPausedState()) {
-    if (mPrevState >= kIGGS_MapScreen && mPrevState <= kIGGS_QuitGame &&
-        mNextState >= kIGGS_MapScreen && mNextState <= kIGGS_QuitGame) {
+    if (IsInPausedStateNotTransitioning()) {
       if (mPrevState == kIGGS_MapScreen) {
         if (mAutoMapper->IsInMapperState(CAutoMapper::kAMS_MapScreen) ||
             mAutoMapper->IsInMapperState(CAutoMapper::kAMS_MapScreenUniverse)) {

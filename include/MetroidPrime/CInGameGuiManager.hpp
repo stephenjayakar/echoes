@@ -60,6 +60,20 @@ public:
                      const CColor& inactiveColor, const CColor& inactiveExternalColor,
                      const CColor* palette, int paletteSize, const CVector3f& direction) const;
 
+  bool IsInGameplayStateNotTransitioning() const {
+    const bool ret = InGameGuiStates::IsGameplayState(mPrevState) &&
+                     InGameGuiStates::IsGameplayState(mNextState);
+    return ret;
+  }
+  const bool IsInOrTransitioningToOrFromState(EInGameGuiState state) const {
+    return mPrevState == state || mNextState == state;
+  }
+  bool IsStateTransitioning() const { return mPrevState != mNextState; }
+  bool IsInPausedStateNotTransitioning() const {
+    return InGameGuiStates::IsPausedState(mPrevState) &&
+           InGameGuiStates::IsPausedState(mNextState);
+  }
+
 private:
   typedef rstl::reserved_vector< TToken< CDependencyGroup >, 3 > TPauseScreenDGRPs;
   typedef rstl::pair< uint, TToken< CTexture > > TDumpedTexture;
