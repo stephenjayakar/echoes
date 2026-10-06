@@ -128,11 +128,11 @@ private:
   void BuildSpline(CStateManager& mgr);
   void UpdateUsingSpline(float dt, CStateManager& mgr);
   // Collision-search helpers whose original names remain unresolved.
-  bool fn_801a67a4(float radius, const CVector3f& from, const CVector3f& direction,
-                   const rstl::reserved_vector< TUniqueId, 1024 >& nearList, CVector3f& result,
-                   CStateManager& mgr);
-  bool fn_801a6b20(const CVector3f& from, const CVector3f& direction, CVector3f& result,
-                   CStateManager& mgr);
+  const bool fn_801a67a4(float radius, const CVector3f& from, const CVector3f& direction,
+                         const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
+                         CVector3f& result, CStateManager& mgr);
+  const bool fn_801a6b20(const CVector3f& from, const CVector3f& direction, CVector3f& result,
+                         CStateManager& mgr);
   bool fn_801a36f0(float distance, float dt, CVector3f& position, CStateManager& mgr);
   bool fn_801a39d0(float distance, float dt, CVector3f& position, CStateManager& mgr);
   void UpdateUsingColliders(float dt, CStateManager& mgr);

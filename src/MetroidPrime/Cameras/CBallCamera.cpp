@@ -422,65 +422,74 @@ bool CBallCamera::DetectCollision(const CVector3f& from, const CVector3f& to, fl
   return !clear;
 }
 
-bool CBallCamera::fn_801a6b20(const CVector3f& from, const CVector3f& direction, CVector3f& result,
-                              CStateManager& mgr) {
+const bool CBallCamera::fn_801a6b20(const CVector3f& from, const CVector3f& direction,
+                                    CVector3f& result, CStateManager& mgr) {
   const CTransform4f negativeRotation =
       CQuaternion::ZRotation(CRelAngle::FromRadians(-skAvoidStepAngle.AsRadians()))
           .BuildTransform4f();
+  CVector3f negativeDirection = negativeRotation.Rotate(direction);
   const CTransform4f positiveRotation = CQuaternion::ZRotation(skAvoidStepAngle).BuildTransform4f();
-  CVector3f negativeDirection = negativeRotation * direction;
-  CVector3f positiveDirection = positiveRotation * direction;
+  CVector3f positiveDirection = positiveRotation.Rotate(direction);
+  float collisionDistance = 0.f;
   const float desiredDistance = direction.Magnitude();
-  for (int i = 0; i < 6; ++i) {
-    float collisionDistance = negativeDirection.Magnitude();
-    if (!DetectCollision(from, from + negativeDirection, 0.3f, collisionDistance, mgr,
-                         GetControllerNumber()) ||
-        desiredDistance <= collisionDistance) {
-      result = collisionDistance * negativeDirection.AsNormalized();
-      return true;
+  bool found = false;
+  for (int i = 0; i < 180.f / skAvoidStepAngle.AsDegrees(); ++i) {
+    collisionDistance = negativeDirection.Magnitude();
+    const bool negativeClear = !DetectCollision(from, from + negativeDirection, 0.3f,
+                                                collisionDistance, mgr, GetControllerNumber());
+    if (negativeClear || collisionDistance >= desiredDistance) {
+      const float distance = collisionDistance;
+      result = distance * negativeDirection.Normalize();
+      found = true;
+      break;
     }
     collisionDistance = positiveDirection.Magnitude();
-    if (!DetectCollision(from, from + positiveDirection, 0.3f, collisionDistance, mgr,
-                         GetControllerNumber()) ||
-        desiredDistance < collisionDistance) {
-      result = collisionDistance * positiveDirection.AsNormalized();
-      return true;
+    const bool positiveClear = !DetectCollision(from, from + positiveDirection, 0.3f,
+                                                collisionDistance, mgr, GetControllerNumber());
+    if (positiveClear || collisionDistance > desiredDistance) {
+      const float distance = collisionDistance;
+      result = distance * positiveDirection.Normalize();
+      found = true;
+      break;
     }
     negativeDirection = negativeRotation * negativeDirection;
     positiveDirection = positiveRotation * positiveDirection;
   }
-  return false;
+  return found;
 }
 
-bool CBallCamera::fn_801a67a4(float radius, const CVector3f& from, const CVector3f& direction,
-                              const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
-                              CVector3f& result, CStateManager& mgr) {
+const bool CBallCamera::fn_801a67a4(float radius, const CVector3f& from,
+                                    const CVector3f& direction,
+                                    const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
+                                    CVector3f& result, CStateManager& mgr) {
   const CTransform4f negativeRotation =
       CQuaternion::ZRotation(CRelAngle::FromRadians(-skAvoidStepAngle.AsRadians()))
           .BuildTransform4f();
   const CTransform4f positiveRotation = CQuaternion::ZRotation(skAvoidStepAngle).BuildTransform4f();
   float distance = direction.Magnitude();
-  while (distance >= radius) {
-    const CVector3f sought = distance * direction.AsNormalized();
-    CVector3f negativeDirection = negativeRotation * sought;
-    CVector3f positiveDirection = positiveRotation * sought;
-    for (int i = 0; i < 6; ++i) {
+  bool found = false;
+  while (!found && distance >= radius) {
+    CVector3f negativeDirection = negativeRotation.Rotate(distance * direction.AsNormalized());
+    CVector3f positiveDirection = positiveRotation.Rotate(distance * direction.AsNormalized());
+    for (int i = 0; i < 180.f / skAvoidStepAngle.AsDegrees(); ++i) {
       if (mgr.RayCollideWorld(from, from + negativeDirection, nearList, skLineOfSightFilter,
                               nullptr)) {
         result = negativeDirection;
-        return true;
+        found = true;
+        break;
       }
       if (mgr.RayCollideWorld(from, from + positiveDirection, nearList, skLineOfSightFilter,
                               nullptr)) {
         result = positiveDirection;
-        return true;
+        found = true;
+        break;
       }
       negativeDirection = negativeRotation * negativeDirection;
       positiveDirection = positiveRotation * positiveDirection;
     }
     distance -= 0.3f;
   }
-  return false;
+  return found;
 }
 
 CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVector3f direction,
