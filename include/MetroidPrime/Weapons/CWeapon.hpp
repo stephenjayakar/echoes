@@ -47,6 +47,14 @@ public:
   void FluidFXThink(EFluidState state, CScriptWater& water, CStateManager& mgr) override;
 
   void SetDamageFalloffSpeed(float speed);
+  void SetDamageDuration(float duration) {
+    mProjectileAttribs |= kPA_BigStrike;
+    mDamageDuration = duration;
+  }
+  void SetInterferenceDuration(float duration) {
+    mProjectileAttribs |= kPA_StaticInterference;
+    mInterferenceDuration = duration;
+  }
   int GetAttribField() const { return mProjectileAttribs; }
   bool HasAttrib(EProjectileAttrib attrib) const { return (mProjectileAttribs & attrib) == attrib; }
   TUniqueId GetOwnerId() const { return mOwnerId; }

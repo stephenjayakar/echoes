@@ -254,7 +254,31 @@ uchar CChozoGhost::GetModelAlphau8(const CStateManager& mgr) const {
 }
 
 void CChozoGhost::PreRender(CStateManager& mgr) {
-  CPatterned::PreRender(mgr);
+  const bool echo = mgr.GetPlayerState(0)->GetActiveVisor(mgr) == CPlayerState::kPV_Echo;
+  mDrawParticles = !echo;
+  if (mgr.GetPlayerState(0)->GetActiveVisor(mgr) == CPlayerState::kPV_Echo) {
+    SetCalculateLighting(false);
+    ActorLights()->BuildConstantAmbientLighting(CColor::White());
+  } else {
+    SetCalculateLighting(true);
+  }
+  CColor color = mColor;
+  const uchar alpha = GetModelAlphau8(mgr);
+  if (alpha < 255 || color.GetRedu8() != 0) {
+    if (color.GetRedu8() != 0) {
+      const uchar value = rstl::max_val(255 - 2 * color.GetRedu8(), 0);
+      color.SetRed(static_cast< uchar >(255));
+      color.SetGreen(value);
+      color.SetBlue(value);
+    } else {
+      color = CColor::White();
+    }
+    SetModelFlags(CModelFlags::AlphaBlended(CColor(color.GetRedu8(), color.GetGreenu8(), color.GetBlueu8(), alpha)));
+  } else {
+    SetModelFlags(CModelFlags::Normal());
+  }
+  CActor::PreRender(mgr);
+  mBoneTracking.PreRender(mgr, *ModelData()->AnimationData(), GetTransform(), GetModelData()->GetScale(), *mBodyController);
 }
 
 void CChozoGhost::Render(const CStateManager& mgr) const {
@@ -544,9 +568,81 @@ void CChozoGhost::Generate(CStateManager& mgr, EStateMsg msg, float arg) {
   }
 }
 
-void CChozoGhost::WallDetach(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::WallDetach(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mStateMachine->SetDelay(mFadeOutDelay);
+    mAlphaDelta = 1.f;
+    mFadedIn = false;
 
-void CChozoGhost::Run(CStateManager& mgr, EStateMsg msg, float arg) {}
+    if (mFadeOutDelay > 0.f) {
+      mSpaceWarpTime = mFadeOutDelay;
+      SetWarpPosition(mgr, GetTransform().GetForward());
+    }
+
+    const CActor* wp = nullptr;
+    const TUniqueId wpId = GetConnectedObject(mgr, kSS_Attack, kSM_Follow);
+    if (wpId != kInvalidUniqueId) {
+      wp = TCastToConstPtr< CActor >(mgr.GetObjectById(wpId));
+    }
+
+    if (wp) {
+      SetDestPos(wp->GetTranslation());
+    } else {
+      SetDestPos(GetTranslation() + (2.f * x66c_) * GetTransform().GetForward());
+    }
+
+    SendScriptMsgs(kSS_Attack, mgr, kInvalidUniqueId, kSM_Follow);
+  } break;
+  case kStateMsg_Update: {
+
+  } break;
+  case kStateMsg_Deactivate: {
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+    x665_24_ = false;
+    mBehaveType = kBT_Move;
+  } break;
+  }
+}
+
+void CChozoGhost::Run(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mBodyController->SetLocomotionType(pas::kLT_Lurk);
+    mHitByPlayerProjectile = false;
+    KnockBackController().EnableAnimReaction(CKnockBackMgr::kAR_KnockBack, false);
+    mInRange = false;
+  } break;
+  case kStateMsg_Update: {
+    mBodyController->CommandMgr().DeliverCmd(
+        CBCLocomotionCmd(mSteeringBehaviors.Seek(*this, mDestPos), CVector3f::Zero(), 1.f));
+    if (!mShouldSwoosh) {
+      break;
+    }
+
+    mFloorLevel = mDestPos.GetZ();
+    FloatToLevel(mFloorLevel, arg);
+    AnimationData()->SetEffectState(skSpeedSwooshName, true, mgr);
+    x665_24_ = false;
+    if (mInRange) {
+      break;
+    }
+
+    const float movement = arg * GetVelocityWR().Magnitude();
+    const float range = x66c_ + 2.5f * movement;
+    const CVector3f& delta = GetTranslation() - mDestPos;
+    mInRange = delta.MagSquared() < range * range;
+  } break;
+  case kStateMsg_Deactivate:
+    mBodyController->SetLocomotionType(pas::kLT_Crouch);
+    SetDestPos(mgr.GetPlayer(0)->GetTranslation());
+    AnimationData()->SetEffectState(skSpeedSwooshName, false, mgr);
+    KnockBackController().EnableAnimReaction(CKnockBackMgr::kAR_KnockBack, true);
+    mInRange = false;
+    break;
+  }
+}
 
 bool CChozoGhost::InRange(CStateManager& mgr, const CTriggerData& data) const { return mInRange; }
 
@@ -791,7 +887,76 @@ CProjectileInfo* CChozoGhost::ProjectileInfo() {
 
 void CChozoGhost::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
                                   EUserEventType type, float dt) {
-  CPatterned::DoUserAnimEvent(mgr, node, type, dt);
+  bool handled = false;
+  switch (type) {
+  case kUE_Projectile: {
+    const CTransform4f locator = GetLctrTransform(node.GetLocatorName());
+    const CVector3f aimPos = mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f);
+    const CTransform4f projectileXf = CTransform4f::LookAt(locator.GetTranslation(), aimPos);
+    switch (mAttackType) {
+    case 2: {
+      CEnergyProjectile* projectile = LaunchProjectile(
+          projectileXf, mgr, 2, CWeapon::kPA_BigStrike | CWeapon::kPA_StaticInterference, true,
+          CImpactVisorEffect::MakeParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
+          CVector3f(1.f, 1.f, 1.f));
+      if (projectile) {
+        projectile->SetDamageDuration(x62c_);
+        projectile->SetInterferenceDuration(x62c_);
+        projectile->SetMinHomingDistance(x634_);
+      }
+      break;
+    }
+    default: {
+      CEnergyProjectile* projectile = LaunchProjectile(
+          projectileXf, mgr, 5, CWeapon::kPA_DamageFalloff | CWeapon::kPA_StaticInterference,
+          true,
+          CImpactVisorEffect::MakeParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
+          CVector3f(1.f, 1.f, 1.f));
+      if (projectile) {
+        const float speed = ProjectileInfo()->GetProjectileSpeed();
+        if (speed > 0.f) {
+          projectile->SetDamageFalloffSpeed(80.f / speed);
+        }
+        projectile->SetDamageDuration(x62c_);
+        projectile->SetInterferenceDuration(x62c_);
+        projectile->SetMinHomingDistance(x634_);
+      }
+      break;
+    }
+    }
+    handled = true;
+    break;
+  }
+  case kUE_FadeIn:
+    if (mFadedOut) {
+      mAlphaDelta = 2.f;
+      CSfxManager::AddEmitter(mSfxFadeIn, GetTranslation(), GetCurrentAreaId().Value(), true,
+                              false);
+    }
+    AddMaterial(kMT_Target, mgr);
+    mFadedOut = false;
+    mFadedIn = true;
+    handled = true;
+    break;
+  case kUE_FadeOut:
+    if (mFadedIn) {
+      mAlphaDelta = -2.f;
+      CSfxManager::AddEmitter(mSfxFadeOut, GetTranslation(), GetCurrentAreaId().Value(), true,
+                              false);
+    }
+    RemoveMaterial(kMT_Target, mgr);
+    mFadedIn = false;
+    mFadedOut = true;
+    mShouldSwoosh = true;
+    handled = true;
+    break;
+  }
+  if (!handled) {
+    CPatterned::DoUserAnimEvent(mgr, node, type, dt);
+  }
+  if (type == kUE_Delete) {
+    mAlphaDelta = -1.f;
+  }
 }
 
 void CChozoGhost::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
