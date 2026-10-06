@@ -11,6 +11,15 @@
 const uchar CFBStreamedAnimReaderTotals::kRotationValueCount = 4;
 const uchar CFBStreamedAnimReaderTotals::kOffsetValueCount = 4;
 
+// The target emits these CFBStreamedCompression members in this translation unit.
+CCharAnimTime CFBStreamedCompression::GetAnimationDuration() const {
+  return MainHeader().GetMaxTime();
+}
+
+bool CFBStreamedCompression::HasScaleData() const {
+  return GetPerChannelHeaderList(TimeHeader(MainHeader())).HasScaleData();
+}
+
 bool CFBStreamedPerChannelHeaderList::HasOffsetData() const {
   for (const_iterator it = begin(); it != end(); ++it) {
     if (it->GetOffsetBitStorage().GetWidth() != 0) {

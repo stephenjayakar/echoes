@@ -332,9 +332,7 @@ public:
 
   CCharAnimTime GetAnimationDuration() const;
   float GetAverageVelocity() const { return mAverageVelocity; }
-  bool HasScaleData() const {
-    return GetPerChannelHeaderList(TimeHeader(MainHeader())).HasScaleData();
-  }
+  bool HasScaleData() const;
   CSteadyStateAnimInfo GetSteadyStateAnimInfo() const {
     return CSteadyStateAnimInfo(MainHeader().IsLooping(), GetAnimationDuration(), mRootOffset);
   }
