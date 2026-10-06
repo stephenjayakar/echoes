@@ -255,7 +255,7 @@ int RayAABoxIntersection(const CMRay& ray, const CAABox& box, CVector3f& normal,
     }
   }
 
-  int whichPlane = 0;
+  long whichPlane = 0;
   float maxCoord = maxT[0];
   if (maxCoord < maxT[1]) {
     whichPlane = 1;
@@ -407,7 +407,7 @@ int RayAABoxIntersection_Double(const CMRay& ray, const CAABox& box, CVector3f& 
     }
   }
 
-  int whichPlane = 0;
+  long whichPlane = 0;
   double maxCoord = maxT[0];
   if (maxCoord < maxT[1]) {
     whichPlane = 1;
