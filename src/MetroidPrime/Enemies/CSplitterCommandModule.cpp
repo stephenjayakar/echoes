@@ -942,7 +942,7 @@ void CSplitterCommandModule::SetupCollisionActors(CStateManager& mgr) {
     const CSegId segId = animData->GetLocatorSegId(rstl::string_l(joint.name));
     const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
         segId, CVector3f::Zero(), joint.radius, rstl::string_l(joint.name), 1000.f);
-    joints.push_back(desc);
+    joints.push_back_unsafe(desc);
   }
   mCollisionActorManager =
       rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), joints, false);
