@@ -121,6 +121,32 @@ static int CompareBoidRefsByListenerDistance(const void* a, const void* b) {
   return 0;
 }
 
+CSwarmBasics::CBoid::CBoid(const CTransform4f& xf, uint index)
+: mTransform(xf)
+, mVelocity(0.f, 0.f, 0.f)
+, mTargetWaypoint(kInvalidUniqueId)
+, mSurfacePlane(xf.GetTranslation(), CUnitVector3f(xf.GetForward()))
+, mAmbientLighting(0.3f, 0.3f, 0.3f, 1.f)
+, mNext(nullptr)
+, mFreezeTimer(0.f)
+, mTimeToExplode(0.f)
+, mSurface(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f), CVector3f(0.f, 0.f, 1.f), ~0)
+, x9c_(-1)
+, mDistanceSquaredToSoundListener(0.f)
+, xa4_(1.f)
+, xa8_(kInvalidUniqueId)
+, xaa_(kInvalidUniqueId)
+, mFramesNotOnSurface(0)
+, mIndex(index)
+, mPartitionIndex(-1)
+, xb1_(0)
+, mActive(false)
+, mInFrustum(false)
+, mLaunched(false)
+, xb2_3(false)
+, xb2_4(false)
+, mHasLoopedSound(false) {}
+
 static CModelData GetModelDataForAnimRes(const CAnimRes& animRes) {
   return animRes.GetId() != kInvalidAssetId ? CModelData(animRes) : CModelData::CModelDataNull();
 }
@@ -230,6 +256,123 @@ CAABox CSwarmBasics::GetBoundingBox() const {
 }
 
 rstl::optional_object< CAABox > CSwarmBasics::GetTouchBounds() const { return mAabox; }
+
+void CSwarmBasics::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
+  CActor::AcceptScriptMsg(mgr, msg);
+  switch (message) {
+  case kSM_Activate:
+    break;
+  case kSM_AreaLoaded:
+    AddDoorRepulsors(mgr);
+    break;
+  case kSM_Deactivate: {
+    StopLocomotionSounds();
+    uint count = mSeekerTargets.size();
+    for (uint i = 0; i < count; ++i) {
+      if (CActor* act = TCastToPtr< CActor >(mgr.ObjectById(mSeekerTargets[i]))) {
+        act->SetActive(false);
+      }
+    }
+    break;
+  }
+  case kSM_Create: {
+    mBoids.reserve(mNumBoids);
+    mActiveBoidIndices.reserve(mNumBoids);
+    for (int i = 0; i < mBoids.capacity(); ++i) {
+      mBoids.push_back_unsafe(CBoid(CTransform4f::Identity(), i));
+    }
+    AllocateSkinnedModels(mgr, CModelData::kWM_Normal);
+    SetDrawShadow(false);
+    if (mLocomotionLoopedSound != CSfxManager::kInternalInvalidSfxId) {
+      mLocomotionSounds.reserve(mMaxLocomotionEmitters);
+      for (uint i = 0; i < mMaxLocomotionEmitters; ++i) {
+        mLocomotionSounds.push_back_unsafe(TLoopedSound(CSfxHandle(), 0));
+      }
+    }
+    if (mAttackLoopedSound != CSfxManager::kInternalInvalidSfxId) {
+      mAttackSounds.reserve(mMaxAttackEmitters);
+      for (uint i = 0; i < mMaxAttackEmitters; ++i) {
+        mAttackSounds.push_back_unsafe(TLoopedSound(CSfxHandle(), 0));
+      }
+    }
+    AddMaterial(kMT_Character, mgr);
+    mSeekerTargets.reserve(5);
+    mSeekerBoidIndices.reserve(5);
+    for (uint i = 0; i < 5; ++i) {
+      TAreaId area = GetCurrentAreaId();
+      TUniqueId uid = mgr.AllocateUniqueId();
+      CPhysicsActor* act = rs_new CPhysicsActor(
+          uid, rstl::string_l(""),
+          CEntityInfo(area, rstl::vector< SConnection >(), true, kInvalidEditorId), 0,
+          CTransform4f::Identity(), CModelData::CModelDataNull(), CMaterialList(kMT_SeekerTarget),
+          CAABox(CVector3f(-mBoidRadius, -mBoidRadius, -mBoidRadius),
+                 CVector3f(mBoidRadius, mBoidRadius, mBoidRadius)),
+          SMoverData(1.f), CActorParameters(), CPhysicsActor::skDefaultStepData);
+      act->AddMaterial(kMT_SeekerTarget, mgr);
+      act->RemoveMaterial(kMT_Unknown59, mgr);
+      if (act) {
+        mgr.AddObject(*act);
+        mSeekerTargets.push_back_unsafe(uid);
+      }
+    }
+    break;
+  }
+  case kSM_Delete: {
+    StopLocomotionSounds();
+    uint count = mSeekerTargets.size();
+    for (uint i = 0; i < count; ++i) {
+      mgr.DeleteObjectRequest(mSeekerTargets[i]);
+    }
+    break;
+  }
+  case kSM_Decrement:
+    x4f0_30_ = false;
+    break;
+  case kSM_Increment:
+    x4f0_30_ = true;
+    break;
+  case kSM_InternalMessage00:
+    ++x52c_;
+    break;
+  }
+}
+
+void CSwarmBasics::StopLocomotionSounds() {
+  uint count = mLocomotionSounds.size();
+  if (count != 0) {
+    for (uint i = 0; i < count; ++i) {
+      if (mLocomotionSounds[i].first) {
+        CSfxManager::SfxStop(mLocomotionSounds[i].first);
+        mLocomotionSounds[i].first = CSfxHandle();
+      }
+    }
+  }
+}
+
+void CSwarmBasics::AllocateSkinnedModels(CStateManager& mgr, CModelData::EWhichModel which) {
+  mSkinnedModelStates.clear();
+  if (x4f0_27_) {
+    uint count = mModelDatas.size();
+    mSkinnedModelStates.reserve(count);
+    for (uint i = 0; i < count; ++i) {
+      mSkinnedModelStates.push_back_unsafe(
+          SwarmRenderHelpers::CSwarmSkinnedModelState(mModelDatas[i].PickAnimatedModel(which)));
+      mModelDatas[i].EnableLooping(true);
+      mModelDatas[i].AdvanceAnimation(
+          mModelDatas[i].GetAnimationData()->GetAnimTimeRemaining(rstl::string_l("Whole Body")) *
+              (0.75f * (float(i) / float(count))),
+          mgr, GetCurrentAreaId(), true);
+    }
+    const CSkinnedModel& model = mModelData->PickAnimatedModel(which);
+    mSkinnedModelState = rs_new SwarmRenderHelpers::CSwarmSkinnedModelState(model);
+    const CAnimData* animData = mModelData->GetAnimationData();
+    animData->BuildPose();
+    model.StoreCalculation(mSkinnedModelState->State(), &animData->Pose());
+    mSkinnedModelState->StateToArrays();
+  }
+  mWhichModel = which;
+}
 
 void CSwarmBasics::CreateBoid(CStateManager& mgr, int index) {
   const CAABox bounds = GetBoundingBox();

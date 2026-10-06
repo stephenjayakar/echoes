@@ -200,6 +200,7 @@ public:
   void HardwareLight(const CStateManager& mgr, const CAABox& bounds) const;
   CColor SoftwareLight(const CStateManager& mgr, const CAABox& bounds) const;
   void FinishConstruction(); // Guessed name; empty in the base class.
+  void StopLocomotionSounds(); // Guessed name.
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 
