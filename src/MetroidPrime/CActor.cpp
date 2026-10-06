@@ -1057,9 +1057,10 @@ void CActor::SetValidTarget(int playerIndex, bool enabled) {
 
 void CActor::SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags flags, bool enabled) {
   if (enabled) {
-    mTargetableVisorFlags |= flags;
+    const uint cur = GetTargetableVisorFlags();
+    mTargetableVisorFlags = cur | flags;
   } else {
-    mTargetableVisorFlags &= ~flags;
+    mTargetableVisorFlags = GetTargetableVisorFlags() & ~flags;
   }
 }
 

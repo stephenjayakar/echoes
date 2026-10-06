@@ -36,9 +36,9 @@ void PrepareFilteredDelayAux(SFilteredDelayAuxParameters* parameters) {
 }
 
 void ShutdownFilteredDelayAux(SFilteredDelayAuxParameters* parameters) {
-  for (int channel = 0; channel < 3; ++channel) {
-    CMemory::Free(parameters->mDelayBuffers[channel]);
-  }
+  CMemory::Free(parameters->mDelayBuffers[0]);
+  CMemory::Free(parameters->mDelayBuffers[1]);
+  CMemory::Free(parameters->mDelayBuffers[2]);
 }
 
 void ProcessFilteredDelayAux(uchar reason, SND_AUX_INFO* info,

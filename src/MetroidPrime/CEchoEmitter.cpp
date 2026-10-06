@@ -35,7 +35,7 @@ void CEchoEmitter::ResetPlayerState() {
 }
 
 void CEchoEmitter::ResetPlayerState(CStateManager& mgr) {
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     mPlayerEchoTokens[i] = mgr.GetPlayer(i)->GetEchoPulseCounter() - 1;
     mPlayerEchoVisibility[i] = 0.f;
   }
