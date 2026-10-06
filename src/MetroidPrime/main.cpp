@@ -279,7 +279,7 @@ void CGameGlobalObjects::LoadStringTable() {
 void InfiniteLoopAlarm(OSAlarm* alarm, OSContext* context) {
   if (sInfiniteLoopTime >= 10.f) {
     OSCancelAlarm(alarm);
-    rs_debugger_printf("INFINITE LOOP");
+    rs_debugger_printf("SKIP4INFINITE LOOP");
   }
   sInfiniteLoopTime += alarm->period / OS_TIMER_CLOCK;
 }
@@ -488,13 +488,24 @@ void CMain::DrawDebugMetrics(double dt, CStopwatch& stopWatch) {
 bool CMain::CheckTerminate() { return false; }
 
 bool CMain::CheckReset() {
-  const bool resetPressed = OSGetResetButtonState() != 0;
+  const BOOL resetPressed = OSGetResetButtonState();
   const CControllerGamepadData& pad = gpController->GetGamepadData(0);
   bool resetChord = true;
-  for (int i = 0; i < kBU_MAX && resetChord; ++i) {
-    const bool expected = i == kBU_B || i == kBU_X || i == kBU_Start;
-    if (pad.GetButton(static_cast< EButton >(i)).GetIsPressed() != expected) {
-      resetChord = false;
+  for (int i = 0; i <= kBU_R && resetChord; ++i) {
+    const bool pressed = pad.GetButton(static_cast< EButton >(i)).GetIsPressed();
+    switch (i) {
+    case kBU_B:
+    case kBU_X:
+    case kBU_Start:
+      if (!pressed) {
+        resetChord = false;
+      }
+      break;
+    default:
+      if (pressed) {
+        resetChord = false;
+      }
+      break;
     }
   }
   if (resetChord) {
@@ -513,10 +524,7 @@ bool CMain::CheckReset() {
   if (!resetPressed && mResetButtonHeld) {
     mResetRequested = true;
   }
-  if (CMemoryCardSys::mIsCardBusy || !(mResetRequested || mManageCard || mGameExitReset)) {
-    mResetButtonHeld = resetPressed;
-    return false;
-  }
+  if (!CMemoryCardSys::mIsCardBusy && (mResetRequested || mManageCard || mGameExitReset)) {
 
   if (mArchSupport != nullptr && mArchSupport->IsInfiniteLoopAlarmSet()) {
     OSCancelAlarm(&mArchSupport->GetInfiniteLoopAlarm());
@@ -539,15 +547,15 @@ bool CMain::CheckReset() {
   {
     CMemoryStreamOut stream(CSaveRegion::GetSaveBuffer(), CSaveRegion::kSaveBufferSize);
     CBitStreamWriter writer(stream);
-    writer.WriteBits(CGraphics::GetProgressiveMode(), 1);
+    writer.WriteBits(CGraphics::GetProgressiveMode() != false, 1);
     gpGameState->GameOptions().PutTo(writer);
     gpGameState->PreviousGameResults().PutTo(writer);
-    writer.WriteBits(sProgressiveModePrompt, 1);
+    writer.WriteBits(sProgressiveModePrompt != false, 1);
     writer.FlushAll();
-    if (writer.GetOutputStream().GetWrittenBytes() < CSaveRegion::kSaveBufferSize) {
-      OSReport("Wrote: %d", writer.GetOutputStream().GetWrittenBytes());
+    if (writer.GetOutputStream().GetWrittenBytes() >= CSaveRegion::kSaveBufferSize) {
+      rs_debugger_printf("Reset failed: Tried %d", stream.GetWrittenBytes());
     } else {
-      rs_debugger_printf("Reset failed! Tried %d", stream.GetWrittenBytes());
+      OSReport("Wrote: %d\n", writer.GetOutputStream().GetWrittenBytes());
     }
   }
 
@@ -575,6 +583,9 @@ bool CMain::CheckReset() {
   mGameExitReset = false;
   mManageCard = false;
   return true;
+  }
+  mResetButtonHeld = resetPressed;
+  return false;
 }
 
 void CMain::FillInAssetIDs() {
