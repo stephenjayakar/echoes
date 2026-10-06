@@ -269,7 +269,7 @@ CAABoxAreaCache::CAABoxAreaCache(const CAABox& aabb, const CPlane* pl,
 , mMaterial(material)
 , mCollisionList(collisionList)
 , mCenter(aabb.GetCenterPoint())
-, mHalfExtent(aabb.GetHalfExtent()) {}
+, mHalfExtent((aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f) {}
 
 bool CMetroidAreaCollider::AABoxCollisionCheck(const CAreaOctTree& octTree, const CAABox& aabb,
                                                const CMaterialFilter& filter,
@@ -371,7 +371,10 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(CCollisionCache& ca
 }
 
 CBooleanAABoxAreaCache::CBooleanAABoxAreaCache(const CAABox& aabb, const CMaterialFilter& filter)
-: mAabb(aabb), mFilter(filter), mCenter(aabb.GetCenterPoint()), mHalfExtent(aabb.GetHalfExtent()) {}
+: mAabb(aabb)
+, mFilter(filter)
+, mCenter(aabb.GetCenterPoint())
+, mHalfExtent((aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f) {}
 
 bool CMetroidAreaCollider::AABoxCollisionCheckBoolean(const CAreaOctTree& octTree,
                                                       const CAABox& aabb,
@@ -587,7 +590,6 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean(const CAreaOctTree& octTr
                                                        const CAABox& aabb, const CSphere& sphere,
                                                        const CMaterialFilter& filter) {
   CBooleanSphereAreaCache cache(aabb, sphere, filter);
-  ResetInternalCounters();
   return SphereCollisionCheckBoolean_Internal(octTree.GetRootNode(), cache);
 }
 
