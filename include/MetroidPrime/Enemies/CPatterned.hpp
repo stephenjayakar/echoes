@@ -1,6 +1,7 @@
 #ifndef _CPATTERNED
 #define _CPATTERNED
 
+#include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CSteeringBehaviors.hpp"
 #include "MetroidPrime/Enemies/CAi.hpp"
 #include "MetroidPrime/Enemies/CAiKnockBackMgr.hpp"
@@ -68,10 +69,10 @@ public:
              const CPatternedInfo& patternedInfo, EMovementType movement, EColliderType collider,
              EBodyType body, const CActorParameters& params);
   // CEntity
-  ~CPatterned() override;
-  CEntity* TypesMatch(int typeId) const override;
+  ~CPatterned() override {}
   void PreThink(float dt, CStateManager& mgr) override;
   void Think(float dt, CStateManager& mgr) override;
+  CEntity* TypesMatch(int typeId) const override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
 
   // CActor
@@ -233,6 +234,8 @@ public:
   void fn_801524fc(CStateManager& mgr);
 
   bool GetAlive() const { return mAlive; }
+  void SetPendingDeath(bool pending) { mPendingDeath = pending; }
+  TUniqueId GetDestObj() const { return mDestObj; }
   bool IsMakingBigStrike() const { return mIsMakingBigStrike; }
   float GetDamageDuration() const { return mDamageDuration; }
   int GetCreatureSize() const { return mCreatureSize; }
@@ -251,6 +254,7 @@ public:
 
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 
+  CAiKnockBackMgr& KnockBackController() { return mKnockBackController; }
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
 protected:
