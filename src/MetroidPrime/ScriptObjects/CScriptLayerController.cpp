@@ -86,7 +86,8 @@ void CScriptLayerController::Think(float dt, CStateManager& mgr) {
   if (GetActive() && (mWaitingForLoad || mActivateWhenLoaded)) {
     CWorldLayerState* layers = nullptr;
     const TLayerId layer = mLayerId;
-    CGameArea* area = GetAreaForAreaId(mgr, GetAreaIdAndWorldLayerState(mgr, &layers));
+    const TAreaId areaId = GetAreaIdAndWorldLayerState(mgr, &layers);
+    CGameArea* area = GetAreaForAreaId(mgr, areaId);
     if (area != nullptr && area->GetLayerPhase(layer) == CGameArea::kLP_Ready) {
       if (mWaitingForLoad) {
         mWaitingForLoad = false;
