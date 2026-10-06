@@ -40,7 +40,7 @@ public:
   const CLight& GetLight(uint idx) const;
 
   bool GetNeedsRelight() const { return mDirty; }
-  bool HasShadowLight() const { return mShadowLightArrIdx != -1; }
+  bool HasShadowLight() const { return mShadowLightArrIdx != kInvalidShadowLightIndex; }
   int GetShadowLightIndex() const { return mShadowLightIdx; }
   int GetShadowLightArrayIndex() const { return mShadowLightArrIdx; }
   const CColor& GetAmbientColor() const { return mAmbientColor; }
@@ -117,7 +117,7 @@ private:
   // Guessed name: rejects a light entity when it is disabled for the selected light layer.
   bool IsLightExcluded(const CStateManager& mgr, TUniqueId id) const;
 
-  static const int kInvalidShadowLightIndex;
+  static const uint kInvalidShadowLightIndex;
   static int sFrameSchedulerCount;
 };
 CHECK_SIZEOF(CActorLights, 0x2e4)
