@@ -494,18 +494,14 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
       float u = powf(fabsf(positive), 1.f / 3.f);
       const float negative = q - root;
       float v = powf(fabsf(negative), 1.f / 3.f);
-      if (negative <= 0.f) {
-        v = -v;
-      }
-      if (positive <= 0.f) {
-        u = -u;
-      }
+      v = negative > 0.f ? v : -v;
+      u = positive > 0.f ? u : -u;
       roots[0] = u + v - shift;
       count = 1;
     }
 
     for (uint i = 0; i < count; ++i) {
-      const float x = roots[i];
+      const float& x = roots[i];
       const float slope = x * (2.f * coefficients[2] + coefficients[3] * (3.f * x));
       const float derivative = coefficients[1] + slope;
       if (derivative != 0.f) {
@@ -536,7 +532,11 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
 uint CMath::SolveQuartic(const float* coefficients, float* roots) {
   uint count = 0;
   if (coefficients[4] == 0.f) {
-    const float cubic[4] = {coefficients[0], coefficients[1], coefficients[2], coefficients[3]};
+    float cubic[4];
+    cubic[0] = coefficients[0];
+    cubic[1] = coefficients[1];
+    cubic[2] = coefficients[2];
+    cubic[3] = coefficients[3];
     return SolveCubic(cubic, roots);
   }
 
@@ -548,68 +548,70 @@ uint CMath::SolveQuartic(const float* coefficients, float* roots) {
   const float r =
       shift * (shift * ((-3.f * shift) * shift + quadratic) - coefficients[1] / coefficients[4]) +
       coefficients[0] / coefficients[4];
-  const float resolvent[4] = {(4.f * r) * p - q * q, -8.f * r, -4.f * p, 8.f};
-  float cubicRoots[3];
+  float resolvent[4];
+  resolvent[0] = (4.f * r) * p - q * q;
+  resolvent[1] = -8.f * r;
+  resolvent[2] = -4.f * p;
+  resolvent[3] = 8.f;
+  float cubicRoots[4];
   const uint cubicCount = SolveCubic(resolvent, cubicRoots);
-  if (cubicCount == 0) {
-    return 0;
-  }
+  if (cubicCount != 0) {
+    const float y = cubicRoots[cubicCount - 1];
+    const float squaredU = 2.f * y - p;
+    const float u = SqrtF(squaredU);
+    float v;
+    if (u == 0.f) {
+      const float discriminant = y * y - r;
+      if (discriminant < 0.f) {
+        return 0;
+      }
+      v = SqrtF(discriminant);
+    } else {
+      v = q / (2.f * u);
+    }
 
-  const float y = cubicRoots[cubicCount - 1];
-  const float squaredU = 2.f * y - p;
-  const float u = SqrtF(squaredU);
-  float v;
-  if (u == 0.f) {
-    const float discriminant = y * y - r;
-    if (discriminant < 0.f) {
-      return 0;
+    const float firstDiscriminant = -(4.f * (y + v) - squaredU);
+    const float secondDiscriminant = -(4.f * (y - v) - squaredU);
+    if (firstDiscriminant >= 0.f) {
+      const float root = SqrtF(firstDiscriminant);
+      roots[count++] = 0.5f * (u - root) - shift;
+      roots[count++] = 0.5f * (u + root) - shift;
     }
-    v = SqrtF(discriminant);
-  } else {
-    v = q / (2.f * u);
-  }
+    if (secondDiscriminant >= 0.f) {
+      const float root = SqrtF(secondDiscriminant);
+      roots[count++] = 0.5f * (-u - root) - shift;
+      roots[count++] = 0.5f * (-u + root) - shift;
+    }
 
-  const float firstDiscriminant = -(4.f * (y + v) - squaredU);
-  const float secondDiscriminant = -(4.f * (y - v) - squaredU);
-  if (firstDiscriminant >= 0.f) {
-    const float root = SqrtF(firstDiscriminant);
-    roots[count++] = 0.5f * (u - root) - shift;
-    roots[count++] = 0.5f * (u + root) - shift;
-  }
-  if (secondDiscriminant >= 0.f) {
-    const float root = SqrtF(secondDiscriminant);
-    roots[count++] = 0.5f * (-u - root) - shift;
-    roots[count++] = 0.5f * (-u + root) - shift;
-  }
+    for (uint i = 0; i < count; ++i) {
+      const float& x = roots[i];
+      const float slope =
+          x * (2.f * coefficients[2] + x * (3.f * coefficients[3] + coefficients[4] * (4.f * x)));
+      const float derivative = coefficients[1] + slope;
+      if (derivative != 0.f) {
+        roots[i] = x - (x * (x * (x * (coefficients[4] * x + coefficients[3]) + coefficients[2]) +
+                             coefficients[1]) +
+                        coefficients[0]) /
+                           derivative;
+      }
+    }
 
-  for (uint i = 0; i < count; ++i) {
-    const float x = roots[i];
-    const float derivative =
-        coefficients[1] +
-        x * (2.f * coefficients[2] + x * (3.f * coefficients[3] + coefficients[4] * (4.f * x)));
-    if (derivative != 0.f) {
-      roots[i] = x - (x * (x * (x * (coefficients[4] * x + coefficients[3]) + coefficients[2]) +
-                           coefficients[1]) +
-                      coefficients[0]) /
-                         derivative;
-    }
-  }
-
-  if (count > 2) {
-    if (roots[2] < roots[0]) {
-      Swap(roots[0], roots[2]);
-    }
-    if (roots[3] < roots[1]) {
-      Swap(roots[1], roots[3]);
-    }
-    if (roots[1] < roots[0]) {
-      Swap(roots[0], roots[1]);
-    }
-    if (roots[3] < roots[2]) {
-      Swap(roots[2], roots[3]);
-    }
-    if (roots[2] < roots[1]) {
-      Swap(roots[1], roots[2]);
+    if (count > 2) {
+      if (roots[2] < roots[0]) {
+        Swap(roots[0], roots[2]);
+      }
+      if (roots[3] < roots[1]) {
+        Swap(roots[1], roots[3]);
+      }
+      if (roots[1] < roots[0]) {
+        Swap(roots[0], roots[1]);
+      }
+      if (roots[3] < roots[2]) {
+        Swap(roots[2], roots[3]);
+      }
+      if (roots[2] < roots[1]) {
+        Swap(roots[1], roots[2]);
+      }
     }
   }
   return count;
