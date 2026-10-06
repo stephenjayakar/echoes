@@ -71,7 +71,7 @@ public:
   }
   void SetLocomotionMode(int mode) { mLocomotion.SetLocomotionMode(mode); }
 
-  bool IsAnimationOver() const { return (mAnimationFlags & kAF_AnimationOver) != 0; }
+  bool IsAnimationOver() const { return (mAnimationFlags & kAF_AnimationOver) >> 7; }
 
   const CPASDatabase& GetPASDatabase() const;
   void MultiplyPlaybackRate(float rate);
