@@ -476,10 +476,11 @@ TUniqueId CScriptTeamAiMgr::FindBestIndividualAttackTarget(CStateManager& mgr, c
   }
 
   TUniqueId target = kInvalidUniqueId;
+  float penalty;
   float bestScore = 1000.f;
   for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     if (mgr.GetPlayerState(i)->IsPlayerAlive()) {
-      const float penalty = 100.f * targetCounts[i];
+      penalty = 100.f * targetCounts[i];
       if (penalty < bestScore) {
         const float score =
             penalty + (mgr.GetPlayer(i)->GetTranslation() - ai.GetTranslation()).Magnitude();
