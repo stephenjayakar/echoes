@@ -179,7 +179,7 @@ void CScriptObjectLoaderHelper::BeginLayerLoad(SLoadContext& context,
   context.mStream = in;
   context.mRemainingObjects = ReadScriptLayerHeader(*in);
   context.mEditorIds = &ids;
-  ids.reserve(context.mRemainingObjects);
+  context.mEditorIds->reserve(context.mRemainingObjects);
   context.mObjects.reserve(context.mRemainingObjects + context.mObjects.size());
 }
 
@@ -187,10 +187,10 @@ bool CScriptObjectLoaderHelper::ContinueLayerLoad(SLoadContext& context, uint ti
                                                   CStateManager& mgr) {
   CStopwatch timer;
   while (context.mRemainingObjects != 0) {
-    const FourCC type = context.mStream->Get< FourCC >();
-    const uint length = context.mStream->ReadUint16();
-    const SGeneratedObject loaded =
-        LoadScriptObject(context.mAreaId, type, length, *context.mStream, mgr);
+    CInputStream& in = *context.mStream;
+    const FourCC type = in.Get< FourCC >();
+    const uint length = in.ReadUint16();
+    const SGeneratedObject loaded = LoadScriptObject(context.mAreaId, type, length, in, mgr);
     if (loaded.mEditorId != kInvalidEditorId) {
       context.mEditorIds->push_back_unsafe(loaded.mEditorId);
       context.mObjects.push_back_unsafe(loaded.mEntity);

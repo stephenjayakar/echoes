@@ -177,7 +177,7 @@ void CMFGameLoader::MarkGunPakSetLoaded(int set) { mLoadedGunPakSets |= 1 << set
 void CMFGameLoader::ClearGunPakSetLoaded(int set) { mLoadedGunPakSets &= ~(1 << set); }
 
 bool CMFGameLoader::IsGunPakSetLoaded(int set) const {
-  return (mLoadedGunPakSets & (1 << set)) != 0;
+  return (mLoadedGunPakSets & (1 << set)) > 0;
 }
 
 void CMFGameLoader::SelectGunPakSet() {

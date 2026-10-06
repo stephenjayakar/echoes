@@ -31,7 +31,7 @@ CMarkerGrid::CMarkerGrid(const CAABox& bounds)
 uint CMarkerGrid::GetValue(uint x, uint y, uint z) const {
   const uint bitOffset = (x & 3) << 1;
   const uint gridOffset = (y << 2) + (z << 6) + (x >> 2);
-  return (mGridState[gridOffset] & (3 << bitOffset)) >> bitOffset;
+  return (mGridState[gridOffset] & (3U << bitOffset)) >> bitOffset;
 }
 
 bool CMarkerGrid::GetCoords(const CVector3f& point, uint& x, uint& y, uint& z) const {
