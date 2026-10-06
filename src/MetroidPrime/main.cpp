@@ -778,22 +778,23 @@ void CMain::AddWorldPaks() {
 void CMain::EnsureWorldPakReady(CAssetId id) {
   CResLoader& loader = gpResourceFactory->GetResLoader();
   for (int i = 0; i < loader.GetPakCount(); ++i) {
+    bool notFound = true;
     CPakFile& pak = *loader.GetPakFile(i);
     if (!pak.IsWorldPak()) {
       continue;
     }
     const rstl::vector< rstl::pair< rstl::string, SObjectTag > > names =
         pak.GetStringToObjectList();
-    bool containsWorld = false;
-    for (int j = 0; j < names.size(); ++j) {
-      if (names[j].second.GetId() == id) {
-        containsWorld = true;
+    rstl::vector< rstl::pair< rstl::string, SObjectTag > >::const_iterator it = names.begin();
+    for (; it != names.end(); ++it) {
+      if (it->second.GetId() == id) {
+        notFound = false;
       }
     }
-    if (containsWorld) {
-      pak.EnsureWorldPakReady();
-    } else {
+    if (notFound) {
       pak.sub_80323554();
+    } else {
+      pak.EnsureWorldPakReady();
     }
   }
 }
@@ -854,7 +855,25 @@ CWorldState::~CWorldState() {}
 
 
 
-void CMain::ResetGameState() {}
+void CMain::ResetGameState() {
+  const CPersistentOptions systemOptions = gpGameState->SystemOptions();
+  const CGameOptions gameOptions = gpGameState->GameOptions();
+  const rstl::reserved_vector< rstl::vector< uchar >, 3 > options =
+      gpGameState->GetCompressedGameOptions();
+  const rstl::vector< uchar > multiplayerOptions = gpGameState->GetCompressedMultiplayerOptions();
+  const CGameState::SPreviousGameResults previousResults = gpGameState->PreviousGameResults();
+
+  mGameGlobalObjects->GameState() = nullptr;
+  gpGameState = nullptr;
+  mGameGlobalObjects->GameState() = rs_new CGameState();
+  gpGameState = mGameGlobalObjects->GameState().get();
+  gpGameState->SystemOptions() = systemOptions;
+  gpGameState->GameOptions() = gameOptions;
+  gpGameState->GameOptions().EnsureOptions();
+  gpGameState->SetCompressedGameOptions(options);
+  gpGameState->SetCompressedMultiplayerOptions(multiplayerOptions);
+  gpGameState->PreviousGameResults() = previousResults;
+}
 
 int CMain::GetLanguage() const {
   int language = mOsContext->GetLanguage();
