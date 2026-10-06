@@ -202,8 +202,10 @@ void CBouncyGrenade::PreRenderAllViewports(CStateManager& mgr) {
     rstl::optional_object< CAABox > xrayBounds = mElementGenTrailXRay->GetBounds();
     if (xrayBounds.valid()) {
       if (bounds.valid()) {
-        bounds->AccumulateBounds(xrayBounds->GetMinPoint());
-        bounds->AccumulateBounds(xrayBounds->GetMaxPoint());
+        const CAABox& xrayBox = *xrayBounds;
+        CAABox& box = *bounds;
+        box.AccumulateBounds(xrayBox.GetMinPoint());
+        box.AccumulateBounds(xrayBox.GetMaxPoint());
       } else {
         bounds = xrayBounds;
       }
@@ -355,7 +357,7 @@ void CBouncyGrenade::UpdateExplodeChecks(float dt, CStateManager& mgr) {
       }
     }
     mLastPosition += moved;
-    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       const CVector3f playerPos =
           player->GetTranslation() + CVector3f(0.f, 0.f, 0.5f * player->GetEyeHeight());

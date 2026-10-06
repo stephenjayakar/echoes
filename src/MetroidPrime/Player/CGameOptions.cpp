@@ -35,7 +35,8 @@ void CGameOptions::InitSoundMode() {
   if (OSGetSoundMode() == 0) {
     soundMode = CAudioSys::kSM_Mono;
   } else {
-    soundMode = (soundMode != CAudioSys::kSM_Mono) ? soundMode : CAudioSys::kSM_Stereo;
+    CAudioSys::ESurroundModes mode = soundMode;
+    soundMode = (mode != CAudioSys::kSM_Mono) ? mode : CAudioSys::kSM_Stereo;
   }
 }
 

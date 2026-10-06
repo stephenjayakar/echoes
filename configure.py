@@ -559,7 +559,7 @@ config.libs = [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptAreaProperties.cpp"),
             Object(NonMatching, "MetroidPrime/Player/CStaticInterference.cpp"),
             Object(NonMatching, "MetroidPrime/PathFinding/CPathFindSearch.cpp"),
-            Object(NonMatching, "MetroidPrime/PathFinding/CPathFindRegion.cpp"),
+            Object(MatchingFor("G2ME01"), "MetroidPrime/PathFinding/CPathFindRegion.cpp"),
             Object(NonMatching, "MetroidPrime/PathFinding/CPathFindArea.cpp"),
             Object(MatchingFor("G2ME01"), "MetroidPrime/PathFinding/CPathFindSpline.cpp"),
             Object(MatchingFor("G2ME01"), "MetroidPrime/CHealthInfo.cpp"),

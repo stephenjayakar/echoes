@@ -27,7 +27,7 @@ static const CMaterialFilter kPathLineOfSightFilter = CMaterialFilter::MakeInclu
 
 CPathCamera::CPathCamera(TUniqueId uid, const CTransform4f& xf, bool active, int index,
                          int controllerIdx)
-: CGameCamera(uid, rstl::string("Path Camera"),
+: CGameCamera(uid, rstl::string_l("Path Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, active), xf,
               CCameraManager::GetDefaultThirdPersonVerticalFOV(),
               CCameraManager::GetDefaultFirstPersonNearClipDistance(),
@@ -211,17 +211,17 @@ float CPathCamera::CalculatePositionDistance(float dt, const CStateManager& mgr)
   return spline.ValidateLength(mPositionDistance + step);
 }
 
-CVector3f CPathCamera::MoveAlongSpline(float dt, const CStateManager& mgr) {
-  const CVector3f playerPosition = GetPlayer(mgr).GetBallPosition();
+CVector3f CPathCamera::MoveAlongSpline(float dt, CStateManager& mgr) {
+  const CVector3f translation = GetTranslation();
+  const CVector3f playerPosition = Player(mgr).GetBallPosition();
   const CScriptPathCamera* camera = GetScriptCamera(mgr);
   if (!camera) {
-    return GetTranslation();
+    return translation;
   }
 
   CScriptCameraSpline& spline = camera->GetSpline();
   const CMotionSpline& playerSpline = camera->GetPlayerSpline();
-  CMayaSpline& speedControl = camera->GetSpeedControlSpline();
-  if (speedControl.GetKnotCount() != 0) {
+  if (camera->GetSpeedControlSpline().GetKnotCount() != 0) {
     float progress = 0.f;
     if (playerSpline.GetControlPointCount() != 0) {
       progress = CMath::Clamp(0.f, mPlayerDistance / playerSpline.GetLength(), 1.f);
@@ -231,13 +231,15 @@ CVector3f CPathCamera::MoveAlongSpline(float dt, const CStateManager& mgr) {
             CMath::Clamp(0.f, mPositionDistance / spline.GetPositionSpline().GetLength(), 1.f);
       }
       if (spline.GetLookAtSpline().GetControlPointCount() != 0) {
-        progress = CMath::Clamp(0.f, mLookAtDistance / spline.GetLookAtSpline().GetLength(), 1.f);
+        progress = CMath::Clamp(
+            0.f, mLookAtDistance / camera->GetSpline().GetLookAtSpline().GetLength(), 1.f);
       }
     }
-    mSpeed = speedControl.EvaluateAt(progress) * camera->GetSpeed();
+    mSpeed = camera->GetSpeedControlSpline().EvaluateAt(progress) * camera->GetSpeed();
   }
 
-  if (playerSpline.GetControlPointCount() != 0 && speedControl.GetKnotCount() == 0) {
+  if (playerSpline.GetControlPointCount() != 0 &&
+      camera->GetSpeedControlSpline().GetKnotCount() == 0) {
     mPlayerDistance = playerSpline.FindClosestLengthOnSpline(mPlayerDistance, playerPosition);
     mPlayerDistance = playerSpline.ValidateLength(mPlayerDistance);
     const float progress = CMath::Clamp(0.f, mPlayerDistance / playerSpline.GetLength(), 1.f);
@@ -254,12 +256,13 @@ CVector3f CPathCamera::MoveAlongSpline(float dt, const CStateManager& mgr) {
     mPositionDistance = CalculatePositionDistance(dt, mgr);
     mLookAtDistance = CalculateLookAtDistance(mgr);
   }
-  return spline.GetPositionByLength(mPositionDistance, GetTransform(), mgr);
+  const CVector3f position = spline.GetPositionByLength(mPositionDistance, GetTransform(), mgr);
+  return position;
 }
 
-CTransform4f CPathCamera::AvoidDoorCollisions(const CTransform4f& xf, const CStateManager& mgr) {
+CTransform4f CPathCamera::AvoidDoorCollisions(const CTransform4f& xf, CStateManager& mgr) {
   CTransform4f result(xf);
-  const CBallCamera* ballCamera = GetCameraManager(mgr).GetBallCamera();
+  const CBallCamera* ballCamera = CameraManager(mgr).GetBallCamera();
   const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(
       mgr.GetObjectById(ballCamera->GetTooCloseActorId()));
   if (door && !door->IsOpen() &&
@@ -269,7 +272,7 @@ CTransform4f CPathCamera::AvoidDoorCollisions(const CTransform4f& xf, const CSta
       return xf;
     }
     float newDistance = mPlayerDistance + camera->GetDistance();
-    if (mPlayerDistance < mPositionDistance) {
+    if (mPositionDistance > mPlayerDistance) {
       newDistance = mPlayerDistance - camera->GetDistance();
     }
     mPositionDistance = newDistance;
@@ -298,16 +301,17 @@ void CPathCamera::Think(float dt, CStateManager& mgr) {
   UpdateFov(mgr);
 
   if (CScriptTimeKeyframe* keyframe = TCastToPtr< CScriptTimeKeyframe >(
-          mgr.GetObjectByIdFromListAll(camera->GetTimeKeyframeId()))) {
+          mgr.ObjectById(camera->GetTimeKeyframeId()))) {
     const float length = camera->GetSpline().GetPositionSpline().GetLength();
     float time = CMath::Clamp(0.f, mPositionDistance / length, 1.f);
-    if (GetCameraManager(mgr).GetCurrentCameraId(false) != GetUniqueId()) {
+    if (CameraManager(mgr).GetCurrentCameraId(false) != GetUniqueId()) {
       time = 0.f;
     }
     keyframe->SetTime(time, mgr);
   }
 
-  SetTransform(ValidateCameraTransform(GetTransform(), oldXf));
+  xf = ValidateCameraTransform(GetTransform(), oldXf);
+  SetTransform(xf);
   CActor::Think(dt, mgr);
 }
 
@@ -449,11 +453,12 @@ void CPathCamera::UpdateOrientation(float dt, const CTransform4f& xf, const CSta
 
 void CPathCamera::UpdateFov(const CStateManager& mgr) {
   const CScriptPathCamera* camera = GetScriptCamera(mgr);
+  CScriptCameraSpline& spline = camera->GetSpline();
   const CMotionSpline& playerSpline = camera->GetPlayerSpline();
-  if (playerSpline.GetControlPointCount() == 0) {
-    SetTargetFov(camera->GetSpline().GetFovByLength(mPlayerDistance));
-  } else {
+  if (playerSpline.GetControlPointCount() != 0) {
     const float time = playerSpline.GetDuration() * (mPlayerDistance / playerSpline.GetLength());
-    SetTargetFov(camera->GetSpline().GetFovByTime(time));
+    SetTargetFov(spline.GetFovByTime(time));
+  } else {
+    SetTargetFov(spline.GetFovByLength(mPlayerDistance));
   }
 }

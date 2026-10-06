@@ -23,7 +23,7 @@ bool CFilteredObjectList::Contains(const CEntity& entity) const {
 
 void CFilteredObjectList::AddObject(CEntity& entity) {
   if (IsQualified(entity)) {
-    mObjects.push_front(&entity);
+    mObjects.push_back(&entity);
   }
 }
 

@@ -2,6 +2,7 @@
 #include "Kyoto/Graphics/CGraphics.hpp"
 
 #include "Kyoto/Alloc/CMemory.hpp"
+#include "Kyoto/Alloc/LockedCache.hpp"
 #include "Kyoto/Basics/COsContext.hpp"
 #include "Kyoto/Basics/CStopwatch.hpp"
 #include "Kyoto/Basics/RAssertDolphin.hpp"
@@ -331,17 +332,25 @@ static void SetProgressiveFilter(GXRenderModeObj& mode) {
   memcpy(mode.vfilter, filter, sizeof(filter));
 }
 
-void CGraphics::ConfigureVideo(bool initial, bool progressive) {
+void CGraphics::ConfigureVideo(bool initial, uchar progressive) {
   if (!initial) {
     CFrameDelayedKiller::StallAndFlushAllAllocations();
   }
   GXRenderModeObj* mode = nullptr;
   switch (VIGetTvFormat()) {
-  case VI_NTSC:
-    mode = progressive ? &GXNtsc480Prog : &GXNtsc480IntDf;
-    break;
   case VI_MPAL:
-    mode = progressive ? &GXNtsc480Prog : &GXMpal480IntDf;
+    if (!progressive) {
+      mode = &GXMpal480IntDf;
+    } else {
+      mode = &GXNtsc480Prog;
+    }
+    break;
+  case VI_NTSC:
+    if (!progressive) {
+      mode = &GXNtsc480IntDf;
+    } else {
+      mode = &GXNtsc480Prog;
+    }
     break;
   case VI_PAL:
   case VI_EURGB60:
@@ -349,10 +358,10 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
     break;
   }
   GXAdjustForOverscan(mode, &mRenderModeObj, 0, 16);
-  mRenderModeObj.viWidth += 20;
-  mRenderModeObj.viXOrigin -= 10;
   mPixelAspectRatio = 1.f;
   sIs50Hz = false;
+  mRenderModeObj.viWidth += 20;
+  mRenderModeObj.viXOrigin -= 10;
   if (progressive) {
     SetProgressiveFilter(mRenderModeObj);
   }
@@ -362,11 +371,12 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
   sSpareAllocation = nullptr;
   CGXTransientBuffer::SetBuffer(nullptr, 0);
   ResetGraphicsArena();
-  const int frameBufferSize = ((mRenderModeObj.fbWidth + 15) & ~15) * mRenderModeObj.xfbHeight * 2;
+  const int frameBufferSize =
+      ((mRenderModeObj.fbWidth + 15) & 0xfff0) * mRenderModeObj.xfbHeight * 2;
   mpFrameBuf1 = AllocateGraphicsArena(frameBufferSize);
   mpFrameBuf2 = AllocateGraphicsArena(frameBufferSize);
-  mFifoSize = 0x60000;
   sSpareAllocationSize = 0x46000;
+  mFifoSize = 0x60000;
   mpFifo = AllocateGraphicsArena(mFifoSize);
   sSpareAllocation = AllocateGraphicsArena(sSpareAllocationSize);
   CGXTransientBuffer::SetBuffer(AllocateGraphicsArena(0x40000), 0x40000);
@@ -376,6 +386,8 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
     mRenderModeObj.viWidth += mScreenStretch * 2;
     mRenderModeObj.viXOrigin += mScreenPositionX - mScreenStretch;
     mRenderModeObj.viYOrigin += mScreenPositionY;
+  }
+  if (!initial) {
     VIWaitForRetrace();
     VIWaitForRetrace();
   }
@@ -390,23 +402,25 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
 }
 
 GXTexRegion* CGraphics::TexRegionCallback(const GXTexObj* obj, GXTexMapID id) {
-  static uchar nextTexRgn = 0;
-  static uchar nextTexRgnCI = 0;
+  static signed char nextTexRgn = 0;
+  static signed char nextTexRgnCI = 0;
   const GXTexFmt fmt = GXGetTexObjFmt(obj);
-  const bool indexed = fmt == GX_TF_C4 || fmt == GX_TF_C8 || fmt == GX_TF_C14X2;
   if (id == GX_TEXMAP7) {
-    return indexed ? &mTexRegionsCI[0] : &mTexRegions[0];
+    if (fmt != GX_TF_C4 && fmt != GX_TF_C8 && fmt != GX_TF_C14X2) {
+      return &mTexRegions[0];
+    }
+    return &mTexRegionsCI[0];
   }
-  if (indexed) {
+  if (fmt != GX_TF_C4 && fmt != GX_TF_C8 && fmt != GX_TF_C14X2) {
     do {
-      nextTexRgnCI = (nextTexRgnCI + 1) & 3;
-    } while (nextTexRgnCI == 0);
-    return &mTexRegionsCI[nextTexRgnCI];
+      nextTexRgn = (nextTexRgn + 1) & 7;
+    } while (nextTexRgn == 0);
+    return &mTexRegions[nextTexRgn];
   }
   do {
-    nextTexRgn = (nextTexRgn + 1) & 7;
-  } while (nextTexRgn == 0);
-  return &mTexRegions[nextTexRgn];
+    nextTexRgnCI = (nextTexRgnCI + 1) & 3;
+  } while (nextTexRgnCI == 0);
+  return &mTexRegionsCI[nextTexRgnCI];
 }
 
 void CGraphics::InitGraphicsVariables() {
@@ -467,7 +481,11 @@ void CGraphics::ConfigureFrameBuffer() {
   GXSetDispCopyYScale(static_cast< float >(mRenderModeObj.xfbHeight) / mRenderModeObj.efbHeight);
   GXSetCopyFilter(mRenderModeObj.aa, mRenderModeObj.sample_pattern, GX_ENABLE,
                   mRenderModeObj.vfilter);
-  GXSetPixelFmt(mRenderModeObj.aa ? GX_PF_RGB565_Z16 : GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+  if (mRenderModeObj.aa) {
+    GXSetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+  } else {
+    GXSetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+  }
   GXSetDispCopyGamma(GX_GM_1_0);
   GXCopyDisp(mpCurrenFrameBuf, true);
   VIFlush();
@@ -498,11 +516,10 @@ static inline GXLightID get_hw_light_index(ERglLight light) {
 
 void CGraphics::LoadLight(ERglLight light, const CLight& info) {
   GXLightID lightId = get_hw_light_index(light);
-  ELightType type = info.GetType();
   CVector3f pos = info.GetPosition();
   CVector3f dir = info.GetDirection();
 
-  switch (type) {
+  switch (info.GetType()) {
   case kLT_Spot: {
     MTXMultVec(mCameraMtx, reinterpret_cast< VecPtr >(&pos), reinterpret_cast< VecPtr >(&pos));
     GXLightObj* obj = &mLightObj[light];
@@ -1006,22 +1023,22 @@ void CGraphics::DrawPrimitive(ERglPrimitive primitive, const float* pos, const C
 
 #define STREAM_PRIM_BUFFER_SIZE 240
 
-#define VTX_BUFFER_ADDR static_cast< uchar* >(LCGetBase())
-#define NRM_BUFFER_ADDR (VTX_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
-#define TXT0_BUFFER_ADDR (NRM_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
-#define TXT1_BUFFER_ADDR (TXT0_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
-#define CLR_BUFFER_ADDR (TXT1_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
+#define NRM_BUFFER_ADDR(base) ((base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
+#define TXT0_BUFFER_ADDR(base) (NRM_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
+#define TXT1_BUFFER_ADDR(base) (TXT0_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
+#define CLR_BUFFER_ADDR(base) (TXT1_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
 
 static const uchar kHasNormals = 1;
 static const uchar kHasColor = 2;
 static const uchar kHasTexture = 4;
 
 void CGraphics::StreamBegin(ERglPrimitive primitive) {
-  mVertexBuffer = reinterpret_cast< VecPtr >(VTX_BUFFER_ADDR);
-  mNormalBuffer = reinterpret_cast< VecPtr >(NRM_BUFFER_ADDR);
-  mTexCoordBuffer0 = reinterpret_cast< Vec2Ptr >(TXT0_BUFFER_ADDR);
-  mTexCoordBuffer1 = reinterpret_cast< Vec2Ptr >(TXT1_BUFFER_ADDR);
-  mColorBuffer = reinterpret_cast< uint* >(CLR_BUFFER_ADDR);
+  uchar* base = static_cast< uchar* >(GetLockedCacheAllocationBase());
+  mVertexBuffer = reinterpret_cast< VecPtr >(base);
+  mNormalBuffer = reinterpret_cast< VecPtr >(NRM_BUFFER_ADDR(base));
+  mTexCoordBuffer0 = reinterpret_cast< Vec2Ptr >(TXT0_BUFFER_ADDR(base));
+  mTexCoordBuffer1 = reinterpret_cast< Vec2Ptr >(TXT1_BUFFER_ADDR(base));
+  mColorBuffer = reinterpret_cast< uint* >(CLR_BUFFER_ADDR(base));
   ResetVertexDataStream(true);
   mCurrentPrimitive = primitive;
   vtxDescr.mStreamFlags = kHasColor;
@@ -1735,7 +1752,7 @@ void CGraphics::SetUseStreamVertexDelay(bool enabled) { sUseStreamVertexDelay = 
 
 CGraphicsSys::CGraphicsSys(const COsContext& osContext, const CMemorySys& memorySys,
                            bool progressive) {
-  if (!mGraphicsInitialized) {
+  if (mGraphicsInitialized != true) {
     mGraphicsInitialized = CGraphics::Startup(osContext, progressive);
   }
 }

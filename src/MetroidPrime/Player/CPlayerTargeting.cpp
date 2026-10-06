@@ -46,7 +46,10 @@ public:
   bool IsValid(const CStateManager& mgr, TUniqueId id) const override {
     const CScriptPointOfInterest* point =
         TCastToConstPtr< CScriptPointOfInterest >(mgr.GetObjectById(id));
-    return point && point->GetActive();
+    if (point) {
+      return point->GetActive();
+    }
+    return false;
   }
 };
 
@@ -86,24 +89,21 @@ bool CPlayerTargeting::IsInVisibleArea(const CStateManager& mgr, const CEntity* 
 
 bool CPlayerTargeting::HasStaticGeometry(const CStateManager& mgr, TUniqueId id) {
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id));
-  if (!actor || !TCastToConstPtr< CScriptPointOfInterest >(actor)) {
-    return false;
-  }
-
-  const TEditorId editorId = mgr.GetEditorIdForUniqueId(id);
-  const CStaticGeometryMap* map = mgr.GetWorld()
-                                      ->GetAreaAlways(actor->GetCurrentAreaId())
-                                      .GetPostConstructed()
-                                      ->mStaticGeometryMap.get();
-  if (!map) {
-    return false;
-  }
-
-  const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = map->GetData().GetMappings();
-  for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-       it != mappings.end(); ++it) {
-    if (it->second == editorId) {
-      return true;
+  if (actor && TCastToConstPtr< CScriptPointOfInterest >(actor)) {
+    const TEditorId editorId = mgr.GetEditorIdForUniqueId(id);
+    const TAreaId areaId = actor->GetCurrentAreaId();
+    const CStaticGeometryMap* map =
+        mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap.get();
+    if (map) {
+      const rstl::vector< CStaticGeometryMapData::TMapping >& mappings =
+          map->GetData().GetMappings();
+      for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it =
+               mappings.begin();
+           it != mappings.end(); ++it) {
+        if (it->second == editorId) {
+          return true;
+        }
+      }
     }
   }
 
@@ -128,15 +128,18 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
   }
 
   const TUniqueId id = actor.GetUniqueId();
-  if (!(mScanObjectMembership[id.Value() >> 3] & (1 << (id.Value() & 7)))) {
-    ResolveScanTarget(mgr, id);
-    const rstl::vector< SScanObject >::iterator it =
-        rstl::lower_bound(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
-    const CColor previous = !close_enough(mRefreshTimer, 0.f) ? skScanPulseStart : CColor::Black();
-    mScanObjects.insert(it, SScanObject(id, previous, gpTweakGui->GetScanVisorFadeOutTime()));
-    mScanObjectMembership[id.Value() >> 3] |= 1 << (id.Value() & 7);
+  const int bit = 1 << (id.Value() & 7);
+  uchar& membership = mScanObjectMembership[id.Value() >> 3];
+  if (membership & bit) {
+    return true;
   }
 
+  ResolveScanTarget(mgr, id);
+  const rstl::vector< SScanObject >::iterator it =
+      rstl::lower_bound(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
+  const CColor previous = close_enough(mRefreshTimer, 0.f) ? CColor::Black() : skScanPulseStart;
+  mScanObjects.insert(it, SScanObject(id, previous, gpTweakGui->GetScanVisorFadeOutTime()));
+  membership |= bit;
   return true;
 }
 
@@ -243,7 +246,7 @@ bool SScanObjectLess::operator()(TUniqueId id, const CPlayerTargeting::SScanObje
   return id < object.mId;
 }
 
-int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, TUniqueId id) const {
+int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUniqueId& id) const {
   const TUniqueId resolved = ResolveScanTarget(mgr, id);
   if (resolved == kInvalidUniqueId) {
     return 0;
@@ -309,28 +312,25 @@ CPlayerTargeting::EScanState CPlayerTargeting::GetScanState(CStateManager& mgr,
     const CPlayer* player =
         TCastToConstPtr< CPlayer >(mgr.GetObjectById(ResolveScanTarget(mgr, id)));
     if (player) {
-      return player->GetPlayerState()->GetItemCapacity(CPlayerState::kIT_HackedEffect) < 1
-                 ? kSS_Unscanned
-                 : kSS_Hacked;
+      return player->GetPlayerState()->GetItemCapacity(CPlayerState::kIT_HackedEffect) > 0
+                 ? kSS_Hacked
+                 : kSS_Unscanned;
     }
   }
 
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(ResolveScanTarget(mgr, id)));
-  if (!actor) {
-    return kSS_Invalid;
+  if (actor) {
+    const CScannableObjectInfo* scan = actor->GetScannableObjectInfo();
+    if (scan) {
+      if (mgr.PlayerState(mgr.MaskUIdNumPlayers(mPlayerId))
+              ->GetScanTime(scan->GetScannableObjectId()) >= 0.9999999f) {
+        return static_cast< EScanState >(kSS_Scanned + (scan->IsCritical() ? 1 : 0));
+      }
+      return static_cast< EScanState >(kSS_Unscanned + (scan->IsCritical() ? 1 : 0));
+    }
   }
 
-  const CScannableObjectInfo* scan = actor->GetScannableObjectInfo();
-  if (!scan) {
-    return kSS_Invalid;
-  }
-
-  if (mgr.PlayerState(mgr.MaskUIdNumPlayers(mPlayerId))
-          ->GetScanTime(scan->GetScannableObjectId()) >= 0.9999999f) {
-    return scan->IsCritical() ? kSS_CriticalScanned : kSS_Scanned;
-  }
-
-  return scan->IsCritical() ? kSS_CriticalUnscanned : kSS_Unscanned;
+  return kSS_Invalid;
 }
 
 void CPlayerTargeting::PrepareStaticGeometry(const CStateManager& mgr,
@@ -341,26 +341,31 @@ void CPlayerTargeting::PrepareStaticGeometry(const CStateManager& mgr,
   }
   const CStaticGeometryMap* map =
       mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap.get();
-  if (!map) {
-    gpRender->DisablePVS(areaId.Value());
-    return;
-  }
-  const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = map->GetData().GetMappings();
-  TEditorId previousId = kInvalidEditorId;
-  int paletteIndex = -1;
-  rstl::vector< rstl::pair< int, int > > visible;
-  visible.reserve(mappings.size());
-  for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-       it != mappings.end(); ++it) {
-    if (it->second != previousId) {
-      paletteIndex = GetScanTargetIndex(mgr, mgr.GetIdForScript(it->second));
+  if (map) {
+    const rstl::vector< CStaticGeometryMapData::TMapping >& mappings =
+        map->GetData().GetMappings();
+    TEditorId previousId = kInvalidEditorId;
+    int paletteIndex = -1;
+    rstl::vector< rstl::pair< int, int > > visible;
+    visible.reserve(mappings.size());
+    for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
+         it != mappings.end(); ++it) {
+      int index;
+      if (it->second == previousId) {
+        index = paletteIndex;
+      } else {
+        index = GetScanTargetIndex(mgr, mgr.GetIdForScript(it->second));
+      }
       previousId = it->second;
+      paletteIndex = index;
+      if (index > 0) {
+        visible.push_back_unsafe(rstl::pair< int, int >(it->first, index));
+      }
     }
-    if (paletteIndex > 0) {
-      visible.push_back_unsafe(rstl::pair< int, int >(it->first, paletteIndex));
-    }
+    gpRender->EnablePVS(areaId.Value(), visible);
+  } else {
+    gpRender->DisablePVS(areaId.Value());
   }
-  gpRender->EnablePVS(areaId.Value(), visible);
 }
 
 void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui) const {
@@ -394,23 +399,20 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
 }
 
 TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueId id) const {
-  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id));
-  if (!actor) {
-    return kInvalidUniqueId;
+  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id))) {
+    if (actor->GetScannableObjectInfo() && actor->GetActive()) {
+      return id;
+    }
+    return actor->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None,
+                                          CActiveScanPointPredicate());
   }
-
-  if (actor->GetScannableObjectInfo() && actor->GetActive()) {
-    return id;
-  }
-
-  return actor->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None, CActiveScanPointPredicate());
+  return kInvalidUniqueId;
 }
 
 TUniqueId CPlayerTargeting::GetScanTargetId(const CStateManager& mgr, int paletteIndex) const {
   const int index = paletteIndex - 2;
   if (index >= 0 && index < mScanObjects.size()) {
-    const TUniqueId id = mScanObjects[index].mId;
-    return ResolveScanTarget(mgr, id);
+    return ResolveScanTarget(mgr, TUniqueId(mScanObjects[index].mId));
   }
 
   return kInvalidUniqueId;
