@@ -518,6 +518,16 @@ public:
     mAdditiveReaction = cmd;
   }
 
+  void DeliverCmd(const CBCTauntCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mTaunt = cmd;
+  }
+
+  void DeliverCmd(const CBCAdditiveAimCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveAim = cmd;
+  }
+
   void DeliverCmd(const CBCScriptedCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mScripted = cmd;
@@ -538,8 +548,10 @@ public:
 
   const CVector3f& GetTargetVector() const { return mTarget; }
   void SetTargetVector(const CVector3f& target) { mTarget = target; }
+  void SetSteeringBlendMode(ESteeringBlendMode mode) { mSteeringMode = mode; }
 
   const CVector3f& GetAdditiveTargetVector() const { return mAdditiveTarget; }
+  void DeliverAdditiveTargetVector(const CVector3f& target) { mAdditiveTarget = target; }
 
 private:
   CVector3f mMove;

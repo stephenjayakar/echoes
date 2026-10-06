@@ -1,5 +1,6 @@
 #include "MetroidPrime/Enemies/CFlyingPirate.hpp"
 
+#include "Collision/CCollisionInfoList.hpp"
 #include "Collision/CRayCastResult.hpp"
 #include "Kyoto/Animation/CInt32POINode.hpp"
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
@@ -16,11 +17,13 @@
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CAxisAngle.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CGameArea.hpp"
 #include "MetroidPrime/CKnockBackInfo.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/CWorld.hpp"
+#include "MetroidPrime/Enemies/CSpacePirate.hpp"
 #include "MetroidPrime/Enemies/CTeamAiRole.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
@@ -704,6 +707,101 @@ void CFlyingPirate::MassiveDeath(CStateManager& mgr) {
   CPatterned::MassiveDeath(mgr);
 }
 
+void CFlyingPirate::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (mCanPatrol) {
+    CPatterned::Patrol(mgr, msg, dt);
+    switch (msg) {
+    case kStateMsg_Activate:
+      BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_FullSpeed);
+      mPatrolTarget = mWaypointNavigation.GetDestination();
+      x8a4_ = 0.f;
+      break;
+    case kStateMsg_Update:
+      if (mWaypointNavigation.GetDestination() != mPatrolTarget) {
+        mPatrolTarget = mWaypointNavigation.GetDestination();
+        x8a4_ = 0.f;
+      }
+      if (mWaypointNavigation.IsMoving()) {
+        const CVector3f delta = mWaypointNavigation.GetDestinationPosition() - GetTranslation();
+        const CVector3f direction =
+            delta.IsMagnitudeSafe() ? delta.AsNormalized() : GetTransform().GetForward();
+        const float moveSpeed = mWaypointNavigation.GetMoveSpeed();
+        const float speed = moveSpeed * mData.mFlightThrust;
+        x8a4_ = dt * speed + x8a4_;
+        x8a4_ = rstl::min_val(speed, x8a4_);
+        x87c_ = (dt * (x8a4_ * dt)) * direction;
+        x898_ = 1.5f * mWaypointNavigation.GetMoveSpeed();
+        x870_ += x87c_;
+      }
+      UpdatePatrolFacing(mgr);
+      mLineOfSightTracker.Update(dt, mgr);
+      break;
+    case kStateMsg_Deactivate:
+      BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+      break;
+    }
+  }
+}
+
+void CFlyingPirate::TargetPatrol(CStateManager& mgr, EStateMsg msg, float dt) {
+  CPatterned::Patrol(mgr, msg, dt);
+  switch (msg) {
+  case kStateMsg_Activate: {
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+    mWaypointNavigation.SetDestination(GetConnectedObject(mgr, kSS_Attack, kSM_Follow));
+    if (mWaypointNavigation.GetDestination() != kInvalidUniqueId) {
+      if (const CScriptAIWaypoint* waypoint = TCastToConstPtr< CScriptAIWaypoint >(
+              mgr.GetObjectById(mWaypointNavigation.GetDestination()))) {
+        mWaypointNavigation.SetMoveSpeed(waypoint->GetSpeed());
+      }
+    }
+    mPatrolTarget = mWaypointNavigation.GetDestination();
+    x8a4_ = 0.f;
+    break;
+  }
+  case kStateMsg_Update:
+    if (mWaypointNavigation.GetDestination() != mPatrolTarget) {
+      mPatrolTarget = mWaypointNavigation.GetDestination();
+      x8a4_ = 0.f;
+    }
+    if (mWaypointNavigation.IsMoving()) {
+      const CVector3f delta = mWaypointNavigation.GetDestinationPosition() - GetTranslation();
+      const CVector3f direction =
+          delta.IsMagnitudeSafe() ? delta.AsNormalized() : GetTransform().GetForward();
+      const float moveSpeed = mWaypointNavigation.GetMoveSpeed();
+      const float speed = moveSpeed * mData.mFlightThrust;
+      x8a4_ = dt * speed + x8a4_;
+      x8a4_ = rstl::min_val(speed, x8a4_);
+      x87c_ = (dt * (x8a4_ * dt)) * direction;
+      x898_ = 1.5f * mWaypointNavigation.GetMoveSpeed();
+      x870_ += x87c_;
+    }
+    UpdatePatrolFacing(mgr);
+    mLineOfSightTracker.Update(dt, mgr);
+    break;
+  }
+}
+
+void CFlyingPirate::UpdatePatrolFacing(CStateManager& mgr) {
+  if (const CScriptAIWaypoint* waypoint = TCastToConstPtr< CScriptAIWaypoint >(
+          mgr.GetObjectById(mWaypointNavigation.GetDestination()))) {
+    const uint flags = waypoint->GetFlags();
+    if ((flags & 8) != 0) {
+      const CVector3f delta = mWaypointNavigation.GetDestinationPosition() - GetTranslation();
+      if (delta.IsMagnitudeSafe()) {
+        BodyController()->CommandMgr().DeliverCmd(
+            CBCLocomotionCmd(CVector3f::Zero(), delta.AsNormalized(), 1.f));
+      }
+    } else if ((flags & 0x10) != 0) {
+      const CVector3f delta = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
+      if (delta.IsMagnitudeSafe()) {
+        BodyController()->CommandMgr().DeliverCmd(
+            CBCLocomotionCmd(CVector3f::Zero(), delta.AsNormalized(), 1.f));
+      }
+    }
+  }
+}
+
 bool CFlyingPirate::PatternOver(CStateManager& mgr, const CTriggerData& data) const {
   return mWaypointNavigation.GetDestination() == kInvalidUniqueId;
 }
@@ -728,6 +826,46 @@ bool CFlyingPirate::HearPlayer(CStateManager& mgr, const CTriggerData& data) con
     }
   }
   return heard;
+}
+
+void CFlyingPirate::Taunt(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    x6a0_28_ = true;
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+    if (!mIsFlyingPirate) {
+      mAnimationState.SetState(CAnimationState::kAS_Ready);
+    } else {
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    if (mTargetId == kInvalidUniqueId) {
+      mTargetId = mgr.GetPlayer(0)->GetUniqueId();
+    }
+    SendScriptMsgs(kSS_Attack, mgr, kInvalidUniqueId, kSM_None);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*GetBodyController(), pas::kAS_Taunt)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCTauntCmd(pas::ETauntType(4)));
+    }
+    break;
+  case kStateMsg_Deactivate: {
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+    for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+      if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(list[i])) {
+        if (!pirate->GetEnableAim() && pirate->GetAlive() &&
+            pirate->GetCurrentAreaId() == GetCurrentAreaId() &&
+            (pirate->GetTranslation() - GetTranslation()).MagSquared() <
+                mData.mHearingDistance * mData.mHearingDistance) {
+          mgr.InformListeners(GetTranslation(), kLNT_PlayerFire);
+          return;
+        }
+      }
+    }
+    break;
+  }
+  }
 }
 
 void CFlyingPirate::GetUp(CStateManager& mgr, EStateMsg msg, float dt) {
@@ -860,6 +998,39 @@ bool CFlyingPirate::CoverFind(CStateManager& mgr, const CTriggerData& data) cons
   return found;
 }
 
+void CFlyingPirate::ChooseWaypoint(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    float closestDist = 1000.f;
+    const CScriptCoverPoint* closest = nullptr;
+    const CObjectList& list = mgr.GetObjectListById(kOL_AiWaypoint);
+    for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+      if (const CScriptCoverPoint* cover = TCastToConstPtr< CScriptCoverPoint >(list[i])) {
+        if (cover->GetActive() && !cover->GetInUse(GetUniqueId()) && !cover->ShouldLandHere() &&
+            cover->GetCurrentAreaId() == GetCurrentAreaId() &&
+            (GetTranslation() - cover->GetTranslation()).Magnitude() < mData.mMaxCoverDistance) {
+          const float dist =
+              (mgr.GetPlayer(0)->GetTranslation() - cover->GetTranslation()).Magnitude();
+          if (dist < closestDist) {
+            closestDist = dist;
+            closest = cover;
+          }
+        }
+      }
+    }
+    ReleaseCoverPoint(mgr, mCurrentCoverPoint, true);
+    if (closest != nullptr) {
+      if (CScriptCoverPoint* cover =
+              TCastToPtr< CScriptCoverPoint >(mgr.ObjectById(closest->GetUniqueId()))) {
+        SetCoverPoint(cover, mCurrentCoverPoint);
+        GetSearchPath()->SetPadding(20.f);
+      }
+    }
+    break;
+  }
+  }
+}
+
 void CFlyingPirate::ResetFireMissilesCheck() {
   mCanFireMissiles = false;
   x6a1_28_ = false;
@@ -939,6 +1110,125 @@ bool CFlyingPirate::InRange(CStateManager& mgr, const CTriggerData& data) const 
   const CVector3f pos = player.GetTranslation();
   return CMath::AbsF(pos.GetZ()) < mMinAttackRange &&
          pos.MagSquared() < mMaxAttackRange * mMaxAttackRange;
+}
+
+void CFlyingPirate::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    CVector3f target = mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f);
+    if (mIsMoving) {
+      target = mDestPos;
+    } else if (const CScriptCoverPoint* cover = GetCoverPoint(mgr, mCurrentCoverPoint)) {
+      target = cover->GetTranslation();
+    }
+    if (GetSearchPath()->Search(GetTranslation(), target) != CPathFindSearch::kR_Success &&
+        (GetSearchPath()->GetResult() == CPathFindSearch::kR_NoDestPoint ||
+         GetSearchPath()->GetResult() == CPathFindSearch::kR_NoPath)) {
+      if (GetSearchPath()->FindClosestReachablePoint(GetTranslation(), target) ==
+          CPathFindSearch::kR_Success) {
+        GetSearchPath()->Search(GetTranslation(), target);
+      }
+    }
+    UpdateParticleEffects(mgr, 0.5f, true);
+    break;
+  }
+  case kStateMsg_Update: {
+    CVector3f move = CVector3f::Zero();
+    if (!GetSearchPath()->IsShagged() && !GetSearchPath()->IsOver()) {
+      CVector3f out = GetTranslation() + GetTransform().GetForward();
+      GetSearchPath()->GetSplinePointWithLookahead(out, GetTranslation(), 3.f);
+      if (GetSearchPath()->SegmentOver(out)) {
+        GetSearchPath()->Advance();
+      }
+      move = out - GetTranslation();
+      if (move.CanBeNormalized()) {
+        move.Normalize();
+      }
+    }
+    move += 3.f * AvoidActors(mgr);
+    if (move.CanBeNormalized()) {
+      move.Normalize();
+    }
+    float speed = x858_ < 2.f ? 4.f : 1.f;
+    const float multiplier = 1.5f * speed;
+    speed = dt * (dt * (speed * mData.mFlightThrust));
+    x87c_ = speed * move;
+    x898_ = multiplier;
+    x870_ += x87c_;
+    const CVector3f face = GetTargetPos(mgr) - GetTranslation();
+    if (face.IsMagnitudeSafe()) {
+      BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(move, face.AsNormalized(), 1.f));
+    }
+    mLineOfSightTracker.Update(dt, mgr);
+    break;
+  }
+  case kStateMsg_Deactivate:
+    mIsMoving = false;
+    break;
+  }
+}
+
+void CFlyingPirate::Retreat(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
+    CVector3f target =
+        GetTranslation() - mMinAttackRange * (playerPos - GetTranslation()).AsNormalized();
+    float targetZ = playerPos.GetZ();
+    targetZ += mData.mFlyingHeight;
+    target.SetZ(targetZ);
+    if (GetSearchPath()->OnPath(target) == CPathFindSearch::kR_NoSourcePoint) {
+      GetSearchPath()->FindClosestReachablePoint(GetTranslation(), target);
+      target[kDZ] += mData.mFlyingHeight;
+      if ((playerPos - target).MagSquared() < 0.25f * mMinAttackRange * mMinAttackRange) {
+        target =
+            GetTranslation() + mMinAttackRange * (playerPos - GetTranslation()).AsNormalized();
+        float targetZ = playerPos.GetZ();
+        targetZ += mData.mFlyingHeight;
+        target.SetZ(targetZ);
+        if (GetSearchPath()->OnPath(target) == CPathFindSearch::kR_NoSourcePoint) {
+          GetSearchPath()->FindClosestReachablePoint(GetTranslation(), target);
+          target[kDZ] += mData.mFlyingHeight;
+        }
+      }
+    }
+    GetSearchPath()->Search(GetTranslation(), target);
+    UpdateParticleEffects(mgr, 0.5f, true);
+    break;
+  }
+  case kStateMsg_Update: {
+    CVector3f move = CVector3f::Zero();
+    if (!GetSearchPath()->IsOver()) {
+      CVector3f out = GetTranslation() + GetTransform().GetForward();
+      GetSearchPath()->GetSplinePointWithLookahead(out, GetTranslation(), 3.f);
+      if (GetSearchPath()->SegmentOver(out)) {
+        GetSearchPath()->Advance();
+      }
+      move = out - GetTranslation();
+      if (move.CanBeNormalized()) {
+        move.Normalize();
+      }
+    }
+    move += 3.f * AvoidActors(mgr);
+    if (move.CanBeNormalized()) {
+      move.Normalize();
+    }
+    float speed = x858_ < 2.f ? 4.f : 1.f;
+    const float multiplier = 1.5f * speed;
+    speed = dt * (dt * (speed * mData.mFlightThrust));
+    x87c_ = speed * move;
+    x898_ = multiplier;
+    x870_ += x87c_;
+    const CVector3f face = GetTargetPos(mgr) - GetTranslation();
+    if (face.IsMagnitudeSafe()) {
+      BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(move, face.AsNormalized(), 1.f));
+    }
+    mLineOfSightTracker.Update(dt, mgr);
+    break;
+  }
+  case kStateMsg_Deactivate:
+    break;
+  }
 }
 
 void CFlyingPirate::TurnAround(CStateManager& mgr, EStateMsg msg, float dt) {
@@ -1191,6 +1481,32 @@ void CFlyingPirate::Enraged(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
+void CFlyingPirate::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
+  CPatterned::Dead(mgr, msg, dt);
+  switch (msg) {
+  case kStateMsg_Activate:
+    mBoneTracking.SetActive(false);
+    xbba_29_ = false;
+    AnimationData()->SetEffectState(skEyes, false, mgr);
+    CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Projectile, mgr, mTeamAiMgr, GetUniqueId(),
+                                true);
+    break;
+  case kStateMsg_Update:
+    SetMomentumWR(CVector3f::Zero());
+    if (mSpinToDeath) {
+      const CTransform4f xf = GetLctrTransform(mHeadSegId);
+      const CVector3f offset = xf.GetTranslation() - GetTranslation();
+      const CAABox box(offset, offset + 2.f * CVector3f::One());
+      SetBoundingBox(box);
+      SetCollisionPrimitive(CCollidableAABox(box, GetMaterialList()));
+      if (mStateMachine->GetTime() >= 6.f) {
+        xbba_29_ = true;
+      }
+    }
+    break;
+  }
+}
+
 bool CFlyingPirate::DeathOver(CStateManager& mgr, const CTriggerData& data) const {
   if (xbba_30_) {
     return true;
@@ -1260,15 +1576,210 @@ bool CFlyingPirate::HasAttackPattern(CStateManager& mgr, const CTriggerData& dat
 
 CProjectileInfo* CFlyingPirate::ProjectileInfo() { return &mGunProjectileInfo; }
 
-void CFlyingPirate::Render(const CStateManager& mgr) const { CPatterned::Render(mgr); }
-
 void CFlyingPirate::PreRenderAllViewports(CStateManager& mgr) {
   CPatterned::PreRenderAllViewports(mgr);
+}
+
+void CFlyingPirate::AddToRenderer(const CStateManager& mgr) const {
+  for (int i = 0; i < mParticleGens.size(); ++i) {
+    CElementGen* gen = mParticleGens[i].get();
+    if (mgr.GetFrustumPlanes().BoxInFrustumPlanes(gen->GetBounds())) {
+      gpRender->AddParticleGen(*gen);
+    }
+  }
+  CPatterned::AddToRenderer(mgr);
+}
+
+void CFlyingPirate::PreRender(CStateManager& mgr) {
+  CPatterned::PreRender(mgr);
+  mBoneTracking.PreRender(mgr, *AnimationData(), GetTransform(), GetModelData()->GetScale(),
+                          *BodyController());
+}
+
+void CFlyingPirate::Render(const CStateManager& mgr) const { CPatterned::Render(mgr); }
+
+void CFlyingPirate::CollidedWith(const TUniqueId& id, const CCollisionInfoList& list,
+                                 CStateManager& mgr) {
+  CPatterned::CollidedWith(id, list, mgr);
+  if (!mAlive) {
+    if (id == kInvalidUniqueId) {
+      static const CMaterialList skWorldMaterials(kMT_Unknown59, kMT_Wall, kMT_Floor);
+      for (int i = 0; i < list.GetCount(); ++i) {
+        if (list[i].GetMaterialLeft().SharesMaterials(skWorldMaterials)) {
+          xbba_29_ = true;
+          break;
+        }
+      }
+    } else {
+      xbba_29_ = true;
+    }
+  }
 }
 
 void CFlyingPirate::PreThink(float dt, CStateManager& mgr) {
   mBoneTracking.PreThink(*AnimationData());
   CPatterned::PreThink(dt, mgr);
+}
+
+void CFlyingPirate::Think(float dt, CStateManager& mgr) {
+  if (!GetActive()) {
+    return;
+  }
+  if (!GetBodyController()->GetIsActive()) {
+    BodyController()->Activate(mgr, pas::kAS_Invalid);
+    if (mIsFlyingPirate) {
+      BodyController()->SetLocomotionType(pas::kLT_Combat);
+      mVerticalMovement = true;
+    }
+  }
+  bool inCineCam = false;
+  if (!mgr.IsMultiplayer() && mgr.GetCameraManager(0)->IsInCinematicCamera()) {
+    inCineCam = true;
+  }
+  if (inCineCam && !mPrevInCineCam) {
+    RemoveMaterial(kMT_AIBlock, mgr);
+    CMaterialList include = GetMaterialFilter().GetIncludeList();
+    include.Remove(kMT_AIBlock);
+    SetMaterialFilter(
+        CMaterialFilter::MakeIncludeExclude(include, GetMaterialFilter().GetExcludeList()));
+  } else if (!inCineCam && mPrevInCineCam) {
+    AddMaterial(kMT_AIBlock, mgr);
+    SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
+        CMaterialList(GetMaterialFilter().GetIncludeList()).Union(CMaterialList(kMT_AIBlock)),
+        GetMaterialFilter().GetExcludeList()));
+  }
+  mPrevInCineCam = inCineCam;
+  for (int i = 0; i < mParticleGens.size(); ++i) {
+    mParticleGens[i]->Update(dt);
+  }
+  x78c_ = rstl::max_val(x78c_ - dt, 0.f);
+  if (mAlive) {
+    x854_ += dt;
+    x858_ += dt;
+    if (x6a0_30_) {
+      x858_ = 0.f;
+      x6a0_30_ = false;
+    }
+    if (mHitByPlayerProjectile) {
+      x854_ = 0.f;
+      mHitByPlayerProjectile = false;
+    }
+    if (!mIsAquaPirate && InFluidId() != kInvalidUniqueId) {
+      if (const CScriptWater* water =
+              TCastToConstPtr< CScriptWater >(mgr.GetObjectById(InFluidId()))) {
+        const float height = GetTranslation().GetZ();
+        if (water->GetTriggerBoundsWR().GetMaxPoint().GetZ() > 2.f + height) {
+          mPendingDeath = true;
+        }
+      }
+    }
+  }
+  if (GetBodyController()->GetPercentageFrozen() == 0.f) {
+    x86c_ = rstl::max_val(x86c_ - dt, 0.f);
+    x860_ = rstl::max_val(x860_ - dt, 0.f);
+    x888_ = rstl::max_val(x888_ - dt, 0.f);
+    if (mAlive) {
+      CheckForProjectiles(mgr);
+    }
+    if (!mIsAquaPirate &&
+        (!mAlive ||
+         (GetBodyController()->GetBodyStateInfo().GetCurrentState()->CanShoot() && x6a0_28_ &&
+          GetBodyController()->GetCurrentStateId() != pas::kAS_ProjectileAttack && !mStopped &&
+          !GetBodyController()->IsElectrocuting())) &&
+        mBurstFire.GetBurstType() != -1) {
+      x7e4_ -= dt;
+      if (x7e4_ < 0.f) {
+        int type = mBurstFire.GetBurstType() & ~1;
+        if (!mLineOfSightTracker.HasLineOfSight() || !IsOnScreen(mgr)) {
+          ++type;
+        }
+        mBurstFire.SetBurstType(type);
+        mBurstFire.Start(mgr);
+        if (mAlive) {
+          x7e4_ = mAttackTimeVariation * mgr.Random()->Float() + GetAverageAttackTime();
+          const CVector3f delta =
+              (GetBoundingBox().GetCenterPoint() - mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f))
+                  .AsNormalized();
+          if (CVector3f::Dot(delta, mgr.GetPlayer(0)->GetTransform().GetForward()) < 0.9f) {
+            const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+            for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+              const CPhysicsActor* actor = TCastToConstPtr< CPhysicsActor >(list[i]);
+              if (actor != nullptr && actor->GetActive() &&
+                  actor->GetCurrentAreaId() == GetCurrentAreaId()) {
+                x7e4_ += 0.2f;
+              }
+            }
+          }
+        } else {
+          x7e4_ = 22050.f;
+        }
+      }
+      mBurstFire.Update(mgr, dt);
+      if (mBurstFire.ShouldFire()) {
+        FireProjectile(mgr, dt);
+        const float variation = mData.mIntraBurstShotVariation;
+        const float delay = mData.mIntraBurstShotTime;
+        mBurstFire.SetTimeToNextShot(variation * (mgr.Random()->Float() - 0.5f) + delay);
+      }
+    }
+  }
+  if (mAlive && !GetBodyController()->IsFrozen() && !GetBodyController()->IsElectrocuting() &&
+      x6a0_28_ && !mIsAquaPirate) {
+    BodyController()->CommandMgr().DeliverCmd(CBCAdditiveAimCmd());
+    const CVector3f target = GetTargetPos(mgr);
+    const CVector3f delta = target - GetTranslation();
+    const CVector3f aim = GetTransform().TransposeRotate(delta);
+    BodyController()->CommandMgr().DeliverAdditiveTargetVector(aim);
+  } else {
+    BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_AdditiveIdle));
+  }
+  if (x870_.MagSquared() > 0.f) {
+    const float mag = x870_.Magnitude();
+    const CVector3f direction = (1.f / mag) * x870_;
+    float damping = 0.2f;
+    if (x87c_.MagSquared() == 0.f) {
+      damping *= 3.f;
+    }
+    const float speed = -(dt * (mag * (damping * mag)) - mag);
+    x870_ = speed * direction;
+  }
+  if (mAlive && GetBodyController()->GetCurrentStateId() != pas::kAS_LoopReaction &&
+      GetBodyController()->GetCurrentStateId() != pas::kAS_Hurled &&
+      GetBodyController()->GetCurrentStateId() != pas::kAS_LieOnGround &&
+      GetBodyController()->GetCurrentStateId() != pas::kAS_Getup) {
+    ApplyImpulseWR(GetMass() * x870_, CAxisAngle::Identity());
+  } else {
+    x870_ = CVector3f::Zero();
+    x87c_ = CVector3f::Zero();
+  }
+  x898_ = CMath::Clamp(1.f, x898_, 1.999f);
+  float change = x898_ - mPitchBend;
+  change = CMath::Clamp(-dt, change, dt);
+  mPitchBend += change;
+  SetSoundEventPitchBend(static_cast< int >(8192.f * mPitchBend));
+  x87c_ = CVector3f::Zero();
+  x898_ = 1.f;
+  CPatterned::Think(dt, mgr);
+  CVector3f movement = x87c_;
+  if (movement.CanBeNormalized()) {
+    movement.Normalize();
+  }
+  const CVector3f& offset = CMath::Min(0.333f * x87c_.Magnitude(), 0.333f) * movement;
+  const CVector3f targetUp = (CVector3f::Up() + offset).AsNormalized();
+  const CVector3f& currentUp = GetTransform().GetUp();
+  const float angle = CMath::AbsF(CVector3f::GetAngleDiff(currentUp, targetUp));
+  if (angle > 0.f) {
+    const float maxStep = 30.f * ((M_PIF * dt) / 180.f);
+    const float step = CMath::Min(angle, maxStep);
+    const CVector3f up = (step * targetUp + (angle - step) * currentUp).AsNormalized();
+    CVector3f right = CVector3f::Cross(GetTransform().GetForward(), up);
+    const CVector3f forward = CVector3f::Cross(up, right).AsNormalized();
+    right = CVector3f::Cross(forward, up);
+    SetTransform(CTransform4f::FromColumns(right, forward, up, GetTranslation()));
+  }
+  if (!GetBodyController()->IsFrozen()) {
+    mBoneTracking.Think(dt);
+  }
 }
 
 void CFlyingPirate::SetupStateMachine(CStateManager& mgr) {

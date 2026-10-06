@@ -178,6 +178,7 @@ private:
   void UpdateLandingSmoke(CStateManager& mgr, bool active);
   void UpdateParticleEffects(CStateManager& mgr, float intensity, bool active);
   void DeliverGetUp();
+  void UpdatePatrolFacing(CStateManager& mgr);
   void AddToTeam(CStateManager& mgr);
   void RemoveFromTeam(CStateManager& mgr);
 
