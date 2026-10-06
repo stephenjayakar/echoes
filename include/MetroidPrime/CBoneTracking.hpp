@@ -41,6 +41,7 @@ public:
   void SetDisableTrackingDistance(float distance);
   void SetTargetPosition(const CVector3f& target);
   void SetMaxBoneRotation(float angle);
+  void SetAngSpeed(float speed) { mAngSpeed = speed; } // Guessed name.
 
 private:
   // Guessed names.

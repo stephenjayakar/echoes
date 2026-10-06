@@ -202,6 +202,13 @@ public:
   void FaceTarget(const CVector3f& target, float dt);
   void TurnWithBoss(const CVector3f& target, CStateManager& mgr, TUniqueId id, float dt);
   void SyncAttackOrder(CStateManager& mgr, int offset);
+  void UpdateBeamTurn(CStateManager& mgr, const SLdrSandBossChargeBeamData& data, float dt);
+  void StopChargeBeams(CStateManager& mgr);
+  void ResetChargeBeams(CStateManager& mgr);
+  float GetAttachDelay() const;
+  void UpdateDoubleChargeBeams(CStateManager& mgr, float dt);
+  void UpdateTripleChargeBeams(CStateManager& mgr, float dt);
+  void UpdateStampedeMovement(CStateManager& mgr, float dt);
   void RenderArmor(const CStateManager& mgr, const CTransform4f& xf, const CModelFlags& flags,
                    const CModelFlags& headFlags) const;
 
@@ -258,17 +265,17 @@ private:
   float xf14_;
   float mChargeBeamTimer;
   float mDarkBeamTimer;
-  float xf20_;
+  float mStampedeTimer;
   float mStampedeHP;
   float xf28_;
   float mHeadArmorHP;
   float xf30_;
   float xf34_;
-  float xf38_;
-  int xf3c_;
-  float xf40_;
+  float mBeamAngle;
+  int mBeamTurnDirection;
+  float mBeamTurnTimer;
   int mAttackOrder;
-  int xf48_;
+  int mRepeaterShots;
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mAttachedArmorModels; // Guessed name.
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mStampedeArmorModels; // Guessed name.
   rstl::reserved_vector< EArmorState, 8 > mArmorStates;                                   // Guessed name.

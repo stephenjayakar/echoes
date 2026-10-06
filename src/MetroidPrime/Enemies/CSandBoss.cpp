@@ -19,6 +19,9 @@
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptSafeZone.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
+#include "MetroidPrime/Player/CPlayerState.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
 
@@ -30,6 +33,7 @@ static const char* const skSpineJoints[] = {
 };
 static const char* const skRootJoint = "Skeleton_Root";
 static const char* const skHeadJoint = "Head_1";
+static CVector3f skJawsTouchBounds(4.5f, 4.5f, 1.5f); // Guessed name.
 
 CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                      const CTransform4f& xf, const CModelData& mData,
@@ -79,17 +83,17 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , xf14_(0.f)
 , mChargeBeamTimer(data.unknown_0x7619e561.doubleCharge.minChargeBeamAttackTime)
 , mDarkBeamTimer(data.minDarkBeamAttackTime)
-, xf20_(0.f)
+, mStampedeTimer(0.f)
 , mStampedeHP(data.stampedeProperties.breakStampedeHP)
 , xf28_(0.f)
 , mHeadArmorHP(data.headArmorHP)
 , xf30_(0.f)
 , xf34_(0.f)
-, xf38_(0.f)
-, xf3c_(1)
-, xf40_(0.f)
+, mBeamAngle(0.f)
+, mBeamTurnDirection(1)
+, mBeamTurnTimer(0.f)
 , mAttackOrder(0)
-, xf48_(0)
+, mRepeaterShots(0)
 , mAttachedArmorModels(rstl::optional_object< CModelData >())
 , mStampedeArmorModels(rstl::optional_object< CModelData >())
 , mArmorStates(kArmor_None)
@@ -643,7 +647,7 @@ void CSandBoss::RotateToPlayer(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
-    mBoneTracking.SetMaxBoneRotation(1.5707964f);
+    mBoneTracking.SetAngSpeed(1.5707964f);
     mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
     break;
   case kStateMsg_Update: {
@@ -656,7 +660,7 @@ void CSandBoss::RotateToPlayer(CStateManager& mgr, EStateMsg msg, float dt) {
   }
   case kStateMsg_Deactivate:
     mBoneTracking.SetActive(false);
-    mBoneTracking.SetMaxBoneRotation(3.1415927f);
+    mBoneTracking.SetAngSpeed(3.1415927f);
     break;
   }
 }
@@ -785,6 +789,332 @@ void CSandBoss::SpitOutBall(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Deactivate:
     mAnimationState.SetState(CAnimationState::kAS_NotReady);
     x165e_28_ = false;
+    break;
+  }
+}
+
+void CSandBoss::AttachToSphere(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (const CActor* sphere = static_cast< const CActor* >(mgr.GetObjectById(xe8a_))) {
+      SetTranslation(sphere->GetTranslation());
+      SetTransform(x14d0_.BuildTransform4f(GetTranslation()));
+    }
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mCollisionActorManager->SetActive(mgr, true);
+    SetCollisionActorVulnerability(mgr, CDamageVulnerability::ReflectVulnerabilty(),
+                                   CDamageVulnerability::ReflectVulnerabilty());
+    AddMaterial(kMT_Target, kMT_Orbit, mgr);
+    mAttackOrder = 0;
+    x165d_30_ = true;
+    break;
+  case kStateMsg_Update:
+    if (mStateMachine->GetTime() >= GetAttachDelay()) {
+      if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+        BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Four, -1));
+      }
+      if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+        BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    x165d_24_ = true;
+    x165d_25_ = false;
+    break;
+  }
+}
+
+void CSandBoss::SuckAir(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    BodyController()->SetLocomotionType(pas::kLT_Internal5);
+    x165d_26_ = true;
+    break;
+  case kStateMsg_Update:
+    if (mStateMachine->GetTime() < mData.suckAirTime) {
+      if (BodyController()->GetCurrentStateId() != pas::kAS_Locomotion) {
+        BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_AbortScripted));
+      }
+      if (x165d_27_) {
+        CPlayer* player = mgr.GetPlayer(0);
+        if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed &&
+            IsInSuckRange(*player)) {
+          const CTransform4f xf = GetLctrTransform(mHeadSegId);
+          const CVector3f diff = player->GetTranslation() - xf.GetTranslation();
+          const float mag = diff.Magnitude();
+          if (!(fabs(mag - 0.f) < 0.00001f)) {
+            player->ApplyImpulseWR(dt * ((150.f * player->GetMass()) * ((1.f / mag) * -diff)),
+                                   CAxisAngle::Identity());
+            player->UseCollisionImpulses();
+            player->SetMinimalAccelerationTimer(2.f * dt);
+            mgr.PlayerState(0)->StaticInterference().AddSource(GetUniqueId(), 0.1f, 0.1f);
+          }
+        }
+      }
+    } else {
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSandBoss::DarkBeamAttack(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetAngSpeed(1.5707964f);
+    mBoneTracking.SetTarget(xe88_);
+    x165c_28_ = true;
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_ProjectileAttack)) {
+      if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(xe88_))) {
+        BodyController()->CommandMgr().DeliverCmd(
+            CBCProjectileAttackCmd(pas::kS_Zero, target->GetTranslation(), false));
+      }
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    if (BodyController()->GetCurrentStateId() == pas::kAS_ProjectileAttack) {
+      BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_AbortScripted));
+    }
+    mBoneTracking.SetActive(false);
+    mBoneTracking.SetAngSpeed(3.1415927f);
+    x165c_28_ = false;
+    xe88_ = kInvalidUniqueId;
+    SyncAttackOrder(mgr, -1);
+    break;
+  }
+}
+
+void CSandBoss::RepeaterAttack(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetAngSpeed(1.5707964f);
+    mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+    x165c_29_ = true;
+    x165c_28_ = x165c_29_;
+    mRepeaterShots = 0;
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_LoopAttack)) {
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCLoopAttackCmd(pas::kLAT_One, true));
+    }
+    if (mRepeaterShots >= 3) {
+      BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
+    }
+    if (AreSpheresUnlocked(mgr) && IsLeader(mgr)) {
+      FaceTarget(mgr.GetPlayer(0)->GetTranslation(), dt);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    if (BodyController()->GetCurrentStateId() == pas::kAS_LoopAttack) {
+      BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
+    }
+    mBoneTracking.SetActive(false);
+    mBoneTracking.SetAngSpeed(3.1415927f);
+    x165c_29_ = false;
+    x165c_28_ = x165c_29_;
+    SyncAttackOrder(mgr, -1);
+    break;
+  }
+}
+
+void CSandBoss::DoubleCharge(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x165c_30_ = true;
+    BodyController()->SetTurnSpeed(mData.unknown_0x7619e561.doubleCharge.turnSpeed);
+    mBeamAngle = -1.5707964f;
+    mBeamTurnDirection = 1;
+    mBeamTurnTimer = 0.f;
+    UpdateBeamTurn(mgr, mData.unknown_0x7619e561.doubleCharge, dt);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_LoopAttack)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCLoopAttackCmd(pas::kLAT_Zero));
+    }
+    if (BodyController()->GetCurrentStateId() == pas::kAS_LoopAttack && IsLeader(mgr)) {
+      if (!mChargeBeams.empty()) {
+        const float delta =
+            dt * ((M_PIF / 180.f) * mData.unknown_0x7619e561.doubleCharge.turnSpeed);
+        float angle;
+        if (mBeamTurnDirection == 1) {
+          angle = 1.5707964f - delta;
+        } else {
+          angle = 1.5707964f + delta;
+        }
+        const CVector3f dir =
+            GetTransform().Rotate(CVector3f(CMath::FastCosR(angle), CMath::FastSinR(angle), 0.f));
+        FaceTarget(GetTranslation() + dir, dt);
+      }
+      if (mStateMachine->GetTime() > mData.unknown_0x7619e561.doubleCharge.duration ||
+          (GetNumFiringBeams(mgr) < 2 && !mChargeBeams.empty())) {
+        StopChargeBeams(mgr);
+      }
+      UpdateDoubleChargeBeams(mgr, dt);
+      UpdateBeamTurn(mgr, mData.unknown_0x7619e561.doubleCharge, dt);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    x165c_30_ = false;
+    mAttackOrder = mData.unknown_0x7619e561.doubleCharge.unknown_0x8d4f3b88;
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    StopChargeBeams(mgr);
+    BodyController()->SetTurnSpeed(xde8_);
+    break;
+  }
+}
+
+void CSandBoss::TripleCharge(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x165c_31_ = true;
+    mBeamAngle = -1.5707964f;
+    mBeamTurnDirection = 1;
+    mBeamTurnTimer = 0.f;
+    BodyController()->SetTurnSpeed(mData.unknown_0x7619e561.tripleCharge.turnSpeed);
+    UpdateBeamTurn(mgr, mData.unknown_0x7619e561.tripleCharge, dt);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_LoopAttack)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCLoopAttackCmd(pas::kLAT_Zero));
+    }
+    if (BodyController()->GetCurrentStateId() == pas::kAS_LoopAttack && IsLeader(mgr)) {
+      if (!mChargeBeams.empty()) {
+        const float delta =
+            dt * ((M_PIF / 180.f) * mData.unknown_0x7619e561.tripleCharge.turnSpeed);
+        float angle;
+        if (mBeamTurnDirection == 1) {
+          angle = 1.5707964f - delta;
+        } else {
+          angle = 1.5707964f + delta;
+        }
+        const CVector3f dir =
+            GetTransform().Rotate(CVector3f(CMath::FastCosR(angle), CMath::FastSinR(angle), 0.f));
+        FaceTarget(GetTranslation() + dir, dt);
+      }
+      if (mStateMachine->GetTime() > mData.unknown_0x7619e561.tripleCharge.duration ||
+          (GetNumFiringBeams(mgr) < 3 && !mChargeBeams.empty())) {
+        StopChargeBeams(mgr);
+      }
+      UpdateTripleChargeBeams(mgr, dt);
+      UpdateBeamTurn(mgr, mData.unknown_0x7619e561.tripleCharge, dt);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    x165c_31_ = false;
+    mAttackOrder = mData.unknown_0x7619e561.tripleCharge.unknown_0x8d4f3b88;
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    StopChargeBeams(mgr);
+    BodyController()->SetTurnSpeed(xde8_);
+    break;
+  }
+}
+
+void CSandBoss::SnapJaws(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x165c_26_ = true;
+    SetCollisionActorExtendedTouchBounds(mgr, skJawsTouchBounds);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_MeleeAttack)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCMeleeAttackCmd(pas::kS_One));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    x165c_26_ = false;
+    SetCollisionActorExtendedTouchBounds(mgr, CVector3f::Zero());
+    if (BodyController()->GetCurrentStateId() == pas::kAS_MeleeAttack) {
+      BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_NextState));
+    }
+    break;
+  }
+}
+
+void CSandBoss::SeekStampedePoint(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    x165c_25_ = false;
+    break;
+  case kStateMsg_Update:
+    if (const CScriptCoverPoint* cover = GetCoverPoint(mgr, xe8e_)) {
+      const CVector3f pos = GetTranslation();
+      const CVector3f diff = cover->GetTranslation() - pos;
+      const float mag = diff.Magnitude();
+      const float step = 100.f * dt;
+      if (mag > step) {
+        SetTranslation(pos + step * ((1.f / mag) * diff));
+      }
+      if (mStampedeTimer >= GetStampedeSpeed(mgr)) {
+        x165c_25_ = true;
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    if (const CScriptCoverPoint* cover = GetCoverPoint(mgr, xe8e_)) {
+      const TUniqueId wpId = cover->FindConnectedObject(mgr, kSS_Arrived, kSM_Next);
+      if (const CScriptAIWaypoint* wp =
+              TCastToConstPtr< CScriptAIWaypoint >(mgr.GetObjectById(wpId))) {
+        const CVector3f coverPos = cover->GetTranslation();
+        CVector3f target = coverPos + (wp->GetTranslation() - coverPos);
+        target.SetZ(coverPos.GetZ() + 0.f);
+        SetTransform(CTransform4f::LookAt(coverPos, target, CVector3f::Up()));
+        xf28_ = wp->GetTranslation().GetZ();
+      }
+      xf28_ = cover->GetTranslation().GetZ();
+    }
+    break;
+  }
+}
+
+void CSandBoss::Stampede(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mCollisionActorManager->SetActive(mgr, true);
+    AddMaterial(kMT_Target, kMT_Orbit, mgr);
+    RemoveMaterial(kMT_GroundCollider, mgr);
+    mVerticalMovement = true;
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+      if (other != nullptr && other != this) {
+        other->mStampedeTimer = 0.f;
+      }
+    }
+    break;
+  }
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Three, -1));
+    }
+    UpdateStampedeMovement(mgr, dt);
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    RemoveMaterial(kMT_Target, kMT_Orbit, mgr);
+    AddMaterial(kMT_GroundCollider, mgr);
+    mVerticalMovement = false;
+    mStampedeTimer = 0.f;
     break;
   }
 }
@@ -1332,6 +1662,53 @@ void CSandBoss::SyncAttackOrder(CStateManager& mgr, int offset) {
     }
   }
 }
+
+void CSandBoss::UpdateBeamTurn(CStateManager& mgr, const SLdrSandBossChargeBeamData& data,
+                               float dt) {
+  if (mChargeBeams.size() != 0) {
+    mBeamTurnTimer -= dt;
+  }
+  if (mBeamTurnTimer <= 0.f) {
+    const float maxInterval = data.changeDirectionInterval + data.changeDirectionVariance;
+    if (data.duration - mStateMachine->GetTime() > maxInterval) {
+      if (mgr.Random()->Range(0.f, 100.f) <= data.changeDirectionChance) {
+        mBeamTurnDirection = mBeamTurnDirection != 1;
+      }
+      mBeamTurnTimer =
+          data.changeDirectionInterval + mgr.Random()->Range(0.f, data.changeDirectionVariance);
+    } else {
+      mBeamTurnTimer = maxInterval;
+    }
+  }
+}
+
+void CSandBoss::StopChargeBeams(CStateManager& mgr) {
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr && other->x165d_24_) {
+      other->BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
+      other->mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+  }
+  ResetChargeBeams(mgr);
+  switch (xdfc_) {
+  case 0:
+  case 1:
+    xdfc_ = 2;
+    xf14_ = mData.unknown_0x7619e561.chargeBeamInfo.shutdownTime;
+    break;
+  }
+}
+
+void CSandBoss::ResetChargeBeams(CStateManager& mgr) {
+  for (const SChargeBeam* it = mChargeBeams.begin(); it != mChargeBeams.end(); ++it) {
+    if (CEntity* beam = mgr.ObjectById(it->mBeamId)) {
+      static_cast< CPlasmaProjectile* >(beam)->ResetBeam(mgr, false);
+    }
+  }
+}
+
+float CSandBoss::GetAttachDelay() const { return 0.5f * float(mData.commandIndex); }
 
 SSandBoss_FuncPtrs REL_loader_SandBoss;
 
