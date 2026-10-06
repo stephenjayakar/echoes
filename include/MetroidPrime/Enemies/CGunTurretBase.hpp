@@ -112,7 +112,7 @@ public:
   static const char* const skConnectLocator;
 
 private:
-  float GetClosestCameraDistanceSq(const CStateManager& mgr) const;
+  float GetClosestCameraDistanceSq(CStateManager& mgr) const;
   CVector3f GetGunFirePosition(CStateManager& mgr) const;
   void LaunchProjectile(CStateManager& mgr);
   void ResetAttack(CStateManager& mgr);

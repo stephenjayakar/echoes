@@ -70,7 +70,7 @@ public:
   CAABox GetModelBounds() const;
 
 private:
-  float GetClosestCameraDistanceSq(const CStateManager& mgr) const;
+  float GetClosestCameraDistanceSq(CStateManager& mgr) const;
 
   TUniqueId mBaseId;
   int mState;

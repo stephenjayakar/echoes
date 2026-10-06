@@ -15,6 +15,8 @@
 
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Graphics/CLight.hpp"
+#include "Kyoto/Math/CMath.hpp"
+#include "rstl/math.hpp"
 
 CGunTurretTop::CGunTurretTop(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                              const CTransform4f& xf, const CModelData& modelData,
@@ -157,11 +159,13 @@ bool CGunTurretTop::Attacked(CStateManager& mgr, const CTriggerData& data) const
 }
 
 bool CGunTurretTop::PowerUpOver(CStateManager&, const CTriggerData&) const {
-  return mStateMachine->GetTime() > mPowerUpTime;
+  const bool over = mStateMachine->GetTime() > mPowerUpTime;
+  return over;
 }
 
 bool CGunTurretTop::PowerDownOver(CStateManager&, const CTriggerData&) const {
-  return mStateMachine->GetTime() > mPowerDownTime;
+  const bool over = mStateMachine->GetTime() > mPowerDownTime;
+  return over;
 }
 
 bool CGunTurretTop::AnimOver(CStateManager& mgr, const CTriggerData& data) const {
@@ -207,7 +211,8 @@ void CGunTurretTop::PowerUp(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     mState = kS_PowerUp;
     mStateTime = 0.f;
-    ProcessSoundEvent(mPowerUpSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(), 0, 0, 0.f,
+    const int sfx = mPowerUpSfx;
+    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f,
                       20, 127, GetClosestCameraDistanceSq(mgr), GetTranslation(),
                       mgr.GetNextAreaId().Value(), mgr, true);
     break;
@@ -217,6 +222,8 @@ void CGunTurretTop::PowerUp(CStateManager& mgr, EStateMsg msg, float dt) {
     AnimationData()->AddAdditiveAnimation(mAdditiveAnim, t < 1.f ? t : 1.f, true, false);
     break;
   }
+  case kStateMsg_Deactivate:
+    break;
   }
 }
 
@@ -226,7 +233,7 @@ void CGunTurretTop::PowerDown(CStateManager& mgr, EStateMsg msg, float dt) {
     mState = kS_PowerDown;
     mStateTime = 0.f;
     StopLoopedSounds();
-    ProcessSoundEvent(mPowerDownSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(), 0, 0, 0.f,
+    ProcessSoundEvent(mPowerDownSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f,
                       20, 127, GetClosestCameraDistanceSq(mgr), GetTranslation(),
                       mgr.GetNextAreaId().Value(), mgr, true);
     break;
@@ -314,7 +321,7 @@ void CGunTurretTop::Touch(CActor& actor, CStateManager& mgr) { CPatterned::Touch
 
 void CGunTurretTop::Death(CStateManager& mgr, const CVector3f& direction,
                           EScriptObjectState state) {
-  AnimationData()->SetEffectState("Generator", false, mgr);
+  AnimationData()->SetEffectState(rstl::string_l("Generator"), false, mgr);
   SetActive(false);
   mHitByPlayerProjectile = false;
   RemoveMaterial(kMT_Target, kMT_Orbit, mgr);
@@ -341,17 +348,18 @@ void CGunTurretTop::Revive(CStateManager& mgr) {
   BodyController()->UnFreeze();
 }
 
-float CGunTurretTop::GetClosestCameraDistanceSq(const CStateManager& mgr) const {
-  float closest = FLT_MAX;
-  const CVector3f& pos = GetTranslation();
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+float CGunTurretTop::GetClosestCameraDistanceSq(CStateManager& mgr) const {
+  float distanceSquared = 3.4028235e38f;
+  const CVector3f position = GetTranslation();
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     const CGameCamera* camera = mgr.GetCameraManager(i)->GetCurrentCamera(mgr, true);
-    float distSq = (camera->GetTranslation() - pos).MagSquared();
-    if (distSq < closest) {
-      closest = distSq;
+    const CVector3f delta = camera->GetTranslation() - position;
+    const float cameraDistanceSquared = delta.MagSquared();
+    if (cameraDistanceSquared < distanceSquared) {
+      distanceSquared = cameraDistanceSquared;
     }
   }
-  return closest;
+  return distanceSquared;
 }
 
 void CGunTurretTop::SetChargeEffect(CStateManager& mgr, bool active, bool pirate) {
