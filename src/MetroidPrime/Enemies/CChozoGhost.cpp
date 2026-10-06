@@ -23,20 +23,22 @@
 #include "MetroidPrime/Weapons/CImpactVisorEffect.hpp"
 #include "REL/REL_Setup.h"
 
-
 const float CChozoGhost::skGravityConstant = 60.f;
 const rstl::string CChozoGhost::skSpeedSwooshName = rstl::string_l("SpeedSwoosh");
 
 static EMaterialTypes SolidMaterial = kMT_Unknown59;
 
 static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
-    {"ShouldAttack", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldAttack)},
+    {"ShouldAttack",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldAttack)},
     {"InRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::InRange)},
-    {"ShouldTaunt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldTaunt)},
+    {"ShouldTaunt",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldTaunt)},
     {"ShouldMove", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldMove)},
     {"AIStage", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AIStage)},
     {"Leash", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::Leash)},
-    {"ShouldFlinch", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldFlinch)},
+    {"ShouldFlinch",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldFlinch)},
     {"AggressionCheck",
      static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AggressionCheck)},
 };
@@ -47,7 +49,8 @@ static CPatterned::StateMachine::SStateFunction skStates[] = {
     {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Attack)},
     {"Generate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Generate)},
     {"Run", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Run)},
-    {"SelectTarget", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::SelectTarget)},
+    {"SelectTarget",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::SelectTarget)},
     {"Dead", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Dead)},
     {"Deactivate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Deactivate)},
     {"Shuffle", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Shuffle)},
@@ -131,8 +134,8 @@ CChozoGhost::CChozoGhost(
     const ushort sfxFadeOut, const uint w1, const float f2, const uint w2,
     const float hurlRecoverTime, const CAssetId projectileVisor, const ushort soundProjectileVisor,
     const float f3, const float f4, const uint nearChance, const uint midChance)
-: CPatterned(static_cast< EPatternedAI >(4), uid, name, kFT_Zero, info, xf, mData, pInfo,
-             kMT_Flyer, kCT_Zero, static_cast< EBodyType >(1), actParms)
+: CPatterned(static_cast< EPatternedAI >(4), uid, name, kFT_Zero, info, xf, mData, pInfo, kMT_Flyer,
+             kCT_Zero, kBT_BiPedal, actParms)
 , mHearingRadius(hearingRadius)
 , mFadeOutDelay(fadeOutDelay)
 , mAttackDelay(attackDelay)
@@ -184,15 +187,14 @@ CChozoGhost::CChozoGhost(
   mProjectileInfo1.Token().Lock();
   mProjectileInfo2.Token().Lock();
 
-  const CPASAnimParmData jumpAnimParms(pas::kAS_Jump,
-                                       CPASAnimParm::FromEnum(3), CPASAnimParm::FromEnum(0));
+  const CPASAnimParmData jumpAnimParms(pas::kAS_Jump, CPASAnimParm::FromEnum(3),
+                                       CPASAnimParm::FromEnum(0));
   x668_ = GetModelData()->GetScale().GetZ() * GetAnimationDistance(jumpAnimParms);
-  const CPASAnimParmData slideAnimParms(pas::kAS_Slide,
-                                        CPASAnimParm::FromEnum(1),
+  const CPASAnimParmData slideAnimParms(pas::kAS_Slide, CPASAnimParm::FromEnum(1),
                                         CPASAnimParm::FromReal32(90.f));
   x66c_ = GetModelData()->GetScale().GetY() * GetAnimationDistance(slideAnimParms);
-  const CPASAnimParmData meleeAnimParms(pas::kAS_MeleeAttack,
-                                        CPASAnimParm::FromEnum(2), CPASAnimParm::FromEnum(1));
+  const CPASAnimParmData meleeAnimParms(pas::kAS_MeleeAttack, CPASAnimParm::FromEnum(2),
+                                        CPASAnimParm::FromEnum(1));
   x670_ = GetModelData()->GetScale().GetZ() * GetAnimationDistance(meleeAnimParms);
 
   if (projectileVisor != kInvalidAssetId) {
@@ -304,18 +306,19 @@ void CChozoGhost::PreRender(CStateManager& mgr) {
     } else {
       color = CColor::White();
     }
-    SetModelFlags(CModelFlags::AlphaBlended(CColor(color.GetRedu8(), color.GetGreenu8(), color.GetBlueu8(), alpha)));
+    SetModelFlags(CModelFlags::AlphaBlended(
+        CColor(color.GetRedu8(), color.GetGreenu8(), color.GetBlueu8(), alpha)));
   } else {
     SetModelFlags(CModelFlags::Normal());
   }
   CActor::PreRender(mgr);
-  mBoneTracking.PreRender(mgr, *ModelData()->AnimationData(), GetTransform(), GetModelData()->GetScale(), *mBodyController);
+  mBoneTracking.PreRender(mgr, *ModelData()->AnimationData(), GetTransform(),
+                          GetModelData()->GetScale(), *mBodyController);
 }
 
 void CChozoGhost::Render(const CStateManager& mgr) const {
   if (mSpaceWarpTime > 0.f) {
-    mgr.DrawSpaceWarp(mSpaceWarpPosition,
-                      CMath::FastSinR(M_PIF * mSpaceWarpTime / mFadeOutDelay));
+    mgr.DrawSpaceWarp(mSpaceWarpPosition, CMath::FastSinR(M_PIF * mSpaceWarpTime / mFadeOutDelay));
   }
   CPatterned::Render(mgr);
 }
@@ -408,17 +411,17 @@ void CChozoGhost::FindBestAnchor(CStateManager& mgr) {
               score += nearWeight;
               if (score < bestScore) {
                 delta *= 1.f / playerDistance;
-                score += (10.f * x658_) *
-                         (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(),
-                                               delta));
+                score +=
+                    (10.f * x658_) *
+                    (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(), delta));
               }
             } else if (playerDistance < x658_) {
               score += midWeight;
               if (score < bestScore) {
                 delta *= 1.f / playerDistance;
-                score += (10.f * x658_) *
-                         (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(),
-                                               delta));
+                score +=
+                    (10.f * x658_) *
+                    (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(), delta));
               }
             } else {
               score += farWeight;
@@ -446,9 +449,9 @@ void CChozoGhost::FindBestAnchor(CStateManager& mgr) {
     CVector3f destPos =
         mgr.GetPlayer(0)->GetTranslation() -
         x654_ * (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).AsNormalized();
-    const CRayCastResult result = mgr.RayStaticIntersection(
-        destPos, CVector3f::Down(), 8.f,
-        CMaterialFilter::MakeInclude(CMaterialList(AnchorFloorMaterial)));
+    const CRayCastResult result =
+        mgr.RayStaticIntersection(destPos, CVector3f::Down(), 8.f,
+                                  CMaterialFilter::MakeInclude(CMaterialList(AnchorFloorMaterial)));
     if (result.IsValid()) {
       destPos = result.GetPoint();
     }
@@ -546,9 +549,9 @@ void CChozoGhost::Generate(CStateManager& mgr, EStateMsg msg, float arg) {
     mStateMachine->SetDelay(mFadeOutDelay);
     mAnimationState.SetState(CAnimationState::kAS_Ready);
     mOnGround = false;
-    const CRayCastResult result =
-        mgr.RayStaticIntersection(GetTranslation(), CVector3f::Down(), 100.f,
-                                  CMaterialFilter::MakeInclude(CMaterialList(GenerateFloorMaterial)));
+    const CRayCastResult result = mgr.RayStaticIntersection(
+        GetTranslation(), CVector3f::Down(), 100.f,
+        CMaterialFilter::MakeInclude(CMaterialList(GenerateFloorMaterial)));
     if (result.IsValid()) {
       mFloorLevel = result.GetPoint().GetZ();
     } else {
@@ -939,8 +942,7 @@ void CChozoGhost::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
     }
     default: {
       CEnergyProjectile* projectile = LaunchProjectile(
-          projectileXf, mgr, 5, CWeapon::kPA_DamageFalloff | CWeapon::kPA_StaticInterference,
-          true,
+          projectileXf, mgr, 5, CWeapon::kPA_DamageFalloff | CWeapon::kPA_StaticInterference, true,
           CImpactVisorEffect::MakeParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
           CVector3f(1.f, 1.f, 1.f));
       if (projectile) {
@@ -1057,15 +1059,14 @@ CEntity* LoadChozoGhost(CStateManager& mgr, CInputStream& input, CEntityInfo& in
       LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
       *modelData, LdrToActorParameters(sldrThis.actorInformation),
       LdrToPatternedInfo(sldrThis.patterned, nullptr), sldrThis.hearingRadius,
-      sldrThis.fadeOutDelay, sldrThis.attackDelay, sldrThis.freezeTime,
-      sldrThis.unknown_0x54151870, LdrToDamageInfo(sldrThis.damageInfo),
-      sldrThis.unknown_0x3a58089c, LdrToDamageInfo(sldrThis.damageInfo_0x1ff047a9), nearChance,
-      midChance, farChance, sldrThis.sound_Impact, sldrThis.disablePlayerGunTime,
-      sldrThis.sound_PhazeIn, sldrThis.sound_PhazeOut, sldrThis.unknown_0xec76940c,
-      sldrThis.projectileStopHomingRange, sldrThis.unknown_0xfe9eac26, sldrThis.hurlRecoverTime,
-      sldrThis.projectileVisorEffect, sldrThis.sound_ProjectileVisor,
-      sldrThis.nearToMidDistance, sldrThis.midToFarDistance, sldrThis.nearChance,
-      sldrThis.midChance);
+      sldrThis.fadeOutDelay, sldrThis.attackDelay, sldrThis.freezeTime, sldrThis.unknown_0x54151870,
+      LdrToDamageInfo(sldrThis.damageInfo), sldrThis.unknown_0x3a58089c,
+      LdrToDamageInfo(sldrThis.damageInfo_0x1ff047a9), nearChance, midChance, farChance,
+      sldrThis.sound_Impact, sldrThis.disablePlayerGunTime, sldrThis.sound_PhazeIn,
+      sldrThis.sound_PhazeOut, sldrThis.unknown_0xec76940c, sldrThis.projectileStopHomingRange,
+      sldrThis.unknown_0xfe9eac26, sldrThis.hurlRecoverTime, sldrThis.projectileVisorEffect,
+      sldrThis.sound_ProjectileVisor, sldrThis.nearToMidDistance, sldrThis.midToFarDistance,
+      sldrThis.nearChance, sldrThis.midChance);
 }
 
 static void SetFuncPtrs() {
