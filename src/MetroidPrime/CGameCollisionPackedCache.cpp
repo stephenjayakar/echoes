@@ -37,17 +37,18 @@ TUniqueId FirstCollisionObjectId(const CCollisionInfoList& collisions) {
 
 CTransform4f MakeAABoxCacheTransform(const CPhysicsActor& actor, const CCollidableAABox& box) {
   const CAABox bounds = box.CalculateAABox(actor.GetPrimitiveTransform());
-  CTransform4f transform = CTransform4f::Scale(bounds.GetMaxPoint() - bounds.GetMinPoint());
+  CTransform4f transform =
+      CTransform4f::Scale(bounds.GetMaxPoint().GetX() - bounds.GetMinPoint().GetX(),
+                          bounds.GetMaxPoint().GetY() - bounds.GetMinPoint().GetY(),
+                          bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ());
   transform.SetTranslation(bounds.GetCenterPoint());
   return transform;
 }
 
 CTransform4f MakeSphereCacheTransform(const CPhysicsActor& actor, const CCollidableSphere& sphere) {
-  const CSphere& shape = sphere.GetSphere();
-  const CVector3f localCenter = shape.GetCenter();
-  const float radius = shape.GetRadius();
-  const CVector3f center = actor.GetPrimitiveTransform() * localCenter;
-  CTransform4f transform = CTransform4f::Scale(radius);
+  const CSphere shape = sphere.GetSphere();
+  const CVector3f center = actor.GetPrimitiveTransform() * shape.GetCenter();
+  CTransform4f transform = CTransform4f::Scale(shape.GetRadius());
   transform.SetTranslation(center);
   return transform;
 }
@@ -203,37 +204,32 @@ bool CGameCollision::CacheActorGeometry(const CStateManager& mgr, CCollisionCach
     return false;
   }
 
-  const CPhysicsActor* actor = TCastToConstPtr< CPhysicsActor >(entity);
-  if (!actor) {
-    return true;
+  if (const CPhysicsActor* actor = TCastToConstPtr< CPhysicsActor >(entity)) {
+    const CActor* owner = static_cast< const CActor* >(entity);
+    const CCollisionPrimitive& primitive = *actor->GetCollisionPrimitive();
+    if (primitive.GetPrimType() == 'OBTG') {
+      static_cast< const CCollidableOBBTreeGroup& >(primitive).CacheTree(
+          cache, actor->GetPrimitiveTransform(), owner->GetUniqueId().value,
+          owner->GetMaterialList().GetValue());
+    } else if (cache.GetDynamicGeometryMode() == 2) {
+      if (primitive.GetPrimType() == 'AABX') {
+        const CTransform4f transform =
+            MakeAABoxCacheTransform(*actor, static_cast< const CCollidableAABox& >(primitive));
+        CCollidableOBBTree::CacheAABox(cache, transform, owner->GetUniqueId().value,
+                                       owner->GetMaterialList().GetValue());
+      } else if (primitive.GetPrimType() == 'SPHR') {
+        const CTransform4f transform =
+            MakeSphereCacheTransform(*actor, static_cast< const CCollidableSphere& >(primitive));
+        CCollidableOBBTree::CacheSphere(cache, transform, owner->GetUniqueId().value,
+                                        owner->GetMaterialList().GetValue());
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
   }
-
-  const CCollisionPrimitive& primitive = *actor->GetCollisionPrimitive();
-  if (primitive.GetPrimType() == 'OBTG') {
-    static_cast< const CCollidableOBBTreeGroup& >(primitive).CacheTree(
-        cache, actor->GetPrimitiveTransform(), entity->GetUniqueId().value,
-        actor->GetMaterialList().GetValue());
-    return true;
-  }
-  if (cache.GetDynamicGeometryMode() != 2) {
-    return false;
-  }
-
-  if (primitive.GetPrimType() == 'AABX') {
-    const CTransform4f transform =
-        MakeAABoxCacheTransform(*actor, static_cast< const CCollidableAABox& >(primitive));
-    CCollidableOBBTree::CacheAABox(cache, transform, entity->GetUniqueId().value,
-                                   actor->GetMaterialList().GetValue());
-    return true;
-  }
-  if (primitive.GetPrimType() == 'SPHR') {
-    const CTransform4f transform =
-        MakeSphereCacheTransform(*actor, static_cast< const CCollidableSphere& >(primitive));
-    CCollidableOBBTree::CacheSphere(cache, transform, entity->GetUniqueId().value,
-                                    actor->GetMaterialList().GetValue());
-    return true;
-  }
-  return false;
+  return true;
 }
 
 bool CGameCollision::DetectCollisionBoolean_Cached(
