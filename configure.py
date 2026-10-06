@@ -1499,6 +1499,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "EyeBall",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CEyeBall.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "FishCloud",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CFishCloud.cpp"),
@@ -1588,6 +1595,13 @@ config.libs = [
         "Tryclops",
         [
             Object(NonMatching, "MetroidPrime/Enemies/CTryclops.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "WallWalker",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CWallWalker.cpp"),
         ],
         extra_cflags=["-pool off"],
     ),

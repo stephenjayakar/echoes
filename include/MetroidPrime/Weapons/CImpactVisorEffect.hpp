@@ -39,18 +39,16 @@ public:
   : mParticleEffect(particleEffect)
   , mBlurEffect(blurEffect)
   , mLowPassFilter(lowPassFilter)
-  , mForcedVisor(static_cast< CPlayerState::EPlayerVisor >(-1))
+  , mForcedVisor(CPlayerState::kPV_Invalid)
   , mForcedVisorDuration(0.f) {}
 
   // Guessed name.
   static CImpactVisorEffect
-  MakeParticleEffect(const rstl::optional_object< TLockedToken< CGenDescription > >& particle,
-                     TSfxId sound, bool sendCollideMessage) {
+  ParticleEffect(const rstl::optional_object< TLockedToken< CGenDescription > >& particle,
+                 TSfxId sound, bool sendCollideMessage) {
     return CImpactVisorEffect(
-        rstl::optional_object< SParticleEffect >(
-            SParticleEffect(particle, sound, sendCollideMessage)),
-        rstl::optional_object< SBlurEffect >(),
-        rstl::optional_object< rstl::pair< int, float > >());
+        rstl::optional_object< SParticleEffect >(SParticleEffect(particle, sound, sendCollideMessage)),
+        rstl::optional_object< SBlurEffect >(), rstl::optional_object< rstl::pair< int, float > >());
   }
 
   const rstl::optional_object< SParticleEffect >& GetParticleEffect() const {

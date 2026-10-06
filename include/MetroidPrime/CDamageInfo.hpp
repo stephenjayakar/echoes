@@ -13,7 +13,7 @@ struct SLdrTDamageInfo;
 class CDamageInfo {
 public:
   CDamageInfo()
-  : mWeaponMode()
+  : mWeaponMode(CWeaponMode())
   , mDamage(0.f)
   , mRadiusDamageAmount(mDamage)
   , mDamageRadius(0.f)

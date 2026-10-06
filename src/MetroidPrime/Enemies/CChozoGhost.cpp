@@ -931,7 +931,7 @@ void CChozoGhost::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
     case 2: {
       CEnergyProjectile* projectile = LaunchProjectile(
           projectileXf, mgr, 2, CWeapon::kPA_BigStrike | CWeapon::kPA_StaticInterference, true,
-          CImpactVisorEffect::MakeParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
+          CImpactVisorEffect::ParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
           CVector3f(1.f, 1.f, 1.f));
       if (projectile) {
         projectile->SetDamageDuration(x62c_);
@@ -943,7 +943,7 @@ void CChozoGhost::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
     default: {
       CEnergyProjectile* projectile = LaunchProjectile(
           projectileXf, mgr, 5, CWeapon::kPA_DamageFalloff | CWeapon::kPA_StaticInterference, true,
-          CImpactVisorEffect::MakeParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
+          CImpactVisorEffect::ParticleEffect(mProjectileVisor, mSoundProjectileVisor, false),
           CVector3f(1.f, 1.f, 1.f));
       if (projectile) {
         const float speed = ProjectileInfo()->GetProjectileSpeed();

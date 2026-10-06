@@ -15,6 +15,9 @@ public:
   void Update(float dt);
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt, CPatterned& actor);
   void ConfigureWobbleSteering(bool clockwise, float strength);
+  TUniqueId GetDestination() const { return mDestination; }        // Guessed name.
+  bool IsInPosition() const { return mInPosition; }                 // Guessed name.
+  void SetHorizontalMovement(bool v) { mHorizontalMovement = v; } // Guessed name.
   const CVector3f& GetDestinationPosition() const { return mDestinationPosition; }
 
 private:

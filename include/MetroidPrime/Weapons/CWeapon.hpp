@@ -25,6 +25,7 @@ public:
     kPA_Dark = 1 << 18,
     kPA_Light = 1 << 19,
     kPA_Annihilator = 1 << 20,
+    kPA_Unknown22 = 1 << 22, // Name not recovered; WallWalker leg hits ignore it.
     kPA_Bombs = 1 << 25, // Guessed name, based on CBomb construction.
   };
 

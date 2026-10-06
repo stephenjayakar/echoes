@@ -137,6 +137,7 @@ public:
   };
 
   enum EPlayerVisor {
+    kPV_Invalid = -1, // Guessed name; CImpactVisorEffect without a forced visor.
     kPV_Combat,
     kPV_Echo,
     kPV_Scan,
