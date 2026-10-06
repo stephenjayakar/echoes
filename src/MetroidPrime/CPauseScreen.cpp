@@ -1669,14 +1669,16 @@ void CPauseScreen::DrawNodeLabel(const CTransform4f& view, const CVector3f& posi
 
 void CPauseScreen::DrawOptionBackground(const CTransform4f& view, const CVector3f& position,
                                         float alpha) const {
+  const CVector3f pos = position;
   const float scale = gpTweakGui->GetLogBookSelectedNodeScale();
-  if (mOptionBackgroundModel.GetObject() != nullptr) {
-    const CVector3f offset(0.f, 0.01f, -(-0.05f + ((0.2f * scale) * 0.5f + 0.62136f)));
+  CModel* model = mOptionBackgroundModel.GetObject();
+  if (model != nullptr) {
+    const CVector3f offset(0.f, 0.01f, -(-0.05f + ((0.2f * scale) / 2.f + 0.62136f)));
     const CTransform4f background =
         view.GetRotation() * CTransform4f::Translate(offset) * CTransform4f::Scale(0.18f);
-    CGraphics::SetModelMatrix(CTransform4f::Translate(position) * background);
-    mOptionBackgroundModel.GetObject()->Draw(
-        CModelFlags(CModelFlags::kT_Blend, CColor::White().WithAlphaOf(alpha)));
+    const CTransform4f world = CTransform4f::Translate(pos) * background;
+    CGraphics::SetModelMatrix(world);
+    model->Draw(CModelFlags(CModelFlags::kT_Blend, CColor::White().WithAlphaOf(alpha)));
   }
 }
 
@@ -1693,7 +1695,7 @@ void CPauseScreen::DrawSliderNode(const CTransform4f& view, const CVector3f& ori
     gpTweakGui->GetLogBookTextScale();
     float textOffset;
     const float textScale = 0.02f * scale;
-    textOffset = -mNodeText->GetTextBoundingWidth() * 0.5f;
+    textOffset = -mNodeText->GetTextBoundingWidth() / 2.f;
     const rstl::rc_ptr< CScanTreeSlider > slider(node);
     const float value = slider->GetNormalizedValue();
     const float defaultValue = slider->GetNormalizedDefaultValue();
@@ -1712,21 +1714,21 @@ void CPauseScreen::DrawSlider(const CTransform4f& view, const CVector3f& positio
                               float alpha) const {
   const float sliderScale = gpTweakGui->GetLogBookSliderScale();
   const float centerWidth = width - 4.094f;
-  const float halfWidth = centerWidth * 0.5f;
+  const float halfWidth = centerWidth / 2.f;
   const CTransform4f local = CTransform4f::Scale(scale * sliderScale) * view.GetRotation() *
                              CTransform4f::Translate(0.f, 0.f, textOffset);
-  const CTransform4f& world = CTransform4f::Translate(position) * local;
+  const CTransform4f world = CTransform4f::Translate(position) * local;
   const CColor selectionColor =
       gpTweakGui->GetLogBookSliderSelectionColor().WithAlphaModulatedBy(alpha);
   const CColor backgroundColor =
       gpTweakGui->GetLogBookSliderBackgroundColor().WithAlphaModulatedBy(alpha);
   static const CTransform4f flip = CTransform4f::Scale(CVector3f(-1.f, 1.f, 1.f));
   const CVector3f endPosition(-(halfWidth - 0.5f), 0.f, 0.f);
-  if (mSliderEndModel.GetObject() != nullptr) {
+  if (CModel* endModel = mSliderEndModel.GetObject()) {
     CGraphics::SetModelMatrix(world * CTransform4f::Translate(endPosition));
-    mSliderEndModel.GetObject()->Draw(CModelFlags(CModelFlags::kT_Additive, backgroundColor));
+    endModel->Draw(CModelFlags(CModelFlags::kT_Additive, backgroundColor));
     CGraphics::SetModelMatrix(world * flip * CTransform4f::Translate(endPosition));
-    mSliderEndModel.GetObject()->Draw(CModelFlags(CModelFlags::kT_Blend, backgroundColor));
+    endModel->Draw(CModelFlags(CModelFlags::kT_Blend, backgroundColor));
   }
   CGraphics::SetModelMatrix(world * CTransform4f::Scale(CVector3f(centerWidth, 1.f, 1.f)));
   if (mSliderCenterModel.GetObject() != nullptr) {
@@ -1734,9 +1736,9 @@ void CPauseScreen::DrawSlider(const CTransform4f& view, const CVector3f& positio
   }
   CGraphics::SetModelMatrix(
       world * CTransform4f::Translate(CVector3f((defaultValue - 0.5f) * (width - 2.f), 0.f, 0.f)));
-  if (mSliderModel.GetObject() != nullptr) {
+  if (CModel* sliderModel = mSliderModel.GetObject()) {
     const CColor dim = CColor::Modulate(selectionColor, CColor(0.5f, 0.5f, 0.5f, 0.5f));
-    mSliderModel.GetObject()->Draw(CModelFlags(CModelFlags::kT_Additive, dim));
+    sliderModel->Draw(CModelFlags(CModelFlags::kT_Additive, dim));
   }
   CGraphics::SetModelMatrix(
       world * CTransform4f::Translate(CVector3f((value - 0.5f) * (width - 2.f), 0.f, 0.f)));
@@ -1747,9 +1749,8 @@ void CPauseScreen::DrawSlider(const CTransform4f& view, const CVector3f& positio
   char text[16];
   sprintf(text, "%02d", int(100.f * value));
   mNodeText->SetText(rstl::string(text), false);
-  const float heightScale = gpTweakGui->GetLogBookSliderTextHeightScale();
-  const CVector3f offset(-mNodeText->GetTextBoundingWidth() * 0.5f, 0.f,
-                         -5.f + textOffset / heightScale);
+  const CVector3f offset(-mNodeText->GetTextBoundingWidth() / 2.f, 0.f,
+                         -5.f + textOffset / gpTweakGui->GetLogBookSliderTextHeightScale());
   const CTransform4f textXf =
       CTransform4f::Scale(0.02f * scale) * view.GetRotation() * CTransform4f::Translate(offset);
   CGraphics::SetModelMatrix(CTransform4f::Translate(position) * textXf);
