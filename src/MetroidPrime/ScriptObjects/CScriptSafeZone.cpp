@@ -37,7 +37,7 @@ CEntity* REL_LoadSafeZone(CStateManager& mgr, CInputStream& input, CEntityInfo& 
 CEntity* REL_LoadSafeZoneCrystal(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
 
 CScriptSafeZone::CScriptSafeZone(
-    TUniqueId uid, const rstl::string& name, const CEntityInfo& info, const CVector3f& scale,
+    TUniqueId uid, const rstl::string& name, CEntityInfo& info, const CVector3f& scale,
     const CTransform4f& xf, const CDamageInfo& damage, const CVector3f& forceField,
     float activationTime, float deactivationTime, float lifetime, float randomLifetimeOffset,
     float insideFadeStart, float insideFadeTime, float insideFadeMinAlpha, float flashTime,

@@ -40,7 +40,7 @@ public:
     kZT_Echo,
   };
 
-  CScriptSafeZone(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
+  CScriptSafeZone(TUniqueId uid, const rstl::string& name, CEntityInfo& info,
                   const CVector3f& scale, const CTransform4f& xf, const CDamageInfo& damage,
                   const CVector3f& forceField, float activationTime, float deactivationTime,
                   float lifetime, float randomLifetimeOffset, float insideFadeStart,
