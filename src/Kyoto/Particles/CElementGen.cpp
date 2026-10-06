@@ -603,8 +603,17 @@ void CElementGen::UpdateExistingParticles() {
       UpdateAdvanceAccessParameters(mActiveParticleCount, particleFrame);
     }
     ++mActiveParticleCount;
-    for (int source = 0; source < 4 && mVELSources[source]; ++source) {
-      UpdateVelocitySource(source, particleFrame, particle, scaledTranslation);
+    if (mVELSources[0]) {
+      UpdateVelocitySource(0, particleFrame, particle, scaledTranslation);
+      if (mVELSources[1]) {
+        UpdateVelocitySource(1, particleFrame, particle, scaledTranslation);
+        if (mVELSources[2]) {
+          UpdateVelocitySource(2, particleFrame, particle, scaledTranslation);
+          if (mVELSources[3]) {
+            UpdateVelocitySource(3, particleFrame, particle, scaledTranslation);
+          }
+        }
+      }
     }
     if (mLINE) {
       if (mLoadedGenDesc->mLENG) {
@@ -648,99 +657,107 @@ void CElementGen::CreateNewParticles(int count) {
   if (!sStaticListInitialized) {
     Initialize();
   }
-  if (mParticles.size() >= mMAXP) {
-    return;
-  }
-  if (count + mParticles.size() > mMAXP) {
-    count = mMAXP - mParticles.size();
-  }
-  if (count + sParticleAliveCount > 0xa00) {
-    count = 0xa00 - sParticleAliveCount;
-  }
-  CGlobalRandom random(mRandState);
-  mParticles.reserve(count + mParticles.size());
-  if (mEnableADV && mAdvValues.capacity() < count + mParticles.size()) {
-    mAdvValues.reserve(rstl::min_val(mMAXP, (count + mAdvValues.capacity()) * 2));
-    while (mAdvValues.size() < mAdvValues.capacity()) {
-      mAdvValues.push_back(CAdvancedValues());
+  if (mParticles.size() < mMAXP) {
+    if (count + mParticles.size() > mMAXP) {
+      count = mMAXP - mParticles.size();
     }
-  }
-  CParticleGlobals::SetParticleAccessParameters(nullptr);
-  const CVector3f scaledTranslation =
-      (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation;
+    if (count + sParticleAliveCount > 0xa00) {
+      count = 0xa00 - sParticleAliveCount;
+    }
+    CGlobalRandom random(mRandState);
+    mParticles.reserve(count + mParticles.size());
+    if (mEnableADV && mAdvValues.capacity() < count + mParticles.size()) {
+      mAdvValues.reserve(rstl::min_val(mMAXP, (count + mAdvValues.capacity()) * 2));
+      while (mAdvValues.size() < mAdvValues.capacity()) {
+        mAdvValues.push_back_unsafe(CAdvancedValues());
+      }
+    }
+    CParticleGlobals::SetParticleAccessParameters(nullptr);
+    const CVector3f scaledTranslation =
+        (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation;
 
-  for (int i = 0; i < count; ++i) {
-    mParticles.push_back_unsafe(CParticle());
-    const int particleIndex = mParticles.size() - 1;
-    if (mOrientType == kMOT_One) {
-      mParentMatrices[particleIndex] = mOrientation.BuildMatrix3f();
-    }
-    CParticle& particle = mParticles[particleIndex];
-    particle.mStartFrame = mCurFrame;
-    CParticleGlobals::SetParticleLifetime(1);
-    CParticleGlobals::UpdateParticleLifetimeTweenValues(0);
-    CParticleGlobals::SetCurrentParticle(&particle);
-    if (mEnableADV) {
-      UpdateAdvanceAccessParameters(particleIndex, 0);
-    }
-    if (mLoadedGenDesc->mLTME) {
-      mLoadedGenDesc->mLTME->GetValue(0, particle.mEndFrame);
-    }
-    particle.mEndFrame += mCurFrame;
-    if (mLoadedGenDesc->mEMTR) {
-      mLoadedGenDesc->mEMTR->GetValue(mCurFrame, particle.mPos, particle.mVel);
-      particle.mPos = mOrientation.Rotate(particle.mPos) +
-                      (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation +
-                      mPOFS;
-      particle.mVel = mOrientation.Rotate(particle.mVel);
-    } else {
-      particle.mPos =
-          (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation + mPOFS;
-      particle.mVel = CVector3f::Zero();
-    }
-    particle.mPrevPos = particle.mPos;
-    if (mLoadedGenDesc->mCOLR) {
-      mLoadedGenDesc->mCOLR->GetValue(0, particle.mColor);
-    } else {
-      particle.mColor = CColor(0xffffffff);
-    }
-    if (mLINE) {
-      if (mLoadedGenDesc->mLENG) {
-        mLoadedGenDesc->mLENG->GetValue(0, particle.mLineLengthOrSize);
+    for (int i = 0; i < count; ++i) {
+      mParticles.push_back_unsafe(CParticle());
+      const int particleIndex = mParticles.size() - 1;
+      if (mOrientType == kMOT_One) {
+        mParentMatrices[particleIndex] = mOrientation.BuildMatrix3f();
+      }
+      CParticle& particle = mParticles[particleIndex];
+      particle.mStartFrame = mCurFrame;
+      CParticleGlobals::SetParticleLifetime(1);
+      CParticleGlobals::UpdateParticleLifetimeTweenValues(0);
+      CParticleGlobals::SetCurrentParticle(&particle);
+      if (mEnableADV) {
+        UpdateAdvanceAccessParameters(particleIndex, 0);
+      }
+      if (mLoadedGenDesc->mLTME) {
+        mLoadedGenDesc->mLTME->GetValue(0, particle.mEndFrame);
+      }
+      particle.mEndFrame += mCurFrame;
+      if (mLoadedGenDesc->mEMTR) {
+        mLoadedGenDesc->mEMTR->GetValue(mCurFrame, particle.mPos, particle.mVel);
+        particle.mPos = mOrientation.Rotate(particle.mPos) +
+                        (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation +
+                        mPOFS;
+        particle.mVel = mOrientation.Rotate(particle.mVel);
       } else {
-        particle.mLineLengthOrSize = 1.f;
+        particle.mPos =
+            (mGlobalScaleTransformInverse * mLocalScaleTransformInverse) * mTranslation + mPOFS;
+        particle.mVel = CVector3f::Zero();
       }
-      if (mLoadedGenDesc->mWIDT) {
-        mLoadedGenDesc->mWIDT->GetValue(0, particle.mLineWidthOrRota);
+      particle.mPrevPos = particle.mPos;
+      if (mLoadedGenDesc->mCOLR) {
+        mLoadedGenDesc->mCOLR->GetValue(0, particle.mColor);
       } else {
-        particle.mLineWidthOrRota = 1.f;
+        particle.mColor = CColor(0xffffffff);
       }
-    } else {
-      if (mLoadedGenDesc->mROTA) {
-        mLoadedGenDesc->mROTA->GetValue(0, particle.mLineWidthOrRota);
+      if (mLINE) {
+        if (mLoadedGenDesc->mLENG) {
+          mLoadedGenDesc->mLENG->GetValue(0, particle.mLineLengthOrSize);
+        } else {
+          particle.mLineLengthOrSize = 1.f;
+        }
+        if (mLoadedGenDesc->mWIDT) {
+          mLoadedGenDesc->mWIDT->GetValue(0, particle.mLineWidthOrRota);
+        } else {
+          particle.mLineWidthOrRota = 1.f;
+        }
       } else {
-        particle.mLineWidthOrRota = 0.f;
+        if (mLoadedGenDesc->mROTA) {
+          mLoadedGenDesc->mROTA->GetValue(0, particle.mLineWidthOrRota);
+        } else {
+          particle.mLineWidthOrRota = 0.f;
+        }
+        if (mLoadedGenDesc->mSIZE) {
+          mLoadedGenDesc->mSIZE->GetValue(0, particle.mLineLengthOrSize);
+        } else {
+          particle.mLineLengthOrSize = 0.1f;
+        }
       }
-      if (mLoadedGenDesc->mSIZE) {
-        mLoadedGenDesc->mSIZE->GetValue(0, particle.mLineLengthOrSize);
+      if (mLoadedGenDesc->mVMPC) {
+        if (mVELSources[0]) {
+          UpdateVelocitySource(0, 0, particle, scaledTranslation);
+          if (mVELSources[1]) {
+            UpdateVelocitySource(1, 0, particle, scaledTranslation);
+            if (mVELSources[2]) {
+              UpdateVelocitySource(2, 0, particle, scaledTranslation);
+              if (mVELSources[3]) {
+                UpdateVelocitySource(3, 0, particle, scaledTranslation);
+              }
+            }
+          }
+        }
+      }
+      ++mCumulativeParticles;
+      if (particle.mEndFrame == -1) {
+        mParticles.pop_back();
       } else {
-        particle.mLineLengthOrSize = 0.1f;
+        if (mEnableDynamicBounds) {
+          AccumulateBounds(particle.mPos, particle.mLineLengthOrSize);
+        }
+        ++sParticleAliveCount;
+        ++mActiveParticleCount;
       }
-    }
-    if (mLoadedGenDesc->mVMPC) {
-      for (int source = 0; source < 4 && mVELSources[source]; ++source) {
-        UpdateVelocitySource(source, 0, particle, scaledTranslation);
-      }
-    }
-    ++mCumulativeParticles;
-    if (particle.mEndFrame == -1) {
-      mParticles.pop_back();
-    } else {
-      if (mEnableDynamicBounds) {
-        AccumulateBounds(particle.mPos, particle.mLineLengthOrSize);
-      }
-      ++sParticleAliveCount;
-      ++mActiveParticleCount;
     }
   }
 }
