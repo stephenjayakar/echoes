@@ -102,6 +102,16 @@ public:
     Add(m4);
     Add(m5);
   }
+  CMaterialList(const EMaterialTypes& m1, const EMaterialTypes& m2, const EMaterialTypes& m3,
+                const EMaterialTypes& m4, const EMaterialTypes& m5, const EMaterialTypes& m6)
+  : mValue(0) {
+    Add(m1);
+    Add(m2);
+    Add(m3);
+    Add(m4);
+    Add(m5);
+    Add(m6);
+  }
   explicit CMaterialList(u64 value) : mValue(value) {}
   // Guessed identity: adjacent to BitPosition; consumes one aligned 64-bit value.
   explicit CMaterialList(CInputStream& in);

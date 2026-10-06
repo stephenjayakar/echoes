@@ -539,9 +539,9 @@ void CScriptDebris::SetSolid(bool solid) {
         CMaterialList(kMT_Unknown59),
         CMaterialList(kMT_Debris, kMT_Character, kMT_Player, kMT_NoPlatformCollision)));
   } else {
-    CMaterialList excluded(kMT_Debris, kMT_Character, kMT_Player, kMT_Projectile, kMT_Unknown59);
-    excluded.Add(kMT_NoPlatformCollision);
-    SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(CMaterialList(), excluded));
+    SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
+        CMaterialList(), CMaterialList(kMT_Debris, kMT_Character, kMT_Player, kMT_Projectile,
+                                       kMT_Unknown59, kMT_NoPlatformCollision)));
   }
 }
 
