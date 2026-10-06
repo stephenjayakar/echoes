@@ -260,7 +260,13 @@ CVector3f CPFRegion::FitThroughLink3d(const CVector3f& source, const CPFLink& li
   const float sourceDistance = CVector3f::Dot(source - node.GetPos(), node.GetNormal());
   const float destinationDistance = CVector3f::Dot(node.GetPos() - destination, node.GetNormal());
   const float distance = sourceDistance + destinationDistance;
-  // The target uses the link midpoint; its horizontal interpolation is discarded.
+  if (radius < 0.5f * link.Get2dWidth()) {
+    // The horizontal interpolation is computed but its result is discarded.
+    CVector2f edge2d = edge.ToVec2f();
+    edge2d *= link.GetOO2dWidth();
+    CVector2f::Dot(edge2d, (source - node.GetPos()).ToVec2f());
+    CVector2f::Dot(edge2d, (destination - node.GetPos()).ToVec2f());
+  }
   CVector3f result = node.GetPos() + edge * 0.5f;
   if (halfHeight < 0.5f * height) {
     float minZ = halfHeight + result.GetZ();
