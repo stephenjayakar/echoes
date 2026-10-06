@@ -24,6 +24,12 @@
 uint CScriptEffect::mNumParticlesDrawing = 0;
 uint CScriptEffect::mNumParticlesUpdating = 0;
 
+static inline CTransform4f StripTranslation(const CTransform4f& xf) {
+  CTransform4f result = xf;
+  result.SetTranslation(CVector3f::Zero());
+  return result;
+}
+
 CScriptEffect::CScriptEffect(
     TUniqueId uid, const rstl::string& name, const CEntityInfo& info, const CTransform4f& xf,
     const CVector3f& scale, CAssetId effectId, bool noTimerUnlessAreaOccluded,
@@ -95,9 +101,7 @@ void CScriptEffect::Think(float dt, CStateManager& mgr) {
 
   if (GetTransformDirtySpare()) {
     if (!mParticleSystem.null()) {
-      CTransform4f orientation = GetTransform();
-      orientation.SetTranslation(CVector3f::Zero());
-      mParticleSystem->SetOrientation(orientation);
+      mParticleSystem->SetOrientation(StripTranslation(GetTransform()));
       if (mUseLocalTranslation) {
         mParticleSystem->SetTranslation(GetTranslation());
       } else {
@@ -110,11 +114,15 @@ void CScriptEffect::Think(float dt, CStateManager& mgr) {
     SetTransformDirtySpare(false);
   }
 
-  if ((!mNoTimerUnlessAreaOccluded ||
-       mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetOcclusionState() ==
-           CGameArea::kOS_Occluded) &&
-      mRemTime <= 0.f) {
-    return;
+  if (!mNoTimerUnlessAreaOccluded) {
+    if (mRemTime <= 0.f) {
+      return;
+    }
+  } else if (mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetOcclusionState() ==
+             CGameArea::kOS_Occluded) {
+    if (mRemTime <= 0.f) {
+      return;
+    }
   }
   mRemTime -= dt;
 
@@ -135,15 +143,22 @@ void CScriptEffect::Think(float dt, CStateManager& mgr) {
     }
     if (mDieWhenSystemsDone) {
       mDestroyDelayTimer += dt;
-      if (mDestroyDelayTimer > 15.f || IsSystemDeletable()) {
+      if (mDestroyDelayTimer > 15.f) {
+        mgr.DeleteObjectRequest(GetUniqueId());
+        return;
+      }
+      if (IsSystemDeletable()) {
         mgr.DeleteObjectRequest(GetUniqueId());
         return;
       }
     }
   }
   if (!mParticleSystem.null()) {
-    mParticleSystem->SetModulationColor(
-        GetModelFlags().GetTrans() != 0 ? GetModelFlags().GetColorRef() : CColor::White());
+    if (static_cast< char >(GetModelFlags().GetTrans()) != 0) {
+      mParticleSystem->SetModulationColor(GetModelFlags().GetColorRef());
+    } else {
+      mParticleSystem->SetModulationColor(CColor(0xFFFFFFFF));
+    }
   }
 }
 
@@ -399,12 +414,6 @@ CAABox CScriptEffect::GetSortingBounds(const CStateManager& mgr) const {
 void CScriptEffect::SetActive(const bool active) {
   CActor::SetActive(active);
   SetDrawEnabled(true);
-}
-
-static inline CTransform4f StripTranslation(const CTransform4f& xf) {
-  CTransform4f result = xf;
-  result.SetTranslation(CVector3f::Zero());
-  return result;
 }
 
 void CScriptEffect::CreateSystem(const CVector3f& scale, const CColor& color) {
