@@ -139,7 +139,7 @@ inline SLdrWater::SLdrWater() : editorProperties(), trigger(), lightMap(kInvalid
   morphTimeRestore = 5.0f;
   fluidType = 0;
   envMapSize = 1.0f;
-  baseColor = CColor(0.0f, 0.0f, 0.49803901f, 1.0f);
+  baseColor = CColor(0.0f, 0.0f, 0.5f, 1.0f);
   alpha = 0.60000002f;
   glossFlat = 0.2f;
   glossTopDown = 1.0f;
@@ -147,7 +147,7 @@ inline SLdrWater::SLdrWater() : editorProperties(), trigger(), lightMap(kInvalid
   refractWarpTopDown = 0.0f;
   flowSpeed = 10.0f;
   flowOrientation = 0.0f;
-  underwaterFogColor = CColor(0.0f, 0.49803901f, 1.0f, 1.0f);
+  underwaterFogColor = CColor(0.0f, 0.5f, 1.0f, 1.0f);
   splashColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
   fogColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
   fogHeight = 0.0f;

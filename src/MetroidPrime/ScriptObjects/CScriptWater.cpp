@@ -26,6 +26,8 @@
 #include "rstl/math.hpp"
 
 extern const bool gkWaterFog;
+// Shared fluid constant (0.8f) defined next to gkWaterFog in another TU's .sdata2; name unknown.
+extern "C" const float lbl_8041B7C8;
 
 const float CScriptWater::kSplashScales[6] = {1.f, 3.f, 0.71f, 1.19f, 0.71f, 1.f};
 
@@ -359,7 +361,7 @@ void CScriptWater::Think(float dt, CStateManager& mgr) {
       mAlphaIn = false;
     }
   }
-  if (mMorphing) {
+  if (IsMorphing()) {
     bool stillMorphing = true;
     if (mMorphIn) {
       mMorphFactor += dt / mMorphInTime;
@@ -572,7 +574,7 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
   }
   const CVector3f down(0.f, 0.f, -1.f);
   const CAABox surfaceBounds = GetTriggerBoundsWR();
-  const float baseZ = surfaceBounds.GetMaxPoint().GetZ() + 0.8f;
+  const float baseZ = surfaceBounds.GetMaxPoint().GetZ() + lbl_8041B7C8;
   const CAABox bounds = GetTriggerBoundsWR();
   int row = mComputedGridCellCount / (mGridDimX + 1);
   int column = mComputedGridCellCount % (mGridDimX + 1);
@@ -580,7 +582,8 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
   const float height = mBounds.GetMaxPoint().GetZ() - mBounds.GetMinPoint().GetZ();
   float yOffset = 3.f * float(row);
   float xOffset = 3.f * float(column);
-  const float length = rstl::min_val(2.f * height + 0.8f, 120.f);
+  const float rayLength = 2.f * height + lbl_8041B7C8;
+  const float length = rstl::min_val(rayLength, 120.f);
   const float baseX = bounds.GetMinPoint().GetX();
   const float baseY = bounds.GetMinPoint().GetY();
   for (int i = mComputedGridCellCount;
@@ -721,7 +724,7 @@ void CScriptWater::InhabitantIdle(CActor& actor, CStateManager& mgr) {
 CFluidUVMotion::SFluidLayerMotion LdrToFluidLayerMotion(const SLdrLayerInfo& data) {
   return CFluidUVMotion::SFluidLayerMotion(
       static_cast< CFluidUVMotion::EFluidMotion >(data.motionType), data.timeToCycleTex,
-      M_2PIF * data.rotation / 360.f - M_2PIF, data.amplitude, data.textureScale);
+      M_PIF * data.rotation / 180.f - M_PIF, data.amplitude, data.textureScale);
 }
 
 CEntity* LoadWater(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
@@ -731,7 +734,7 @@ CEntity* LoadWater(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
   const CVector3f halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
   const CAABox bounds = CAABox(-halfExtent, halfExtent);
   const CFluidUVMotion uvMotion = CFluidUVMotion(
-      sldrThis.flowSpeed, M_2PIF * sldrThis.flowOrientation / 360.f - M_2PIF,
+      sldrThis.flowSpeed, M_PIF * sldrThis.flowOrientation / 180.f - M_PIF,
       LdrToFluidLayerMotion(sldrThis.flowColor), LdrToFluidLayerMotion(sldrThis.flowColorWarp),
       LdrToFluidLayerMotion(sldrThis.flowGloss1), LdrToFluidLayerMotion(sldrThis.flowGloss2),
       LdrToFluidLayerMotion(sldrThis.flowRefractWarp));

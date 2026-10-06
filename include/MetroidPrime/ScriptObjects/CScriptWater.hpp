@@ -68,6 +68,7 @@ public:
   const CColor& GetSplashColor() const { return mSplashColor; }
   const CFluidPlaneCPU& GetFluidPlane() const { return *mFluidPlane; }
   float GetMorphFactor() const { return mMorphFactor; }
+  bool IsMorphing() const { return mMorphing; } // Guessed name
   const CColor& GetUnderwaterFogColor() const { return mInsideFogColor; }
   float GetFogNoGravSuitDist() const { return x310_; }
   float GetFogNoGravSuitFactor() const { return x314_; }
