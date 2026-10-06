@@ -261,11 +261,13 @@ void CGameCollision::BuildAreaCollisionCache(const CStateManager& mgr, CAreaColl
   cache.ClearCache();
   for (CGameArea::CConstChainIterator area = mgr.GetWorld()->GetChainHead(CWorld::kC_Alive);
        area != CWorld::skGlobalEnd; ++area) {
-    const CAreaOctTree& tree = *area->GetPostConstructed()->mCollision;
-    CMetroidAreaCollider::COctreeLeafCache leaves(tree, area->GetId().Value());
-    CMetroidAreaCollider::BuildOctreeLeafCache(tree.GetRootNode(), cache.GetCacheBounds(), leaves);
+    CMetroidAreaCollider::COctreeLeafCache leaves(*area->GetPostConstructed()->mCollision,
+                                                  area->GetId().Value());
+    CMetroidAreaCollider::BuildOctreeLeafCache(
+        area->GetPostConstructed()->mCollision->GetRootNode(), cache.GetCacheBounds(), leaves);
     cache.AddOctreeLeafCache(leaves);
   }
+  IsUser(0);
 }
 
 bool CGameCollision::DetectCollisionBoolean(
@@ -814,7 +816,7 @@ float CGameCollision::GetMinExtentForCollisionPrimitive(const CCollisionPrimitiv
   }
   if (primitive.GetPrimType() == 'AABX') {
     const CAABox& bounds = static_cast< const CCollidableAABox& >(primitive).GetBox();
-    const CVector3f extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
+    const CVector3f& extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
     return rstl::min_val(rstl::min_val(extent.GetX(), extent.GetY()), extent.GetZ());
   }
   if (primitive.GetPrimType() == 'ABSH') {
