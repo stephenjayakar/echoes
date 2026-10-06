@@ -1,5 +1,6 @@
 #include "MetroidPrime/Enemies/CMetroid.hpp"
 
+#include "Kyoto/Math/CQuaternion.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
@@ -16,6 +17,8 @@
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "REL/REL_Setup.h"
+
+static const char* const skPirateSuckJoint = "Head_1";
 
 CMetroid::~CMetroid() {}
 
@@ -512,6 +515,175 @@ bool CMetroid::AttachToTarget(CStateManager& mgr) {
     return PreDamageSpacePirate(mgr);
   }
   return false;
+}
+
+bool CMetroid::AttackOver(CStateManager& mgr, const CTriggerData&) const {
+  if (mState == kAiState_Two && !GetBodyController()->IsFrozen()) {
+    const CVector3f targetPos = GetAttackTargetPos(mgr);
+    const float heightDifference = CMath::AbsF(targetPos.GetZ() - GetTranslation().GetZ());
+    const float scale = 0.8f * GetModelData()->GetScale().GetY();
+    if (heightDifference < scale) {
+      if (const CPhysicsActor* actor =
+              TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mAttackTarget))) {
+        const CAABox actorBounds = actor->GetBoundingBox();
+        const CAABox collisionBounds = mCollisionPrimitive.CalculateAABox(GetTransform());
+        const CVector3f min = collisionBounds.GetMinPoint() - CVector3f(scale, scale, scale);
+        const CVector3f max = collisionBounds.GetMaxPoint() + CVector3f(scale, scale, scale);
+        const CAABox scaledBounds(min, max);
+        return scaledBounds.DoBoundsOverlap(actorBounds);
+      }
+    }
+  }
+  return false;
+}
+
+CVector3f CMetroid::GetAttackTargetPos(const CStateManager& mgr) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    const CEntity* target = mgr.GetObjectById(GetAttackTargetId());
+    if (const CPlayer* player = TCastToConstPtr< CPlayer >(target)) {
+      CVector3f pos = player->GetTranslation();
+      if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed) {
+        pos += CVector3f(0.f, 0.f, -0.6f + player->GetEyeHeight());
+      } else {
+        pos = player->GetMorphBall()->GetBallToWorld().GetTranslation();
+      }
+      return pos;
+    }
+    if (target != nullptr) {
+      const CActor* actor = static_cast< const CActor* >(target);
+      const CTransform4f locXf = actor->GetLocatorTransform(rstl::string_l(skPirateSuckJoint));
+      const CVector3f locPos = locXf.GetTranslation();
+      return actor->GetTranslation() +
+             CVector3f(0.f, 0.f, locPos.GetZ() * actor->GetModelData()->GetScale().GetZ() + 0.4f);
+    }
+  }
+  return GetTranslation();
+}
+
+void CMetroid::ApplySeparationBehavior(CStateManager& mgr) {
+  const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    if (const CPatterned* ai = TCastToConstPtr< CPatterned >(list[i])) {
+      if (ai != this && ai->GetCurrentAreaId() == GetCurrentAreaId()) {
+        const CVector3f separation = mSteeringBehaviors.Separation(
+            *this, ai->GetTranslation(), 9.f * GetModelData()->GetScale().GetX());
+        if (separation.IsMagnitudeSafe()) {
+          BodyController()->CommandMgr().DeliverCmd(
+              CBCLocomotionCmd(separation.AsNormalized(), CVector3f::Zero(), 0.5f));
+        }
+      }
+    }
+  }
+}
+
+void CMetroid::DetachFromTarget(CStateManager& mgr, bool fromDock) {
+  CActor* target = nullptr;
+  CVector3f direction = CVector3f::Forward();
+  CTransform4f xf = CTransform4f::Identity();
+  if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+    if (player->GetAttachedActorId() == GetUniqueId()) {
+      player->DetachActorFromPlayer();
+      target = player;
+      if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed) {
+        direction = player->GetTransform().GetForward();
+        xf = player->GetTransform();
+      } else {
+        const CQuaternion rot =
+            CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw())) *
+            CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
+        const CMatrix3f mat = rot.BuildTransform();
+        direction = mat * CVector3f::Forward();
+        xf = CTransform4f(mat, player->GetTranslation());
+      }
+      player->GetEnergyDrain().RemoveEnergyDrainSource(GetUniqueId());
+      mDetachPos = player->GetAimPosition(mgr, 0.f);
+    }
+  } else if (mAttackTarget != kInvalidUniqueId) {
+    if (CSpacePirate* pirate = TCastToPtr< CSpacePirate >(mgr.ObjectById(mAttackTarget))) {
+      if (pirate->GetAttachedActor() == GetUniqueId()) {
+        pirate->DetachActorFromPirate();
+        target = pirate;
+        direction = pirate->GetTransform().GetForward();
+        xf = pirate->GetTransform();
+        mDetachPos = GetTranslation();
+      }
+    }
+  }
+  if (fromDock) {
+    SetupExitFaceHugDirection(target, mgr, direction, xf);
+    mRestoreSolidCollision = mRestoreCharacterCollision = true;
+  }
+}
+
+void CMetroid::SetPatrolDest(CStateManager& mgr, float) {
+  BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+  BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+  mAttackTarget = kInvalidUniqueId;
+  mShotAt = false;
+  mAlert = false;
+  if (HasPatrolPath(mgr, CTriggerData(0.f))) {
+    x7c0_ = mWaypointNavigation.GetDestinationPosition();
+  } else {
+    x7c0_ = mLatestLeashPosition;
+  }
+  mPathFindNavigation.SetDestination(x7c0_);
+  mPathFindNavigation.SetFaceTarget(kInvalidUniqueId);
+}
+
+TUniqueId CMetroid::FindNearestTarget(CStateManager& mgr, TUniqueId ignore) const {
+  CObjectList& list = mgr.ObjectListById(kOL_Actor);
+  TUniqueId result = kInvalidUniqueId;
+  float minDistSq = 3.4028235e38f;
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    CActor* actor = static_cast< CActor* >(list[i]);
+    if (actor != nullptr && actor->GetUniqueId() != GetUniqueId() &&
+        actor->GetUniqueId() != ignore) {
+      const float distSq = (actor->GetTranslation() - GetTranslation()).MagSquared();
+      if (distSq < minDistSq) {
+        if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(actor)) {
+          if (IsPirateValidTarget(*pirate)) {
+            minDistSq = distSq;
+            result = pirate->GetUniqueId();
+          }
+        } else if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
+          if (!IsPlayerInFluid(*player, mgr)) {
+            result = player->GetUniqueId();
+            minDistSq = distSq;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+void CMetroid::SelectNewTarget(CStateManager& mgr) {
+  if (mAttackTarget == kInvalidUniqueId) {
+    mAttackTarget = FindNearestTarget(mgr, kInvalidUniqueId);
+  }
+  if (CSpacePirate* pirate = TCastToPtr< CSpacePirate >(mgr.ObjectById(mAttackTarget))) {
+    pirate->SetAttackTarget(mgr, GetUniqueId());
+    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), pirate->GetUniqueId(), kSM_Alert));
+  }
+}
+
+void CMetroid::UpdateAttackTarget(CStateManager& mgr) {
+  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+    if (const CPlayer* player = TCastToConstPtr< CPlayer >(actor)) {
+      if (player->GetAttachedActorId() != kInvalidUniqueId) {
+        const TUniqueId next = FindNearestTarget(mgr, mAttackTarget);
+        if (next != kInvalidUniqueId) {
+          mAttackTarget = next;
+        }
+      }
+    } else if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(actor)) {
+      if (!IsPirateValidTarget(*pirate)) {
+        SelectNewTarget(mgr);
+      }
+    }
+  } else {
+    SelectNewTarget(mgr);
+  }
 }
 
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {

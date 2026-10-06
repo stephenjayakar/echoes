@@ -128,7 +128,12 @@ public:
   bool AttachToTarget(CStateManager& mgr);
   bool PreDamageSpacePirate(CStateManager& mgr);
   void UpdateAttackTarget(CStateManager& mgr); // Guessed name.
+  TUniqueId FindNearestTarget(CStateManager& mgr, TUniqueId ignore) const; // Guessed name.
+  void SelectNewTarget(CStateManager& mgr); // Guessed name.
   void ApplySeparationBehavior(CStateManager& mgr);
+  CVector3f GetAttackTargetPos(const CStateManager& mgr) const;
+  void SetupExitFaceHugDirection(CActor* actor, CStateManager& mgr, const CVector3f& direction,
+                                 const CTransform4f& xf);
   void ApplyDamageGrowth(CStateManager& mgr, TUniqueId sender); // Guessed name.
   void DetachFromTarget(CStateManager& mgr, bool fromDock); // Guessed second parameter.
 
@@ -173,7 +178,7 @@ protected:
   bool xa40_28_ : 1;
   bool xa40_29_ : 1; // Blocks Ing possession.
   bool mRestoreSolidCollision : 1;
-  bool xa40_31_ : 1;
+  bool mRestoreCharacterCollision : 1;
   bool mIsEnergyDrainVulnerable : 1;
 };
 CHECK_SIZEOF(CMetroid, 0xA48)
