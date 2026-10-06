@@ -1711,8 +1711,8 @@ void CSamusHud::UpdateHudDynamicLights(float dt, const CStateManager& mgr) {
   for (int i = 0; i < mHudLights.size(); ++i) {
     const SCachedHudLight& light = mHudLights[i];
     const CVector3f toCamera = position - light.mPosition;
-    const CMatrix3f& rotation = camera->GetTransform().BuildMatrix3f().GetTranspose();
-    const CVector3f direction = rotation * toCamera.AsNormalized();
+    const CVector3f direction =
+        camera->GetTransform().BuildMatrix3f().GetTranspose() * toCamera.AsNormalized();
     const float distance = rstl::max_val(toCamera.Magnitude(), FLT_EPSILON);
     const float falloff = rstl::min_val(
         1.f,
@@ -1736,7 +1736,7 @@ void CSamusHud::UpdateHudDynamicLights(float dt, const CStateManager& mgr) {
     if (entity == nullptr || !entity->GetActive()) {
       continue;
     }
-    const CScriptDynamicLight* dynamicLight = TCastToConstPtr< CScriptDynamicLight >(*entity);
+    const CScriptDynamicLight* dynamicLight = TCastToConstPtr< CScriptDynamicLight >(entity);
     if (dynamicLight != nullptr && !dynamicLight->UsesWorld()) {
       continue;
     }
@@ -1744,7 +1744,7 @@ void CSamusHud::UpdateHudDynamicLights(float dt, const CStateManager& mgr) {
     if (TCastToConstPtr< CGameProjectile >(mgr.GetObjectById(light->GetParentId()))) {
       continue;
     }
-    const CLight candidate = light->GetLight();
+    const CLight& candidate = light->GetLight();
     if (candidate.GetType() == kLT_Hard) {
       const float distanceSquared = (candidate.GetPosition() - position).MagSquared();
       const float radius = candidate.GetRadius();
