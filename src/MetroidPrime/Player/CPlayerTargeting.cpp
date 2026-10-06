@@ -399,7 +399,8 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
 }
 
 TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueId id) const {
-  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id))) {
+  if (const CActor* actor =
+          static_cast< const CActor* >(TCastToConstPtr< CActor >(mgr.GetObjectById(id)))) {
     if (actor->GetScannableObjectInfo() && actor->GetActive()) {
       return id;
     }

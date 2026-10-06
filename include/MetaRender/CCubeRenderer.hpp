@@ -150,7 +150,7 @@ public:
   void DrawModelDisintegrate(const SModelRenderData& model, const CTexture& texture,
                              const CColor& color, float amount) override;
   void DrawModelFlat(const SModelRenderData& model, const CModelFlags& flags,
-                     bool unsortedOnly) override;
+                     const bool unsortedOnly) override;
   // Guessed name
   void DrawModelWithTextureMask(const SModelRenderData& model, const CTexture& texture,
                                 const CVector3f& origin, const CColor& color, float scale) override;
