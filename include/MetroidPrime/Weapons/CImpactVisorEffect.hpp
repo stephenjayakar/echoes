@@ -51,6 +51,12 @@ public:
         rstl::optional_object< SBlurEffect >(), rstl::optional_object< rstl::pair< int, float > >());
   }
 
+  // Guessed name; same code as the DOL function named __ct__18CImpactVisorEffectFv.
+  static CImpactVisorEffect None() {
+    return CImpactVisorEffect(rstl::optional_object_null(), rstl::optional_object_null(),
+                              rstl::optional_object_null());
+  }
+
   const rstl::optional_object< SParticleEffect >& GetParticleEffect() const {
     return mParticleEffect;
   }
