@@ -3,17 +3,23 @@
 #include "Kyoto/Audio/CSfxManager.hpp"
 #include "Kyoto/Input/CFinalInput.hpp"
 #include "Kyoto/Math/CloseEnough.hpp"
+#include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/Graphics/CGraphics.hpp"
+#include "Kyoto/Graphics/CTexture.hpp"
+#include "Kyoto/TToken.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
+#include "rstl/algorithm.hpp"
 #include "MetaRender/CCubeRenderer.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CSaveGameScreen.hpp"
+#include "MetroidPrime/CGameGlobalObjects.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrFrontEndDataNetwork.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptColorModulate.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPlatform.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptTextPane.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/Tweaks/CTweakGui.hpp"
 #include "REL/REL_Setup.h"
@@ -24,6 +30,29 @@ struct SGuiControllerSource {
   int mController;
 };
 extern "C" SGuiControllerSource* fn_8009A6E4(CEntity* entity);
+
+// Guessed name. One billboard queued by RenderNode, sorted back to front.
+struct SRenderItem {
+  enum EType {
+    kT_Center = 1,
+    kT_Child = 2,
+    kT_Selected = 3,
+  };
+
+  SRenderItem(const SDataNetworkNode* node, const CVector3f& pos, int type)
+  : mNode(node), mPos(pos), mDepth(0.f), mType(type) {}
+
+  const SDataNetworkNode* mNode;
+  CVector3f mPos;
+  float mDepth;
+  int mType;
+};
+
+struct SRenderItemDepthSort {
+  bool operator()(const SRenderItem& a, const SRenderItem& b) const {
+    return a.mDepth > b.mDepth;
+  }
+};
 
 static float sMaxSpin = 1080.f;
 static float sSpinAccel = 120.f;
@@ -85,7 +114,7 @@ CScriptFrontEndDataNetwork::CScriptFrontEndDataNetwork(
     float shrinkTime, float moveTime, float expandTime, float moveInTime,
     float connectionRadius)
 : CActor(uid, name, info, 0, xf, CModelData::CModelDataNull(), CMaterialList(),
-         CActorParameters(), kInvalidUniqueId)
+         CActorParameters::None(), kInvalidUniqueId)
 , mRootId(isRoot ? uid : kInvalidUniqueId)
 , mPlatformId(kInvalidUniqueId)
 , mPrevIndex(0)
@@ -368,6 +397,258 @@ void CScriptFrontEndDataNetwork::ResetTransition() {
   mTransitionDuration = mExpandTime;
 }
 
+void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) {
+  if (mTransitionState != 0) {
+    mTransitionT = rstl::max_val(mTransitionT - dt / mTransitionDuration, 0.f);
+    if (mTransitionT == 0.f) {
+      SDataNetworkNode& node = mNodes[mCurIndex];
+      CScriptFrontEndDataNetwork* net = node.GetNetwork(mgr);
+      switch (mTransitionState) {
+      case 1: {
+        float duration;
+        if (mTransitionForward == 1) {
+          duration = mNodes[mPrevIndex].GetNetwork(const_cast< const CStateManager& >(mgr))
+                         ->mMoveInTime;
+        } else {
+          const SDataNetworkNode& prev = mNodes[mPrevIndex];
+          const SDataNetworkNode& cur = mNodes[mCurIndex];
+          if (mCurIndex == prev.mParent ||
+              (prev.mParentIsProxy && mCurIndex == mNodes[prev.mParent].mParent)) {
+            duration = cur.GetNetwork(mgr)->mMoveTime;
+          } else {
+            duration = 0.f;
+          }
+        }
+        if (duration > 0.f) {
+          mTransitionT = 1.f;
+          mTransitionDuration = duration;
+          mTransitionState = 2;
+          EScriptObjectState state = kSS_Up;
+          if (mTransitionForward == 1) {
+            state = kSS_Down;
+          }
+          net->SendScriptMsgs(state, mgr);
+          break;
+        }
+      }
+      case 2: {
+        mTransitionT = 1.f;
+        mTransitionDuration = net->mExpandTime;
+        mTransitionState = 3;
+        EScriptObjectState state = kSS_Retreat;
+        if (mTransitionForward == 1) {
+          state = kSS_Approach;
+        }
+        net->SendScriptMsgs(state, mgr);
+        if (mTransitionForward == 1) {
+          CScriptFrontEndDataNetwork* parentNet = mNodes[node.mParent].GetNetwork(mgr);
+          if (parentNet->mIsProxy) {
+            parentNet->SendScriptMsgs(state, mgr);
+          }
+        }
+        if (mTransitionForward != 1 || node.mChildren.size() != 0) {
+          break;
+        }
+      }
+      case 3:
+        mTransitionState = 0;
+        net->SendScriptMsgs(kSS_Arrived, mgr);
+        break;
+      }
+    }
+  }
+
+  if (mCurIndex == -1) {
+    return;
+  }
+
+  for (rstl::vector< SDataNetworkNode >::iterator it = mNodes.begin(); it != mNodes.end(); ++it) {
+    it->SetX60(0.f);
+    it->SetX64(0.f);
+  }
+
+  SDataNetworkNode& cur = mNodes[mCurIndex];
+  SDataNetworkNode& prev = mNodes[mPrevIndex];
+  const bool forward = mTransitionForward == 1;
+  switch (mTransitionState) {
+  case 0:
+    cur.SetX64(1.f);
+    prev.SetX64(1.f);
+    for (int i = 0; i < cur.mChildren.size(); ++i) {
+      SDataNetworkNode& child = mNodes[cur.mChildren[i]];
+      child.SetX60(1.f);
+      child.SetX64(1.f);
+    }
+    break;
+  case 1:
+    for (int i = 0; i < prev.mChildren.size(); ++i) {
+      SDataNetworkNode& child = mNodes[prev.mChildren[i]];
+      child.SetX60(mTransitionT);
+      child.SetX64(mTransitionT);
+    }
+    prev.SetX60(forward ? 0.f : 1.f - mTransitionT);
+    prev.SetX64(1.f);
+    if (forward) {
+      if (cur.mParentIsProxy) {
+        SDataNetworkNode& parent = mNodes[cur.mParent];
+        parent.SetX60(1.f);
+        parent.SetX64(1.f);
+      } else {
+        cur.SetX60(1.f);
+        cur.SetX64(1.f);
+      }
+    } else {
+      cur.SetX60(0.f);
+      cur.SetX64(0.f);
+    }
+    break;
+  case 2:
+    if (forward) {
+      prev.SetX64(1.f);
+      if (cur.mParentIsProxy) {
+        SDataNetworkNode& parent = mNodes[cur.mParent];
+        parent.SetX60(1.f);
+        parent.SetX64(1.f);
+      } else {
+        prev.SetX60(1.f);
+        cur.SetX60(1.f);
+        cur.SetX64(1.f);
+      }
+    } else {
+      cur.SetX64(1.f);
+      if (prev.mParentIsProxy) {
+        SDataNetworkNode& parent = mNodes[prev.mParent];
+        parent.SetX60(1.f - mTransitionT);
+        parent.SetX64(1.f - mTransitionT);
+      } else {
+        cur.SetX60(1.f - mTransitionT);
+        cur.SetX64(1.f - mTransitionT);
+      }
+      prev.SetX60(1.f);
+      prev.SetX64(1.f - mTransitionT);
+    }
+    break;
+  case 3:
+    for (int i = 0; i < cur.mChildren.size(); ++i) {
+      SDataNetworkNode& child = mNodes[cur.mChildren[i]];
+      child.SetX60(1.f - mTransitionT);
+      child.SetX64(1.f - mTransitionT);
+    }
+    if (forward) {
+      if (cur.mParentIsProxy) {
+        SDataNetworkNode& parent = mNodes[cur.mParent];
+        parent.SetX60(mTransitionT);
+        parent.SetX64(1.f);
+        cur.SetX64(1.f);
+      } else {
+        cur.SetX60(mTransitionT);
+        cur.SetX64(1.f);
+        prev.SetX64(0.f);
+      }
+      prev.SetX60(0.f);
+    } else {
+      if (prev.mParentIsProxy) {
+        SDataNetworkNode& parent = mNodes[prev.mParent];
+        parent.SetX60(1.f);
+        parent.SetX64(1.f);
+      } else {
+        prev.SetX60(1.f);
+        prev.SetX64(1.f);
+        cur.SetX60(1.f);
+      }
+      cur.SetX64(1.f);
+    }
+    break;
+  }
+
+  SimulateChildren(mgr, mCurIndex, dt);
+  int renderIdx = mCurIndex;
+  if (mTransitionState == 1) {
+    renderIdx = mPrevIndex;
+  } else if (mTransitionState == 2 && mTransitionForward == 1) {
+    renderIdx = mPrevIndex;
+  }
+  UpdateRenderPositions(mgr, renderIdx, dt);
+
+  for (rstl::vector< SDataNetworkNode >::iterator it = mNodes.begin(); it != mNodes.end(); ++it) {
+    const float alpha = it->x60 * GetModelFlags().GetColorRef().GetAlpha();
+    const CTransform4f xf(mOrientation.BuildTransform4f());
+    CVector3f pos = it->GetPos();
+    float radius = mConnectionRadius;
+    if (&*it != mNodes.data()) {
+      SDataNetworkNode& parent = mNodes[it->mParent];
+      pos -= parent.GetPos();
+      radius = parent.GetNetwork(const_cast< const CStateManager& >(mgr))->mConnectionRadius;
+    }
+    const CVector3f local = xf.TransposeRotate(pos - xf.GetTranslation());
+    float facing = (-1.f * local.GetY()) / radius;
+    if (-1.f > facing) {
+      facing = -1.f;
+    } else if (1.f < facing) {
+      facing = 1.f;
+    }
+    facing *= 0.5f;
+    it->SetX5C(facing + 0.5f);
+
+    if (CScriptFrontEndDataNetwork* net =
+            TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(it->mId))) {
+      if (CScriptPlatform* platform =
+              TCastToPtr< CScriptPlatform >(mgr.ObjectById(net->GetPlatformId()))) {
+        SDataNetworkNode& current = mNodes[mCurIndex];
+        bool selected = false;
+        if (it->mIndex == current.mIndex) {
+          selected = true;
+        } else if (current.GetSelectedChild() != -1 &&
+                   current.mChildren[current.GetSelectedChild()] == it->mIndex) {
+          selected = true;
+        } else if (it->mIsProxy && current.mParent == it->mIndex) {
+          selected = true;
+        }
+        bool disabled = false;
+        if (it->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsLocked &&
+            it->GetNetwork(const_cast< const CStateManager& >(mgr))->x2d2) {
+          disabled = true;
+        }
+        CVector3f center = current.GetRenderPos();
+        switch (mTransitionState) {
+        case 0:
+          break;
+        case 1:
+          center = mNodes[mPrevIndex].GetRenderPos();
+          break;
+        case 2:
+          if (mTransitionForward == 1) {
+            center = mNodes[mPrevIndex].GetRenderPos();
+          }
+          break;
+        }
+        const CTransform4f nodeXf(CTransform4f::Translate(center) *
+                                  mOrientation.BuildTransform4f());
+        CTransform4f platformXf(GetTransform());
+        const CVector3f offset =
+            nodeXf.TransposeRotate(it->GetRenderPos() - nodeXf.GetTranslation());
+        platformXf.SetTranslation(GetTransform().GetTranslation() + offset);
+        platform->SetTransformIfNoPositionSpline(platformXf);
+        CColor color = CColor::Lerp(mUnselectedMinColor, mUnselectedMaxColor, it->x5c);
+        if (disabled) {
+          color = mDisabledColor;
+        } else if (selected) {
+          color = mSelectedColor;
+        }
+        rstl::vector< TUniqueId > ids(platform->FindConnectedObjects(mgr, kSS_Play, kSM_Activate));
+        for (rstl::vector< TUniqueId >::iterator id = ids.begin(); id != ids.end(); ++id) {
+          if (TCastToPtr< CActor >(mgr.ObjectById(*id))) {
+            if (CScriptTextPane* pane = TCastToPtr< CScriptTextPane >(mgr.ObjectById(*id))) {
+              pane->SetModelColor(color.WithAlphaModulatedBy(alpha));
+              pane->SetRenderScale(selected && !disabled ? 1.0625f : 1.f);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, float dt) {
   SDataNetworkNode& node = mNodes[idx];
   const CVector3f& center = node.GetPos();
@@ -415,7 +696,7 @@ void CScriptFrontEndDataNetwork::SimulateChildren(CStateManager& mgr, int idx, f
   }
 }
 
-void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int idx) {
+void CScriptFrontEndDataNetwork::UpdateRenderPositions(CStateManager& mgr, int idx, float dt) {
   const bool forward = mTransitionForward == 1;
   int curIdx = mCurIndex;
   if (mCurIndex > 0 && mNodes[mCurIndex].mParentIsProxy) {
@@ -597,6 +878,147 @@ void CScriptFrontEndDataNetwork::Render(const CStateManager& mgr) const {
     break;
   }
   CGraphics::SetCullMode(kCM_Front);
+}
+
+void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTransform4f& xf,
+                                            float alpha, int idx) const {
+  rstl::vector< SRenderItem > items;
+  items.reserve(2);
+  const CColor nodeColor = GetModelFlags().GetColor();
+  const CColor selectedColor = GetModelFlags().GetColor();
+  const SDataNetworkNode& node = mNodes[idx];
+  const CVector3f center = node.GetRenderPos();
+  gpRender->SetAmbientColor(CColor::White());
+  CGraphics::DisableAllLights();
+  gpRender->SetBlendMode_AdditiveAlpha();
+  gpRender->SetModelMatrix(CTransform4f::Identity());
+  items.push_back_unsafe(SRenderItem(&node, center, SRenderItem::kT_Center));
+
+  TLockedToken< CTexture > hotDot = gpSimplePool->GetObj(SObjectTag('TXTR', mHotDotTexture));
+  TLockedToken< CTexture > hotDotHalo =
+      gpSimplePool->GetObj(SObjectTag('TXTR', mHotDotHaloTexture));
+  TLockedToken< CTexture > hotDotAButton =
+      gpSimplePool->GetObj(SObjectTag('TXTR', mHotDotAButtonTexture));
+
+  items.reserve(node.mChildren.size() + 2);
+  for (int i = 0; i < node.mChildren.size(); ++i) {
+    const int childIdx = node.mChildren[i];
+    const SDataNetworkNode& child = mNodes[childIdx];
+    if (child.GetNetwork(mgr)->GetActive() && 0.f != child.x64 && 0.f != node.x64) {
+      bool selected = false;
+      if (node.GetSelectedChild() != -1 &&
+          childIdx == node.mChildren[node.GetSelectedChild()]) {
+        selected = true;
+      }
+      const CVector3f childPos = child.GetRenderPos();
+      items.push_back_unsafe(SRenderItem(
+          &child, childPos, selected ? SRenderItem::kT_Selected : SRenderItem::kT_Child));
+      const CColor lineColor = CColor::Modulate(gpTweakGui->GetLogBookNodeColor(), nodeColor);
+      DrawConnection(xf, center, childPos,
+                     lineColor.WithAlphaModulatedBy((0.75f * node.x5c + 0.25f) * node.x64),
+                     lineColor.WithAlphaModulatedBy((0.75f * child.x5c + 0.25f) * child.x64),
+                     1.f);
+    }
+  }
+
+  for (rstl::vector< SRenderItem >::iterator it = items.begin(); it != items.end(); ++it) {
+    it->mDepth = xf.TransposeRotate(it->mPos).GetY();
+  }
+  rstl::sort(items.begin(), items.end(), SRenderItemDepthSort());
+
+  for (rstl::vector< SRenderItem >::iterator it = items.begin(); it != items.end(); ++it) {
+    const SDataNetworkNode* itemNode = it->mNode;
+    const float itemAlpha = (0.5f * itemNode->x5c + 0.5f) * itemNode->x60;
+    const CScriptFrontEndDataNetwork* net = itemNode->GetNetwork(mgr);
+    switch (it->mType) {
+    case SRenderItem::kT_Child: {
+      const CColor color =
+          itemNode->GetNetwork(mgr)->mCanBeSelected
+              ? CColor::Modulate(gpTweakGui->GetLogBookNodeColor(), nodeColor)
+                    .WithAlphaModulatedBy(itemAlpha)
+              : CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                    .WithAlphaModulatedBy(itemAlpha);
+      hotDot->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+      DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookNodeScale(), color, true);
+      break;
+    }
+    case SRenderItem::kT_Selected:
+      hotDot->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+      DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(),
+                    CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                        .WithAlphaModulatedBy(itemAlpha),
+                    true);
+      if (!net->mIsLocked || !net->x2d2) {
+        hotDotHalo->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(),
+                      CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                          .WithAlphaModulatedBy(itemAlpha),
+                      true);
+        hotDotAButton->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+        DrawBillboard(xf, it->mPos, gpTweakGui->GetLogBookSelectedNodeScale(),
+                      CColor::Modulate(gpTweakGui->GetLogBookSelectedNodeColor(), selectedColor)
+                          .WithAlphaModulatedBy(itemAlpha),
+                      false);
+      }
+      if (x1a8 > 0.f) {
+        hotDotHalo->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+        DrawBillboard(xf, it->mPos, 1.2f * gpTweakGui->GetLogBookSelectedNodeScale(),
+                      CColor::Lerp(CColor(0.f, 0.f, 0.f, 0.f), CColor::White(), x1a8)
+                          .WithAlphaModulatedBy(itemAlpha),
+                      true);
+      }
+      break;
+    }
+  }
+}
+
+void CScriptFrontEndDataNetwork::DrawConnection(const CTransform4f& xf, const CVector3f& a,
+                                                const CVector3f& b, const CColor& colorA,
+                                                const CColor& colorB, float t) const {
+  CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvPassthru);
+  const CVector3f start = xf.TransposeRotate(a - xf.GetTranslation()) + GetTransform().GetTranslation();
+  const CVector3f end =
+      xf.TransposeRotate(CVector3f::Lerp(a, b, t) - xf.GetTranslation()) +
+      GetTransform().GetTranslation();
+  for (int width = 2; width != 0; --width) {
+    CGraphics::SetLineWidth(width + 1, kTO_Zero);
+    CGraphics::StreamBegin(kP_Lines);
+    CGraphics::StreamColor(colorA.WithAlphaModulatedBy(0.33333334f));
+    CGraphics::StreamVertex(start);
+    CGraphics::StreamColor(colorB.WithAlphaModulatedBy(0.33333334f));
+    CGraphics::StreamVertex(end);
+    CGraphics::StreamEnd();
+  }
+}
+
+void CScriptFrontEndDataNetwork::DrawBillboard(const CTransform4f& xf, const CVector3f& pos,
+                                               float size, const CColor& color,
+                                               bool additive) const {
+  if (mHotDotTexture == kInvalidAssetId) {
+    return;
+  }
+  const CVector3f center =
+      xf.TransposeRotate(pos - xf.GetTranslation()) + GetTransform().GetTranslation();
+  if (additive) {
+    gpRender->SetBlendMode_AdditiveAlpha();
+  } else {
+    gpRender->SetBlendMode_AlphaBlended();
+  }
+  CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvModulate);
+  CGraphics::SetTevOp(kTS_Stage1, CGraphics::kEnvPassthru);
+  CGraphics::SetModelMatrix(CTransform4f::Identity());
+  const float half = 0.5f * size;
+  CGraphics::StreamBegin(kP_Quads);
+  CGraphics::StreamColor(color);
+  CGraphics::StreamTexcoord(0.f, 0.f);
+  CGraphics::StreamVertex(center + CVector3f(-half, 0.f, -half));
+  CGraphics::StreamTexcoord(1.f, 0.f);
+  CGraphics::StreamVertex(center + CVector3f(half, 0.f, -half));
+  CGraphics::StreamTexcoord(1.f, 1.f);
+  CGraphics::StreamVertex(center + CVector3f(half, 0.f, half));
+  CGraphics::StreamTexcoord(0.f, 1.f);
+  CGraphics::StreamVertex(center + CVector3f(-half, 0.f, half));
+  CGraphics::StreamEnd();
 }
 
 bool CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CStateManager& mgr) {

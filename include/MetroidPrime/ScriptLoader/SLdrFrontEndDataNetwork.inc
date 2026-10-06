@@ -2,7 +2,7 @@
 // Include in the object loader after `SLdrFrontEndDataNetwork sldrThis;`.
 const int propertyCount = input.ReadUint16();
 for (int i = 0; i < propertyCount; ++i) {
-  const uint propertyId = input.Get< uint >();
+  const uint propertyId = input.ReadInt32();
   const u16 propertySize = input.ReadUint16();
   switch (propertyId) {
   case 0x255a4580: {

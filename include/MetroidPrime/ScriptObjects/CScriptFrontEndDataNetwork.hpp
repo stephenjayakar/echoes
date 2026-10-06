@@ -93,7 +93,7 @@ private:
   void ResetTransition();
   void UpdateTransition(CStateManager& mgr, float dt);
   void SimulateChildren(CStateManager& mgr, int idx, float dt);
-  void UpdateRenderPositions(CStateManager& mgr, int idx);
+  void UpdateRenderPositions(CStateManager& mgr, int idx, float dt);
   void SetLocked(bool locked, CStateManager& mgr);
   void OpenNode(TUniqueId id, CStateManager& mgr);
   void CloseNode(CStateManager& mgr);
@@ -104,7 +104,7 @@ private:
   void DrawConnection(const CTransform4f& xf, const CVector3f& a, const CVector3f& b,
                       const CColor& colorA, const CColor& colorB, float width) const;
   void DrawBillboard(const CTransform4f& xf, const CVector3f& pos, float size,
-                     const CColor& color) const;
+                     const CColor& color, bool additive) const;
   bool HandleRotation(const CFinalInput& input, CStateManager& mgr);
   bool HandleButtons(const CFinalInput& input, CStateManager& mgr);
   bool HandleStick(const CFinalInput& input, CStateManager& mgr);

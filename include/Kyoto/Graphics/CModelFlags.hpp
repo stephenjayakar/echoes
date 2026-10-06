@@ -90,6 +90,7 @@ public:
   uint GetOtherFlags() const { return mFlags; }
   CColor GetColor() const { return mColor; }
   const CColor& GetColorRef() const { return mColor; }
+  void SetColor(const CColor& color) { mColor = color; }
 
   bool operator==(const CModelFlags& other) const {
     // TODO: cast to char for extsb; see CScriptActor::PreRender

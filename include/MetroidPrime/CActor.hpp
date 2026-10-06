@@ -184,6 +184,7 @@ public:
 
   const CModelFlags& GetModelFlags() const { return mDrawFlags; }
   void SetModelFlags(const CModelFlags& flags) { mDrawFlags = flags; }
+  void SetModelColor(const CColor& color) { mDrawFlags.SetColor(color); } // Guessed name.
 
   const CMaterialList& GetMaterialList() const { return mMaterial; }
   CMaterialList& MaterialList() { return mMaterial; }
