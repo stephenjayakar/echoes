@@ -182,7 +182,7 @@ void CAnimData::AdvanceAnim(CCharAnimTime& time, CVector3f& offset, CQuaternion&
 
 CAdvancementDeltas CAnimData::AdvanceIgnoreParticles(float dt, CRandom16& random,
                                                      bool advanceTree) {
-  bool suspendEffects = false;
+  bool suspendEffects;
   return DoAdvance(dt, suspendEffects, random, advanceTree);
 }
 
@@ -257,13 +257,22 @@ float CAnimData::GetAnimationDuration(int anim) const {
 }
 
 float CAnimData::GetAnimTimeRemaining(const rstl::string& name) const {
-  // TODO: Query the root's remaining time using the recovered animation-tree interface.
-  return 0.f;
+  float remaining = mAnimRoot->VGetTimeRemaining().GetSeconds();
+  if (mSpeedScale > 0.f) {
+    remaining /= mSpeedScale;
+  }
+  return remaining;
 }
 
 bool CAnimData::IsAnimTimeRemaining(float tolerance, const rstl::string& name) const {
-  // TODO: Recover the zero-time and tolerance tests against the root's remaining time.
+  if (mAnimRoot.GetPtr() != nullptr) {
+    return !close_enough(mAnimRoot->VGetTimeRemaining().GetSeconds(), 0.f, tolerance);
+  }
   return false;
+}
+
+CSegId CAnimData::GetLocatorSegId(const rstl::string& name) const {
+  return mLayoutData->GetSegIdFromString(name);
 }
 
 CTransform4f CAnimData::GetLocatorTransform(const rstl::string& name,
@@ -385,9 +394,7 @@ void CAnimData::SetEffectComponentExternalParam(const rstl::string& name, int in
   }
 }
 
-void CAnimData::SetPhase(float phase) {
-  // TODO: Forward the phase to the root's virtual interface once its slots are recovered.
-}
+void CAnimData::SetPhase(float phase) { mAnimRoot->VSetPhase(phase); }
 
 void CAnimData::SetKeepJSPose(bool keep) {
   if (!keep) {
