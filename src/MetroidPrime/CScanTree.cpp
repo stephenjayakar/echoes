@@ -152,7 +152,9 @@ CScanTreeNode::CScanTreeNode(int id, const SLdrTransform& transform, CAssetId na
 , mNameStringTable(rs_new TCachedToken< CStringTable >(
       gpSimplePool->GetObj(SObjectTag('STRG', nameStringTable))))
 , mVisible(true)
-, mViewed(true) {}
+, mViewed(true) {
+  mNameStringTable->Lock();
+}
 
 void CScanTreeNode::LockResources() { mNameStringTable->Lock(); }
 
@@ -544,7 +546,7 @@ void CScanTree::InitializeHierarchy() {
       const rstl::rc_ptr< CScanTreeCategory > category(*it);
       const int childCount = category->GetChildCount();
       for (int i = 0; i < childCount; i++) {
-        const int child = category->GetChild(i);
+        int child = category->GetChild(i);
         mNodes[child]->SetParentNode(category->GetId());
         if (category->GetSelectedChild() == -1 && mNodes[child]->IsVisible()) {
           category->SetSelectedChild(child);
@@ -567,7 +569,8 @@ bool CScanTree::UpdateNodeVisibility(CStateManager& mgr, int node) {
     const rstl::rc_ptr< CScanTreeCategory > category(treeNode);
     const int childCount = category->GetChildCount();
     for (int i = 0; i < childCount; i++) {
-      if (UpdateNodeVisibility(mgr, category->GetChild(i))) {
+      int child = category->GetChild(i);
+      if (UpdateNodeVisibility(mgr, child)) {
         visible = true;
       }
     }
@@ -582,10 +585,12 @@ bool CScanTree::UpdateNodeVisibility(CStateManager& mgr, int node) {
     visible = state != scanStates.end() && state->mProgress == 0xff;
   } else if (treeNode->GetNodeType() == CScanTreeNode::kNT_Inventory) {
     const rstl::rc_ptr< CScanTreeInventory > inventory(treeNode);
-    visible = mgr.PlayerState(0)->GetItemCapacity(inventory->GetInventoryItem()) > 0;
+    CPlayerState::EItemType item = inventory->GetInventoryItem();
+    visible = mgr.PlayerState(0)->GetItemCapacity(item) > 0;
   }
-  treeNode->SetVisible(visible);
-  return visible;
+  const bool result = visible;
+  treeNode->SetVisible(result);
+  return result;
 }
 
 void CScanTree::RefreshVisibility(CStateManager& mgr) {
@@ -867,8 +872,9 @@ void CScanTree::RefreshViewed(CStateManager& mgr) {
     if ((*it)->GetNodeType() == CScanTreeNode::kNT_Scan ||
         (*it)->GetNodeType() == CScanTreeNode::kNT_Inventory) {
       const rstl::rc_ptr< CScanTreeScan > scan(*it);
+      const CAssetId scannableInfo = scan->GetScannableInfo();
       rstl::vector< CPlayerState::SPersistentState::SScanState >::const_iterator state =
-          rstl::binary_find(scanStates.begin(), scanStates.end(), scan->GetScannableInfo(),
+          rstl::binary_find(scanStates.begin(), scanStates.end(), scannableInfo,
                             SlideShowScanIdLess());
       scan->SetViewed(state != scanStates.end() && state->mViewedInLogbook);
     }
@@ -890,7 +896,8 @@ void CScanTree::MarkViewed(CStateManager& mgr, int node) {
           rstl::binary_find(scanStates.begin(), scanStates.end(), scannableInfo,
                             SlideShowScanIdLess());
       if (state != scanStates.end()) {
-        gpGameState->PlayerState(0)->SetScanFlag(scannableInfo, true);
+        rstl::rc_ptr< CPlayerState > playerState = gpGameState->PlayerState(0);
+        playerState->SetScanFlag(scannableInfo, true);
       }
     }
     UpdateViewedCategories();
