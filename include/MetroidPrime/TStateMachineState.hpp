@@ -91,6 +91,7 @@ public:
   float GetFixedRandom() const { return mFixedRandom; }
   bool GetCodeTrigger() const { return mCodeTrigger; }
   const CState* GetCurrentState() const { return mState; } // Guessed name
+  const CState* GetState() const { return mState; }
 
 private:
   void CallState(const CState& state, CStateManager& mgr, T& owner, EStateMsg msg, float arg);

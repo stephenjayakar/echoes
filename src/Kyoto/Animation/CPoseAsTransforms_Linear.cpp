@@ -156,10 +156,11 @@ void CPoseAsTransforms_Linear::RotateHierarchy(const CCharLayoutInfo& layout, co
 
 static rstl::vector< CSegId >::const_iterator ConnectedPartsEnd(const CCharLayoutInfo& layout,
                                                                 const CSegId& seg) {
-  return layout.GetSegmentData(seg).GetConnectedParts().end();
+  const CCharLayoutNode& node = layout.GetSegmentData(seg);
+  return node.GetConnectedParts().begin() + node.GetNumConnectedParts();
 }
 
 void CPoseAsTransforms_Linear::AllocateScale() {
-  mScales.resize(mElements.size(), CVector3f::Zero());
+  mScales.resize(mElements.size(), CVector3f::One());
   mUnscaledRotations.resize(mElements.size(), CMatrix3f::Identity());
 }

@@ -375,6 +375,7 @@ MetroidPrime/ScriptObjects/CScriptDock.cpp:
 MetroidPrime/ScriptObjects/CScriptCameraHint.cpp:
 	.text       start:0x800B7928 end:0x800B88D4
 	.data       start:0x803B3530 end:0x803B35B8
+	.sdata2     start:0x8041B1D0 end:0x8041B1E0
 
 MetroidPrime/CScriptMailbox.cpp:
 	.text       start:0x800B88D4 end:0x800B8E9C
@@ -1629,6 +1630,7 @@ MetroidPrime/ScriptObjects/CScriptSurfaceCamera.cpp:
 	.text       start:0x801E979C end:0x801EA9AC
 	.rodata     start:0x803AB1A8 end:0x803AB1B0
 	.data       start:0x803B7798 end:0x803B7818
+	.sdata      start:0x80418720 end:0x80418728
 	.sdata2     start:0x8041D4D8 end:0x8041D4E0
 
 MetroidPrime/CSafeZoneManager.cpp:
@@ -2357,6 +2359,7 @@ WorldFormat/CAreaBspTree.cpp:
 
 WorldFormat/CAreaOctTree.cpp:
 	.text       start:0x80247704 end:0x80247CC0
+	.sdata2     start:0x8041DD40 end:0x8041DD48
 
 WorldFormat/CMetroidAreaCollider.cpp:
 	.text       start:0x80247CC0 end:0x8024DAFC

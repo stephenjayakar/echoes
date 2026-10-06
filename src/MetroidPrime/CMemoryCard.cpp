@@ -137,7 +137,8 @@ bool CMemoryCard::InitializePump() {
 }
 
 bool CMemoryCard::HasSaveWorldMemory(CAssetId worldId) const {
-  return rstl::find_by_key(mMemoryWorlds, worldId) != mMemoryWorlds.end();
+  rstl::vector< MemoryWorld >::const_iterator it = rstl::find_by_key(mMemoryWorlds, worldId);
+  return it != mMemoryWorlds.end();
 }
 
 const CSaveWorldMemory& CMemoryCard::GetSaveWorldMemory(CAssetId worldId) const {
@@ -145,19 +146,25 @@ const CSaveWorldMemory& CMemoryCard::GetSaveWorldMemory(CAssetId worldId) const 
 }
 
 const wchar_t* CSaveWorldMemory::GetFrontEndName() const {
-  if (!mWorldName.valid() || mWorldName->GetObject() == nullptr) {
-    return nullptr;
+  if (mWorldName.valid() && mWorldName->GetObject() != nullptr) {
+    const CStringTable& names = *mWorldName->GetObject();
+    if (names.GetStringCount() >= 4) {
+      return names.GetString(3);
+    }
+    return names.GetString(0);
   }
-  const CStringTable& names = *mWorldName->GetObject();
-  return names.GetString(names.GetStringCount() < 4 ? 0 : 3);
+  return nullptr;
 }
 
 const wchar_t* CSaveWorldMemory::GetDarkFrontEndName() const {
-  if (!mDarkWorldName.valid() || mDarkWorldName->GetObject() == nullptr) {
-    return nullptr;
+  if (mDarkWorldName.valid() && mDarkWorldName->GetObject() != nullptr) {
+    const CStringTable& names = *mDarkWorldName->GetObject();
+    if (names.GetStringCount() >= 4) {
+      return names.GetString(3);
+    }
+    return names.GetString(0);
   }
-  const CStringTable& names = *mDarkWorldName->GetObject();
-  return names.GetString(names.GetStringCount() < 4 ? 0 : 3);
+  return nullptr;
 }
 
 rstl::pair< CAssetId, TAreaId > CMemoryCard::GetAreaAndWorldIdForSaveId(uint saveId) const {

@@ -40,7 +40,8 @@ CBlackHole::CBlackHole(const rstl::optional_object< TToken< CGenDescription > >&
 CBlackHole::~CBlackHole() {}
 
 void CBlackHole::ApplyDamageToWorld(const CVector3f& position, CStateManager& mgr) {
-  mgr.ApplyDamageToWorld(GetOwnerId(), *this, position, mCurDamageInfo, mFilter);
+  mgr.ApplyDamageToWorld(GetOwnerId(), *this, position, mCurDamageInfo,
+                         CMaterialFilter(mFilter));
 }
 
 void CBlackHole::Touch(CActor&, CStateManager&) {}
@@ -127,7 +128,11 @@ void CBlackHole::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 
 void CBlackHole::UpdateRadius() {
   if (!mParticleGen.null()) {
+    float radius = 0.f;
     const CElementGen::CAdvancedValues* data = mParticleGen->ParticleAdditionalData(0);
-    mRadius = data ? rstl::max_val(0.f, data->mValues[0]) : 0.f;
+    if (data != nullptr) {
+      radius = rstl::max_val(0.f, data->mValues[0]);
+    }
+    mRadius = radius;
   }
 }

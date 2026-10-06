@@ -472,7 +472,7 @@ void CParticleDatabase::DeleteAllLights(CStateManager* mgr) {
 }
 
 void CParticleDatabase::DeleteAllLightsForParticleDB(CStateManager* mgr, const DrawMap& map) {
-  for (DrawMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+  for (DrawMap::const_iterator it = map.begin(); map.end() != it; ++it) {
     it->second->DeleteLight(mgr);
   }
 }
@@ -485,7 +485,7 @@ void CParticleDatabase::SuspendAllActiveEffects(CStateManager* mgr) {
 
 void CParticleDatabase::SuspendAllActiveEffectsForParticleDB(CStateManager* mgr,
                                                              const DrawMap& map) {
-  for (DrawMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+  for (DrawMap::const_iterator it = map.begin(); map.end() != it; ++it) {
     SetParticleEffectState(it->second.get(), false, mgr);
   }
 }
@@ -501,7 +501,7 @@ void CParticleDatabase::SetModulationColorAllActiveEffects(const CColor& color) 
 
 void CParticleDatabase::SetModulationColorAllActiveEffectsForParticleDB(const CColor& color,
                                                                         const DrawMap& map) {
-  for (DrawMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+  for (DrawMap::const_iterator it = map.begin(); map.end() != it; ++it) {
     if (it->second.get())
       it->second->SetModulationColor(color);
   }
@@ -517,7 +517,7 @@ void CParticleDatabase::DestroyAllActiveParticles() {
 }
 
 void CParticleDatabase::DestroyParticlesForParticleDB(const DrawMap& map) {
-  for (DrawMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+  for (DrawMap::const_iterator it = map.begin(); map.end() != it; ++it) {
     it->second->DestroyParticles();
   }
 }
