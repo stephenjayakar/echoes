@@ -17,6 +17,15 @@ static GXVtxDescList sVtxDescList[12];
 static GXVtxDescList sVtxDescList[30];
 #endif
 
+inline void CGX::apply_fog() {
+  static const GXColor black = {0, 0, 0, 0};
+  GXSetFog(static_cast< GXFogType >(gpGXState->mFogType), gpGXState->mFogParams.mFogStartZ,
+           gpGXState->mFogParams.mFogEndZ, gpGXState->mFogParams.mFogNearZ,
+           gpGXState->mFogParams.mFogFarZ,
+           (gpGXState->mBlendMode & (7 << 5)) == (GX_BL_ONE << 5) ? black
+                                                                : gpGXState->mFogParams.mFogColor);
+}
+
 void CGX::SetNumChans(uchar num) {
   gpGXState->mNumChans = num;
   gpGXState->mFlags.numDirty = num != gpGXState->mPrevNumChans;

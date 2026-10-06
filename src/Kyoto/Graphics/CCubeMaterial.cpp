@@ -1023,8 +1023,10 @@ void CCubeModel::SetNewPlayerPositionAndTime(const CVector3f& pos, const CStopwa
   float throbAmplitudeY = 0.015f;
   float phaseX = 0.f;
   float phaseY = 1.f;
-  sThrobX = 1. / (1. - throbAmplitudeX * sin(time * frequency + phaseX));
-  sThrobY = 1. / (1. - throbAmplitudeY * sin(sLastTime * frequency + phaseY));
+  const float sinX = sin(time * frequency + phaseX);
+  sThrobX = 1.f / (1.f - throbAmplitudeX * sinX);
+  const float sinY = sin(sLastTime * frequency + phaseY);
+  sThrobY = 1.f / (1.f - throbAmplitudeY * sinY);
 }
 
 void CCubeModel::SetRenderModelBlack(bool v) {
