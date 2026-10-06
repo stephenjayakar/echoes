@@ -1412,7 +1412,7 @@ void CScriptSpecialFunction::ThinkPlayerFollowLocator(float dt, CStateManager& m
 
 void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr,
                                                     ESpinnerControllerMode mode) {
-  const ushort sfx1 = mSfx1;
+  ushort sfx1 = mSfx1;
   ushort sfx3 = mSfx3;
   const float value1 = mValue1;
   const float value2 = mValue2;
@@ -1552,9 +1552,8 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       if (splineControl) {
         plat->SetMotionTime(mSpinnerPosition * plat->GetMotionDuration(), mgr);
       } else {
-        const CAnimData* animData = plat->GetAnimationData();
-        const float dur =
-            mSpinnerPosition * animData->GetAnimationDuration(animData->GetCurrentAnimation());
+        const float dur = mSpinnerPosition * plat->GetAnimationData()->GetAnimationDuration(
+                                                 plat->GetAnimationData()->GetCurrentAnimation());
         plat->AnimationData()->SetPhase(0.f);
         plat->AnimationData()->SetPlaybackRate(1.f);
         CAdvancementDeltas deltas = plat->UpdateAnimation(dur, mgr, true);
