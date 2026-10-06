@@ -290,10 +290,11 @@ int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUnique
 }
 
 CColor CPlayerTargeting::GetScanObjectColor(CStateManager& mgr, int index) const {
-  const SScanObject& object = mScanObjects[index];
-  const TUniqueId resolved = ResolveScanTarget(mgr, object.mId);
+  const TUniqueId resolved = ResolveScanTarget(mgr, TUniqueId(mScanObjects[index].mId));
   if (resolved == mTargetId) {
     const float factor = rstl::min_val(mTargetTime / gpTweakGui->GetScanVisorBurnInTime(), 1.f);
+    const CColor color = CColor::Lerp(gpTweakGui->GetScanVisorBurnInColor(),
+                                      GetHighlightColor(mgr, mTargetId), factor);
     return CColor::Lerp(gpTweakGui->GetScanVisorBurnInColor(), GetHighlightColor(mgr, mTargetId),
                         factor);
   }
@@ -305,8 +306,10 @@ CColor CPlayerTargeting::GetScanObjectColor(CStateManager& mgr, int index) const
                            gpTweakGui->GetScanVisorPreviouslyScannedColor(),
                            gpTweakGui->GetScanVisorCriticalPreviouslyScannedColor(),
                            gpTweakGui->GetScanVisorHackedColor()};
-  const float factor = rstl::max_val(object.mFadeTime / gpTweakGui->GetScanVisorFadeOutTime(), 0.f);
-  return CColor::Lerp(colors[GetScanState(mgr, resolved)], object.mPreviousColor, factor);
+  const EScanState state = GetScanState(mgr, resolved);
+  const float fadeTime = mScanObjects[index].mFadeTime;
+  const float factor = rstl::max_val(fadeTime / gpTweakGui->GetScanVisorFadeOutTime(), 0.f);
+  return CColor::Lerp(colors[state], mScanObjects[index].mPreviousColor, factor);
 }
 
 CColor CPlayerTargeting::GetHighlightColor(CStateManager& mgr, const TUniqueId& id) const {
