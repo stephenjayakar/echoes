@@ -52,19 +52,20 @@ CVector3f CPlayer::GetDampedClampedVelocityWR() const {
   if (mOrbitState == kOS_NoOrbit) {
     float friction = GetTweakPlayer()->GetPlayerTranslationFriction(GetSurfaceRestraint());
     if (GetSurfaceRestraint() == kSR_Air) {
-      friction =
-          3.5f * (CVector2f(localVelocity.GetX(), localVelocity.GetY()).Magnitude() / GetMass());
+      friction = 3.5f;
+      const CVector2f flatVelocity(localVelocity.GetX(), localVelocity.GetY());
+      friction *= flatVelocity.Magnitude() / GetMass();
     }
     friction *= acceleration;
     if (localVelocity.GetY() > 0.f) {
-      localVelocity.SetY(CMath::Max(0.f, localVelocity.GetY() - friction));
+      localVelocity.SetY(rstl::max_val(localVelocity.GetY() - friction, 0.f));
     } else {
-      localVelocity.SetY(CMath::Min(0.f, localVelocity.GetY() + friction));
+      localVelocity.SetY(rstl::min_val(localVelocity.GetY() + friction, 0.f));
     }
     if (localVelocity.GetX() > 0.f) {
-      localVelocity.SetX(CMath::Max(0.f, localVelocity.GetX() - friction));
+      localVelocity.SetX(rstl::max_val(localVelocity.GetX() - friction, 0.f));
     } else {
-      localVelocity.SetX(CMath::Min(0.f, localVelocity.GetX() + friction));
+      localVelocity.SetX(rstl::min_val(localVelocity.GetX() + friction, 0.f));
     }
   }
   const float maxSpeed = GetTweakPlayer()->GetPlayerTranslationMaxSpeed(GetSurfaceRestraint());
