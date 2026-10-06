@@ -30,6 +30,7 @@
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAiJumpPoint.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
@@ -594,6 +595,126 @@ void CSpacePirate::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
       break;
     }
   }
+}
+
+void CSpacePirate::TargetPatrol(CStateManager& mgr, EStateMsg msg, float dt) {
+  CPatterned::Patrol(mgr, msg, dt);
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mSteeringSpeed = 1.f;
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_FullSpeed);
+    TUniqueId wpId = GetConnectedObject(mgr, kSS_Attack, kSM_Follow);
+    if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(wpId))) {
+      mWaypointNavigation.SetDestination(wpId);
+      CVector3f delta = wp->GetTranslation() - GetTranslation();
+      if (CVector3f::Dot(GetTransform().GetForward(), delta) <= 0.f) {
+        mWaypointNavigation.SetInPosition(true);
+      }
+    }
+    break;
+  }
+  case kStateMsg_Update: {
+    CScriptAIWaypoint* wp =
+        TCastToPtr< CScriptAIWaypoint >(mgr.ObjectById(mWaypointNavigation.GetDestination()));
+    if (wp) {
+      const uint jump = (wp->GetFlags() >> 1) & 1;
+      const uint drop = (wp->GetFlags() >> 2) & 1;
+      if (jump || drop) {
+        float maxSpeed = BodyController()->GetBodyStateInfo().GetMaxSpeed();
+        const CVector3f& scale = GetModelData()->GetScale();
+        float distance = maxSpeed * ((1.5f * dt + 0.1f) * scale.GetY()) + mIntoJumpDist;
+        if ((GetTranslation() - wp->GetTranslation()).MagSquared() < distance * distance) {
+          mWaypointNavigation.SetInPosition(true);
+          mJumpHeight = jump ? 3.f : 0.f;
+        }
+      }
+    }
+    if (BodyController()->GetCurrentStateId() == pas::kAS_Jump) {
+      bool targetPlayer = true;
+      if (wp && wp->CheckConnectedObject(mgr, kSS_Arrived, kSM_Next) != kInvalidUniqueId) {
+        targetPlayer = false;
+      }
+      if (targetPlayer) {
+        BodyController()->CommandMgr().SetTargetVector(GetTargetPos(mgr) - GetTranslation());
+      }
+    }
+    mPatrolDestPos = mWaypointNavigation.GetDestinationPosition();
+    break;
+  }
+  case kStateMsg_Deactivate:
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+    break;
+  }
+}
+
+bool CSpacePirate::ShouldRetreat(CStateManager& mgr, const CTriggerData& data) const {
+  bool result = false;
+  if (mEnableRetreat && !mTrooper) {
+    TUniqueId wpId = GetConnectedObject(mgr, kSS_Patrol, kSM_Follow);
+    const CScriptWaypoint* wp = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(wpId));
+    if (!wp) {
+      for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+           it != GetConnectionList().end(); ++it) {
+        if (it->state == kSS_Retreat && it->msg == kSM_Follow) {
+          TUniqueId id = mgr.GetIdForScript(it->objId);
+          wp = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id));
+          if (wp) {
+            break;
+          }
+        }
+      }
+    }
+    if (wp) {
+      const_cast< CSpacePirate* >(this)->mDestObj = wpId;
+      const_cast< CSpacePirate* >(this)->SetDestPos(wp->GetTranslation());
+    } else {
+      const_cast< CSpacePirate* >(this)->mDestObj = kInvalidUniqueId;
+      const_cast< CSpacePirate* >(this)->SetDestPos(GetTranslation());
+    }
+    const_cast< CSpacePirate* >(this)->mEnableRetreat = false;
+    result = true;
+    const_cast< CSpacePirate* >(this)->mReflectedDestPos = GetTranslation();
+    const_cast< CSpacePirate* >(this)->mInPosition = false;
+    const_cast< CSpacePirate* >(this)->ReleaseCoverPoint(mgr, const_cast< CSpacePirate* >(this)->mCoverPoint, true);
+    mHearNoise = false;
+    const_cast< CSpacePirate* >(this)->mEnableAim = false;
+    const_cast< CSpacePirate* >(this)->mHitByPlayerProjectile = false;
+  }
+  return result;
+}
+
+bool CSpacePirate::HasTargetingPoint(CStateManager& mgr, const CTriggerData& data) const {
+  bool result = true;
+  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mTargetId));
+  const CPlayer* player = TCastToConstPtr< CPlayer >(actor);
+  if (player || !actor || !actor->GetActive()) {
+    result = false;
+    if (!player) {
+      const_cast< CSpacePirate* >(this)->mTargetId = const_cast< CSpacePirate* >(this)->ChooseAttackTarget(mgr);
+      const_cast< CSpacePirate* >(this)->SetTeamAiTarget(mgr);
+      const_cast< CSpacePirate* >(this)->mBoneTracking.SetTarget(mTargetId);
+    }
+    float scale = 1.f;
+    float margin = mPirateData.mSearchRadius * scale;
+    CVector3f extent(margin, margin, margin);
+    CAABox bounds(GetTranslation() - extent, GetTranslation() + extent);
+    rstl::reserved_vector< TUniqueId, 1024 > nearList;
+    mgr.BuildNearList(nearList, bounds,
+                      CMaterialFilter::MakeExclude(CMaterialList(kMT_Unknown59)), nullptr);
+    for (int i = 0; i < nearList.size(); ++i) {
+      const CScriptTargetingPoint* const point =
+          TCastToConstPtr< CScriptTargetingPoint >(mgr.GetObjectById(nearList[i]));
+      if (point && point->GetActive() && point->GetCurrentAreaId() == GetCurrentAreaId() &&
+          !point->GetLocked()) {
+        result = true;
+        const_cast< CSpacePirate* >(this)->mTargetId = point->GetUniqueId();
+        const_cast< CSpacePirate* >(this)->SetTeamAiTarget(mgr);
+        const_cast< CSpacePirate* >(this)->mBoneTracking.SetTarget(mTargetId);
+        break;
+      }
+    }
+  }
+  return result;
 }
 
 bool CSpacePirate::PatternShagged(CStateManager& mgr, const CTriggerData& data) const {
@@ -2016,6 +2137,85 @@ void CSpacePirate::Enraged(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
     BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
+    break;
+  }
+}
+
+void CSpacePirate::Attack(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    xbc4_ = GetTargetPos(mgr);
+    mTargetDelta = xbc4_ - GetBoundingBox().GetCenterPoint();
+    mSteeringSpeed = 0.f;
+    mEnableMeleeAttack = false;
+    if (!mNoMeleeAttack && TooClose(mgr, CTriggerData(0.f))) {
+      mEnableMeleeAttack = true;
+      mAppliedBladeDamage = false;
+    }
+    if (CVector3f::Dot(GetTransform().GetForward(), mTargetDelta.AsNormalized()) < 0.8f) {
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCLocomotionCmd(CVector3f::Zero(), mTargetDelta, 1.f));
+    }
+    mInAttackState = true;
+    mMaxCloakAlpha = 0.75f;
+    break;
+  case kStateMsg_Update:
+    if (mEnableMeleeAttack) {
+      if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_MeleeAttack)) {
+        BodyController()->CommandMgr().DeliverCmd(CBCMeleeAttackCmd(pas::kS_One));
+      }
+      BodyController()->CommandMgr().SetTargetVector(mTargetDelta);
+      CheckBlade(mgr);
+      if (mShadowPirate) {
+        if (mAnimationState.GetState() == CAnimationState::kAS_Over) {
+          mAlphaDelta = -0.4f;
+        } else {
+          mAlphaDelta = 1.f;
+          mMaxCloakAlpha = 0.75f;
+        }
+      }
+    }
+    UpdateCantSeePlayer(mgr, dt);
+    UpdateHeldPosition(mgr, dt);
+    break;
+  case kStateMsg_Deactivate:
+    mEnableMeleeAttack = false;
+    mInAttackState = false;
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSpacePirate::Cover(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (BodyController()->GetCurrentStateId() != pas::kAS_Cover) {
+      if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
+        mCoverDir = static_cast< pas::ECoverDirection >(
+            (static_cast< uint >(cp->GetAttackDirection()) >> 1) & 1);
+        mAnimationState.SetState(CAnimationState::kAS_Ready);
+        mDestPos = cp->GetTranslation();
+        if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Cover)) {
+          BodyController()->CommandMgr().DeliverCmd(
+              CBCCoverCmd(mCoverDir, cp->GetTranslation(), -cp->GetTransform().GetForward()));
+        }
+      }
+    }
+    break;
+  case kStateMsg_Update:
+    if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
+      if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Cover)) {
+        BodyController()->CommandMgr().DeliverCmd(
+            CBCCoverCmd(mCoverDir, cp->GetTranslation(), -cp->GetTransform().GetForward()));
+      }
+      BodyController()->CommandMgr().SetTargetVector(-cp->GetTransform().GetForward());
+    }
+    UpdateCantSeePlayer(mgr, dt);
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
     break;
   }
 }
