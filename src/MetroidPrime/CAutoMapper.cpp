@@ -45,6 +45,7 @@
 
 static const char* const skFRME_MapScreen = "FRME_MapScreen";
 static const char* const skFRME_MapScreenBackground = "FRME_MapScreenBackground";
+static const char* const skModelHex = "model_hex";
 
 // Guessed name
 struct SMapKeyEntry {
@@ -1441,7 +1442,7 @@ void CAutoMapper::Update(float dt, CStateManager& mgr) {
     mBackgroundHexagons.reserve(100);
     for (int i = 0; i < 100; ++i) {
       CGuiWidget* hexagon =
-          mFrmeBackgroundInitialized->FindWidget(CBasics::Stringize("%s%d", "model_hex", i));
+          mFrmeBackgroundInitialized->FindWidget(CBasics::Stringize("%s%d", skModelHex, i));
       if (hexagon != nullptr) {
         mBackgroundHexagons.push_back_unsafe(hexagon);
         hexagon->SetDepthWrite(false);
@@ -2238,6 +2239,10 @@ int CAutoMapper::FindTeleportArea(const CMapWorld& world) const {
   }
   return -1;
 }
+
+namespace rstl {
+bool operator==(const string& lhs, const char* rhs) { return lhs.compare(rhs) == 0; }
+} // namespace rstl
 
 rstl::pair< int, int > CAutoMapper::FindClosestVisibleWorld(const CVector3f& point,
                                                             const CUnitVector3f& camDir,
