@@ -398,7 +398,8 @@ void CScriptWater::PreRenderAllViewports(CStateManager& mgr) {
   const CTransform4f cameraXf =
       mgr.GetCurrentRenderCameraManager()->GetCurrentCameraTransform(mgr, true);
   const CAABox triggerBounds = GetTriggerBoundsWR();
-  const float height = cameraXf.Get23() - triggerBounds.GetMaxPoint().GetZ();
+  const CVector3f cameraPos = cameraXf.GetTranslation();
+  const float height = cameraPos.GetZ() - triggerBounds.GetMaxPoint().GetZ();
   if (fabsf(height) > 0.5f) {
     if (height > 0.f) {
       if (x32c_6_) {
@@ -406,7 +407,7 @@ void CScriptWater::PreRenderAllViewports(CStateManager& mgr) {
                              CPlane(-triggerBounds.GetMaxPoint().GetZ(), CVector3f::Down()));
       }
     } else if (x32c_6_ || mFluidPlane->GetFluidType() == 2) {
-      if (mBounds.PointInside(cameraXf.GetTranslation() - GetTranslation())) {
+      if (mBounds.PointInside(cameraPos - GetTranslation())) {
         mgr.SetAreaClipPlane(GetCurrentAreaId(),
                              CPlane(triggerBounds.GetMaxPoint().GetZ() + 0.01f, CVector3f::Up()));
       }
