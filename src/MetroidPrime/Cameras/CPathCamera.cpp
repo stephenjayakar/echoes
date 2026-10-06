@@ -22,8 +22,11 @@
 
 #include <math.h>
 
-static const CMaterialFilter kPathLineOfSightFilter = CMaterialFilter::MakeIncludeExclude(
-    CMaterialList(kMT_Unknown59), CMaterialList(kMT_NoPlatformCollision));
+// Guessed names.
+static const CMaterialList kPathLineOfSightIncludeList = CMaterialList(kMT_Unknown59);
+static const CMaterialList kPathLineOfSightExcludeList = CMaterialList(kMT_NoPlatformCollision);
+static const CMaterialFilter kPathLineOfSightFilter =
+    CMaterialFilter::MakeIncludeExclude(kPathLineOfSightIncludeList, kPathLineOfSightExcludeList);
 
 CPathCamera::CPathCamera(TUniqueId uid, const CTransform4f& xf, bool active, int index,
                          int controllerIdx)
