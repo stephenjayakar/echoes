@@ -509,14 +509,14 @@ CAssetId UpdatePersistentScanPercent(int previous, int current, int total) {
     const float interval = gpTweakSlideShow->GetScanPercentInterval();
     const float previousPercent = 100.f * (float(previous) / total);
     const float currentPercent = 100.f * (float(current) / total);
-    CEnvironmentVariable* saved =
-        gpGameState->SystemOptions().FindEnvironmentVariable("PercentScans");
+    const int saved =
+        gpGameState->SystemOptions().FindEnvironmentVariable("PercentScans")->GetValue();
     const int scanPercent = int(currentPercent);
     const int previousStep = int(rstl::max_val(0.f, previousPercent - 20.f) / interval);
     const int step = int(rstl::max_val(0.f, currentPercent - 20.f) / interval);
-    const bool firstTime = scanPercent > saved->GetValue();
+    const bool firstTime = scanPercent > saved;
     if (firstTime) {
-      saved->Set(scanPercent);
+      gpGameState->SystemOptions().FindEnvironmentVariable("PercentScans")->Set(scanPercent);
     }
     if (step > previousStep) {
       const int message = CMath::Clamp(0, step - 1, 3);
