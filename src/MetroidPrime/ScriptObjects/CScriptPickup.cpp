@@ -92,7 +92,7 @@ CScriptPickup::CScriptPickup(TUniqueId uid, const rstl::string& name, const CEnt
     AnimationData()->SetAnimation(CAnimPlaybackParms(0, -1, 1.f, true), false);
   }
 
-  if (0.f != mFadeTime) {
+  if (mFadeTime) {
     CModelFlags flags = CModelFlags::AlphaBlended(0.f);
     SetModelFlags(flags.DepthCompareUpdate(true, false));
   }

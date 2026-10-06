@@ -928,19 +928,177 @@ void CGameCollision::MovePlayer(CStateManager& mgr, CPhysicsActor& actor, float 
   actor.SetAngularEnabled(false);
 }
 
-void CGameCollision::CollisionFailsafe(const CStateManager&, CAreaCollisionCache&,
-                                       CPhysicsActor& actor, const CCollisionPrimitive&,
-                                       const rstl::reserved_vector< TUniqueId, 1024 >&, float, uint,
-                                       float) {
+void CGameCollision::CollisionFailsafe(const CStateManager& mgr, CAreaCollisionCache& cache,
+                                       CPhysicsActor& actor, const CCollisionPrimitive& primitive,
+                                       const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
+                                       float dtFraction, uint failsafeTicks, float impulseScale) {
   actor.MoveCollisionPrimitive(CVector3f::Zero());
-  // TODO: restore the last safe state, collision-normal impulse, and displacement search.
+  if (dtFraction > 0.5f) {
+    actor.SetNumTicksPartialUpdate(actor.GetNumTicksPartialUpdate() + 1);
+  }
+
+  if (actor.GetNumTicksPartialUpdate() > 1 ||
+      DetectCollisionBoolean_Cached(mgr, cache, primitive, actor.GetPrimitiveTransform(),
+                                    actor.GetMaterialFilter(), nearList)) {
+    actor.SetNumTicksPartialUpdate(0);
+    actor.SetNumTicksStuck(actor.GetNumTicksStuck() + 1);
+    if (actor.GetNumTicksStuck() < failsafeTicks) {
+      return;
+    }
+
+    const CMotionState& oldState = actor.GetMotionState();
+    const CMotionState& lastState = actor.GetLastNonCollidingState();
+    actor.SetMotionState(CMotionState(lastState.GetTranslation(), lastState.GetOrientation(),
+                                      lastState.GetVelocity(), lastState.GetAngularMomentum()));
+    if (!DetectCollisionBoolean_Cached(mgr, cache, primitive, actor.GetPrimitiveTransform(),
+                                       actor.GetMaterialFilter(), nearList)) {
+      actor.SetLastNonCollidingState(
+          CMotionState(lastState.GetTranslation(), lastState.GetOrientation(),
+                       0.5f * lastState.GetVelocity(), lastState.GetAngularMomentum() * 0.5f));
+      actor.SetNumTicksStuck(0);
+    } else {
+      CVector3f recoveryImpulse = CVector3f::Zero();
+      if (impulseScale) {
+        TUniqueId id = kInvalidUniqueId;
+        CCollisionInfoList collisions;
+        DetectCollision_Cached(mgr, cache, primitive, actor.GetPrimitiveTransform(),
+                               actor.GetMaterialFilter(), nearList, id, collisions);
+        if (collisions.GetCount() != 0) {
+          const CVector3f normal = collisions.GetCombinedNormalLeft();
+          recoveryImpulse = actor.GetMass() * (impulseScale * normal);
+        }
+      }
+
+      actor.SetMotionState(CMotionState(oldState.GetTranslation(), oldState.GetOrientation(),
+                                        oldState.GetVelocity(), oldState.GetAngularMomentum()));
+      const rstl::optional_object< CVector3f > displacement =
+          FindNonIntersectingVector(mgr, actor, primitive, rstl::optional_object< CVector3f >());
+      if (displacement.valid()) {
+        actor.SetMotionState(
+            CMotionState(oldState.GetTranslation() + *displacement, oldState.GetOrientation(),
+                         oldState.GetVelocity() + recoveryImpulse, oldState.GetAngularMomentum()));
+        actor.SetLastNonCollidingState(actor.GetMotionState());
+      } else {
+        actor.SetLastNonCollidingState(
+            CMotionState(lastState.GetTranslation(), lastState.GetOrientation(),
+                         0.5f * lastState.GetVelocity() + recoveryImpulse,
+                         lastState.GetAngularMomentum() * 0.5f));
+      }
+    }
+  } else {
+    actor.SetLastNonCollidingState(actor.GetMotionState());
+    actor.SetNumTicksStuck(0);
+  }
 }
 
 rstl::optional_object< CVector3f >
-CGameCollision::FindNonIntersectingVector(const CStateManager&, CPhysicsActor&,
-                                          const CCollisionPrimitive&,
-                                          const rstl::optional_object< CVector3f >&) {
-  // TODO: recover the 26-direction search and its world-ray/area-boundary checks.
+CGameCollision::FindNonIntersectingVector(const CStateManager& mgr, CPhysicsActor& actor,
+                                          const CCollisionPrimitive& prim,
+                                          const rstl::optional_object< CVector3f >& center) {
+  CTransform4f xf = actor.GetPrimitiveTransform();
+  const CVector3f origOrigin = xf.GetTranslation();
+  CAABox aabb = prim.CalculateAABox(xf);
+  const CVector3f centerPoint = center ? center.data() : aabb.GetCenterPoint();
+  aabb = CAABox(aabb.GetMinPoint() - CVector3f(5.f, 5.f, 5.f),
+                aabb.GetMaxPoint() + CVector3f(5.f, 5.f, 5.f));
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  mgr.BuildColliderList(nearList, actor, aabb);
+  for (int i = 2; i < 1000.f; i += i / 2) {
+    const float pos = 0.005f * i;
+    const float neg = -pos;
+    for (int j = 0; j < 26; ++j) {
+      CVector3f vec(CVector3f::Zero());
+      switch (j) {
+      case 0:
+        vec = CVector3f(0.f, pos, 0.f);
+        break;
+      case 1:
+        vec = CVector3f(0.f, neg, 0.f);
+        break;
+      case 2:
+        vec = CVector3f(pos, 0.f, 0.f);
+        break;
+      case 3:
+        vec = CVector3f(neg, 0.f, 0.f);
+        break;
+      case 4:
+        vec = CVector3f(0.f, 0.f, pos);
+        break;
+      case 5:
+        vec = CVector3f(0.f, 0.f, neg);
+        break;
+      case 6:
+        vec = CVector3f(0.f, pos, pos);
+        break;
+      case 7:
+        vec = CVector3f(0.f, neg, neg);
+        break;
+      case 8:
+        vec = CVector3f(0.f, neg, pos);
+        break;
+      case 9:
+        vec = CVector3f(0.f, pos, neg);
+        break;
+      case 10:
+        vec = CVector3f(pos, 0.f, pos);
+        break;
+      case 11:
+        vec = CVector3f(neg, 0.f, neg);
+        break;
+      case 12:
+        vec = CVector3f(neg, 0.f, pos);
+        break;
+      case 13:
+        vec = CVector3f(pos, 0.f, neg);
+        break;
+      case 14:
+        vec = CVector3f(pos, pos, 0.f);
+        break;
+      case 15:
+        vec = CVector3f(neg, neg, 0.f);
+        break;
+      case 16:
+        vec = CVector3f(neg, pos, 0.f);
+        break;
+      case 17:
+        vec = CVector3f(pos, neg, 0.f);
+        break;
+      case 18:
+        vec = CVector3f(pos, pos, pos);
+        break;
+      case 19:
+        vec = CVector3f(neg, pos, pos);
+        break;
+      case 20:
+        vec = CVector3f(pos, neg, pos);
+        break;
+      case 21:
+        vec = CVector3f(neg, neg, pos);
+        break;
+      case 22:
+        vec = CVector3f(pos, pos, neg);
+        break;
+      case 23:
+        vec = CVector3f(neg, pos, neg);
+        break;
+      case 24:
+        vec = CVector3f(pos, neg, neg);
+        break;
+      case 25:
+        vec = CVector3f(neg, neg, neg);
+        break;
+      }
+      if (mgr.GetWorld()->GetArea(mgr.GetNextAreaId())->GetAABB().PointInside(origOrigin + vec)) {
+        if (mgr.RayCollideWorld(centerPoint, centerPoint + vec, nearList,
+                                CMaterialFilter::skPassEverything, &actor)) {
+          xf.SetTranslation(origOrigin + vec);
+          if (!DetectCollisionBoolean(mgr, prim, xf, actor.GetMaterialFilter(), nearList)) {
+            return vec;
+          }
+        }
+      }
+    }
+  }
   return rstl::optional_object_null();
 }
 
