@@ -175,7 +175,7 @@ int CScanTreeNode::GetParentNode() const { return mParentNode; }
 void CScanTreeNode::SetParentNode(int node) { mParentNode = node; }
 
 rstl::wstring CScanTreeNode::GetName() const {
-  if (mNameStringName.size() == 0) {
+  if (mNameStringName.length() == 0) {
     return rstl::wstring(mNameStringTable->GetObject()->GetString(0));
   }
   return rstl::wstring(mNameStringTable->GetObject()->GetString(mNameStringName.c_str()));
@@ -326,14 +326,17 @@ void CScanTreeMenu::ApplyOption(int index) {
   case kS_Rumble:
     options.SetIsRumbleEnabled(value != 0);
     break;
-  default:
+  case kS_Unknown8:
+  case kS_Unknown9:
+  case kS_Unknown10:
+  case kS_Unknown11:
     mOptionValue = value;
     break;
   }
 }
 
 rstl::wstring CScanTreeMenu::GetOptionName(int index) const {
-  if (index >= mOptions.size() || mOptions[index].first.size() == 0) {
+  if (index >= mOptions.size() || mOptions[index].first.length() == 0) {
     return rstl::wstring(mOptionStringTable->GetObject()->GetString(index));
   }
   return rstl::wstring(mOptionStringTable->GetObject()->GetString(mOptions[index].first.c_str()));
@@ -453,8 +456,7 @@ void CScanTreeSlider::SetOptionValue(int value) {
 
 void CScanTreeSlider::RefreshNormalizedValue() {
   const int offset = GetOptionValue() - GetMinOptionValue();
-  const int range = GetMaxOptionValue() - GetMinOptionValue();
-  mNormalizedValue = float(offset) / float(range);
+  mNormalizedValue = float(offset) / float(GetMaxOptionValue() - GetMinOptionValue());
 }
 
 void CScanTreeSlider::ApplyNormalizedValue() {
@@ -464,8 +466,7 @@ void CScanTreeSlider::ApplyNormalizedValue() {
 
 void CScanTreeSlider::SaveValue() {
   const int offset = GetOptionValue() - GetMinOptionValue();
-  const int range = GetMaxOptionValue() - GetMinOptionValue();
-  mSavedNormalizedValue = float(offset) / float(range);
+  mSavedNormalizedValue = float(offset) / float(GetMaxOptionValue() - GetMinOptionValue());
 }
 
 void CScanTreeSlider::RestoreSavedValue() {
@@ -482,8 +483,7 @@ float CScanTreeSlider::GetNormalizedValue() const { return mNormalizedValue; }
 
 float CScanTreeSlider::GetNormalizedDefaultValue() const {
   const int offset = GetDefaultOptionValue() - GetMinOptionValue();
-  const int range = GetMaxOptionValue() - GetMinOptionValue();
-  return float(offset) / float(range);
+  return float(offset) / float(GetMaxOptionValue() - GetMinOptionValue());
 }
 
 CScanTree::CScanTree()
@@ -594,7 +594,7 @@ void CScanTree::RefreshVisibility(CStateManager& mgr) {
     const rstl::rc_ptr< CScanTreeCategory > category(root);
     const int childCount = category->GetChildCount();
     for (int i = 0; i < childCount; i++) {
-      const int index = category->GetChild(i);
+      int index = category->GetChild(i);
       const rstl::rc_ptr< CScanTreeNode > child = mNodes[index];
       if (child->GetNameStringName() == kLogbookCategoryName ||
           child->GetNameStringName() == kSamusGearCategoryName) {
@@ -673,7 +673,8 @@ void CScanTree::InitializeNodePositions(int node) {
       mNodes[child]->SetDisplayPosition(position);
     }
     for (int i = 0; i < childCount; i++) {
-      InitializeNodePositions(category->GetChild(i));
+      int child = category->GetChild(i);
+      InitializeNodePositions(child);
     }
   }
 }
@@ -902,7 +903,7 @@ void CScanTree::UpdateViewedCategories() {
     const rstl::rc_ptr< CScanTreeCategory > category(root);
     const int childCount = category->GetChildCount();
     for (int i = 0; i < childCount; i++) {
-      const int index = category->GetChild(i);
+      int index = category->GetChild(i);
       const rstl::rc_ptr< CScanTreeNode > child = mNodes[index];
       if (child->GetNameStringName() == kLogbookCategoryName ||
           child->GetNameStringName() == kSamusGearCategoryName) {
@@ -922,15 +923,17 @@ bool CScanTree::UpdateCategoryViewed(int node) {
     const rstl::rc_ptr< CScanTreeCategory > category(treeNode);
     const int childCount = category->GetChildCount();
     for (int i = 0; i < childCount; i++) {
-      if (!UpdateCategoryViewed(category->GetChild(i))) {
+      int child = category->GetChild(i);
+      if (!UpdateCategoryViewed(child)) {
         allViewed = false;
       }
     }
   } else {
     return treeNode->IsViewed();
   }
-  treeNode->SetViewed(allViewed);
-  return allViewed;
+  const bool result = allViewed;
+  treeNode->SetViewed(result);
+  return result;
 }
 
 CVector3f CScanTree::CalculatePairForce(float radius, float strength, const CVector3f& position,
@@ -1003,7 +1006,7 @@ CVector3f CScanTree::CalculateNeighborForce(const rstl::rc_ptr< CScanTreeCategor
     const CVector3f toCenter = center - position;
     if (toCenter.CanBeNormalized()) {
       const float distanceSquared = toCenter.MagSquared();
-      const float scale = distanceSquared < 16.f ? 0.0625f * distanceSquared : 1.f;
+      const float scale = distanceSquared < 16.f ? distanceSquared / 16.f : 1.f;
       return toCenter.AsNormalized() * scale * 0.2f;
     }
   }
