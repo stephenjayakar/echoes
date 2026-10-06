@@ -48,7 +48,7 @@ CScriptDebris::CScriptDebris(TUniqueId uid, const rstl::string& name, const CEnt
                              float restitution, float duration, EScaleType scaleType, bool unused,
                              bool keepGeneratedObject, bool randomAngImpulse)
 : CPhysicsActor(uid, name, info, 0, xf, model, skDebrisMaterials, model.GetBounds(xf.GetRotation()),
-                SMoverData(mass), params, StepData(0.3f, 0.3f, 0))
+                SMoverData(mass), params, CPhysicsActor::skDefaultStepData)
 , mVelocity(velocity)
 , mColor(1.f, 0.5f, 0.5f, 1.f)
 , mEndsColor(endsColor)
@@ -100,7 +100,7 @@ CScriptDebris::CScriptDebris(TUniqueId uid, const rstl::string& name, const CEnt
 , mParticleGen1(nullptr)
 , mParticleGen2(nullptr)
 , mSpeedHistory(2.f)
-, mBounceSound(CSfxManager::kInternalInvalidSfxId)
+, mBounceSound(0xFFFF)
 , mBounceSoundCount(0)
 , mBounceSoundSpeedThreshold(0.f)
 , mBounceSoundVolumeDecay(1.f)
@@ -123,7 +123,7 @@ CScriptDebris::CScriptDebris(TUniqueId uid, const rstl::string& name, const CEnt
     mParticleGen0->SetGlobalScale(particleScale);
   }
 
-  SetMomentumWR(CVector3f(0.f, 0.f, -GravityConstant() * GetMass()));
+  SetMomentumWR(CVector3f(0.f, 0.f, -kDefaultGravityAccel * GetMass()));
   if (HasActorLights()) {
     ActorLights()->SetAmbienceGenerated(true);
   }
