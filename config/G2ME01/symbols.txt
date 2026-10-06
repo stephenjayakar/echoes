@@ -1961,7 +1961,7 @@ __ct<Q24rstl127const_linear_iterator<w,Q24rstl66basic_string<w,Q24rstl14char_tra
 __pl__4rstlFRCQ24rstl66basic_string<w,Q24rstl14char_traits<w>,Q24rstl17rmemory_allocator>PCw = .text:0x800647E8; // type:function size:0x60
 UpdateHudFrame__9CSamusHudFfRC13CStateManager = .text:0x80064848; // type:function size:0x4C
 UpdateStateTransition__9CSamusHudFfRC13CStateManager = .text:0x80064894; // type:function size:0x59C
-UpdateHudDamage__9CSamusHudFfRC13CStateManager = .text:0x80064E30; // type:function size:0x8D4
+UpdateHudDamage__9CSamusHudFfRC13CStateManagerUi = .text:0x80064E30; // type:function size:0x8D4
 GetVisorHudLightColor__9CSamusHudCFRC6CColorRC13CStateManager = .text:0x80065704; // type:function size:0x114
 UpdateHudDynamicLights__9CSamusHudFfRC13CStateManager = .text:0x80065818; // type:function size:0xBAC
 FindEmptyHudLightSlot__9CSamusHudCFRC6CLight = .text:0x800663C4; // type:function size:0x48

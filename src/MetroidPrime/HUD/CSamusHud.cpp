@@ -1802,7 +1802,7 @@ CColor CSamusHud::GetVisorHudLightColor(const CColor& color, const CStateManager
   return result;
 }
 
-void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
+void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr, uint) {
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
   if (player.GetHealthInfo()->GetHP() <= 0.f) {
     mDamageFilterDuration = FLT_EPSILON;
@@ -2177,22 +2177,23 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     case CPlayer::kMS_Morphed:
       morphFactor = 1.f;
       break;
+    case CPlayer::kMS_Unmorphed:
+      morphFactor = 0.f;
+      break;
     case CPlayer::kMS_Morphing:
       morphFactor = player.GetMorphBallTransitionFactor();
       break;
     case CPlayer::kMS_Unmorphing:
       morphFactor = 1.f - player.GetMorphBallTransitionFactor();
       break;
-    default:
-      break;
     }
     mViewportScaleY = 1.f - morphFactor * gpTweakGui->GetBallViewportYReduction();
-    const float halfReduction = 0.5f * (float(CGraphics::GetRenderMode().xfbHeight) *
-                                        gpTweakGui->GetBallViewportYReduction());
-    const CVector3f idlePosition = mHudCamera->GetIdleXform().GetTranslation();
-    mHudCamera->SetLocalTransform(CTransform4f::Translate(CVector3f(
-        idlePosition.GetX(), idlePosition.GetY(),
-        ((1.f - morphFactor) * halfReduction - halfReduction) * 0.01f + idlePosition.GetZ())));
+    const float xfbHeight = float(int(CGraphics::GetRenderMode().xfbHeight));
+    const float halfReduction = 0.5f * (xfbHeight * gpTweakGui->GetBallViewportYReduction());
+    const CTransform4f& idle = mHudCamera->GetIdleXform();
+    const float zOffset = ((1.f - morphFactor) * halfReduction - halfReduction) * 0.01f;
+    const CVector3f translation(idle.Get03(), idle.Get13(), idle.Get23() + zOffset);
+    mHudCamera->SetLocalTransform(CTransform4f::Translate(translation));
   }
 
   const bool englishOnly = gpGameState->GameOptions().GetIsHudEnglish();
@@ -2206,6 +2207,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
       mBeamMenu->RefreshText();
     }
   }
+  const bool helmetVisible = helmetVisibility != 0;
   const bool firstPerson = player.GetMorphballTransitionState() == CPlayer::kMS_Unmorphed &&
                            !player.GetCameraManager()->IsInCinematicCamera();
   if (firstPerson != mFirstPerson) {
@@ -2230,7 +2232,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     mTargetingManager.Update(dt, mgr);
   }
   UpdateStaticInterference(dt, mgr);
-  if (helmetVisibility != 0) {
+  if (helmetVisible) {
     if (mNextState != kHS_None) {
       UpdateEnergy(dt, mgr, false);
       UpdateFreeLook(dt, mgr);
@@ -2258,9 +2260,8 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     const float alpha = mScanInterface.null() ? 1.f : mScanInterface->GetMessageTextAlpha();
     mVisorMenu->UpdateHudAlpha(alpha);
     if (mVisorBracket != nullptr) {
-      CColor color = ModulateColor(gpTweakGuiColors->GetHUDDecorativeColor());
-      color.SetAlpha(alpha);
-      mVisorBracket->SetColor(color);
+      mVisorBracket->SetColor(
+          ModulateColor(gpTweakGuiColors->GetHUDDecorativeColor()).WithAlphaOf(alpha));
     }
     mVisorMenu->Update(dt, false);
   }
@@ -2268,9 +2269,9 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     mBeamMenu->Update(dt, false);
   }
   if (mDarkVisor != nullptr && mDarkVisorBacking != nullptr) {
-    const bool darkVisor = player.GetPlayerState()->GetCurrentVisor() == CPlayerState::kPV_Dark;
-    mDarkVisor->SetIsVisible(darkVisor);
-    mDarkVisorBacking->SetIsVisible(darkVisor);
+    const CPlayerState::EPlayerVisor visor = player.GetPlayerState()->GetCurrentVisor();
+    mDarkVisor->SetIsVisible(visor == CPlayerState::kPV_Dark);
+    mDarkVisorBacking->SetIsVisible(visor == CPlayerState::kPV_Dark);
   }
   if (player.WasDamaged() && mgr.GetGameState() == CStateManager::kGS_Running) {
     const CVector3f position = player.GetDamageLocationWR();
@@ -2278,7 +2279,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     const float previousDamage = player.GetPrevDamageAmount();
     ShowDamage(position, damage, previousDamage, mgr);
   }
-  UpdateHudDamage(dt, mgr);
+  UpdateHudDamage(dt, mgr, helmetVisibility);
 }
 
 rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasVisors(const CStateManager& mgr) const {
