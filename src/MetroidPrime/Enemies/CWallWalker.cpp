@@ -232,7 +232,7 @@ bool CWallWalker::ShouldShootProjectile(CStateManager& mgr, const CTriggerData& 
   if (mNumShots > 0) {
     return true;
   }
-  if ((mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared() <
+  if (CVector3f(mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared() <
           mDetectionRange * mDetectionRange &&
       mProjectileTimer < 0.f) {
     return true;
