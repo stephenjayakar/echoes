@@ -63,7 +63,7 @@ CAABox BuildNearListBox(bool cropBottom, const CTransform4f& xf, float x, float 
 // Definitions follow reverse target order for deferred inlining.
 
 bool CPlayer::ValidateOrbitTargetIdAndPointer(TUniqueId target, const CStateManager& mgr) const {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     return false;
   }
   return TCastToConstPtr< CActor >(mgr.GetObjectById(target)) != nullptr;
@@ -135,7 +135,7 @@ int CPlayer::ValidateCurrentOrbitTargetId(CStateManager& mgr) {
 }
 
 int CPlayer::ValidateOrbitTargetId(TUniqueId target, CStateManager& mgr) const {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     return kOVR_InvalidTarget;
   }
   const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(target));
@@ -1048,7 +1048,7 @@ bool CPlayer::ValidateObjectForMode(TUniqueId target, CStateManager& mgr) const 
 }
 
 bool CPlayer::ValidateAimTargetId(TUniqueId target, CStateManager& mgr) {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     mAimTargetAverage.clear();
     mAimTargetTimer = 0.f;
     return false;
