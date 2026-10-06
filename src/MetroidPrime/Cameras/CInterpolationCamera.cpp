@@ -13,9 +13,13 @@
 #include "MetroidPrime/TCastTo.hpp"
 
 namespace {
-const CMaterialFilter skCollisionFilter = CMaterialFilter::MakeIncludeExclude(
-    CMaterialList(kMT_Unknown59, kMT_Wall, kMT_Floor, kMT_Ceiling),
-    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough));
+// Guessed names.
+const CMaterialList skCollisionIncludeList =
+    CMaterialList(kMT_Unknown59, kMT_Wall, kMT_Floor, kMT_Ceiling);
+const CMaterialList skCollisionExcludeList =
+    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough);
+const CMaterialFilter skCollisionFilter =
+    CMaterialFilter::MakeIncludeExclude(skCollisionIncludeList, skCollisionExcludeList);
 }
 
 CInterpolationCamera::CInterpolationCamera(TUniqueId uid, const CTransform4f& xf, int index,
