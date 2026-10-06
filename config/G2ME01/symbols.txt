@@ -3382,7 +3382,7 @@ find__Q24rstl215red_black_tree<9TUniqueId,Q24rstl47pair<9TUniqueId,Q24rstl21rese
 Add__10CWeaponMgrF9TUniqueId11EWeaponType = .text:0x800B34D0; // type:function size:0x120
 __ct__10CWeaponMgrFv = .text:0x800B35F0; // type:function size:0x30
 insert_into__Q24rstl215red_black_tree<9TUniqueId,Q24rstl47pair<9TUniqueId,Q24rstl21reserved_vector<i,21>>,0,Q24rstl67select1st<Q24rstl47pair<9TUniqueId,Q24rstl21reserved_vector<i,21>>>,Q24rstl16less<9TUniqueId>,Q24rstl17rmemory_allocator>FPQ34rstl215red_black_tree<9TUniqueId,Q24rstl47pair<9TUniqueId,Q24rstl21reserved_vector<i,21>>,0,Q24rstl67select1st<Q24rstl47pair<9TUniqueId,Q24rstl21reserved_vector<i,21>>>,Q24rstl16less<9TUniqueId>,Q24rstl17rmemory_allocator>4nodeRCQ24rstl47pair<9TUniqueId,Q24rstl21reserved_vector<i,21>> = .text:0x800B3620; // type:function size:0x1F4 align:4
-fn_800B3814 = .text:0x800B3814; // type:function size:0x88
+bitwise_copy<11>__4rstlFPvPCv = .text:0x800B3814; // type:function size:0x88 scope:weak
 LoadPickup__FR13CStateManagerR12CInputStreamR11CEntityInfo = .text:0x800B389C; // type:function size:0x818 scope:global align:4
 __ct__10SLdrPickupFv = .text:0x800B40B4; // type:function size:0x148 scope:global
 ShowAllKeysCollectedAlert__13CScriptPickupFR13CStateManagerP12CPlayerStateQ212CPlayerState9EItemType = .text:0x800B41FC; // type:function size:0x2A8 scope:global align:4
@@ -6869,7 +6869,7 @@ Start__Q221CPlayerBodyController16SLocomotionStateFR13CStateManagerR21CPlayerBod
 SetAnimationChangeDisabled__Q221CPlayerBodyController16SLocomotionStateFb = .text:0x8019C49C; // type:function size:0x10
 SetLocomotionMode__Q221CPlayerBodyController16SLocomotionStateFi = .text:0x8019C4AC; // type:function size:0x8
 __ct__Q221CPlayerBodyController16SLocomotionStateFR6CActor = .text:0x8019C4B4; // type:function size:0x1F0
-fn_8019C6A4 = .text:0x8019C6A4; // type:function size:0x98
+bitwise_copy<13>__4rstlFPvPCv = .text:0x8019C6A4; // type:function size:0x98 scope:weak
 PlayHardLanding__Q221CPlayerBodyController10SJumpStateFR13CStateManagerR21CPlayerBodyController = .text:0x8019C73C; // type:function size:0x160 align:4
 PlayLanding__Q221CPlayerBodyController10SJumpStateFR13CStateManagerR21CPlayerBodyController = .text:0x8019C89C; // type:function size:0x184 align:4
 PlayJumpLoop__Q221CPlayerBodyController10SJumpStateFR13CStateManagerR21CPlayerBodyController = .text:0x8019CA20; // type:function size:0x158 align:4
