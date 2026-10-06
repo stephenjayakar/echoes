@@ -27,6 +27,8 @@ struct SChargeBeam {
   CVector3f mEnd;
   CSfxHandle mSfx;
 
+  SChargeBeam(TUniqueId beamId, const CVector3f& start, const CVector3f& end, CSfxHandle sfx)
+  : mBeamId(beamId), mStart(start), mEnd(end), mSfx(sfx) {}
   ~SChargeBeam() {}
 };
 
@@ -35,7 +37,6 @@ class CSandBossChargeBeam : public CPlasmaProjectile {
 public:
   CSandBossChargeBeam(const TToken< CWeaponDescription >& description, const CBeamInfo& beamInfo,
                       TUniqueId uid, TAreaId areaId, TUniqueId owner, const CPlane& plane);
-  ~CSandBossChargeBeam() override;
 
   CRayCastResult RayCollisionCheckWithWorld(TUniqueId& idOut, const CVector3f& start,
                                             const CVector3f& end, float magnitude,
@@ -221,6 +222,10 @@ public:
   void RenderModelAndArmor(const CStateManager& mgr, const CTransform4f& xf,
                            const CModelFlags& flags) const;
   CAABox GetModelBounds() const;
+  void UpdateChargeBeams(CStateManager& mgr, float dt);
+  void FireChargeBeam(CStateManager& mgr, const CVector3f& start, const CVector3f& end, ushort sfx,
+                      bool, float maxDist);
+  void ActivateBeamEffect(CStateManager& mgr, const CVector3f& pos);
   void RenderArmor(const CStateManager& mgr, const CTransform4f& xf, const CModelFlags& flags,
                    const CModelFlags& headFlags) const;
 
@@ -296,11 +301,11 @@ private:
   TLockedToken< CSkinnedModel > mTailArmorSkinnedModel; // Guessed name.
   CTransform4f x14a0_;
   CQuaternion x14d0_;
-  CDamageInfo mSnapJawDamage;   // Guessed name.
-  CDamageInfo mSpitOutDamage;   // Guessed name.
-  CDamageInfo mStampedeDamage;  // Guessed name.
   CDamageInfo mDoubleChargeDamage; // Guessed name.
   CDamageInfo mTripleChargeDamage; // Guessed name.
+  CDamageInfo mStampedeDamage;     // Guessed name.
+  CDamageInfo mSnapJawDamage;      // Guessed name.
+  CDamageInfo mSpitOutDamage;      // Guessed name.
   CDamageVulnerability mDamageVulnerability;   // Guessed name.
   CDamageVulnerability mStampedeVulnerability; // Guessed name.
   CDamageVulnerability mSuckAirVulnerability;  // Guessed name.

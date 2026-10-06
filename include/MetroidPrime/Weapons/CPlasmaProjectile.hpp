@@ -41,6 +41,7 @@ public:
   void SetOuterColor(const CColor& color) { mOuterColor = color; }
   bool IsFiring() const { return mFiring; }
   EExpansionState GetExpansionState() const { return mExpansionState; }
+  void SetMuzzleScale(const CVector3f& scale) { mMuzzleScale = scale; } // Guessed name.
 
 private:
   static const int kMaxPlasmaLights;

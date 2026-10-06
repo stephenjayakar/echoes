@@ -22,6 +22,10 @@
 #include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/Player/CPlayerState.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptEffect.hpp"
+#include "MetroidPrime/Weapons/CBeamInfo.hpp"
+#include "MetroidPrime/Weapons/CWeaponAssetInfo.hpp"
+#include "Kyoto/Audio/CSfxManager.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
 
@@ -34,6 +38,44 @@ static const char* const skSpineJoints[] = {
 static const char* const skRootJoint = "Skeleton_Root";
 static const char* const skHeadJoint = "Head_1";
 static CVector3f skJawsTouchBounds(4.5f, 4.5f, 1.5f); // Guessed name.
+
+CSandBossChargeBeam::CSandBossChargeBeam(const TToken< CWeaponDescription >& description,
+                                         const CBeamInfo& beamInfo, TUniqueId uid,
+                                         TAreaId areaId, TUniqueId owner, const CPlane& plane)
+: CPlasmaProjectile(description, "SandBossChargeBeam", kWT_Light, beamInfo,
+                    CTransform4f::Identity(), kMT_NoPlatformCollision, CDamageInfo(), uid, areaId,
+                    owner, CWeaponAssetInfo(), true, 0x21000)
+, mGroundPlane(plane) {}
+
+CRayCastResult CSandBossChargeBeam::RayCollisionCheckWithWorld(
+    TUniqueId& idOut, const CVector3f& start, const CVector3f& end, float magnitude,
+    rstl::reserved_vector< TUniqueId, 1024 >& nearList, CStateManager& mgr,
+    EStaticGeometryTest staticTest) {
+  idOut = kInvalidUniqueId;
+  mPendingDamagee = kInvalidUniqueId;
+  CRayCastResult result = CRayCastResult::MakeInvalid();
+  const CVector3f delta = end - start;
+  if (delta.IsMagnitudeSafe()) {
+    const CVector3f dir = delta.AsNormalized();
+    const float dot = CVector3f::Dot(dir, mGroundPlane.GetNormal());
+    if (dot < 0.f) {
+      const float t = -mGroundPlane.GetHeight(start) / dot;
+      if (t < magnitude) {
+        magnitude = t;
+        result = CRayCastResult(t, start + t * dir, mGroundPlane, CMaterialList(kMT_Floor));
+      }
+    }
+    CPlayer* player = mgr.Player(0);
+    const CProjectileTouchResult touch = CanCollideWith(*player, mgr);
+    if (touch.HasRayCastResult() && touch.GetRayCastResult().GetTime() < magnitude) {
+      player->Touch(*this, mgr);
+      result = touch.GetRayCastResult();
+      idOut = touch.GetActorId();
+      mPendingDamagee = idOut;
+    }
+  }
+  return result;
+}
 
 CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                      const CTransform4f& xf, const CModelData& mData,
@@ -105,11 +147,11 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
       GetModelData()->GetAnimationData()->GetModelData()->GetLayoutInfo()))
 , x14a0_(CTransform4f::Identity())
 , x14d0_(CQuaternion::FromMatrix(GetTransform().GetRotation()))
-, mSnapJawDamage(LdrToDamageInfo(data.snapJawDamage))
-, mSpitOutDamage(LdrToDamageInfo(data.spitOutDamage))
-, mStampedeDamage(LdrToDamageInfo(data.stampedeProperties.stampedeDamage))
 , mDoubleChargeDamage(LdrToDamageInfo(data.unknown_0x7619e561.doubleCharge.damage))
 , mTripleChargeDamage(LdrToDamageInfo(data.unknown_0x7619e561.tripleCharge.damage))
+, mStampedeDamage(LdrToDamageInfo(data.stampedeProperties.stampedeDamage))
+, mSnapJawDamage(LdrToDamageInfo(data.snapJawDamage))
+, mSpitOutDamage(LdrToDamageInfo(data.spitOutDamage))
 , mDamageVulnerability(LdrToDamageVulnerability(data.damageVulnerability))
 , mStampedeVulnerability(LdrToDamageVulnerability(data.stampedeVulnerability))
 , mSuckAirVulnerability(LdrToDamageVulnerability(data.suckAirVulnerability))
@@ -397,7 +439,7 @@ void CSandBoss::Think(float dt, CStateManager& mgr) {
   mCollisionActorManager->Update(dt, mgr, CCollisionActorManager::kUO_ObjectSpace);
   mBoneTracking.Think(dt);
   UpdateArmorColor(dt, mgr);
-  UpdateStampede(mgr, dt);
+  UpdateChargeBeams(mgr, dt);
   UpdateCinematicState(mgr);
 }
 
@@ -1839,6 +1881,111 @@ void CSandBoss::SyncAttackOrder(CStateManager& mgr, int offset) {
       other->mAttackOrder = minOrder + offset;
       other->ResetAttackTimes(mgr, 0.f);
     }
+  }
+}
+
+void CSandBoss::UpdateChargeBeams(CStateManager& mgr, float dt) {
+  const CPlayer* player = mgr.GetPlayer(0);
+  const CVector3f playerPos = player->GetTranslation();
+  const CDamageInfo damage = x165c_30_ ? CDamageInfo(mDoubleChargeDamage, dt)
+                                       : CDamageInfo(mTripleChargeDamage, dt);
+  for (const SChargeBeam* it = mChargeBeams.begin(); it != mChargeBeams.end(); ++it) {
+    if (CPlasmaProjectile* beam = static_cast< CPlasmaProjectile* >(mgr.ObjectById(it->mBeamId))) {
+      beam->UpdateFx(CTransform4f::LookAt(it->mStart, it->mEnd, CVector3f::Up()), dt, mgr);
+      CSfxManager::UpdateEmitter(it->mSfx, beam->GetCurrentPos(), CVector3f::Up(), 127);
+      if ((playerPos - beam->GetCurrentPos()).MagSquared() < 100.f) {
+        mIsMakingBigStrike = true;
+        mDamageDuration = 1.f;
+        mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), damage,
+                        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                            CMaterialList()),
+                        CVector3f::Zero());
+      }
+    }
+  }
+  if (CScriptEffect* effect = TCastToPtr< CScriptEffect >(mgr.ObjectById(xef8_))) {
+    switch (xdfc_) {
+    case 0: {
+      xf14_ -= dt;
+      if (xf14_ > 0.f) {
+        float t = 1.f - xf14_ / 0.6f;
+        if (!(0.f < t)) {
+          t = 0.f;
+        }
+        effect->SetGlobalScale(t * GetModelData()->GetScale());
+      }
+      xdfc_ = 1;
+    }
+    case 1:
+      if (mChargeBeams.size() != 0) {
+        effect->SetGlobalTranslation(mChargeBeams.front().mStart);
+        effect->SetGlobalScale(GetModelData()->GetScale());
+      }
+      break;
+    case 2: {
+      xf14_ -= dt;
+      if (xf14_ > 0.f) {
+        const float shutdown = mData.unknown_0x7619e561.chargeBeamInfo.shutdownTime;
+        if (shutdown > 0.f) {
+          float t = xf14_ / shutdown;
+          if (!(1.f < t)) {
+          } else {
+            t = 1.f;
+          }
+          effect->SetGlobalScale(t * GetModelData()->GetScale());
+          for (const SChargeBeam* it = mChargeBeams.begin(); it != mChargeBeams.end(); ++it) {
+            if (CPlasmaProjectile* beam =
+                    static_cast< CPlasmaProjectile* >(mgr.ObjectById(it->mBeamId))) {
+              beam->SetMuzzleScale(CVector3f(t, t, t));
+            }
+          }
+        }
+      }
+      mgr.SendScriptMsg(effect, GetUniqueId(), kSM_Deactivate);
+      xdfc_ = -1;
+      for (const SChargeBeam* it = mChargeBeams.begin(); it != mChargeBeams.end(); ++it) {
+        if (mgr.ObjectById(it->mBeamId) != nullptr) {
+          CSfxManager::RemoveEmitter(it->mSfx);
+          mgr.DeleteObjectRequest(it->mBeamId);
+        }
+      }
+      mChargeBeams.clear();
+      break;
+    }
+    }
+  }
+}
+
+void CSandBoss::FireChargeBeam(CStateManager& mgr, const CVector3f& start, const CVector3f& end,
+                               ushort sfx, bool, float maxDist) {
+  const CBeamInfo beamInfo(TLdrToBeamInfo(mData.unknown_0x7619e561.chargeBeamInfo, 0));
+  const TUniqueId uid = mgr.AllocateUniqueId();
+  CSandBossChargeBeam* beam = rs_new CSandBossChargeBeam(
+      mChargeBeamInfo.Token(), beamInfo, uid, GetCurrentAreaId(), GetUniqueId(),
+      CPlane(CVector3f::Dot(GetTranslation(), CVector3f::Up()), CVector3f::Up()));
+  if (beam != nullptr) {
+    const CTransform4f xf = CTransform4f::LookAt(start, end, CVector3f::Up());
+    beam->AddAttrib(CWeapon::kPA_BigStrike);
+    beam->SetDamageDuration(1.f);
+    beam->Fire(xf, mgr, false);
+    mgr.AddObject(beam);
+    CAudioSys::C3DEmitterParmData params(maxDist, 0.1f, 1, 127, 20);
+    params.mPos = beam->GetCurrentPos();
+    params.mDir = CVector3f::Up();
+    params.mSfxId = sfx;
+    const CSfxHandle handle =
+        CSfxManager::AddEmitter(params, GetCurrentAreaId().Value(), true, true,
+                                CSfxManager::kMedPriority);
+    mChargeBeams.push_back(SChargeBeam(uid, start, end, handle));
+  }
+}
+
+void CSandBoss::ActivateBeamEffect(CStateManager& mgr, const CVector3f& pos) {
+  if (CScriptEffect* effect = TCastToPtr< CScriptEffect >(mgr.ObjectById(xef8_))) {
+    effect->SetTransform(CTransform4f::Translate(pos));
+    mgr.SendScriptMsg(effect, GetUniqueId(), kSM_Activate);
+    xdfc_ = 0;
+    xf14_ = 0.6f;
   }
 }
 

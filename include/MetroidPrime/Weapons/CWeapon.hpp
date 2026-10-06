@@ -47,6 +47,8 @@ public:
   void FluidFXThink(EFluidState state, CScriptWater& water, CStateManager& mgr) override;
 
   void SetDamageFalloffSpeed(float speed);
+  void AddAttrib(EProjectileAttrib attrib) { mProjectileAttribs |= attrib; } // Guessed name.
+  void SetDamageDuration(float duration) { mDamageDuration = duration; }    // Prime name.
   int GetAttribField() const { return mProjectileAttribs; }
   bool HasAttrib(EProjectileAttrib attrib) const { return (mProjectileAttribs & attrib) == attrib; }
   TUniqueId GetOwnerId() const { return mOwnerId; }
