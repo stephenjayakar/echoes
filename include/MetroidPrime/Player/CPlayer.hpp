@@ -629,7 +629,7 @@ private:
   CVector3f mLastSpaceJumpPosition;                              // 0x338
   ESurfaceRestraints mSurfaceRestraint;                          // 0x344
   rstl::reserved_vector< float, 6 > mAccelerationTable;          // 0x348
-  uint mCurAcceleration;                                         // 0x364
+  int mCurAcceleration;                                          // 0x364
   float mAccelerationChangeTimer;                                // 0x368
   CAABox mFpBounds;                                              // 0x36c
   float mBallTransHeight;                                        // 0x384

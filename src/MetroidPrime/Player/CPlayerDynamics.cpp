@@ -1034,7 +1034,7 @@ float CPlayer::GetStepUpHeight() const {
 }
 
 float CPlayer::GetUnbiasedEyeHeight() const {
-  return mFpBounds.GetMaxPoint().GetZ() - GetTweakPlayer()->GetEyeOffset();
+  return mFpBounds.GetPointE().GetZ() - GetTweakPlayer()->GetEyeOffset();
 }
 
 float CPlayer::GetEyeHeight() const { return mEyeZBias + GetUnbiasedEyeHeight(); }
@@ -1574,7 +1574,7 @@ void CPlayer::StartGravityBoost(CStateManager& mgr) {
       mMorphBallState == kMS_Unmorphed && GetFluidCount() != 0) {
     mGravityBoostDuration = GetTweakPlayer()->GetGravityBoostTime();
     CVector3f velocity = GetVelocityWR();
-    velocity.SetZ(velocity.GetZ() * 0.1f);
+    velocity[kDZ] *= 0.1f;
     SetVelocityWR(velocity);
     mGravityBoostSfx =
         CSfxManager::SfxStart(mgr.ReturnFirstIfSingleElseSecond(0x123, 0x30e), 127,

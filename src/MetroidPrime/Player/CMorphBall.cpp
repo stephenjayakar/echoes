@@ -537,7 +537,7 @@ float CMorphBall::ComputeMaxSpeed() const {
   float maxSpeed;
   if (GetIsInHalfPipeMode()) {
     maxSpeed = rstl::max_val(1.5f * mPlayer.GetVelocityWR().Magnitude(), 0.01f);
-    maxSpeed = rstl::min_val(maxSpeed, 95.f);
+    maxSpeed = rstl::min_val(95.f, maxSpeed);
   } else {
     maxSpeed = gpTweakBall->GetBallTranslationMaxSpeed(mPlayer.GetSurfaceRestraint());
   }
@@ -2518,12 +2518,12 @@ float CMorphBall::BallTurnInput(const CFinalInput& input) const {
 }
 
 bool CMorphBall::CalculateBallContactInfo(CVector3f& normal, CVector3f& point) const {
-  if (mCollisionInfos.GetCount() == 0) {
-    return false;
+  if (mCollisionInfos.GetCount() > 0) {
+    normal = mCollisionInfos[0].GetNormalLeft();
+    point = mCollisionInfos[0].GetPoint();
+    return true;
   }
-  normal = mCollisionInfos[0].GetNormalLeft();
-  point = mCollisionInfos[0].GetPoint();
-  return true;
+  return false;
 }
 
 CTransform4f CMorphBall::CalculateSurfaceToWorld(const CVector3f& normal, const CVector3f& point,
@@ -2545,16 +2545,15 @@ CVector3f CMorphBall::GetBallPosition() const {
 }
 
 CTransform4f CMorphBall::GetBallToWorld() const {
-  CTransform4f ballToWorld =
+  return CTransform4f(
       CTransform4f::Translate(mPlayer.GetTranslation() + CVector3f(0.f, 0.f, mRadius)) *
-      mPlayer.GetTransform().GetRotation();
-  return ballToWorld;
+      mPlayer.GetTransform().GetRotation());
 }
 
 CTransform4f CMorphBall::GetSwooshToWorld() const {
-  return CTransform4f::Translate(mPlayer.GetTranslation() + CVector3f(0.f, 0.f, GetBallRadius())) *
-         mSurfaceToWorld.GetRotation() *
-         CTransform4f::RotateY(CRelAngle::FromRadians(mBallTiltAngle));
+  return CTransform4f(
+      CTransform4f::Translate(mPlayer.GetTranslation() + CVector3f(0.f, 0.f, GetBallRadius())) *
+      mSurfaceToWorld.GetRotation() * CTransform4f::RotateY(CRelAngle::FromRadians(mBallTiltAngle)));
 }
 
 void CMorphBall::ComputeMarioMovement(const CFinalInput& input, CStateManager& mgr, float dt) {
@@ -2820,8 +2819,7 @@ float CMorphBall::GetSpiderBallControllerMovement(const CFinalInput& input) cons
   const float turn =
       mPlayer.GetControlMapper().GetAnalogInput(CControlMapper::kC_TurnRight, input) -
       mPlayer.GetControlMapper().GetAnalogInput(CControlMapper::kC_TurnLeft, input);
-  const double angleTemp = atan2(forward, turn);
-  const float angle = (180.f / M_PIF) * static_cast< float >(angleTemp);
+  const float angle = (180.f / M_PIF) * static_cast< float >(atan2(forward, turn));
   const float hyp = CMath::SqrtF(forward * forward + turn * turn);
 
   if (angle > -35.f && angle < 125.f) {

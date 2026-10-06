@@ -199,31 +199,30 @@ void CGrappleArm::Render(const CStateManager& mgr, const CVector3f& pos, const C
 
 void CGrappleArm::RenderGrappleBeam(const CStateManager& mgr, const CVector3f& pos,
                                     bool firstPerson) const {
-  if (mStateFlags == 0 || !mBeamActive) {
-    return;
-  }
-  if (mGrappleHit) {
-    mHitGenerator->Render();
-  }
-  mClawGenerator->Render();
-  if (firstPerson) {
-    mSwooshGenerator->Render();
-    mSegmentGenerator->Render();
-    mMuzzleGenerator->Render();
-  } else {
-    mMultiplayerSwooshGenerator->Render();
-    mMultiplayerSegmentGenerator->Render();
+  if (mStateFlags != 0 && mBeamActive) {
+    if (mGrappleHit) {
+      mHitGenerator->Render();
+    }
+    mClawGenerator->Render();
+    if (firstPerson) {
+      mSwooshGenerator->Render();
+      mSegmentGenerator->Render();
+      mMuzzleGenerator->Render();
+    } else {
+      mMultiplayerSwooshGenerator->Render();
+      mMultiplayerSegmentGenerator->Render();
+    }
   }
 }
 
 void CGrappleArm::ResetStateMachine(CStateManager& mgr) {
-  if (!mStateMachine.HasState() || strcmp(mStateMachine.GetName(), "Start") != 0) {
+  if (mStateMachine.GetCurrentState() == nullptr || strcmp("Start", mStateMachine.GetName()) != 0) {
     mStateMachine.SetState(mgr, *this, rstl::string_l("Start"));
   }
 }
 
 void CGrappleArm::TryInitializeStateMachine(CStateManager& mgr) {
-  if (!mStateMachine.HasState() && GetStateMachine() != nullptr) {
+  if (mStateMachine.GetCurrentState() == nullptr && GetStateMachine() != nullptr) {
     InitializeStateMachine(mgr);
   }
 }
@@ -315,8 +314,12 @@ void CGrappleArm::Update(float dt, CStateManager& mgr) {
 
 void CGrappleArm::UpdateArmMovement(float dt, CStateManager& mgr) {
   DoUserAnimEvents(mgr);
-  if (mGunController->Update(dt, mgr)) {
+  switch (mGunController->Update(dt, mgr)) {
+  case 1:
     ResetAuxParams(false);
+    break;
+  default:
+    break;
   }
 }
 
@@ -694,7 +697,8 @@ bool CGrappleArm::HoldGun(CStateManager& mgr, const float& arg) {
 }
 
 bool CGrappleArm::AnimOver(CStateManager& mgr, const float& arg) {
-  return !mArmModel->GetAnimationData()->IsAnimTimeRemaining(0.001f, rstl::string_l("Whole Body"));
+  const CAnimData* animData = mArmModel->GetAnimationData();
+  return !animData->IsAnimTimeRemaining(0.001f, rstl::string_l("Whole Body"));
 }
 
 bool CGrappleArm::GunChanging(CStateManager& mgr, const float& arg) {
@@ -718,20 +722,32 @@ void CGrappleArm::DownAtSide(CStateManager& mgr, int msg, float dt) {
 }
 
 void CGrappleArm::HoldingGun(CStateManager& mgr, int msg, float dt) {
-  if (msg == kStateMsg_Activate) {
+  switch (msg) {
+  case kStateMsg_Activate:
     if (mStateFlags & kSF_FreeLook) {
       EnterFreeLook(mgr);
     } else {
       EnterComboFire(mgr);
     }
+    break;
+  default:
+    break;
   }
 }
 
 void CGrappleArm::WaitAnimOver(CStateManager& mgr, int msg, float dt) {}
 
 void CGrappleArm::WeaponChange(CStateManager& mgr, int msg, float dt) {
-  if (msg == kStateMsg_Activate) {
+  switch (msg) {
+  case kStateMsg_Activate:
     EnterIdle(mgr);
+    break;
+  case kStateMsg_Update:
+    break;
+  case kStateMsg_Deactivate:
+    break;
+  default:
+    break;
   }
 }
 
