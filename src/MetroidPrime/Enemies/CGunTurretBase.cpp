@@ -28,6 +28,7 @@
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
+#include "rstl/math.hpp"
 
 #include <stdio.h>
 
@@ -35,10 +36,6 @@
 void DebugDrawAABox(const CAABox& box, float r, float g, float b, float a);
 
 const char* const CGunTurretBase::skConnectLocator = "connect_LCTR";
-
-static CVector3f skPanLeftVector = CMatrix3f::RotateZ(CRelAngle::FromDegrees(85.f)) * CVector3f::Forward();
-static CVector3f skPanRightVector =
-    CMatrix3f::RotateZ(CRelAngle::FromDegrees(-85.f)) * CVector3f::Forward();
 
 CGunTurretBase::CGunTurretBase(
     TUniqueId uid, const rstl::string& name, const CEntityInfo& info, const CTransform4f& xf,
@@ -78,12 +75,12 @@ CGunTurretBase::CGunTurretBase(
 , mTimeBetweenAttacks(minTimeBetweenAttacks)
 , mMinTimeBetweenShots(minTimeBetweenShots)
 , mMaxTimeBetweenShots(maxTimeBetweenShots)
-, mTimeBetweenShots(minTimeBetweenShots)
+, mTimeBetweenShots(mMinTimeBetweenShots)
 , mMinShotsInABurst(minShotsInABurst)
 , mMaxShotsInABurst(maxShotsInABurst)
 , mShotsInBurst(minShotsInABurst)
-, mAttackTimer(mTimeBetweenAttacks)
-, mShotTimer(mTimeBetweenShots)
+, mAttackTimer(mMinTimeBetweenAttacks)
+, mShotTimer(mMinTimeBetweenShots)
 , mShotCount(0)
 , mIsPirateTurret(isPirateTurret)
 , mCrsc(gpSimplePool->GetObj(SObjectTag('CRSC', crscId)), true)
@@ -93,7 +90,7 @@ CGunTurretBase::CGunTurretBase(
           ? rstl::optional_object< TLockedToken< CGenDescription > >()
           : rstl::optional_object< TLockedToken< CGenDescription > >(TLockedToken< CGenDescription >(
                 gpSimplePool->GetObj(SObjectTag('PART', pirateProjectileEffect)))))
-, mProjectileInfo(mPirateProjectile, attackDamage)
+, mProjectileInfo(CProjectileInfo(mPirateProjectile, attackDamage))
 , x8ac_(0.f)
 , x8b0_(0.f)
 , mFiring(false)
@@ -142,11 +139,11 @@ CGunTurretBase::CGunTurretBase(
 , mAttackLeashTime(attackLeashTime)
 , mAttackLeashTimer(attackLeashTime)
 , mTargetIsNonPlayer(false)
-, mChargeSfx(0)
+, mChargeSfx()
 , mShellWaypointId(kInvalidUniqueId)
 , mCollisionPrimitive(GetAnimationData()->GetBoundingBox(), GetMaterialList())
 , mAdditiveAnim(0)
-, mMaxRaise(CMath::Min(unknown80ce / 10.f, 1.f))
+, mMaxRaise(rstl::min_val(1.f, unknown80ce / 10.f))
 , mRaise(0.f)
 , mSfxFallOff(sfxFallOff)
 , mSfxMaxDistance(sfxMaxDistance)
@@ -178,13 +175,13 @@ CGunTurretBase::CGunTurretBase(
 
   AnimationData()->SetKeepJSPose(true);
 
-  rstl::pair< float, int > best = AnimationData()->GetPASDatabase().FindBestAnimation(
-      CPASAnimParmData(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(5),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter()),
-      -1);
+  const CPASDatabase& pasDatabase = AnimationData()->GetPASDatabase();
+  const CPASAnimParmData parms(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(5),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter());
+  const rstl::pair< float, int > best = pasDatabase.FindBestAnimation(parms, -1);
   if (best.first > FLT_EPSILON) {
     mAdditiveAnim = best.second;
   }
@@ -279,6 +276,10 @@ static CPatterned::StateMachine::SStateFunction skStates[] = {
     {"OpenDoor", static_cast< CPatterned::StateMachine::StateFunc >(&CGunTurretBase::OpenDoor)},
     {"CloseDoor", static_cast< CPatterned::StateMachine::StateFunc >(&CGunTurretBase::CloseDoor)},
 };
+
+static CVector3f skPanLeftVector = CMatrix3f::RotateZ(CRelAngle::FromDegrees(85.f)) * CVector3f::Forward();
+static CVector3f skPanRightVector =
+    CMatrix3f::RotateZ(CRelAngle::FromDegrees(-85.f)) * CVector3f::Forward();
 
 void CGunTurretBase::SetupStateMachine(CStateManager& mgr) {
   StateMachine* stateMachine = mStateMachine.get();
@@ -398,7 +399,7 @@ bool CGunTurretBase::WithdrawOver(CStateManager&, const CTriggerData&) const {
 void CGunTurretBase::OpenDoor(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
-    BodyController()->SetLocomotionType(pas::kLT_Internal7);
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
     mAnimationState.SetState(CAnimationState::kAS_Ready);
     BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Zero, -1));
     mState = kS_OpenDoor;
@@ -441,7 +442,10 @@ void CGunTurretBase::IntoPan(CStateManager& mgr, EStateMsg msg, float dt) {
     BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Two, -1));
     mState = kS_IntoPan;
     if (!mGunDestroyed) {
-      PlaySfx(mGunPanSfx | 0x80000000, mgr);
+      const int sfx = mGunPanSfx;
+      ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                        mgr.GetNextAreaId().Value(), mgr, true);
     }
     break;
   case kStateMsg_Update:
@@ -511,7 +515,9 @@ void CGunTurretBase::Withdraw(CStateManager& mgr, EStateMsg msg, float dt) {
     } else {
       sfx = mGunLowerLoopedSfx;
     }
-    PlaySfx(sfx | 0x80000000, mgr);
+    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
     break;
   }
   case kStateMsg_Update:
@@ -530,7 +536,9 @@ void CGunTurretBase::Withdraw(CStateManager& mgr, EStateMsg msg, float dt) {
     }
     StopLoopedSounds();
     if (!mGunDestroyed) {
-      PlaySfx(mGunLowerOffSfx, mgr);
+      ProcessSoundEvent(mGunLowerOffSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                        mgr.GetNextAreaId().Value(), mgr, true);
     }
     if (mGunDestroyed) {
       AnimationData()->SetEffectState(rstl::string_l("sparks"), false, mgr);
@@ -550,14 +558,19 @@ void CGunTurretBase::Spawn(CStateManager& mgr, EStateMsg msg, float dt) {
       top->AddMaterial(kMT_Unknown59, mgr);
       top->AddMaterial(kMT_RadarObject, mgr);
     }
-    PlaySfx(mGunRaiseLoopedSfx | 0x80000000, mgr);
+    const int sfx = mGunRaiseLoopedSfx;
+    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
     break;
   case kStateMsg_Update:
     RaiseGun(dt);
     break;
   case kStateMsg_Deactivate:
     StopLoopedSounds();
-    PlaySfx(mGunRaiseOffSfx, mgr);
+    ProcessSoundEvent(mGunRaiseOffSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
     break;
   }
 }
@@ -717,7 +730,9 @@ void CGunTurretBase::Think(float dt, CStateManager& mgr) {
     CActor* target = FindTarget(mgr);
     const CPhysicsActor* current = TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mHitTarget));
     if (target && target != current && (mState == kS_Patrol || mState == kS_Attack)) {
-      PlaySfx(mLockOnSfx, mgr);
+      ProcessSoundEvent(mLockOnSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                        mgr.GetNextAreaId().Value(), mgr, true);
     }
     if (target) {
       mHitTarget = target->GetUniqueId();
@@ -730,7 +745,7 @@ void CGunTurretBase::Think(float dt, CStateManager& mgr) {
 
     if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(mShellWaypointId))) {
       if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-        CTransform4f shellXf = top->GetScaledLocatorTransform("shell_LCTR");
+        CTransform4f shellXf = top->GetScaledLocatorTransform(rstl::string_l("shell_LCTR"));
         wp->SetTransform(top->GetTransform() * shellXf * CTransform4f::RotateY(CRelAngle::FromDegrees(90.f)));
       }
     }
@@ -744,7 +759,10 @@ void CGunTurretBase::DestroyGun(CStateManager& mgr) {
   mGunDestroyed = true;
   mGunHit = false;
   AnimationData()->SetEffectState(rstl::string_l("sparks"), true, mgr);
-  PlaySfx(mPoleSparksSfx | 0x80000000, mgr);
+  const int sfx = mPoleSparksSfx;
+  ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                    GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                    mgr.GetNextAreaId().Value(), mgr, true);
   ResetAttack(mgr);
   CSfxManager::RemoveEmitter(mChargeSfx);
 }
@@ -939,7 +957,9 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
 
       const CVector3f firePos = GetGunFirePosition(mgr);
       if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-        PlaySfx(mIsPirateTurret ? mPirateFireShotSfx : mGFFireShotSfx, mgr);
+        ProcessSoundEvent(mIsPirateTurret ? mPirateFireShotSfx : mGFFireShotSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                          GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                          mgr.GetNextAreaId().Value(), mgr, true);
         const CTransform4f& topXf = top->GetTransform();
         const CAssetId effect = top->GetChargeEffect(mIsPirateTurret);
         char name[256];
@@ -1002,9 +1022,9 @@ void CGunTurretBase::ResetAttack(CStateManager& mgr) {
 }
 
 CVector3f CGunTurretBase::GetGunFirePosition(CStateManager& mgr) const {
-  if (const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-    const CVector3f topPos = top->GetTranslation();
-    const CTransform4f gunXf = top->GetScaledLocatorTransform("gun_LCTR");
+  if (const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(mgr.GetObjectById(mTopId))) {
+    const CVector3f topPos = top->GetTransform().GetTranslation();
+    const CTransform4f gunXf = top->GetScaledLocatorTransform(rstl::string_l("gun_LCTR"));
     return topPos + top->GetTransform().Rotate(gunXf.GetTranslation());
   }
   return GetTranslation();

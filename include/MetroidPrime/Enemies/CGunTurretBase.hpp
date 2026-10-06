@@ -114,11 +114,6 @@ public:
   static const char* const skConnectLocator;
 
 private:
-  void PlaySfx(int sfx, CStateManager& mgr) {
-    ProcessSoundEvent(sfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
-  }
   float GetClosestCameraDistanceSq(CStateManager& mgr) const;
   CVector3f GetGunFirePosition(CStateManager& mgr) const;
   bool InRange(const CActor& actor, float range) const;

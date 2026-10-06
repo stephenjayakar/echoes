@@ -49,12 +49,13 @@ CGunTurretTop::CGunTurretTop(TUniqueId uid, const rstl::string& name, const CEnt
   mKnockBackController.EnableKnockBackPhysics(false);
   SetDrawShadow(false);
 
-  rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(
-      CPASAnimParmData(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(5), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter()),
-      -1);
+  const CPASAnimParmData parms(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(5),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
+                               CPASAnimParm::NoParameter());
+  const rstl::pair< float, int > best =
+      GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
   if (best.first > FLT_EPSILON) {
     mAdditiveAnim = best.second;
   }
@@ -62,10 +63,10 @@ CGunTurretTop::CGunTurretTop(TUniqueId uid, const rstl::string& name, const CEnt
   rstl::vector< CAssetId > parts;
   parts.reserve(2);
   if (mGFChargeEffect != kInvalidAssetId) {
-    parts.push_back(mGFChargeEffect);
+    parts.push_back_unsafe(mGFChargeEffect);
   }
   if (mPirateChargeEffect != kInvalidAssetId) {
-    parts.push_back(mPirateChargeEffect);
+    parts.push_back_unsafe(mPirateChargeEffect);
   }
   AnimationData()->GetParticleDB().CacheParticleDesc(CCharacterInfo::CParticleResData(
       parts, rstl::vector< CAssetId >(), rstl::vector< CAssetId >(), rstl::vector< CAssetId >(),
@@ -335,11 +336,12 @@ void CGunTurretTop::Death(CStateManager& mgr, const CVector3f& direction,
 }
 
 void CGunTurretTop::Revive(CStateManager& mgr) {
-  mStateMachine->SetState(mgr, *this, "Start");
+  mStateMachine->SetState(mgr, *this, rstl::string_l("Start"));
   SetActive(true);
   *HealthInfo() = mHealthInfo;
   mHitByPlayerProjectile = false;
   mDamageCooldownTimer = 0.f;
+  mColor.SetAlpha(1.f);
   SetModelFlags(CModelFlags(CModelFlags::kT_Opaque, 1.f));
   mAlphaDelta = 0.f;
   mColor = CColor(0.f, 0.f, 0.f, 1.f);
