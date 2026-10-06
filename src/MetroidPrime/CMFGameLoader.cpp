@@ -237,10 +237,10 @@ static rstl::vector< rstl::string > BuildGunPakList() {
   rstl::vector< rstl::string > names;
   names.reserve(9);
   for (int set = 0; set < 3; ++set) {
-    names.push_back(rstl::string_l(skGunPakSets[set][0]));
-    names.push_back(rstl::string_l(skGunPakSets[set][1]));
+    names.push_back_unsafe(rstl::string_l(skGunPakSets[set][0]));
+    names.push_back_unsafe(rstl::string_l(skGunPakSets[set][1]));
     if (strlen(skGunPakSets[set][2]) != 0) {
-      names.push_back(rstl::string_l(skGunPakSets[set][2]));
+      names.push_back_unsafe(rstl::string_l(skGunPakSets[set][2]));
     }
   }
   rstl::sort(names.begin(), names.end());
