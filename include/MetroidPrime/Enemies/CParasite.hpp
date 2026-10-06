@@ -22,7 +22,7 @@ class CParasite : public CWallWalker {
 public:
   class CRepulsor {
   public:
-    CRepulsor(const CVector3f& pos, float radius) : mPos(pos), mRadius(radius) {}
+    CRepulsor(CVector3f pos, float radius) : mPos(pos), mRadius(radius) {}
 
     const CVector3f& GetPos() const { return mPos; }
     float GetRadius() const { return mRadius; }

@@ -199,9 +199,8 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     AddDoorRepulsors(mgr);
     if (mWalkerType == kWT_IceZoomer) {
       SetupIceZoomerCollision(mgr);
-      SetupIceZoomerVulnerability(
-          mgr, mOculusHaltDVuln,
-          CHealthInfo(mIceZoomerJointHP, GetHealthInfo()->GetKnockBackResistance()));
+      const CHealthInfo hInfo(mIceZoomerJointHP, GetHealthInfo()->GetKnockBackResistance());
+      SetupIceZoomerVulnerability(mgr, mOculusHaltDVuln, hInfo);
     }
     break;
   }
@@ -611,10 +610,7 @@ bool CParasite::HitSomething(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CParasite::ShouldAttack(CStateManager& mgr, const CTriggerData& data) const {
-  bool shouldAttack = false;
-  if (mReceivedTelegraph && mTelegraphRemTime > 0.1f) {
-    shouldAttack = true;
-  }
+  bool shouldAttack = mReceivedTelegraph && mTelegraphRemTime > 0.1f;
   return !TooClose(mgr, data) && InMaxRange(mgr, data) &&
          (shouldAttack || InDetectionRange(mgr, CTriggerData(0.f)));
 }
@@ -746,7 +742,8 @@ void CParasite::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
     SetMovable(false);
     break;
   case kStateMsg_Update: {
-    if (mPatrolPauseRemTime > 0.f) {
+    const float& pause = mPatrolPauseRemTime;
+    if (pause > 0.f) {
       mPatrolPauseRemTime -= dt;
       if (mPatrolPauseRemTime <= 0.f) {
         if (mWalkerType == kWT_Parasite) {
@@ -947,6 +944,10 @@ void CParasite::Crouch(CStateManager& mgr, EStateMsg msg, float) {
       mOculusShotAt = false;
       break;
     }
+    break;
+  case kStateMsg_Deactivate:
+    break;
+  case kStateMsg_Update:
     break;
   }
 }
