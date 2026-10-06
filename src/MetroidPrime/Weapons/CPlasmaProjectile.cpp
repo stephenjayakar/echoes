@@ -240,14 +240,15 @@ void CPlasmaProjectile::UpdateFx(const CTransform4f& xf, float dt, CStateManager
   CBeamProjectile::UpdateFx(xf, dt, mgr);
   UpdatePlayerEffects(dt, mgr);
 
+  rstl::reserved_vector< CVector3f, 8 >& cache = PointCache();
   if (mBeamAttributes & 1) {
-    rstl::reserved_vector< CVector3f, 8 >& cache = PointCache();
-    for (int i = 7; i > 0; --i) {
-      cache[i] = cache[i - 1];
+    for (int i = 1; i < 8; ++i) {
+      const int idx = 8 - i;
+      cache[idx] = cache[idx - 1];
     }
     cache[0] = GetCurrentPos();
   }
-  const bool contact = GetDamageType() != kDT_None && mEnableEnergyPulse;
+  const bool contact = GetDamageType() != kDT_None ? mEnableEnergyPulse : false;
   if (mContactGen.get()) {
     mContactPulseTimer -= dt;
     if (contact && mContactPulseTimer <= 0.f) {
