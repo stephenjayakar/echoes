@@ -1,7 +1,15 @@
 #include "MetroidPrime/Enemies/CMetroid.hpp"
 
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/CSafeZoneManager.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Enemies/CSpacePirate.hpp"
+#include "MetroidPrime/Player/CMorphBall.hpp"
+#include "MetroidPrime/CKnockBackInfo.hpp"
+#include "MetroidPrime/CWorld.hpp"
+#include "MetroidPrime/CGameArea.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
@@ -22,6 +30,43 @@ void CMetroid::Think(float dt, CStateManager& mgr) {
   PreventWorldCollisions(dt, mgr);
   RestoreSolidCollision(mgr);
   CPatterned::Think(dt, mgr);
+}
+
+void CMetroid::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
+  const TUniqueId sender = msg.GetSenderId();
+  CPatterned::AcceptScriptMsg(mgr, msg);
+  switch (message) {
+  case kSM_Create:
+    BodyController()->Activate(mgr, pas::kAS_Invalid);
+    break;
+  case kSM_Delete:
+  case kSM_Deactivate:
+    SwarmRemove(mgr);
+    DetachFromTarget(mgr, false);
+    break;
+  case kSM_Damage:
+  case kSM_ResistedDamage:
+    ApplyDamageGrowth(mgr, sender);
+    mShotAt = true;
+    mAlert = true;
+    break;
+  case kSM_Alert:
+    mAlert = true;
+    break;
+  case kSM_AreaLoaded:
+    if (mTeamAiManagerId == kInvalidUniqueId) {
+      mTeamAiManagerId = CScriptTeamAiMgr::GetAssociatedTeamId(*this, mgr);
+    }
+    {
+      const TAreaId areaId = GetCurrentAreaId();
+      mPathFindSearch.SetArea(
+          mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mPathArea);
+    }
+    break;
+  default:
+    break;
+  }
 }
 
 void CMetroid::Render(const CStateManager& mgr) const { CPatterned::Render(mgr); }
@@ -79,6 +124,29 @@ void CMetroid::Death(CStateManager& mgr, const CVector3f& direction, EScriptObje
   SwarmRemove(mgr);
 }
 
+void CMetroid::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
+  const CWeaponMode& mode = info.GetDamageInfo().GetWeaponMode();
+  const CDamageVulnerability* vulnerability = GetDamageVulnerability();
+  const bool frozen = BodyController()->GetPercentageFrozen() > 0.f;
+  if (mAttackState == 2) {
+    if (vulnerability->WeaponHurts(mode)) {
+      const float maxDrain = mMetroidData.mMaxEnergyDrainAllowed;
+      mEnergyDrained = maxDrain * GetDamageMultiplier();
+    }
+  } else if (vulnerability->WeaponHits(mode, 0)) {
+    const float variation = mAttackTimeVariation;
+    mAttackChance = mgr.Random()->Float() * variation + GetAverageAttackTime();
+    if (frozen) {
+      BodyController()->UnFreeze();
+    }
+    CPatterned::KnockBack(mgr, info);
+  } else if (!frozen && vulnerability->WeaponHurts(mode) &&
+             (mode.IsCharged() || mode.IsComboed() || mode.GetType() == kWT_Missile)) {
+    CPatterned::KnockBack(mgr, info);
+    mSeekTime = mMaxSeekTime;
+  }
+}
+
 bool CMetroid::CanBeIngPossessed(CStateManager& mgr) const {
   bool ret = false;
   if (CPatterned::CanBeIngPossessed(mgr) && !IsSuckingEnergy() && !xa40_29_) {
@@ -109,6 +177,141 @@ bool CMetroid::ShouldAttack(CStateManager& mgr, const CTriggerData&) const {
   return false;
 }
 
+bool CMetroid::IsSuckingEnergy() const {
+  return mAttackState == 2 && !GetBodyController()->IsFrozen();
+}
+
+bool CMetroid::IsPirateValidTarget(const CSpacePirate& pirate, const CStateManager&) const {
+  if (pirate.GetAttachedActor() == kInvalidUniqueId) {
+    const CHealthInfo* healthInfo = pirate.GetHealthInfo();
+    return healthInfo != nullptr && healthInfo->GetHP() > 0.f;
+  }
+  return false;
+}
+
+bool CMetroid::IsPlayerInFluid(const CPlayer& player, const CStateManager& mgr) const {
+  if (player.GetFluidCount() != 0) {
+    if (player.InFluidId() != kInvalidUniqueId) {
+      const CVector3f aimPos = player.GetAimPosition(mgr, 0.f);
+      if (const CScriptWater* water =
+              TCastToConstPtr< CScriptWater >(mgr.GetObjectById(player.InFluidId()))) {
+        return aimPos.GetZ() < water->GetTriggerBoundsWR().GetMaxPoint().GetZ();
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+bool CMetroid::IsTargetGettingSucked(const CStateManager& mgr) const {
+  if (const CEntity* target = mgr.GetObjectById(GetAttackTargetId())) {
+    if (const CPlayer* player = TCastToConstPtr< CPlayer >(target)) {
+      const TUniqueId attached = player->GetAttachedActorId();
+      if (attached != kInvalidUniqueId && attached != GetUniqueId()) {
+        return true;
+      }
+    } else if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(target)) {
+      const TUniqueId attached = pirate->GetAttachedActor();
+      if (attached != kInvalidUniqueId && attached != GetUniqueId()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void CMetroid::UpdateAILogicTimers(float dt, CStateManager& mgr) {
+  if (IsTargetGettingSucked(mgr)) {
+    const float variation = mAttackTimeVariation;
+    mAttackChance = mgr.Random()->Float() * variation + GetAverageAttackTime();
+  } else if (mAttackChance > 0.f) {
+    mAttackChance -= dt;
+  }
+}
+
+bool CMetroid::CanStartAttack(CStateManager& mgr) const {
+  if (mAttackChance <= 0.f) {
+    const CEntity* target = mgr.GetObjectById(mAttackTarget);
+    if (const CPlayer* player = TCastToConstPtr< CPlayer >(target)) {
+      if (IsPlayerInFluid(*player, mgr) ||
+          mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr) ||
+          player->GetMorphBall()->InScrewAttackMode() ||
+          ((player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
+                ? player->GetMorphballTransitionState()
+                : CPlayer::kMS_Unmorphed) == CPlayer::kMS_Morphed &&
+           player->GetMorphBall()->GetBallState() == CMorphBall::kBS_Spider)) {
+        return false;
+      }
+    }
+    if (target != nullptr && target->GetCurrentAreaId() == GetCurrentAreaId()) {
+      return !IsTargetGettingSucked(mgr);
+    }
+  }
+  return false;
+}
+
+void CMetroid::SwarmRemove(CStateManager& mgr) {
+  if (mTeamAiManagerId != kInvalidUniqueId) {
+    if (CScriptTeamAiMgr* team = TCastToPtr< CScriptTeamAiMgr >(mgr.ObjectById(mTeamAiManagerId))) {
+      if (team->IsPartOfTeam(GetUniqueId())) {
+        team->QuitTeam(GetUniqueId());
+      }
+    }
+  }
+}
+
+void CMetroid::SwarmAdd(CStateManager& mgr) {
+  if (mTeamAiManagerId != kInvalidUniqueId) {
+    if (CScriptTeamAiMgr* team = TCastToPtr< CScriptTeamAiMgr >(mgr.ObjectById(mTeamAiManagerId))) {
+      if (!team->IsPartOfTeam(GetUniqueId())) {
+        team->JoinTeam(*this, CTeamAiRole::kTAR_Melee, CTeamAiRole::kTAR_Invalid,
+                       CTeamAiRole::kTAR_Invalid);
+      }
+    }
+  }
+}
+
+bool CMetroid::Leash(CStateManager& mgr, const CTriggerData&) const {
+  if (const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mAttackTarget))) {
+    if (IsPlayerInFluid(*player, mgr)) {
+      return true;
+    }
+  }
+  const CVector3f leashDelta = mLatestLeashPosition - GetTranslation();
+  if (leashDelta.MagSquared() > mLeashRadius * mLeashRadius) {
+    if (mAttackTarget != kInvalidUniqueId) {
+      if (const CEntity* target = mgr.GetObjectById(mAttackTarget)) {
+        const CActor* actor = static_cast< const CActor* >(target);
+        const CVector3f targetDelta = actor->GetTranslation() - GetTranslation();
+        return targetDelta.MagSquared() > mPlayerLeashRadius * mPlayerLeashRadius &&
+               mCurPlayerLeashTime > mPlayerLeashTime;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+bool CMetroid::LostInterest(CStateManager& mgr, const CTriggerData&) const {
+  if (mAttackTarget != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+      if (const CSpacePirate* pirate = TCastToConstPtr< CSpacePirate >(actor)) {
+        if (pirate->GetAttachedActor() != kInvalidUniqueId) {
+          return true;
+        }
+      } else if (const CPlayer* player =
+                     TCastToConstPtr< CPlayer >(mgr.GetObjectById(mAttackTarget))) {
+        if (IsPlayerInFluid(*player, mgr) || player->GetCurrentAreaId() != GetCurrentAreaId() ||
+            mgr.GetSafeZoneManager()->IsObjectInHurtfulSafeZone(*player, mgr)) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+  return true;
+}
+
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {
   return &mCollisionPrimitive;
 }
@@ -126,6 +329,11 @@ bool CMetroid::ShouldWallHang(CStateManager&, const CTriggerData&) const {
 }
 
 bool CMetroid::ShouldDodge(CStateManager&, const CTriggerData&) const { return false; }
+
+void CMetroid::OnDockTouch(CStateManager& mgr) {
+  DetachFromTarget(mgr, true);
+  mPendingDeath = true;
+}
 
 static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
     {"StateOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CMetroid::StateOver)},

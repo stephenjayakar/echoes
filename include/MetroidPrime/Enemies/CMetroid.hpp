@@ -6,6 +6,8 @@
 #include "MetroidPrime/Enemies/CPatterned.hpp"
 #include "MetroidPrime/PathFinding/CPathFindSearch.hpp"
 
+class CPlayer;
+class CSpacePirate;
 class CStateManager;
 
 // Echoes layout recovered from the Metroid REL copy constructor (0xC8 bytes). Member names follow
@@ -15,8 +17,8 @@ public:
   CDamageVulnerability mFrozenVulnerability;
   CDamageVulnerability mEnergyDrainVulnerability;
   CDamageVulnerability mBabyMetroidGrowthVulnerability;
-  float x90_;
-  float x94_;
+  float mEnergyDrainPerSecond;
+  float mMaxEnergyDrainAllowed;
   float mTelegraphAttackTime;
   float mBabyMetroidScale;
   float xa0_;
@@ -77,6 +79,7 @@ public:
   virtual void Dodge(CStateManager& mgr, EStateMsg msg, float dt);
 
   void OnDockTouch(CStateManager& mgr); // Guessed name.
+  TUniqueId GetAttackTargetId() const { return mAttackTarget; }
 
   // Triggers
   bool StateOver(CStateManager& mgr, const CTriggerData& data) const;
@@ -110,6 +113,9 @@ public:
   void SetPatrolDest(CStateManager& mgr, float dt);
 
   bool IsSuckingEnergy() const;
+  bool IsTargetGettingSucked(const CStateManager& mgr) const;
+  bool IsPlayerInFluid(const CPlayer& player, const CStateManager& mgr) const;
+  bool IsPirateValidTarget(const CSpacePirate& pirate, const CStateManager& mgr) const;
   bool CanStartAttack(CStateManager& mgr) const;
   void SwarmAdd(CStateManager& mgr);
   void SwarmRemove(CStateManager& mgr);
@@ -117,6 +123,9 @@ public:
   void SuckEnergyFromTarget(float dt, CStateManager& mgr);
   void PreventWorldCollisions(float dt, CStateManager& mgr);
   void RestoreSolidCollision(CStateManager& mgr);
+  float GetDamageMultiplier() const;
+  void ApplyDamageGrowth(CStateManager& mgr, TUniqueId sender); // Guessed name.
+  void DetachFromTarget(CStateManager& mgr, bool fromDock); // Guessed second parameter.
 
 protected:
   enum EAIState {
@@ -129,18 +138,18 @@ protected:
 
   CVector3f x7c0_;
   EAIState mState;
-  float x7d0_;
-  int x7d4_;
+  float mAttackChance;
+  int mAttackState;
   TUniqueId mTeamAiManagerId;
   int x7dc_;
   CMetroidData mMetroidData;
   CCollidableSphere mCollisionPrimitive;
   CPathFindSearch mPathFindSearch;
   TUniqueId mAttackTarget;
-  float mAttackChance;
-  float mTelegraphAttackTime;
+  float x9b8_;
   float mEnergyDrained;
-  float mEnergyDrainTime;
+  float x9c0_;
+  float x9c4_;
   CVector3f mScale1;
   CVector3f mScale2;
   CVector3f mScale3;
