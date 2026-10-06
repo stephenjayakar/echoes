@@ -96,7 +96,7 @@ void CScriptVisorGoo::Think(float, CStateManager& mgr) {
       loaded = true;
     }
     if (loaded) {
-      for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+      for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
         CPlayer* player = mgr.GetPlayer(i);
         if (player->GetCameraState() != CPlayer::kCS_FirstPerson) {
           continue;

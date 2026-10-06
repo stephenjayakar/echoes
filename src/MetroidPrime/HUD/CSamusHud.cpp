@@ -1489,7 +1489,7 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
     threatDistance = 0.f;
   }
   const float exposure = player.GetDarkWorldDamageExposureFraction();
-  const float environmentThreat = mgr.GetIsDarkWorld() && exposure > 0.08f ? exposure : 0.f;
+  float environmentThreat = mgr.GetIsDarkWorld() && exposure > 0.08f ? exposure : 0.f;
   if (mThreatGauge != nullptr) {
     if (!close_enough(environmentThreat, 0.f) || threatDistance < range) {
       mThreatAmount = rstl::max_val(environmentThreat, 1.f - threatDistance / range);
