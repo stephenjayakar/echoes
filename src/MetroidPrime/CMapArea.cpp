@@ -87,6 +87,7 @@ void CMapArea::BuildDisplayLists() {
 
   for (int i = 0; i < mSurfaceCount; ++i) {
     const CMapAreaSurface& surf = mSurfaceStart[i];
+    const int* outline = surf.mOutlineOffset;
     const int* surface = surf.mSurfOffset;
 
     int numSurfaces = *surface++;
@@ -99,7 +100,6 @@ void CMapArea::BuildDisplayLists() {
       mSurfaceDisplayListSize += numVertices * 2;
     }
 
-    const int* outline = surf.mOutlineOffset;
     int numOutlines = *outline++;
     for (int j = 0; j < numOutlines; ++j) {
       int numVertices = *outline++;
