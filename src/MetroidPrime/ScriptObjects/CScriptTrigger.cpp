@@ -571,8 +571,10 @@ CEntity* LoadTrigger(CStateManager& mgr, CInputStream& input, CEntityInfo& info)
   SLdrTrigger sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrTrigger.inc"
 
-  const CVector3f halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
-  const CAABox bounds(-halfExtent, halfExtent);
+  const float hx = 0.5f * sldrThis.editorProperties.transform.scale.GetX();
+  const float hy = 0.5f * sldrThis.editorProperties.transform.scale.GetY();
+  const float hz = 0.5f * sldrThis.editorProperties.transform.scale.GetZ();
+  const CAABox bounds(CVector3f(-hx, -hy, -hz), CVector3f(hx, hy, hz));
   const CVector3f forceField =
       mgr.GetWorld()->GetAreaAlways(info.GetAreaId()).GetTM().Rotate(sldrThis.trigger.forceField);
   return rs_new CScriptTrigger(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
