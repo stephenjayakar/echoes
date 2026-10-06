@@ -821,8 +821,53 @@ CAdvancementDeltas CAnimData::UpdateAdditiveAnims(float dt) {
 }
 
 CAdvancementDeltas CAnimData::AdvanceAdditiveAnims(float dt) {
-  // TODO: Advance active additive trees and accumulate their motion.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  CVector3f posDelta(0.f, 0.f, 0.f);
+  CQuaternion rotDelta = CQuaternion::NoRotation();
+  const uint count = mAdditiveAnims.size();
+  for (uint i = 0; i < count; ++i) {
+    CAdditiveAnimPlayback& playback = mAdditiveAnims[i].second;
+    rstl::ncrc_ptr< CAnimTreeNode >& anim = playback.AnimationTree();
+    CCharAnimTime time(dt);
+    if (playback.IsLoop()) {
+      while (time.GreaterThanZero() && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount +=
+            anim->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
+        mPassedBoolCount +=
+            anim->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount +=
+            anim->GetParticlePOIList(time, mParticlePOINodes.data(), 64, mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            anim->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        const SAdvancementResults results = AdvanceAdditiveAnim(anim, time);
+        const CAdvancementDeltas deltas = results.mDeltas;
+        posDelta += deltas.GetOffsetDelta();
+        const CQuaternion rot = deltas.GetOrientationDelta();
+        rotDelta = rotDelta * rot;
+        time = results.mRemTime;
+      }
+    } else {
+      CCharAnimTime remaining = anim->VGetTimeRemaining();
+      while (!close_enough(remaining.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount +=
+            anim->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
+        mPassedBoolCount +=
+            anim->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount +=
+            anim->GetParticlePOIList(time, mParticlePOINodes.data(), 64, mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            anim->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        const SAdvancementResults results = AdvanceAdditiveAnim(anim, time);
+        const CAdvancementDeltas deltas = results.mDeltas;
+        posDelta += deltas.GetOffsetDelta();
+        const CQuaternion rot = deltas.GetOrientationDelta();
+        rotDelta = rotDelta * rot;
+        time = results.mRemTime;
+        remaining = anim->VGetTimeRemaining();
+        time = CCharAnimTime(rstl::min_val(time.GetSeconds(), remaining.GetSeconds()));
+      }
+    }
+  }
+  return CAdvancementDeltas(posDelta, rotDelta);
 }
 
 void CAnimData::AddAdditiveSegData(CJointData_LinearStorage& data) const {
