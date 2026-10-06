@@ -1215,7 +1215,8 @@ void CCubeRenderer::DrawFogFan(const CVector3f* vertices, int count) {
   }
   CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, static_cast< ushort >(count));
   for (int i = 0; i < count; ++i) {
-    GXPosition3f32(vertices[i].GetX(), vertices[i].GetY(), vertices[i].GetZ());
+    const CVector3f& v = vertices[i];
+    GXPosition3f32(v.GetX(), v.GetY(), v.GetZ());
   }
   CGX::End();
 }
@@ -2762,12 +2763,6 @@ bool CCubeRenderer::EnableSilhouetteRender() {
 }
 
 void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
-  static const GXVtxDescList vtxDesc[] = {
-      {GX_VA_POS, GX_DIRECT},
-      {GX_VA_TEX0, GX_DIRECT},
-      {GX_VA_TEX1, GX_DIRECT},
-      {GX_VA_NULL, GX_NONE},
-  };
   const float time = noise.mTime;
   const CColor noiseColor = noise.mColor;
   mRenderingSilhouette = false;
@@ -2815,6 +2810,12 @@ void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
   CGX::SetNumTexGens(2);
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY, false, GX_PTIDENTITY);
+  static const GXVtxDescList vtxDesc[] = {
+      {GX_VA_POS, GX_DIRECT},
+      {GX_VA_TEX0, GX_DIRECT},
+      {GX_VA_TEX1, GX_DIRECT},
+      {GX_VA_NULL, GX_NONE},
+  };
   CGX::SetVtxDescv(vtxDesc);
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_DSTALPHA, GX_BL_INVDSTALPHA, GX_LO_CLEAR);
   rstl::reserved_vector< CVector2f, 9 > coords;
