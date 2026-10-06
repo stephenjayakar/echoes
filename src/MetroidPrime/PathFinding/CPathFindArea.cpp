@@ -32,7 +32,7 @@ private:
   uchar* mCurrent;
 };
 
-inline uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
+uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
   uint index = 0;
   if (point[kDX] > mCenter[kDX]) {
     index = 1;
@@ -46,7 +46,7 @@ inline uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
   return index;
 }
 
-inline rstl::prereserved_vector< CPFRegion* >*
+rstl::prereserved_vector< CPFRegion* >*
 CPFAreaOctree::GetRegionList(const CVector3f& point) {
   if (mIsLeaf) {
     return &mRegions;
