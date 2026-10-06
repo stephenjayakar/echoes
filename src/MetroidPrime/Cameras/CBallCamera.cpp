@@ -357,7 +357,8 @@ bool CBallCamera::DetectCollision(const CVector3f& from, const CVector3f& to, fl
                                   float& distance, const CStateManager& mgr, int controllerIdx) {
   CVector3f delta = to - from;
   float length = delta.Magnitude();
-  CVector3f direction = delta * (1.f / length);
+  const float invLength = 1.f / length;
+  CVector3f direction = delta * invLength;
   bool clear = true;
 
   if (length > 1.1920929e-6f) {
@@ -393,18 +394,18 @@ bool CBallCamera::DetectCollision(const CVector3f& from, const CVector3f& to, fl
       const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
           CMaterialList(kMT_Unknown59),
           CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough));
-      CTransform4f startTransform = CTransform4f::Translate(from);
-      CTransform4f testTransform = startTransform;
+      CTransform4f testTransform = CTransform4f::Translate(from);
       const int stepCount = static_cast< uint >(length / 0.5f);
-      const CVector3f step = (1.f / stepCount) * delta;
+      const float invCount = 1.f / stepCount;
+      const CVector3f step = invCount * delta;
       for (int i = 0; i < stepCount; ++i) {
         CCollisionInfo hitInfo;
         double hitDistance = step.Magnitude();
         if (CGameCollision::DetectCollision_Cached_Moving(mgr, cache, sphere, testTransform, filter,
                                                           nearList, direction, hitId, hitInfo,
                                                           hitDistance)) {
-          distance = float(hitDistance + i * step.Magnitude());
           clear = false;
+          distance = float(hitDistance + i * step.Magnitude());
           break;
         }
         testTransform.SetTranslation(testTransform.GetTranslation() + step);
@@ -804,11 +805,14 @@ void CBallCamera::UpdatePlayerMovement(float dt, CStateManager& mgr) {
   const CPlayer& player = Player(mgr);
   mMaxBallVel = CMath::AbsF(player.GetActualBallMaxVelocity(dt));
   CVector3f ballPos = player.GetBallPosition();
+  // Built from the previous frame's delta and never used; the native code still constructs it.
+  const CVector2f prevDeltaFlat(mBallDelta.GetX(), mBallDelta.GetY());
   mBallDelta = ballPos - mPrevBallPos;
   mBallDeltaFlat = mBallDelta;
   mBallDeltaFlat.SetZ(0.f);
   const CVector3f& velocity = player.GetVelocityWR();
-  mBallVelFlat = CVector2f(velocity.GetX(), velocity.GetY()).Magnitude();
+  const CVector2f velocityFlat(velocity.GetX(), velocity.GetY());
+  mBallVelFlat = velocityFlat.Magnitude();
   mMaxBallVel = gpTweakBall->GetBallTranslationMaxSpeed(CPlayer::kSR_Normal);
   if (!mBallDeltaFlat.IsMagnitudeSafe() || mBallDeltaFlat.Magnitude() < dt) {
     mBallVelFlat = 0.f;
@@ -821,7 +825,9 @@ void CBallCamera::UpdatePlayerMovement(float dt, CStateManager& mgr) {
   if (camToBallFlat.IsMagnitudeSafe()) {
     camToBallFlat.Normalize();
     float dot = CMath::Limit(CVector3f::Dot(camToBallFlat, player.GetMovementDirection()), 1.f);
-    mObtuseDirection = CMath::AbsF(CMath::FastArcCosR(dot)) > 1.7453293f;
+    if (CMath::AbsF(CMath::FastArcCosR(dot)) > 1.7453293f) {
+      mObtuseDirection = true;
+    }
   }
 
   mSpeedFactor = CMath::Clamp(0.f, mBallVelFlat / mMaxBallVel, 1.f);
