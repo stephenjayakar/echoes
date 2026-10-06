@@ -9,6 +9,7 @@
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/Player/CPlayerGun.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 #include <string.h>
@@ -209,7 +210,15 @@ void CPlayerBodyController::CheckDeathCommands(CStateManager& mgr) {
 }
 
 void CPlayerBodyController::PlayGunReaction(CStateManager& mgr) {
-  // TODO: Recover the player-gun action-mask accessor before implementing this reaction.
+  if (mPlayer != nullptr &&
+      (static_cast< const CPlayer* >(mPlayer)->GetPlayerGun()->GetFiring() & 0xf) != 0) {
+    const CPASDatabase& database = GetPASDatabase();
+    const CPASAnimParmData parameters(static_cast< pas::EAnimationState >(kPAS_GunReaction));
+    const rstl::pair< float, int > best = database.FindBestAnimation(parameters, *mgr.Random(), -1);
+    if (best.second != -1) {
+      mPlayer->AnimationData()->AddAdditiveAnimation(best.second, 1.f, false, true);
+    }
+  }
 }
 
 bool CPlayerBodyController::StateOver(CStateManager&, const float&) {
