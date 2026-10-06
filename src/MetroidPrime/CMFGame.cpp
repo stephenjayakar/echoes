@@ -32,6 +32,8 @@
 
 bool CMFGame::mMultiplayerGuiActive;
 
+static const char* const skMultiplayerEndAudio = "/Audio/multi-defbgm-speed-doon32.dsp";
+
 CMFGame::CMFGame(rstl::ncrc_ptr< CStateManager > stateManager,
                  const rstl::ncrc_ptr< CInGameGuiManagerSet >& guiManager,
                  CArchitectureQueue& architectureQueue)
@@ -622,11 +624,15 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
 }
 
 void CMFGame::SetFlowState(EFlowState state) {
-  if (mFlowState == kFS_CinematicSkip) {
+  switch (mFlowState) {
+  case kFS_CinematicSkip:
     gpMain->SetMaxSpeed(false);
     mGuiManager->StartFadeIn();
     mSkippedCineCam = kInvalidUniqueId;
     CSfxManager::SetMuted(false);
+    break;
+  default:
+    break;
   }
 
   mFlowState = state;
@@ -642,7 +648,7 @@ void CMFGame::SetFlowState(EFlowState state) {
     CStreamAudioManager::FadeOutSoftwareAudio(CStreamAudioManager::kSC_Default, 0.5f);
     CStreamAudioManager::PlaySoftwareAudio(
         CStreamAudioManager::kSC_OneShot,
-        rstl::string_l("/Audio/multi-defbgm-speed-doon32.dsp"), 0.01f, 0.01f, 90, true);
+        rstl::string_l(skMultiplayerEndAudio), 0.01f, 0.01f, 90, true);
     break;
   default:
     break;
