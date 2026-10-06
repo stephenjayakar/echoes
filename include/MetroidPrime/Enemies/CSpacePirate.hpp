@@ -11,6 +11,7 @@
 #include "MetroidPrime/Weapons/CProjectileInfo.hpp"
 
 #include "Kyoto/Audio/CSfxHandle.hpp"
+#include "Kyoto/Math/CPlane.hpp"
 #include "Kyoto/Math/CUnitVector3f.hpp"
 #include "Kyoto/Math/CVector2f.hpp"
 #include "rstl/list.hpp"
@@ -215,12 +216,20 @@ private:
   void SetupGrenadeLauncher(const SSpacePirateWeaponData& data); // Guessed name.
   void SetEyeParticleActive(CStateManager& mgr, bool active);
   bool ShouldFrenzy(CStateManager& mgr);
+  void UpdateLeashTimer(float dt);
   void UpdateCloak(float dt, CStateManager& mgr);
   void UpdateSfxEmitter(); // Guessed name.
   void UpdateAttacks(float dt, CStateManager& mgr);
   void UpdateAimBodyState(float dt, CStateManager& mgr);
   TUniqueId UpdateTarget(CStateManager& mgr); // Guessed name.
   bool FireProjectile(float dt, CStateManager& mgr);
+  void LaunchGrenadeProjectile(CStateManager& mgr); // Guessed name.
+  void ComputeLaunchSpeedAndAngle(const CVector3f& target, const CVector3f& origin,
+                                  float& angleOut, float& speedOut) const; // Guessed name.
+  CVector3f GetGrenadeTargetPosition(const CStateManager& mgr,
+                                     CActor* target) const; // Guessed name.
+  void RenderGrenadeLauncher(const CStateManager& mgr, const CTransform4f& xf,
+                             const CModelFlags& flags) const; // Guessed name.
   TUniqueId ChooseAttackTarget(CStateManager& mgr); // Guessed name.
   void StartWarpOut(CStateManager& mgr, bool flag); // Guessed name.
   void SquadAdd(CStateManager& mgr);
@@ -232,7 +241,7 @@ private:
   void CheckForProjectiles(CStateManager& mgr);
   bool LineOfSightTest(CStateManager& mgr, const CVector3f& eyePos, const CVector3f& targetPos,
                        const CMaterialList& excludeList);
-  void UpdateCantSeePlayer(CStateManager& mgr);
+  void UpdateCantSeePlayer(CStateManager& mgr, float dt);
   void UpdateHeldPosition(CStateManager& mgr, float dt);
   void AvoidActors(CStateManager& mgr);
   void CheckBlade(CStateManager& mgr);
@@ -378,7 +387,7 @@ private:
   float mHoldPositionTime;
   float mLeashTimer;
   CVector3f xbb4_;
-  int xbc0_;
+  mutable uint xbc0_;
   CVector3f xbc4_;
   float xbd0_;
   rstl::optional_object< CProjectileInfo > mProjectileInfo;
@@ -386,8 +395,7 @@ private:
   int xc04_;
   rstl::optional_object< CModelData > mGrenadeLauncherModel; // Guessed name.
   int xc58_;
-  CUnitVector3f xc5c_;
-  float xc68_;
+  CPlane xc5c_;
 };
 CHECK_SIZEOF(CSpacePirate, 0xc70)
 

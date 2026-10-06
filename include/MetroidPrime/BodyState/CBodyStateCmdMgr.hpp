@@ -474,6 +474,11 @@ public:
   void DeliverCmd(const CBCLocomotionCmd& cmd);
   void DeliverCmd(EBodyStateCmd cmd);
 
+  void DeliverCmd(const CBCGetupCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGetup = cmd;
+  }
+
   void DeliverCmd(const CBCStepCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mStep = cmd;

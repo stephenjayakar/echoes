@@ -118,6 +118,7 @@ public:
   void EnableAnimReaction(EAnimReaction reaction, bool enabled);
   void EnableAllAnimReactions(bool enabled);
   void EnableShock(bool enabled) { mEnableShock = enabled; } // Guessed name.
+  void SetEnableFreeze(bool enabled) { mEnableFreeze = enabled; }
   void SetLocomotionDuringElectrocution(bool enabled) { mLocomotionDuringElectrocution = enabled; }
 
   void EnableExplodeDeath(bool enabled) { mEnableExplodeDeath = enabled; } // Guessed name.
@@ -136,6 +137,7 @@ public:
   void DeferFollowUp(float delay, EFollowUp followUp, float duration);
   float CalculateExtraHurlVelocity(CStateManager& mgr, float magnitude, float resistance) const;
 
+  EAnimReaction GetReaction() const { return mActiveParameters.mReaction; } // Guessed name.
   EFollowUp GetFollowUp() const { return mActiveParameters.mFollowUp; }
 
   float GetFollowUpDuration() const { return mActiveParameters.mFollowUpDuration; }
