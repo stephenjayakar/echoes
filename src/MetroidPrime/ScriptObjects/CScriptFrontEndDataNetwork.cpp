@@ -57,8 +57,8 @@ struct SRenderItemDepthSort {
 static float sMaxSpin = 1080.f;
 static float sSpinAccel = 120.f;
 
-SDataNetworkNode::SDataNetworkNode(TUniqueId id, int index, int parent, bool isProxy,
-                                   bool parentIsProxy)
+SDataNetworkNode::SDataNetworkNode(TUniqueId id, int index, int parent, const bool isProxy,
+                                   const bool parentIsProxy)
 : mId(id)
 , mIndex(index)
 , mParent(parent)
