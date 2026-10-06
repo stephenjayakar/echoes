@@ -76,7 +76,7 @@ protected:
   float mCooldown;
   float mSecondaryCooldown;
   float mGunHolsterRemTime;
-  uint mInputFlags;
+  int mInputFlags;
   uint mLastInputFlags;
   uint mReleasedInputFlags;
   uint mPressedInputFlags;

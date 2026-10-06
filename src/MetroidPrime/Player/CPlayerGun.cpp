@@ -890,28 +890,28 @@ void CPlayerGun::UpdateGunMotion(float dt, CStateManager& mgr) {
 
 void CPlayerGun::UpdateGunIdle(float dt, CStateManager& mgr) {
   CPlayer* player = GetPlayer(mgr);
-  if (!player->IsInFreeLook() && player->GetOrbitState() == CPlayer::kOS_NoOrbit &&
-      mBeamChangeState == kBCS_Idle && !mInBigStrike) {
+  if (player->IsInFreeLook() || player->GetOrbitState() != CPlayer::kOS_NoOrbit ||
+      mBeamChangeState != kBCS_Idle || mInBigStrike) {
+    mFidget.ResetAll();
+  } else {
     const bool moving = player->GetVelocityWR().Magnitude() > 0.01f ||
                         player->GetAngularVelocityOR().GetVector().GetZ() != 0.f;
     mFidget.Update(mInputFlags, moving, mGunStrikeCooldownTimer > 0.f, dt, mgr, *player);
-    if (mFidget.GetState() == CFidget::kS_NoFidget) {
-      if (!moving || mInputFlags != 0) {
-        if (mGunMotionState != SamusGun::kAS_Idle) {
-          mGunMotion->PlayPasAnim(SamusGun::kAS_Idle, mgr, 0.f, false);
-          mGunMotionState = SamusGun::kAS_Idle;
-        }
-      } else {
+    switch (mFidget.GetState()) {
+    case CFidget::kS_NoFidget:
+      if (moving && mInputFlags == 0) {
         if (mGunStrikeCooldownTimer <= 0.f && mIdleWanderDelayTimer <= 0.f) {
           mIdleWanderDelayTimer = 8.f;
           mGunMotion->PlayPasAnim(SamusGun::kAS_Wander, mgr, 0.f, false);
           mGunMotionState = SamusGun::kAS_Wander;
         }
         mIdleWanderDelayTimer -= dt;
+      } else if (mGunMotionState != SamusGun::kAS_Idle) {
+        mGunMotion->PlayPasAnim(SamusGun::kAS_Idle, mgr, 0.f, false);
+        mGunMotionState = SamusGun::kAS_Idle;
       }
+      break;
     }
-  } else {
-    mFidget.ResetAll();
   }
 }
 
