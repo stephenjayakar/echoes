@@ -278,8 +278,9 @@ CElementGen::CElementGen(TToken< CGenDescription > description, EModelOrientatio
 CElementGen::~CElementGen() {
   --sParticleSystemAliveCount;
   sParticleAliveCount -= mParticles.size();
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    delete mActivePartChildren[i];
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    delete (*it);
   }
 }
 
@@ -296,8 +297,9 @@ void CElementGen::ShutDown() { sStaticListInitialized = false; }
 
 void CElementGen::SetTranslation(const CVector3f& translation) {
   mTranslation = translation;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    CParticleGen* child = mActivePartChildren[i];
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    CParticleGen* child = (*it);
     switch (child->Get4CharId()) {
     case 'ELSC':
       child->SetTranslation(translation + mSEPO);
@@ -314,15 +316,17 @@ void CElementGen::SetTranslation(const CVector3f& translation) {
 
 void CElementGen::SetGlobalTranslation(const CVector3f& translation) {
   mGlobalTranslation = translation;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetGlobalTranslation(translation);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetGlobalTranslation(translation);
   }
 }
 
 void CElementGen::SetModulationColor(const CColor& color) {
   mModuColor = color;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetModulationColor(color);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetModulationColor(color);
   }
 }
 
@@ -338,8 +342,9 @@ void CElementGen::SetGlobalScale(const CVector3f& scale) {
   mGlobalScaleTransform = CTransform4f::Scale(mGlobalScale);
   mGlobalScaleTransformInverse = CTransform4f::Scale(
       1.f / mGlobalScale.GetX(), 1.f / mGlobalScale.GetY(), 1.f / mGlobalScale.GetZ());
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetGlobalScale(scale);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetGlobalScale(scale);
   }
 }
 
@@ -353,23 +358,26 @@ void CElementGen::SetLocalScale(const CVector3f& scale) {
   mLocalScaleTransform = CTransform4f::Scale(mLocalScale);
   mLocalScaleTransformInverse = CTransform4f::Scale(
       1.f / mLocalScale.GetX(), 1.f / mLocalScale.GetY(), 1.f / mLocalScale.GetZ());
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetLocalScale(scale);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetLocalScale(scale);
   }
 }
 
 void CElementGen::SetOrientation(const CTransform4f& orientation) {
   mOrientation = orientation;
   mOrientationInverse = mOrientation.GetQuickInverse().BuildMatrix3f();
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetOrientation(orientation);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetOrientation(orientation);
   }
 }
 
 void CElementGen::SetGlobalOrientation(const CTransform4f& orientation) {
   mGlobalOrientation.SetRotation(orientation);
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetGlobalOrientation(mGlobalOrientation);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetGlobalOrientation(mGlobalOrientation);
   }
 }
 
@@ -934,8 +942,9 @@ void CElementGen::UpdateChildParticleSystems(double dt) {
 
 void CElementGen::SetParticleEmission(bool emission) {
   mParticleEmission = emission;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->SetParticleEmission(emission);
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->SetParticleEmission(emission);
   }
 }
 
@@ -947,8 +956,9 @@ void CElementGen::ForceParticleCreation(int count) {
 
 void CElementGen::EndLifetime() {
   mPSLT = 0;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    CParticleGen* child = mActivePartChildren[i];
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    CParticleGen* child = (*it);
     if (child->Get4CharId() == 'PART') {
       static_cast< CElementGen* >(child)->EndLifetime();
     } else {
@@ -960,8 +970,9 @@ void CElementGen::EndLifetime() {
 void CElementGen::DestroyParticles() {
   sParticleAliveCount -= mParticles.size();
   mParticles.clear();
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    mActivePartChildren[i]->DestroyParticles();
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    (*it)->DestroyParticles();
   }
   mActiveParticleCount = 0;
   mRecursiveParticleCount = GetParticleCountAllInternal();
@@ -2903,8 +2914,9 @@ int CElementGen::GetParticleCountAll() const { return mRecursiveParticleCount; }
 
 int CElementGen::GetParticleCountAllInternal() const {
   int count = mActiveParticleCount;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    CParticleGen* child = mActivePartChildren[i];
+  for (rstl::vector< CParticleGen* >::const_iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    CParticleGen* child = (*it);
     if (child->Get4CharId() == 'PART') {
       count += static_cast< CElementGen* >(child)->GetParticleCountAll();
     } else {
@@ -2916,8 +2928,9 @@ int CElementGen::GetParticleCountAllInternal() const {
 
 int CElementGen::GetSystemCount() {
   int count = static_cast< int >(mActiveParticleCount) > 0;
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    count += mActivePartChildren[i]->GetSystemCount();
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    count += (*it)->GetSystemCount();
   }
   return count;
 }
@@ -2940,8 +2953,9 @@ void CElementGen::BuildParticleSystemBounds() {
   CAABox childBounds = CAABox::MakeMaxInvertedBox();
   bool accumulated = false;
   if (mEnableDynamicBounds) {
-    for (int i = 0; i < mActivePartChildren.size(); ++i) {
-      rstl::optional_object< CAABox > bounds = mActivePartChildren[i]->GetBounds();
+    for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+         it != mActivePartChildren.end(); ++it) {
+      rstl::optional_object< CAABox > bounds = (*it)->GetBounds();
       if (bounds) {
         accumulated = true;
         childBounds.AccumulateBounds(bounds->GetMinPoint());
@@ -3019,8 +3033,9 @@ float CElementGen::GetGenerationRate() {
 
 void CElementGen::SetGeneratorRate(float rate) {
   mGeneratorRate = rstl::max_val(rate, 0.f);
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    CParticleGen* child = mActivePartChildren[i];
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    CParticleGen* child = (*it);
     if (child->Get4CharId() == 'PART') {
       child->SetGeneratorRate(mGeneratorRate);
     }
