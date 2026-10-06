@@ -2892,12 +2892,17 @@ void CCubeRenderer::DrawDarkWorldVolume(const CVector3f& pos, const CVector3f& s
     GXSetAlphaUpdate(!inside);
   }
   const int firstCloud = inside ? 0 : 1;
-  const int secondCloud = firstCloud + 1;
   if (!inside) {
     environment.Load(GX_TEXMAP0, CTexture::kCM_Clamp);
   }
-  cloud1.Load(static_cast< GXTexMapID >(firstCloud), CTexture::kCM_Repeat);
-  cloud2.Load(static_cast< GXTexMapID >(secondCloud), CTexture::kCM_Repeat);
+  const GXTevStageID firstStage = static_cast< GXTevStageID >(firstCloud);
+  const GXTevStageID secondStage = static_cast< GXTevStageID >(firstCloud + 1);
+  const GXTexMapID firstMap = static_cast< GXTexMapID >(firstCloud);
+  const GXTexMapID secondMap = static_cast< GXTexMapID >(firstCloud + 1);
+  const GXTexCoordID firstCoord = static_cast< GXTexCoordID >(firstCloud);
+  const GXTexCoordID secondCoord = static_cast< GXTexCoordID >(firstCloud + 1);
+  cloud1.Load(firstMap, CTexture::kCM_Repeat);
+  cloud2.Load(secondMap, CTexture::kCM_Repeat);
 
   const float blend = static_cast< float >(mix) / 255.f;
   const CColor environmentColor = CColor::Lerp(color, CColor::White(), blend);
@@ -2905,51 +2910,51 @@ void CCubeRenderer::DrawDarkWorldVolume(const CVector3f& pos, const CVector3f& s
   const CColor opacity(alpha, alpha, alpha, alpha);
   CGX::SetTevKColor(GX_KCOLOR0, environmentColor.GetGXColor());
   CGX::SetTevKColor(GX_KCOLOR1, opacity.GetGXColor());
-  GXSetTevColor(GX_TEVREG1, addedColor.GetGXColor());
-  GXTevColorArg cloudColor;
-  GXTevAlphaArg cloudAlpha;
+  GXSetTevColor(GX_TEVREG0, addedColor.GetGXColor());
   if (!inside) {
-    CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_C1);
+    CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_C0);
     CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_KONST, GX_CA_TEXA, GX_CA_ZERO);
     CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_6_8);
     CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
     CGX::SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, GX_TEXMAP0, GX_COLOR_NULL);
     CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
-    cloudColor = GX_CC_CPREV;
-    cloudAlpha = GX_CA_APREV;
-  } else {
-    CGX::SetTevKColorSel(static_cast< GXTevStageID >(firstCloud), GX_TEV_KCSEL_K1);
-    CGX::SetTevKAlphaSel(static_cast< GXTevStageID >(firstCloud), GX_TEV_KASEL_K1_A);
+  }
+  GXTevColorArg cloudColor;
+  GXTevAlphaArg cloudAlpha;
+  if (inside) {
+    CGX::SetTevKColorSel(firstStage, GX_TEV_KCSEL_K1);
+    CGX::SetTevKAlphaSel(firstStage, GX_TEV_KASEL_K1_A);
     cloudColor = GX_CC_KONST;
     cloudAlpha = GX_CA_KONST;
+  } else {
+    cloudColor = GX_CC_APREV;
+    cloudAlpha = GX_CA_APREV;
   }
-  const GXTevStageID firstStage = static_cast< GXTevStageID >(firstCloud);
-  const GXTevStageID secondStage = static_cast< GXTevStageID >(secondCloud);
   CGX::SetTevColorIn(firstStage, GX_CC_ZERO, GX_CC_TEXC, cloudColor, GX_CC_ZERO);
   CGX::SetTevAlphaIn(firstStage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, cloudAlpha);
-  CGX::SetTevOrder(firstStage, static_cast< GXTexCoordID >(firstCloud),
-                   static_cast< GXTexMapID >(firstCloud), GX_COLOR_NULL);
+  CGX::SetTevOrder(firstStage, firstCoord, firstMap, GX_COLOR_NULL);
   CGX::SetTevColorOp(firstStage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVREG1);
   CGX::SetTevAlphaOp(firstStage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVPREV);
   CGX::SetTevDirect(firstStage);
-  CGX::SetTevColorIn(secondStage, GX_CC_ZERO, GX_CC_C1, GX_CC_TEXC,
-                     inside ? GX_CC_C1 : GX_CC_CPREV);
+  const GXTevColorArg secondColor = inside ? GX_CC_C0 : GX_CC_CPREV;
+  const GXTevScale secondScale = additive ? GX_CS_SCALE_4 : GX_CS_SCALE_1;
+  CGX::SetTevColorIn(secondStage, GX_CC_ZERO, GX_CC_C1, GX_CC_TEXC, secondColor);
   CGX::SetTevAlphaIn(secondStage, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV);
-  CGX::SetTevOrder(secondStage, static_cast< GXTexCoordID >(secondCloud),
-                   static_cast< GXTexMapID >(secondCloud), GX_COLOR_NULL);
-  CGX::SetTevColorOp(secondStage, GX_TEV_ADD, GX_TB_ZERO, additive ? GX_CS_SCALE_4 : GX_CS_SCALE_1,
+  CGX::SetTevOrder(secondStage, secondCoord, secondMap, GX_COLOR_NULL);
+  CGX::SetTevColorOp(secondStage, GX_TEV_ADD, GX_TB_ZERO, secondScale,
                      true, GX_TEVPREV);
   CGX::SetTevAlphaOp(secondStage, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVPREV);
   CGX::SetTevDirect(secondStage);
 
   CTransform4f environmentTransform(CGraphics::GetViewMatrix());
-  const CVector3f toVolume = pos - environmentTransform.GetTranslation();
+  const CVector3f toVolume = pos - CGraphics::GetViewMatrix().GetTranslation();
   if (toVolume.CanBeNormalized()) {
-    const CUnitVector3f forward(environmentTransform.GetForward(), CUnitVector3f::kN_No);
-    const CUnitVector3f direction(toVolume.AsNormalized(), CUnitVector3f::kN_No);
-    const CQuaternion rotation =
-        CQuaternion::LookAt(forward, direction, CRelAngle::FromRadians(2.f * M_PIF));
-    environmentTransform = (rotation.BuildTransform4f() * environmentTransform).GetQuickInverse();
+    const CUnitVector3f direction(toVolume);
+    const CQuaternion rotation = CQuaternion::LookAt(
+        CUnitVector3f(environmentTransform.GetForward(), CUnitVector3f::kN_No), direction,
+        CRelAngle::FromRadians(2.f * M_PIF));
+    environmentTransform =
+        rotation.BuildTransform4f().MultiplyIgnoreTranslation(environmentTransform).GetQuickInverse();
   } else {
     environmentTransform = environmentTransform.GetQuickInverse();
   }
@@ -2961,10 +2966,8 @@ void CCubeRenderer::DrawDarkWorldVolume(const CVector3f& pos, const CVector3f& s
   if (!inside) {
     CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX3x4, GX_TG_NRM, GX_TEXMTX0, true, GX_PTTEXMTX0);
   }
-  CGX::SetTexCoordGen(static_cast< GXTexCoordID >(firstCloud), GX_TG_MTX2x4, GX_TG_TEX0,
-                      GX_IDENTITY, false, GX_PTTEXMTX1);
-  CGX::SetTexCoordGen(static_cast< GXTexCoordID >(secondCloud), GX_TG_MTX2x4, GX_TG_TEX0,
-                      GX_IDENTITY, false, GX_PTTEXMTX2);
+  CGX::SetTexCoordGen(firstCoord, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTTEXMTX1);
+  CGX::SetTexCoordGen(secondCoord, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTTEXMTX2);
   CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ONE, GX_LO_CLEAR);
   CGX::SetNumTevStages(firstCloud + 2);
