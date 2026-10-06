@@ -96,13 +96,11 @@ void CScriptAreaDamage::Think(float dt, CStateManager& mgr) {
   const float pulseTime = continuous ? dt : mPulseTime;
   while (mPulseAccumulator >= pulseTime) {
     mPulseAccumulator -= pulseTime;
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       const TUniqueId uid = player->GetUniqueId();
-      rstl::list< TExclusion >::iterator exclusion = mExcludedPlayers.begin();
-      while (exclusion != mExcludedPlayers.end() && exclusion->first != uid) {
-        ++exclusion;
-      }
+      rstl::list< TExclusion >::iterator exclusion =
+          rstl::find_if(mExcludedPlayers.begin(), mExcludedPlayers.end(), CPlayerIdMatcher(uid));
       if (exclusion != mExcludedPlayers.end() ||
           player->GetCurrentAreaId() != GetCurrentAreaId()) {
         continue;
@@ -111,10 +109,8 @@ void CScriptAreaDamage::Think(float dt, CStateManager& mgr) {
         continue;
       }
 
-      rstl::list< TGraceTimer >::iterator timer = mPlayerGraceTimers.begin();
-      while (timer != mPlayerGraceTimers.end() && timer->first != uid) {
-        ++timer;
-      }
+      rstl::list< TGraceTimer >::iterator timer =
+          rstl::find_if(mPlayerGraceTimers.begin(), mPlayerGraceTimers.end(), CPlayerIdMatcher(uid));
       if (timer == mPlayerGraceTimers.end()) {
         timer = mPlayerGraceTimers.insert(mPlayerGraceTimers.end(), TGraceTimer(uid, 0.f));
       }
