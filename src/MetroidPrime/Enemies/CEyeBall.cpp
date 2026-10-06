@@ -229,7 +229,7 @@ void CEyeBall::Active(CStateManager& mgr, EStateMsg msg, float dt) {
 void CEyeBall::PreRender(CStateManager& mgr) {
   CPatterned::PreRender(mgr);
   mBoneTracking.PreRender(mgr, *AnimationData(), GetTransform(),
-                          GetModelScale(), ApplyBoneTracking());
+                          GetModelData()->GetScale(), ApplyBoneTracking());
   mLaserLocatorXf = GetLctrTransform(rstl::string_l(skEyeLocator));
 }
 
