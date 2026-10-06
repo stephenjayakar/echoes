@@ -1256,7 +1256,8 @@ CPlayerGun::CGunMorph::EWipeEvent CPlayerGun::CGunMorph::Update(float inY, float
                                                                 const CPlayer& player) {
   const bool cinematic = player.GetCameraManager()->IsInCinematicCamera();
   EWipeEvent event = kWE_None;
-  if (mGunState == kGS_InWipeDone) {
+  switch (mGunState) {
+  case kGS_InWipeDone:
     mRemHoldTime -= dt;
     if ((mRemHoldTime <= 0.f || cinematic) && mWeaponChanged) {
       StartWipe(kMD_Out);
@@ -1264,32 +1265,38 @@ CPlayerGun::CGunMorph::EWipeEvent CPlayerGun::CGunMorph::Update(float inY, float
       mRemHoldTime = 0.f;
       event = kWE_OutWipeStarted;
     }
+    break;
+  case kGS_OutWipeDone:
+  case kGS_InWipe:
+  case kGS_OutWipe:
+    break;
   }
   if (mMorphing) {
     const float t = mRemTime * mSpeed;
+    const float invT = 1.f - t;
     if (mMorphDirection == kMD_In) {
-      mYLerp = inY * (1.f - t) + outY * t;
+      mYLerp = inY * invT + outY * t;
       mTransitionFactor = t;
     } else {
-      mYLerp = outY * (1.f - t) + inY * t;
-      mTransitionFactor = 1.f - t;
+      mYLerp = outY * invT + inY * t;
+      mTransitionFactor = invT;
     }
-    if (mRemTime > 0.f) {
-      mRemTime -= dt;
-      if (cinematic) {
-        mRemTime = 0.f;
-      }
-    } else {
+    if (mRemTime <= 0.f) {
       mMorphing = false;
       mRemTime = 0.f;
       if (mMorphDirection == kMD_In) {
         mGunState = kGS_InWipeDone;
         mTransitionFactor = 0.f;
       } else {
-        mGunState = kGS_OutWipeDone;
-        mTransitionFactor = 1.f;
-        mMorphDirection = kMD_Done;
         event = kWE_OutWipeFinished;
+        mTransitionFactor = 1.f;
+        mGunState = kGS_OutWipeDone;
+        mMorphDirection = kMD_Done;
+      }
+    } else {
+      mRemTime -= dt;
+      if (cinematic) {
+        mRemTime = 0.f;
       }
     }
   }
@@ -2170,11 +2177,11 @@ void CPlayerGun::CMotionState::Update(bool firing, float dt, CTransform4f& trans
   if (mExtendParabola && mMotionState == kMS_LockOn) {
     const float extendT = mCurrentExtendDistance * (1.f / mExtendDistance);
     CTransform4f other =
-        CTransform4f::RotateZ(CRelAngle::FromDegrees(15.f * -4.f * extendT * (extendT - 1.f)));
+        CTransform4f::RotateZ(CRelAngle::FromDegrees(15.f * (-4.f * extendT * (extendT - 1.f))));
     other.SetTranslation(CVector3f(0.f, mCurrentExtendDistance, 0.f));
     transform = transform * other;
   } else if (mFireState == kFS_StartFire || mFireState == kFS_Firing) {
-    if (fabs(mRotationT - 1.f) < 0.1f) {
+    if (CMath::AbsF(mRotationT - 1.f) < 0.1f) {
       mStartRotation = mEndRotation;
       mRotationT = 0.f;
       if (mFireState == kFS_StartFire) {
@@ -2191,7 +2198,7 @@ void CPlayerGun::CMotionState::Update(bool firing, float dt, CTransform4f& trans
       mCurrentRotation = (mEndRotation - mStartRotation) * mRotationT + mStartRotation;
     }
 
-    mRotationT += (10.f * dt) * 0.8f * (1.f - mRotationT);
+    mRotationT += (10.f * dt) * (0.8f * (1.f - mRotationT));
     const CRelAngle angle = CRelAngle::FromDegrees(mCurrentRotation);
     CQuaternion quat = CQuaternion::AxisAngle(CUnitVector3f(transform.GetForward()), angle);
     CTransform4f rotated = quat.BuildTransform4f() * transform.GetRotation();
@@ -2221,7 +2228,7 @@ void CPlayerGun::CMotionState::Update(bool firing, float dt, CTransform4f& trans
     break;
   }
 
-  if (!mExtendParabola) {
+  if (mExtendParabola != true) {
     if (mExtendParabolaDelayTimer < 30.f) {
       mExtendParabolaDelayTimer += dt;
     } else {
@@ -2313,11 +2320,17 @@ bool CPlayerGun::ButtonRelease(CStateManager& mgr, const float& argument) {
 
 bool CPlayerGun::ShouldHolster(CStateManager& mgr, const float& argument) {
   CPlayer* player = GetPlayer(mgr);
+  const CCameraManager* cameraManager = player->GetCameraManager();
+  bool ret = player->GetPlayerState()->GetCurrentVisor() == CPlayerState::kPV_Scan;
   const CPlayer::EPlayerMorphBallState state = player->GetMorphballTransitionState();
-  return player->GetPlayerState()->GetCurrentVisor() == CPlayerState::kPV_Scan ||
-         state == CPlayer::kMS_Morphing || state == CPlayer::kMS_Morphed ||
-         !player->GetPlayerState()->IsPlayerAlive() ||
-         player->GetCameraManager()->IsInCinematicCamera();
+  bool morphing = false;
+  if (state == CPlayer::kMS_Morphing || state == CPlayer::kMS_Morphed) {
+    morphing = true;
+  }
+  ret |= morphing;
+  ret |= !player->GetPlayerState()->IsPlayerAlive();
+  ret |= cameraManager->IsInCinematicCamera();
+  return ret;
 }
 
 bool CPlayerGun::IsHolstered(CStateManager& mgr, const float& argument) {
