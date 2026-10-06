@@ -61,7 +61,6 @@ public:
   CModelData();
   CModelData(const CAnimRes&);
   CModelData(const CStaticRes&);
-  CModelData(const CModelData& other);
   ~CModelData();
 
   CAdvancementDeltas AdvanceAnimation(float dt, CStateManager& mgr, TAreaId aid, bool advTree,
@@ -136,7 +135,7 @@ public:
   bool IsAnimating() const;
   float GetAnimationDuration(int anim) const;
   void EnableLooping(bool enable);
-  static CModelData CModelDataNull();
+  static CModelData CModelDataNull() { return CModelData(); }
   static EWhichModel GetRenderingModel(const CStateManager& mgr);
   static EWhichModel GetRenderingModel(const CStateManager& mgr, const CPlayerState& playerState);
 
