@@ -92,16 +92,17 @@ TUniqueId CControlHintManager::CreateHint(CStateManager& mgr, const rstl::string
                                           CGameHint::SCallback onBreak, float breakDelay,
                                           int acrossAreas) {
   const rstl::vector< SConnection > connections;
-  CScriptControlHint* hint = rs_new CScriptControlHint(
-      mgr.AllocateUniqueId(), name, CEntityInfo(kInvalidAreaId, connections, true, kUnkId),
+  CEntity* ent = rs_new CScriptControlHint(
+      mgr.AllocateUniqueId(), name,
+      CEntityInfo(kInvalidAreaId, connections, true, kInvalidEditorId),
       CTransform4f::Identity(), priority, timer, disableFlags, commandStates, breakType, 1,
       requiredPresses, unknown16c, onExpire, onBreak, breakDelay, acrossAreas);
-  if (!hint) {
-    return kInvalidUniqueId;
+  if (ent) {
+    mgr.AddObject(ent);
+    AddHint(ent->GetUniqueId(), sender, mgr);
+    return ent->GetUniqueId();
   }
-  mgr.AddObject(hint);
-  AddHint(hint->GetUniqueId(), sender, mgr);
-  return hint->GetUniqueId();
+  return kInvalidUniqueId;
 }
 
 bool CControlHintManager::HasDisableFlags(uint flags, const CStateManager& mgr) const {
