@@ -474,8 +474,10 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
       const float negativeP3 = -p3;
       const float angle = acosf(Clamp(-1.f, q / SqrtF(negativeP3), 1.f));
       const float amplitude = 2.f * powf(negativeP3, 1.f / 6.f);
+      float* out = roots;
       for (float phase = 0.f; phase < 2.01f; phase += 1.f) {
-        roots[count++] = amplitude * cosf((M_PIF * (2.f * phase) + angle) / 3.f) - shift;
+        *out++ = amplitude * cosf((M_PIF * (2.f * phase) + angle) / 3.f) - shift;
+        ++count;
       }
       if (roots[1] < roots[0]) {
         Swap(roots[0], roots[1]);
@@ -492,10 +494,10 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
       float u = powf(fabsf(positive), 1.f / 3.f);
       const float negative = q - root;
       float v = powf(fabsf(negative), 1.f / 3.f);
-      if (!(negative > 0.f)) {
+      if (negative <= 0.f) {
         v = -v;
       }
-      if (!(positive > 0.f)) {
+      if (positive <= 0.f) {
         u = -u;
       }
       roots[0] = u + v - shift;
@@ -504,8 +506,8 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
 
     for (uint i = 0; i < count; ++i) {
       const float x = roots[i];
-      const float derivative =
-          coefficients[1] + x * (2.f * coefficients[2] + coefficients[3] * (3.f * x));
+      const float slope = x * (2.f * coefficients[2] + coefficients[3] * (3.f * x));
+      const float derivative = coefficients[1] + slope;
       if (derivative != 0.f) {
         roots[i] = x - (((coefficients[3] * x + coefficients[2]) * x + coefficients[1]) * x +
                         coefficients[0]) /
@@ -524,6 +526,9 @@ uint CMath::SolveCubic(const float* coefficients, float* roots) {
   } else if (coefficients[1] != 0.f) {
     roots[0] = -coefficients[0] / coefficients[1];
     count = 1;
+  }
+  for (uint i = 0; i < count; ++i) {
+    // Native keeps an empty pass over the roots here (stripped check).
   }
   return count;
 }
