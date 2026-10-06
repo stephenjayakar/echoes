@@ -1,5 +1,6 @@
 #include "MetroidPrime/CAnimData.hpp"
 
+#include "Kyoto/Animation/CAllFormatsAnimSource.hpp"
 #include "Kyoto/Animation/CAnimMathUtils.hpp"
 #include "Kyoto/Animation/CAnimSysContext.hpp"
 #include "Kyoto/Animation/CAnimTreeBlend.hpp"
@@ -144,9 +145,53 @@ void CAnimData::ResetPOILists() {
   mPassedSoundCount = 0;
 }
 
+static inline CCharAnimTime GetSourceDuration(const CAllFormatsAnimSource& source) {
+  switch (source.GetType()) {
+  case 0:
+    return source.AsCAnimSource().GetAnimationDuration();
+  case 2:
+    return source.AsCFBStreamedCompression().GetAnimationDuration();
+  default:
+    return source.AsCAnimSource().GetAnimationDuration();
+  }
+}
+
+static inline float GetSourceAverageVelocity(const CAllFormatsAnimSource& source) {
+  switch (source.GetType()) {
+  case 0:
+    return source.AsCAnimSource().GetAverageVelocity();
+  case 2:
+    return source.AsCFBStreamedCompression().GetAverageVelocity();
+  default:
+    return source.AsCAnimSource().GetAverageVelocity();
+  }
+}
+
 float CAnimData::GetAverageVelocity(int anim) const {
-  // TODO: Weight primitive velocities by their animation durations.
-  return 0.f;
+  const rstl::rc_ptr< IMetaAnim > metaAnim =
+      mAnimMgr->GetMetaAnimation(mCharInfo.GetAnimationIndexList()[anim]);
+  rstl::set< CPrimitive > primitives;
+  metaAnim->GetUniquePrimitives(primitives);
+  float durationAccum = 0.f;
+  float velocityAccum = 0.f;
+  rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+  rstl::set< CPrimitive >::const_iterator end = primitives.end();
+  rstl::set< CPrimitive >::const_iterator it = begin;
+  while (it != end) {
+    const SObjectTag tag('ANIM', it->GetAnimResId());
+    const TLockedToken< CAllFormatsAnimSource > source =
+        mAnimCtx->GetSimplePool().GetObj(tag);
+    const CAllFormatsAnimSource* animSource = *source;
+    velocityAccum +=
+        GetSourceAverageVelocity(*animSource) * GetSourceDuration(*animSource).GetSeconds();
+    durationAccum += GetSourceDuration(**source).GetSeconds();
+    ++it;
+  }
+  float result = 0.f;
+  if (durationAccum > 0.f) {
+    result = velocityAccum / durationAccum;
+  }
+  return result;
 }
 
 // Guessed name.
@@ -484,8 +529,25 @@ void CAnimData::RecalcPoseBuilder(const CCharAnimTime* time) const {
 rstl::ncrc_ptr< CAnimSysContext > CAnimData::GetAnimSysContext() const { return mAnimCtx; }
 
 float CAnimData::GetAnimationDuration(int anim) const {
-  // TODO: Query the selected animation tree's steady-state duration.
-  return 0.f;
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::rc_ptr< IMetaAnim > metaAnim = GetAnimationManager()->GetMetaAnimation(animIdx);
+  rstl::set< CPrimitive > primitives;
+  metaAnim->GetUniquePrimitives(primitives);
+  float duration = 0.f;
+  rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+  rstl::set< CPrimitive >::const_iterator end = primitives.end();
+  rstl::set< CPrimitive >::const_iterator it = begin;
+  while (it != end) {
+    const SObjectTag tag('ANIM', it->GetAnimResId());
+    const TLockedToken< CAllFormatsAnimSource > source =
+        GetAnimSysContext()->GetSimplePool().GetObj(tag);
+    duration += GetSourceDuration(**source).GetSeconds();
+    ++it;
+  }
+  if (metaAnim->GetType() == kMAT_Random) {
+    duration /= primitives.size();
+  }
+  return duration;
 }
 
 float CAnimData::GetAnimTimeRemaining(const rstl::string& name) const {
