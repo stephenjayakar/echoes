@@ -184,22 +184,28 @@ void CGameCollision::BuildAreaCollisionCache(const CStateManager& mgr, CAreaColl
 bool CGameCollision::DetectCollisionBoolean(
     const CStateManager& mgr, const CCollisionPrimitive& primitive, const CTransform4f& transform,
     const CMaterialFilter& filter, const rstl::reserved_vector< TUniqueId, 1024 >& nearList) {
-  if (!filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) &&
+  if (filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) == false &&
       DetectStaticCollisionBoolean(mgr, primitive, transform, filter)) {
     return true;
   }
-  return DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr);
+  if (DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr)) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectCollisionBoolean_Cached(
     const CStateManager& mgr, CAreaCollisionCache& cache, const CCollisionPrimitive& primitive,
     const CTransform4f& transform, const CMaterialFilter& filter,
     const rstl::reserved_vector< TUniqueId, 1024 >& nearList) {
-  if (!filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) &&
+  if (filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) == false &&
       DetectStaticCollisionBoolean_Cached(mgr, cache, primitive, transform, filter)) {
     return true;
   }
-  return DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr);
+  if (DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr)) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectCollision_Cached(
@@ -209,8 +215,10 @@ bool CGameCollision::DetectCollision_Cached(
     CCollisionInfoList& collisions) {
   idOut = kInvalidUniqueId;
   bool hit = false;
-  if (!filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision)) {
-    hit = DetectStaticCollision_Cached(mgr, cache, primitive, transform, filter, collisions);
+  if (filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) == false) {
+    if (DetectStaticCollision_Cached(mgr, cache, primitive, transform, filter, collisions)) {
+      hit = true;
+    }
   }
   TUniqueId dynamicId = kInvalidUniqueId;
   if (DetectDynamicCollision(primitive, transform, nearList, dynamicId, collisions, mgr)) {
@@ -227,9 +235,11 @@ bool CGameCollision::DetectCollision_Cached_Moving(
     TUniqueId& idOut, CCollisionInfo& collision, double& distance) {
   idOut = kInvalidUniqueId;
   bool hit = false;
-  if (!filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision)) {
-    hit = DetectStaticCollision_Cached_Moving(mgr, cache, primitive, transform, filter, direction,
-                                              collision, distance);
+  if (filter.GetExcludeList().HasMaterial(kMT_NoStaticCollision) == false) {
+    if (DetectStaticCollision_Cached_Moving(mgr, cache, primitive, transform, filter, direction,
+                                            collision, distance)) {
+      hit = true;
+    }
   }
   if (DetectDynamicCollisionMoving(primitive, transform, nearList, direction, idOut, collision,
                                    distance, mgr)) {
