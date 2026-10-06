@@ -575,8 +575,11 @@ CVector3f CMotionSpline::GetPositionByLength(float distance) const {
       }
       float t;
       if (mClosedLoop) {
-        t = distance > halfLength ? CMath::Clamp(0.f, (distance - halfLength) / halfLength, 1.f)
-                                  : CMath::Clamp(0.f, distance / halfLength, 1.f);
+        if (distance <= halfLength) {
+          t = CMath::Clamp(0.f, distance / halfLength, 1.f);
+        } else {
+          t = CMath::Clamp(0.f, (distance - halfLength) / halfLength, 1.f);
+        }
       } else {
         t = CMath::Clamp(0.f, distance / mLength, 1.f);
       }
@@ -589,16 +592,24 @@ CVector3f CMotionSpline::GetPositionByLength(float distance) const {
     GetSurroundingPoints(index, points);
     const float t = GetSegmentParameter(distance, index);
     switch (mType) {
-    case kST_CatmullRom:
-      return CMath::GetCatmullRomSplinePoint(points[0], points[1], points[2], points[3], t);
-    case kST_BSpline:
-      return CMath::GetBSplinePoint(points[0], points[1], points[2], points[3], t);
+    case kST_CatmullRom: {
+      const CVector3f& last = points[3];
+      return CMath::GetCatmullRomSplinePoint(points[0], points[1], points[2], last, t);
+    }
+    case kST_BSpline: {
+      const CVector3f& last = points[3];
+      return CMath::GetBSplinePoint(points[0], points[1], points[2], last, t);
+    }
     case kST_Linear:
       return points[1] + t * (points[2] - points[1]);
-    case kST_Bezier:
-      return CMath::GetBezierPoint(points[0], points[1], points[2], points[3], t);
-    case kST_RoundedCatmullRom:
-      return CMath::GetRoundedCatmullRomSplinePoint(points[0], points[1], points[2], points[3], t);
+    case kST_Bezier: {
+      const CVector3f& last = points[3];
+      return CMath::GetBezierPoint(points[0], points[1], points[2], last, t);
+    }
+    case kST_RoundedCatmullRom: {
+      const CVector3f& last = points[3];
+      return CMath::GetRoundedCatmullRomSplinePoint(points[0], points[1], points[2], last, t);
+    }
     }
   }
   return CVector3f::Zero();
@@ -864,26 +875,39 @@ CVector3f CMotionSpline::GetTangentByLength(float distance) const {
     if (mClosedLoop && distance > 0.5f * mLength) {
       tangent = mControlPoints[0] - mControlPoints[1];
     }
+    if (tangent.CanBeNormalized()) {
+      tangent.Normalize();
+    } else {
+      tangent = CVector3f::Forward();
+    }
+    return tangent;
   } else {
     rstl::reserved_vector< CVector3f, 4 > points;
     GetSurroundingPoints(index, points);
     const float t = GetSegmentParameter(distance, index);
     switch (mType) {
-    case kST_CatmullRom:
-      tangent = CMath::GetCatmullRomSplineTangent(points[0], points[1], points[2], points[3], t);
+    case kST_CatmullRom: {
+      const CVector3f& last = points[3];
+      tangent = CMath::GetCatmullRomSplineTangent(points[0], points[1], points[2], last, t);
       break;
-    case kST_BSpline:
-      tangent = CMath::GetBSplineTangent(points[0], points[1], points[2], points[3], t);
+    }
+    case kST_BSpline: {
+      const CVector3f& last = points[3];
+      tangent = CMath::GetBSplineTangent(points[0], points[1], points[2], last, t);
       break;
+    }
     case kST_Linear:
       tangent = points[2] - points[1];
       break;
-    case kST_Bezier:
-      return CMath::GetBezierTangent(points[0], points[1], points[2], points[3], t);
-    case kST_RoundedCatmullRom:
-      tangent =
-          CMath::GetRoundedCatmullRomSplineTangent(points[0], points[1], points[2], points[3], t);
+    case kST_Bezier: {
+      const CVector3f& last = points[3];
+      return CMath::GetBezierTangent(points[0], points[1], points[2], last, t);
+    }
+    case kST_RoundedCatmullRom: {
+      const CVector3f& last = points[3];
+      tangent = CMath::GetRoundedCatmullRomSplineTangent(points[0], points[1], points[2], last, t);
       break;
+    }
     }
   }
   if (tangent.CanBeNormalized()) {
