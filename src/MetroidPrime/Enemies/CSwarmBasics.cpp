@@ -1873,7 +1873,8 @@ void CSwarmBasics::FreezeBoids(const CVector3f& position, float radius) {
 void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
   uint numTargets = mSeekerTargets.size();
   const rstl::reserved_vector< rstl::pair< TUniqueId, float >, 5 >& gunTargets =
-      mgr.GetPlayer(0)->GetPlayerGun()->GetSeekerTargets();
+      mgr.GetPlayer(0)->GetGun()->GetSeekerTargets();
+  uint numGunTargets = gunTargets.size();
   rstl::vector< TUniqueId > lostTargets;
   rstl::vector< uint > keptBoids;
   lostTargets.reserve(numTargets);
@@ -1881,7 +1882,7 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
   for (uint i = 0; i < numTargets; ++i) {
     bool found = false;
     TUniqueId uid = mSeekerTargets[i];
-    for (uint j = 0; j < gunTargets.size(); ++j) {
+    for (uint j = 0; j < numGunTargets; ++j) {
       if (gunTargets[j].first == uid) {
         found = true;
         keptBoids.push_back_unsafe(mSeekerBoidIndices[i]);
@@ -1896,17 +1897,20 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
   rstl::vector< uint > newBoids;
   newBoids.reserve(numLost);
   AssignSeekerBoids(mgr, keptBoids, numLost, newBoids);
-  for (uint i = 0; i < newBoids.size(); ++i) {
+  uint numNew = newBoids.size();
+  for (uint i = 0; i < numNew; ++i) {
+    TUniqueId uid = lostTargets[i];
     for (uint j = 0; j < numTargets; ++j) {
-      if (lostTargets[i] == mSeekerTargets[j]) {
+      if (uid == mSeekerTargets[j]) {
         mSeekerBoidIndices[j] = newBoids[i];
         break;
       }
     }
   }
-  for (uint i = newBoids.size(); i < numLost; ++i) {
+  for (uint i = numNew; i < numLost; ++i) {
+    TUniqueId uid = lostTargets[i];
     for (uint j = 0; j < numTargets; ++j) {
-      if (lostTargets[i] == mSeekerTargets[j]) {
+      if (uid == mSeekerTargets[j]) {
         if (CActor* act = TCastToPtr< CActor >(mgr.ObjectById(mSeekerTargets[j]))) {
           act->SetActive(false);
         }

@@ -383,6 +383,8 @@ public:
   const CControlMapper& GetControlMapper() const { return mControlMapper; }
   CPlayerGun* GetPlayerGun();
   const CPlayerGun* GetPlayerGun() const;
+  // Guessed name: inline gun access used by REL code (the out-of-line accessors above are DOL-only).
+  const CPlayerGun* GetGun() const { return mGun.get(); }
   ETurretState GetTurretState() const { return mTurretState; }
   float GetTurretTimer() const { return mTurretTimer; }
   bool IsInTurret() const;
