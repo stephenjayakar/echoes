@@ -97,8 +97,8 @@ void CScriptCannonBall::TrackedShot::Think(float dt, CStateManager& mgr, int ind
   }
   if (m_b) {
     if (!effect->IsEmitting()) {
-      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, effect->GetUniqueId(),
-                                              kInvalidUniqueId, kSM_Activate, kSS_InvalidState));
+      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, kInvalidUniqueId,
+                                              effect->GetUniqueId(), kSM_Activate, kSS_InvalidState));
       player->GetPlayerState()->SetItemAmount(CPlayerState::kIT_CannonBall, 1);
     }
 
@@ -121,8 +121,8 @@ void CScriptCannonBall::TrackedShot::Think(float dt, CStateManager& mgr, int ind
     }
     if (disable) {
 
-      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, effect->GetUniqueId(),
-                                              kInvalidUniqueId, kSM_Deactivate, kSS_InvalidState));
+      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, kInvalidUniqueId,
+                                              effect->GetUniqueId(), kSM_Deactivate, kSS_InvalidState));
       player->GetPlayerState()->SetItemAmount(CPlayerState::kIT_CannonBall, 0);
       m_b = false;
     }
@@ -131,8 +131,8 @@ void CScriptCannonBall::TrackedShot::Think(float dt, CStateManager& mgr, int ind
     m_f -= dt / 0.25f;
     if (m_f < 0.0f) {
       m_f = 0.0f;
-      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, effect->GetUniqueId(),
-                                              kInvalidUniqueId, kSM_Deactivate, kSS_InvalidState));
+      effect->AcceptScriptMsg(mgr, CScriptMsg(kInvalidUniqueId, kInvalidUniqueId,
+                                              effect->GetUniqueId(), kSM_Deactivate, kSS_InvalidState));
       m_flag2 = false;
     }
   }

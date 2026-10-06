@@ -175,7 +175,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   case kSM_ToggleActive:
     handled = true;
-    AcceptScriptMsg(mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), msg.GetOriginator(),
+    AcceptScriptMsg(mgr, CScriptMsg(msg.GetSenderId(), msg.GetOriginator(), msg.GetId(),
                                     mEmitting ? kSM_Deactivate : kSM_Activate, msg.GetState()));
     break;
   case kSM_AreaLoaded: {

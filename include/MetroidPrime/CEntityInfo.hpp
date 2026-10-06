@@ -278,7 +278,7 @@ public:
   , m_msg(kSM_None)
   , m_state(kSS_InvalidState) {}
 
-  CScriptMsg(TUniqueId sender, TUniqueId id, TUniqueId originator, EScriptObjectMessage msg,
+  CScriptMsg(TUniqueId sender, TUniqueId originator, TUniqueId id, EScriptObjectMessage msg,
              EScriptObjectState state)
   : mSenderId(sender), m_originator(originator), m_id(id), m_msg(msg), m_state(state) {}
 

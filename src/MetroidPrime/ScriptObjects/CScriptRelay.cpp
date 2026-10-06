@@ -18,7 +18,7 @@ void CScriptRelay::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
                      mOriginator != kInvalidUniqueId ? TUniqueId(mOriginator.value) : msg.GetOriginator(),
                      kSM_None);
       if (mOneShot) {
-        CEntity::AcceptScriptMsg(mgr, CScriptMsg(GetUniqueId(), GetUniqueId(), kInvalidUniqueId,
+        CEntity::AcceptScriptMsg(mgr, CScriptMsg(GetUniqueId(), kInvalidUniqueId, GetUniqueId(),
                                                  kSM_Deactivate, kSS_InvalidState));
       }
       break;

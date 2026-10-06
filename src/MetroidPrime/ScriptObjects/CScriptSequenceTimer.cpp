@@ -63,7 +63,7 @@ void CScriptSequenceTimer::ApplyTime(float time, CStateManager& mgr) {
       const SConnection& target = GetConnectionList()[connectionIndex];
       const CStateManager::TIdListResult ids = mgr.GetIdListForScript(target.objId);
       for (CStateManager::TIdList::const_iterator id = ids.first; id != ids.second; ++id) {
-        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), id->second, mStartMessage.GetOriginator(),
+        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), mStartMessage.GetOriginator(), id->second,
                                      target.msg, target.state));
       }
     }
