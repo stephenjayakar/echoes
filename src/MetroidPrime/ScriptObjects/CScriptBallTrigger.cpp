@@ -66,7 +66,7 @@ void CScriptBallTrigger::Think(float dt, CStateManager& mgr) {
 
   CScriptTriggerOrientated::Think(dt, mgr);
 
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     CPlayer& player = *mgr.GetPlayer(i);
     if (mCapturedPlayerIndex != kInvalidPlayerIndex && mCapturedPlayerIndex != i) {
       continue;
@@ -90,8 +90,7 @@ void CScriptBallTrigger::Think(float dt, CStateManager& mgr) {
       if (angleCos < CVector3f::Dot(-direction, mAttractionDirection) &&
           distance < mAttractionDistance) {
         const float attraction = mAttractionForce * (mAttractionDistance / (distance * distance));
-        const float maxForce = 1.f / dt * distance;
-        const float force = rstl::min_val(attraction, maxForce);
+        const float force = rstl::min_val(attraction, 1.f / dt * distance);
         player.ApplyForceWR(force * (player.GetMass() * direction), CAxisAngle::Identity());
       }
     }
@@ -108,7 +107,7 @@ void CScriptBallTrigger::Think(float dt, CStateManager& mgr) {
 
 void CScriptBallTrigger::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   if (msg.GetMessage() == kSM_Deactivate && GetActive()) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       CPlayer& player = *mgr.GetPlayer(i);
       if (HasInhabitant(player.GetUniqueId())) {
         player.GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostAvailable);
