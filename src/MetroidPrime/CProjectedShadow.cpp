@@ -118,17 +118,16 @@ void CProjectedShadow::RenderShadowBuffer(CStateManager& mgr, int count,
     const CModelData& modelData = *models[i];
     const CTransform4f& modelTransform = *transforms[i];
     CGraphics::SetModelMatrix(modelTransform *
-                              CTransform4f::Scale(CVector3f(modelData.GetScale())));
+                              CTransform4f::Scale(modelData.GetScale()));
     if (const CAnimData* animData = modelData.GetAnimationData()) {
       CSkinnedModel& skinnedModel = modelData.PickAnimatedModel(CModelData::kWM_Normal);
       animData->SetupRender();
-      const CModelFlags modelFlags(CModelFlags::kT_Opaque, CColor::White());
-      skinnedModel.DolphinDrawWithFlags(&animData->Pose(), flags == 0 ? 14 : 10, modelFlags);
+      skinnedModel.DolphinDrawWithFlags(&animData->Pose(), (flags == 0 ? 4 : 0) | 10,
+                                        CModelFlags(CModelFlags::kT_Opaque, 1.f));
     } else {
       const TLockedToken< CModel >& model = modelData.PickStaticModel(CModelData::kWM_Normal);
-      const CModelFlags modelFlags(CModelFlags::kT_Opaque, CColor::White());
-      model->PreDrawModel(modelFlags);
-      model->DolphinDrawFlat(static_cast< CModel::EDrawFlatFlags >(flags == 0 ? 2 : 0));
+      model->PreDrawModel(CModelFlags(CModelFlags::kT_Opaque, 1.f));
+      model->DolphinDrawFlat(flags == 0 ? CModel::kDF_All : CModel::kDF_Unsorted);
     }
   }
 
