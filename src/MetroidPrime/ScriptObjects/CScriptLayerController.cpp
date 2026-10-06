@@ -141,8 +141,12 @@ CGameArea* CScriptLayerController::GetAreaForAreaId(CStateManager& mgr, TAreaId 
   return nullptr;
 }
 
+void LoadTypedefMasterLayer(SLdrMasterLayer& sldrThis, CInputStream& input) {
+  sldrThis.areaID = input.ReadInt32();
+  sldrThis.layer = input.ReadInt32();
+}
+
 CEntity* LoadScriptLayerController(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
-  // TODO: the generated master-area default is zero; the native loader uses -1.
   SLdrScriptLayerController sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrScriptLayerController.inc"
   return rs_new CScriptLayerController(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
