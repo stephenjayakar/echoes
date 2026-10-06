@@ -222,7 +222,7 @@ float CPlayer::GetOrbitMaxTargetDistance() const {
   return distance;
 }
 
-float CPlayer::GetOrbitMaxLockDistance() const {
+float CPlayer::GetOrbitMaxLockDistance(CStateManager& mgr) const {
   float distance = GetTweakPlayer()->GetOrbitMaxLockDistance();
   if (mPlayerState->GetCurrentVisor() == CPlayerState::kPV_Scan) {
     distance = GetTweakPlayer()->GetScanMaxLockDistance();
@@ -235,7 +235,7 @@ void CPlayer::UpdateOrbitTarget(CStateManager& mgr) {
     SetOrbitTargetId(kInvalidUniqueId, mgr);
   }
   if (!ValidateOrbitTargetIdAndPointer(GetOrbitNextTargetId(), mgr)) {
-    mOrbitNextTargetId = kInvalidUniqueId;
+    SetOrbitNextTargetId(kInvalidUniqueId);
   }
   CVector3f playerToPoint = mOrbitPoint - GetTranslation();
   playerToPoint.SetZ(0.f);
@@ -244,7 +244,7 @@ void CPlayer::UpdateOrbitTarget(CStateManager& mgr) {
   case kOS_OrbitObject: {
     const CActor* const act = static_cast< const CActor* >(mgr.GetObjectById(GetOrbitTargetId()));
     if (act && act->GetDoTargetDistanceTest() &&
-        (distance >= GetOrbitMaxLockDistance() || distance < .5f)) {
+        (distance >= GetOrbitMaxLockDistance(mgr) || distance < .5f)) {
       if (distance < .5f) {
         SetOrbitRequest(kOR_BadVerticalAngle, mgr);
       } else {
@@ -264,9 +264,8 @@ void CPlayer::UpdateOrbitTarget(CStateManager& mgr) {
     if (distance < CalculateOrbitMinDistance(mOrbitType)) {
       UpdateOrbitPosition(CalculateOrbitMinDistance(mOrbitType), mgr);
     }
-    const float maxDistance = GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType);
-    if (distance > maxDistance) {
-      UpdateOrbitPosition(maxDistance, mgr);
+    if (distance > GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType)) {
+      UpdateOrbitPosition(GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType), mgr);
     }
     if (mLookButtonHeld) {
       SetOrbitPosition(GetTweakPlayer()->GetOrbitNormalDistance(mOrbitType));
@@ -288,9 +287,8 @@ void CPlayer::UpdateOrbitTarget(CStateManager& mgr) {
       UpdateOrbitPosition(CalculateOrbitMinDistance(mOrbitType), mgr);
       mOrbitPointDistance = CalculateOrbitMinDistance(mOrbitType);
     }
-    const float maxDistance = GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType);
-    if (distance > maxDistance) {
-      UpdateOrbitPosition(maxDistance, mgr);
+    if (distance > GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType)) {
+      UpdateOrbitPosition(GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType), mgr);
       mOrbitPointDistance = GetTweakPlayer()->GetOrbitMaxDistance(mOrbitType);
     }
     break;
