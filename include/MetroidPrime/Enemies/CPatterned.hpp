@@ -251,9 +251,10 @@ public:
 
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 
+  CAiKnockBackMgr& KnockBackController() { return mKnockBackController; }
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
-private:
+protected:
   TUniqueId mDestObj;
   CVector3f mDestPos;
   CVector3f mReflectedDestPos;
