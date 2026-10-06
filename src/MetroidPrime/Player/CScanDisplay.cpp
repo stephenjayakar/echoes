@@ -162,21 +162,23 @@ void CScanDisplay::StartScan(TUniqueId uid, const CScannableObjectInfo& info, CG
       mHistoryRight->SetColor(gpTweakGuiColors->GetScanHudHierarchyInactiveFrameColor());
       const int count = mHistory.size();
       for (int i = 0; i < mHistoryWidgets.size(); ++i) {
-        SScanHistoryWidgets& widget = mHistoryWidgets[i];
-        widget.mRoot->SetVisibility(i < count, kTM_Children);
+        mHistoryWidgets[i].mRoot->SetVisibility(i < count, kTM_Children);
         if (i < count) {
           if (i < count - 1) {
-            widget.mHistory->TextSupport().SetFontColor(
+            mHistoryWidgets[i].mHistory->TextSupport().SetFontColor(
                 gpTweakGuiColors->GetScanHudHierarchyTextColor());
-            widget.mDouble->SetColor(gpTweakGuiColors->GetScanHudHierarchyTextFrameColor());
+            mHistoryWidgets[i].mDouble->SetColor(gpTweakGuiColors->GetScanHudHierarchyTextFrameColor());
           } else if (i == count - 1) {
-            widget.mHistory->TextSupport().SetFontColor(
+            mHistoryWidgets[i].mHistory->TextSupport().SetFontColor(
                 gpTweakGuiColors->GetScanHudHierarchyFinalTextColor());
-            widget.mDouble->SetColor(gpTweakGuiColors->GetScanHudHierarchyFinalTextFrameColor());
+            mHistoryWidgets[i].mDouble->SetColor(gpTweakGuiColors->GetScanHudHierarchyFinalTextFrameColor());
           }
           const SScanHierarchyNode& node = mHistory[i];
-          const bool complete = node.mCompletedScans == node.mTotalScans || node.mTotalScans == 0;
-          widget.mFlash->SetColor(
+          bool complete = true;
+          if (node.mCompletedScans != node.mTotalScans && node.mTotalScans != 0) {
+            complete = false;
+          }
+          mHistoryWidgets[i].mFlash->SetColor(
               complete ? gpTweakGuiColors->GetScanHudHierarchyCompleteFlashIconColor()
                        : gpTweakGuiColors->GetScanHudHierarchyFlashIconColor());
         }
@@ -185,12 +187,14 @@ void CScanDisplay::StartScan(TUniqueId uid, const CScannableObjectInfo& info, CG
     mCategoryName = rstl::wstring_l(L"");
     mHistoryStrings.clear();
     mHistoryStrings.reserve(history.size());
-    for (int i = 0; i < history.size(); ++i) {
+    for (rstl::vector< SScanHierarchyNode >::const_iterator it = history.begin();
+         it != history.end(); ++it) {
       mHistoryStrings.push_back_unsafe(TCachedToken< CStringTable >(
-          gpSimplePool->GetObj(SObjectTag('STRG', history[i].mStringTable))));
+          gpSimplePool->GetObj(SObjectTag('STRG', it->mStringTable))));
     }
-    for (int i = 0; i < mHistoryStrings.size(); ++i) {
-      mHistoryStrings[i].Lock();
+    for (rstl::vector< TCachedToken< CStringTable > >::iterator it = mHistoryStrings.begin();
+         it != mHistoryStrings.end(); ++it) {
+      it->Lock();
     }
     if (mScannableInfo) {
       if (mScannableInfo->GetScanTextureId() != kInvalidAssetId) {
@@ -617,132 +621,132 @@ float CScanDisplay::GetTotalDownloadTime() const {
 
 void CScanDisplay::RequestScanDisplay() { mPreparePending = true; }
 
-CScanDisplay::CScanTargetPredicate::~CScanTargetPredicate() {}
-
 void CScanDisplay::PrepareScanDisplay(const CStateManager& mgr, int playerIndex) {
-  if (!mPreparePending || mgr.GetGameState() != CStateManager::kGS_SoftPaused) {
-    return;
-  }
-  mModelObject = kInvalidUniqueId;
-  mWorldModels.clear();
-  CVector3f objectPosition = CVector3f::Zero();
-  mModelRotation = CQuaternion::NoRotation();
-  mModelBounds = CAABox::MakeMaxInvertedBox();
-  if (mScannableInfo && mScannableInfo->UsesScanModel()) {
-    mScanModel = mScannableInfo->CreateStaticModel(0);
-    if (!mScanModel.get() || mScanModel->IsNull() || !mScanModel->IsLoaded(0)) {
-      return;
-    }
-    CAABox bounds = CAABox::MakeMaxInvertedBox();
-    if (mScanModel->GetAnimationData()) {
-      const CModelData::EWhichModel which =
-          CModelData::GetRenderingModel(mgr, *mgr.GetPlayerState(playerIndex));
-      bounds = mScanModel->PickAnimatedModel(which).GetModel()->GetAABB();
-    } else {
-      bounds = mScanModel->GetBounds(CTransform4f::Identity());
-    }
-    mModelBounds.Include(bounds);
-    mScanModel->Touch(CModelData::kWM_Normal, 0);
-    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mObject))) {
-      objectPosition = actor->GetTranslation();
-    }
-  } else {
-    const CPlayer* player = mgr.GetPlayer(playerIndex);
-    const CEntity* entity = mgr.GetObjectById(mObject);
-    const TAreaId areaId = entity ? entity->GetCurrentAreaId() : player->GetCurrentAreaId();
-    const CStaticGeometryMapData& geometry =
-        mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap->GetData();
-    const TEditorId editorId = mgr.GetEditorIdForUniqueId(mObject);
-    const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = geometry.GetMappings();
-    int count = 0;
-    for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-         it != mappings.end(); ++it) {
-      if (it->second == editorId) {
-        ++count;
-      }
-    }
-    mWorldModels.reserve(count);
-    for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-         it != mappings.end(); ++it) {
-      if (it->second == editorId) {
-        mWorldModels.push_back_unsafe(rstl::pair< TAreaId, int >(areaId, it->first));
-        mModelBounds.Include(gpRender->GetAreaModelBounds(areaId.Value(), it->first));
-      }
-    }
-    if (count == 0) {
-      const CActor* actor = nullptr;
-      const CPatterned* patterned = nullptr;
-      if (TCastToConstPtr< CScriptPointOfInterest >(mgr.GetObjectById(mObject))) {
-        const CObjectList& actors = mgr.GetObjectListById(kOL_Actor);
-        for (int i = actors.GetFirstObjectIndex(); i != -1; i = actors.GetNextObjectIndex(i)) {
-          actor = TCastToConstPtr< CActor >(actors[i]);
-          if (actor && actor->GetActive() && actor->HasModelData()) {
-            const CScanTargetPredicate predicate(mObject);
-            if (actor->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None, predicate) ==
-                mObject) {
-              break;
-            }
-          }
-          actor = nullptr;
+  if (mPreparePending && mgr.GetGameState() == CStateManager::kGS_SoftPaused) {
+    mModelObject = kInvalidUniqueId;
+    mWorldModels.clear();
+    CVector3f objectPosition = CVector3f::Zero();
+    mModelRotation = CQuaternion::NoRotation();
+    mModelBounds = CAABox::MakeMaxInvertedBox();
+    if (mScannableInfo && mScannableInfo->UsesScanModel()) {
+      mScanModel = mScannableInfo->CreateStaticModel(0);
+      if (mScanModel.get() && !mScanModel->IsNull() && mScanModel->IsLoaded(0)) {
+        CAABox bounds = CAABox::MakeMaxInvertedBox();
+        const CModelData* model = mScanModel.get();
+        if (model->GetAnimationData()) {
+          bounds = model->PickAnimatedModel(
+                            CModelData::GetRenderingModel(mgr, *mgr.GetPlayerState(playerIndex)))
+                       .GetModel()
+                       ->GetAABB();
+        } else {
+          bounds = model->GetBounds(CTransform4f::Identity());
+        }
+        mModelBounds.Include(bounds);
+        mScanModel->Touch(CModelData::kWM_Normal, 0);
+        if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mObject))) {
+          objectPosition = actor->GetTranslation();
         }
       } else {
-        actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mObject));
-        patterned = TCastToConstPtr< CPatterned >(actor);
+        return;
       }
-      if (patterned && patterned->IsScanVisorSelfRender()) {
-        mModelBounds = patterned->GetScanVisorRenderBounds(mgr);
-        mModelObject = patterned->GetUniqueId();
-        objectPosition = patterned->GetTranslation();
-        mModelRotation = CQuaternion::FromMatrix(patterned->GetTransform());
-      } else if (actor && actor->HasModelData()) {
-        const CModelData& model = *actor->GetModelData();
-        if (!model.IsNull()) {
-          mModelObject = actor->GetUniqueId();
-          CAABox bounds = CAABox::MakeMaxInvertedBox();
-          if (model.GetAnimationData()) {
-            const CAABox modelBounds = model.GetAnimationData()->CalcBoundingBoxFromModelVerts();
-            for (float angle = 0.f; angle < 60.f; angle += 15.f) {
-              const CTransform4f rotation = CTransform4f::RotateZ(CRelAngle::FromDegrees(angle));
-              const CTransform4f pivot = CTransform4f::Translate(modelBounds.GetCenterPoint()) *
-                                         rotation *
-                                         CTransform4f::Translate(-modelBounds.GetCenterPoint());
-              bounds = modelBounds.GetTransformedAABox(
-                  CTransform4f::Translate(-actor->GetTranslation()) * actor->GetTransform() *
-                  CTransform4f::Scale(model.GetScale()) * pivot);
-            }
-          } else {
-            const CAABox modelBounds = model.GetBounds();
-            for (float angle = 0.f; angle < 60.f; angle += 15.f) {
-              const CTransform4f rotation = CTransform4f::RotateZ(CRelAngle::FromDegrees(angle));
-              const CTransform4f pivot = CTransform4f::Translate(modelBounds.GetCenterPoint()) *
-                                         rotation *
-                                         CTransform4f::Translate(-modelBounds.GetCenterPoint());
-              bounds.Include(model.GetBounds(actor->GetTransform().GetRotation() * pivot));
+    } else {
+      const CPlayer* player = mgr.GetPlayer(playerIndex);
+      const CEntity* entity = mgr.GetObjectById(mObject);
+      const TAreaId areaId = entity ? entity->GetCurrentAreaId() : player->GetCurrentAreaId();
+      const CStaticGeometryMapData& geometry =
+          mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap->GetData();
+      const TEditorId editorId = mgr.GetEditorIdForUniqueId(mObject);
+      const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = geometry.GetMappings();
+      int count = 0;
+      for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
+           it != mappings.end(); ++it) {
+        if (it->second == editorId) {
+          ++count;
+        }
+      }
+      mWorldModels.reserve(count);
+      for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
+           it != mappings.end(); ++it) {
+        if (it->second == editorId) {
+          mWorldModels.push_back_unsafe(rstl::pair< TAreaId, int >(areaId, it->first));
+          mModelBounds.Include(gpRender->GetAreaModelBounds(areaId.Value(), it->first));
+        }
+      }
+      if (count == 0) {
+        const CActor* actor = nullptr;
+        const CPatterned* patterned = nullptr;
+        if (!TCastToConstPtr< CScriptPointOfInterest >(mgr.GetObjectById(mObject))) {
+          actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mObject));
+          patterned = TCastToConstPtr< CPatterned >(actor);
+        } else {
+          const CObjectList& actors = mgr.GetObjectListById(kOL_Actor);
+          for (int i = actors.GetFirstObjectIndex(); i != -1; i = actors.GetNextObjectIndex(i)) {
+            const CActor* candidate = TCastToConstPtr< CActor >(actors[i]);
+            if (candidate && candidate->GetActive() && candidate->HasModelData()) {
+              if (candidate->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None,
+                                                     CScanTargetPredicate(mObject)) == mObject) {
+                actor = candidate;
+                break;
+              }
             }
           }
-          mModelBounds.Include(bounds);
-          objectPosition = actor->GetTranslation();
-          mModelRotation = CQuaternion::FromMatrix(actor->GetTransform());
+        }
+        if (patterned && patterned->IsScanVisorSelfRender()) {
+          mModelBounds = patterned->GetScanVisorRenderBounds(mgr);
+          mModelObject = patterned->GetUniqueId();
+          objectPosition = patterned->GetTranslation();
+          mModelRotation = CQuaternion::FromMatrix(patterned->GetTransform());
+        } else if (actor && actor->HasModelData()) {
+          const CModelData& model = *actor->GetModelData();
+          if (!model.IsNull()) {
+            mModelObject = actor->GetUniqueId();
+            CAABox bounds = CAABox::MakeMaxInvertedBox();
+            if (model.GetAnimationData()) {
+              const CAABox modelBounds = actor->GetModelData()->GetAnimationData()->CalcBoundingBoxFromModelVerts();
+              for (float angle = 0.f; angle < 60.f; angle += 15.f) {
+                const CTransform4f rotation = CTransform4f::RotateZ(CRelAngle::FromDegrees(angle));
+                const CTransform4f pivot = CTransform4f::Translate(modelBounds.GetCenterPoint()) *
+                                           rotation *
+                                           CTransform4f::Translate(-modelBounds.GetCenterPoint());
+                bounds = modelBounds.GetTransformedAABox(
+                    CTransform4f::Translate(-actor->GetTranslation()) * actor->GetTransform() *
+                    CTransform4f::Scale(model.GetScale()) * pivot);
+              }
+            } else {
+              const CAABox modelBounds = model.GetBounds();
+              for (float angle = 0.f; angle < 60.f; angle += 15.f) {
+                const CTransform4f rotation = CTransform4f::RotateZ(CRelAngle::FromDegrees(angle));
+                const CTransform4f pivot = CTransform4f::Translate(modelBounds.GetCenterPoint()) *
+                                           rotation *
+                                           CTransform4f::Translate(-modelBounds.GetCenterPoint());
+                bounds.Include(model.GetBounds(actor->GetTransform().GetRotation() * pivot));
+              }
+            }
+            mModelBounds.Include(bounds);
+            objectPosition = actor->GetTranslation();
+            mModelRotation = CQuaternion::FromMatrix(actor->GetTransform());
+          }
         }
       }
     }
+    mPreparePending = false;
+    mStartScale = CVector3f(1.f, 1.f, 1.f);
+    const float width = mModelBounds.GetWidth();
+    float largestDimension = rstl::max_val(width, mModelBounds.GetDepth());
+    largestDimension = rstl::max_val(largestDimension, mModelBounds.GetHeight());
+    const float scale = gpTweakGui->GetScanObjectModelScale() / largestDimension;
+    mEndScale = CVector3f(scale, scale, scale);
+    const CCameraManager& cameras = *mgr.GetCameraManager(playerIndex);
+    const CTransform4f& camera = cameras.GetCurrentCameraTransform(mgr, true);
+    mStartAspect = cameras.GetCurrentCamera(mgr, true)->GetAspectRatio();
+    mStartFov = cameras.GetCurrentCamera(mgr, true)->GetFov();
+    mEndFov = mStartFov;
+    mStartRotation = CQuaternion::FromMatrix(camera).BuildInverted();
+    mEndRotation = CQuaternion::NoRotation();
+    mStartPosition = -camera.GetTranslation() + objectPosition;
+    mEndPosition = -mModelBounds.GetCenterPoint();
+    mModelTransition = 0.f;
   }
-  mPreparePending = false;
-  mStartScale = CVector3f(1.f, 1.f, 1.f);
-  const float largestDimension = rstl::max_val(
-      rstl::max_val(mModelBounds.GetWidth(), mModelBounds.GetDepth()), mModelBounds.GetHeight());
-  const float scale = gpTweakGui->GetScanObjectModelScale() / largestDimension;
-  mEndScale = CVector3f(scale, scale, scale);
-  const CCameraManager& cameras = *mgr.GetCameraManager(playerIndex);
-  const CTransform4f camera = cameras.GetCurrentCameraTransform(mgr, true);
-  mStartAspect = cameras.GetCurrentCamera(mgr, true)->GetAspectRatio();
-  mStartFov = cameras.GetCurrentCamera(mgr, true)->GetFov();
-  mEndFov = mStartFov;
-  mStartRotation = CQuaternion::FromMatrix(camera).BuildInverted();
-  mEndRotation = CQuaternion::NoRotation();
-  mStartPosition = -camera.GetTranslation() + objectPosition;
-  mEndPosition = -mModelBounds.GetCenterPoint();
-  mModelTransition = 0.f;
 }
 
 float CScanDisplay::GetDownloadStartTime(int historyIndex) const {

@@ -55,7 +55,7 @@ private:
     explicit CScanTargetPredicate(TUniqueId object) : mObject(object) {}
 
     // CValidEntityPredicate
-    ~CScanTargetPredicate();
+    ~CScanTargetPredicate() {}
     bool IsValid(const CStateManager& mgr, TUniqueId id) const override;
 
   private:
