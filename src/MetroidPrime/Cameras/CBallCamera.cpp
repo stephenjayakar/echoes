@@ -842,24 +842,26 @@ CVector3f CBallCamera::InterpolateCameraElevation(CVector3f position, float dt) 
   return position;
 }
 
-bool CBallCamera::ShouldResetSpline(CStateManager& mgr) const {
-  if (mState == kBCS_ToBall ||
-      Player(mgr).GetMorphBall()->GetBallState() == CMorphBall::kBS_Spider ||
-      mSplineState != kBSS_Invalid) {
-    return false;
+uchar CBallCamera::ShouldResetSpline(CStateManager& mgr) const {
+  bool ret = false;
+  if (mState != kBCS_ToBall &&
+      Player(mgr).GetMorphBall()->GetBallState() != CMorphBall::kBS_Spider &&
+      mSplineState == kBSS_Invalid) {
+    switch (mBehaviour) {
+    case kBCB_Unknown4:
+    case kBCB_Unknown5:
+    case kBCB_Unknown6:
+    case kBCB_Unknown7:
+    case kBCB_Unknown8:
+    case kBCB_Unknown9:
+    case kBCB_FixedTransform:
+      break;
+    default:
+      ret = true;
+      break;
+    }
   }
-  switch (mBehaviour) {
-  case kBCB_Unknown4:
-  case kBCB_Unknown5:
-  case kBCB_Unknown6:
-  case kBCB_Unknown7:
-  case kBCB_Unknown8:
-  case kBCB_Unknown9:
-  case kBCB_FixedTransform:
-    return false;
-  default:
-    return true;
-  }
+  return ret;
 }
 
 void CBallCamera::BuildSpline(CStateManager& mgr) {
@@ -1989,11 +1991,13 @@ void CBallCamera::SetState(EBallCameraState state, CStateManager& mgr) {
     const CTransform4f xf = CameraManager(mgr).GetFirstPersonCamera()->GetTransform();
     SetTransform(xf);
     TeleportCamera(xf.GetTranslation(), mgr);
-    InterpolateFOV(CameraManager(mgr).GetFirstPersonCamera()->GetFov(), 1.f, 0.f, GetUniqueId(),
-                   mgr);
+    const CFirstPersonCamera* fpCam = CameraManager(mgr).GetFirstPersonCamera();
+    InterpolateFOV(fpCam->GetFov(), 1.f, 0.f, GetUniqueId(), mgr);
     InvalidateSpline();
   }
   case kBCS_Default:
+    mgr.SetGameState(CStateManager::kGS_Running);
+    break;
   case kBCS_Chase:
   case kBCS_Boost:
     mgr.SetGameState(CStateManager::kGS_Running);

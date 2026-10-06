@@ -510,8 +510,8 @@ void CCameraManager::SetupInterpolation(const CTransform4f& xf, TUniqueId from, 
 void CCameraManager::CinematicCut(CStateManager& mgr) {
   if (IsInCinematicCamera()) {
     mBallCamera->TeleportCamera(mCinematicCamera->GetTransform(), mgr);
-    mBallCamera->InterpolateFOV(mCinematicCamera->GetFov(), 1.f, 0.f, mBallCamera->GetUniqueId(),
-                                mgr);
+    const CCinematicCamera* cine = mCinematicCamera;
+    mBallCamera->InterpolateFOV(cine->GetFov(), 1.f, 0.f, mBallCamera->GetUniqueId(), mgr);
     StopCinematics(mgr);
   }
 }
