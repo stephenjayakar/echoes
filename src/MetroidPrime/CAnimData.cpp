@@ -268,18 +268,19 @@ bool CAnimData::IsAnimTimeRemaining(float tolerance, const rstl::string& name) c
 
 CTransform4f CAnimData::GetLocatorTransform(const rstl::string& name,
                                             const CCharAnimTime* time) const {
-  return GetLocatorTransform(mLayoutData->GetSegIdFromString(name), time);
+  CSegId id = mLayoutData->GetSegIdFromString(name);
+  return GetLocatorTransform(id, time);
 }
 
 CTransform4f CAnimData::GetLocatorTransform(CSegId id, const CCharAnimTime* time) const {
-  if (id == CSegId::Invalid()) {
-    return CTransform4f::Identity();
+  if (id != CSegId::Invalid()) {
+    if (time != nullptr || !mPoseBuilt) {
+      RecalcPoseBuilder(time);
+      mPoseBuilt = time == nullptr;
+    }
+    return CTransform4f(mPose.GetRotation(id), mPose.GetOffset(id));
   }
-  if (time != nullptr || !mPoseBuilt) {
-    RecalcPoseBuilder(time);
-    mPoseBuilt = time == nullptr;
-  }
-  return CTransform4f(mPose.GetRotation(id), mPose.GetOffset(id));
+  return CTransform4f::Identity();
 }
 
 void CAnimData::CalcPlaybackAlignmentParms(const CAnimPlaybackParms& parms,
@@ -411,14 +412,18 @@ void CAnimData::AddAdditiveAnimation(uint idx, float weight, bool active, bool f
 
 void CAnimData::DelAdditiveAnimation(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
-  for (TAdditiveAnims::iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end(); ++it) {
-    if (it->first == anim) {
-      const CAdditiveAnimPlayback::EPlaybackPhase phase = it->second.GetFadingMode();
-      if (phase != CAdditiveAnimPlayback::kPP_FadingOut &&
-          phase != CAdditiveAnimPlayback::kPP_FadedOut) {
-        it->second.FadeOut();
-      }
-      return;
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
+    }
+  }
+  if (it != mAdditiveAnims.end()) {
+    CAdditiveAnimPlayback& playback = it->second;
+    const CAdditiveAnimPlayback::EPlaybackPhase phase = playback.GetFadingMode();
+    if (phase != CAdditiveAnimPlayback::kPP_FadingOut &&
+        phase != CAdditiveAnimPlayback::kPP_FadedOut) {
+      playback.FadeOut();
     }
   }
 }
@@ -426,7 +431,7 @@ void CAnimData::DelAdditiveAnimation(uint idx) {
 void CAnimData::DelAdditiveAnimationImmediately(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end(); ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       mAdditiveAnims.erase(it);
       return;
     }
@@ -437,7 +442,7 @@ float CAnimData::GetAdditiveAnimationWeight(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
        ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       return it->second.GetWeight();
     }
   }
@@ -448,7 +453,7 @@ bool CAnimData::IsAdditiveAnimationActive(uint idx) const {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
        ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       return true;
     }
   }
@@ -457,13 +462,16 @@ bool CAnimData::IsAdditiveAnimationActive(uint idx) const {
 
 rstl::rc_ptr< CAnimTreeNode > CAnimData::GetAdditiveAnimationTree(uint idx) const {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
-  for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
-       ++it) {
-    if (it->first == anim) {
-      return it->second.GetAnimationTree();
+  TAdditiveAnims::const_iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
     }
   }
-  return rstl::rc_ptr< CAnimTreeNode >(nullptr);
+  if (it == mAdditiveAnims.end()) {
+    return rstl::rc_ptr< CAnimTreeNode >(nullptr);
+  }
+  return it->second.GetAnimationTree();
 }
 
 const rstl::ncrc_ptr< CAnimTreeNode >& CAnimData::GetAnimationTree() const { return mAnimRoot; }
