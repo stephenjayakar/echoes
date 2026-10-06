@@ -164,12 +164,13 @@ void Buckets::Insert(const CVector3f& pos, const CAABox& bounds, EDrawableType t
 void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bounds,
                                 bool invertTest, const CPlane& plane, bool zOnly,
                                 EDrawableType type, const void* data) {
-  if (sPlaneObjectData->size() == sPlaneObjectData->capacity()) {
+  PlaneList& planes = *sPlaneObjectData;
+  if (planes.size() == planes.capacity()) {
     return;
   }
 
-  sPlaneObjectData->push_back(CDrawablePlaneObject(type, closeDistance, farDistance, bounds,
-                                                   invertTest, plane, zOnly, data));
+  planes.push_back(CDrawablePlaneObject(type, closeDistance, farDistance, bounds, invertTest, plane,
+                                        zOnly, data));
 }
 
 namespace Buckets {
