@@ -36,7 +36,6 @@
 #include <stdio.h>
 
 // These native helpers are outlined in this module, so they are inline in its headers.
-inline CModelData CModelData::CModelDataNull() { return CModelData(); }
 inline void CArchitectureQueue::Push(const CArchitectureMessage& msg) { mQueue.push_back(msg); }
 
 // Guessed names; IOWin priorities passed by reference to the slide show message.
