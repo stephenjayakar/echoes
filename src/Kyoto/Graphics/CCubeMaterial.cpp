@@ -4,6 +4,7 @@
 #include "Kyoto/Basics/CStopwatch.hpp"
 #include "Kyoto/Graphics/CCubeModel.hpp"
 #include "Kyoto/Graphics/CCubeSurface.hpp"
+#include "Kyoto/Graphics/CDisplayListReader.hpp"
 #include "Kyoto/Graphics/CGX.hpp"
 #include "Kyoto/Graphics/CGX_Impl.hpp"
 #include "Kyoto/Graphics/CGraphics.hpp"
@@ -16,10 +17,11 @@
 
 #include "MetaRender/CCubeRenderer.hpp"
 
+#include "rstl/math.hpp"
+
 #include <dolphin/mtx.h>
 #include <string.h>
 
-extern "C" int fn_8033B70C(uint vtxDesc, int attr);
 
 typedef void (*TTevHandler)(const uint*& materialData, uint firstTev, uint& tevCount,
                             uint& tcgCount);
@@ -307,7 +309,8 @@ static void HandleAlphaMask(uint vtxDesc, uint& tevCount, uint& texCount, uint& 
 
 static void SetupAlphaMaskVtxDesc(uint vtxDesc) {
   CGX::SetVtxDescv_Compressed(vtxDesc);
-  if (fn_8033B70C(vtxDesc, GX_VA_TEX6MTXIDX) == GX_DIRECT && sAlphaMaskTexCoord < 8) {
+  if (CDisplayListReader::GetAttributeType(vtxDesc, GX_VA_TEX6MTXIDX) == GX_DIRECT &&
+      sAlphaMaskTexCoord < 8) {
     CGX::SetVtxDesc(GX_VA_TEX6MTXIDX, GX_NONE);
     CGX::SetVtxDesc(static_cast< GXAttr >(sAlphaMaskTexCoord + GX_VA_TEX0MTXIDX), GX_DIRECT);
   }
@@ -938,7 +941,7 @@ void CCubeMaterial::EnsureViewDepStateCached(const CCubeSurface* surface) {
 
   const CVector3f distVec = modelPoint - playerPoint;
   const float dist = distVec.Magnitude();
-  const float reflDist = CMath::Max(gkEpsilon32, dist - 0.5f * radius);
+  const float reflDist = rstl::max_val(dist - 0.5f * radius, gkEpsilon32);
 
   if (reflDist >= 5.f) {
     sReflectionAlpha = 0.f;
