@@ -832,40 +832,34 @@ void CPlayerGun::UpdateTimers(float dt, CStateManager& mgr) {
   if (mMuzzleEffectVisTimer > 0.f) {
     mMuzzleEffectVisTimer -= dt;
   }
-  if (mRapidFireDecayTimer >= 0.2f) {
+  if (mRapidFireDecayTimer < 0.2f) {
+    mRapidFireDecayTimer += dt;
+  } else {
     mRapidFireDecayTimer = 0.f;
     if (mRapidFireShots > 0) {
       --mRapidFireShots;
     }
-  } else {
-    mRapidFireDecayTimer += dt;
   }
-  if ((mInputFlags & 0xd) == 0) {
-    if (mTimeSinceFire < 2.f) {
-      mTimeSinceFire += dt;
-      if (mTimeSinceFire > 1.f) {
-        mRapidFireShots = 0;
-        mShotSmokeTimer = 0.f;
-      }
-    }
-  } else {
+  if ((mInputFlags & 0xd) != 0) {
     mTimeSinceFire = 0.f;
+  } else if (mTimeSinceFire < 2.f) {
+    mTimeSinceFire += dt;
+    if (mTimeSinceFire > 1.f) {
+      mRapidFireShots = 0;
+      mShotSmokeTimer = 0.f;
+    }
   }
   if (mInBigStrike) {
-    if (mBigStrikeTimer <= 0.f) {
-      if (mGunMotionReturningFromStrike) {
-        if (!mGunMotion->GetModelData().GetAnimationData()->IsAnimTimeRemaining(
-                0.001f, rstl::string("Whole Body"))) {
-          mInBigStrike = false;
-          mGunMotionReturningFromStrike = false;
-        }
-      } else {
-        mBigStrikeTimer = 0.f;
-        mGunMotionReturningFromStrike = true;
-        mGunMotion->BasePosition(true);
-      }
-    } else {
+    if (mBigStrikeTimer > 0.f) {
       mBigStrikeTimer -= dt;
+    } else if (mGunMotionReturningFromStrike != true) {
+      mBigStrikeTimer = 0.f;
+      mGunMotionReturningFromStrike = true;
+      mGunMotion->BasePosition(true);
+    } else if (!mGunMotion->GetModelData().GetAnimationData()->IsAnimTimeRemaining(
+                   0.001f, rstl::string_l("Whole Body"))) {
+      mInBigStrike = false;
+      mGunMotionReturningFromStrike = false;
     }
   }
   if (mRapidFireShots > 5 && mShotSmokeTimer < 2.f) {
@@ -2047,25 +2041,27 @@ void CPlayerGun::FireBombs(CStateManager& mgr) {
 
   CPlayerState* state = GetPlayerFromAll(mgr)->GetPlayerState();
   bool bombReady = true;
-  if (mPowerBombId != kInvalidUniqueId &&
-      !mgr.CanCreateProjectile(mPlayerUniqueId, kWT_PowerBomb, 1)) {
+  const TUniqueId playerId = mPlayerUniqueId;
+  if (mPowerBombId != kInvalidUniqueId && !mgr.CanCreateProjectile(playerId, kWT_PowerBomb, 1)) {
     const CPowerBomb* powerBomb = static_cast< const CPowerBomb* >(mgr.GetObjectById(mPowerBombId));
-    if (powerBomb == nullptr || powerBomb->IsEnding()) {
-      mPowerBombId = kInvalidUniqueId;
-    } else {
+    if (powerBomb != nullptr && !powerBomb->IsEnding()) {
       bombReady = false;
+    } else {
+      mPowerBombId = kInvalidUniqueId;
     }
   }
 
-  if ((mPressedInputFlags & 2) == 0) {
-    if (state->GetItemAmount(CPlayerState::kIT_MorphBallBombs, true) != 0 && bombReady &&
-        (mPressedInputFlags & 1) != 0) {
-      DropBomb(kBW_Bomb, mgr);
+  const bool bombPressed = (mPressedInputFlags & 1) != 0;
+  if ((mPressedInputFlags & 2) != 0) {
+    const bool hasPowerBomb = state->GetItemAmount(CPlayerState::kIT_Powerbomb, true) > 0 &&
+                              mgr.CanCreateProjectile(playerId, kWT_Bomb, 1);
+    const bool canDrop = hasPowerBomb && mgr.CanCreateProjectile(playerId, kWT_PowerBomb, 1);
+    if (canDrop) {
+      DropBomb(kBW_PowerBomb, mgr);
     }
-  } else if (state->GetItemAmount(CPlayerState::kIT_Powerbomb, true) > 0 &&
-             mgr.CanCreateProjectile(mPlayerUniqueId, kWT_Bomb, 1) &&
-             mgr.CanCreateProjectile(mPlayerUniqueId, kWT_PowerBomb, 1)) {
-    DropBomb(kBW_PowerBomb, mgr);
+  } else if (state->GetItemAmount(CPlayerState::kIT_MorphBallBombs, true) != 0 && bombReady &&
+             bombPressed) {
+    DropBomb(kBW_Bomb, mgr);
   }
 }
 
