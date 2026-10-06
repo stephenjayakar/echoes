@@ -325,6 +325,7 @@ MetroidPrime/ScriptObjects/CScriptGenerator.cpp:
 
 MetroidPrime/ScriptObjects/CScriptCameraWaypoint.cpp:
 	.text       start:0x800A5474 end:0x800A5740
+	.rodata     start:0x803A7BF8 end:0x803A7C00
 	.data       start:0x803B32E0 end:0x803B3378
 
 MetroidPrime/CGameLight.cpp:
