@@ -145,11 +145,11 @@ CScriptDebris::CScriptDebris(
     const CVector3f& particle2Scale, EOrientationType particleOr2, bool solid, bool dieOnProjectile,
     bool noBounce, bool constrainAngularImpulse, bool flickerOnFadeOut,
     float disablePhysicsThreshold, bool keepGeneratedObject, bool alternateStepData)
-: CPhysicsActor(uid, name, info, 0, xf, model, skDebrisMaterials,
+: CPhysicsActor(uid, name, info, 0, xf, model, CMaterialList(kMT_Unknown59, kMT_Debris),
                 model.IsNull() ? CAABox(-0.5f * scale, 0.5f * scale)
                                : model.GetBounds(xf.GetRotation()),
                 SMoverData(1.f), params,
-                alternateStepData ? StepData(0.3f, 0.1f, 1) : StepData(0.3f, 0.3f, 0))
+                alternateStepData ? StepData(0.3f, 0.1f, 1) : CPhysicsActor::skDefaultStepData)
 , mVelocity(CVector3f::Zero())
 , mColor(color)
 , mEndsColor(endsColor)
