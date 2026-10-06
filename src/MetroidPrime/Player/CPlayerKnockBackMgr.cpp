@@ -126,7 +126,7 @@ void CPlayerKnockBackMgr::ResetEffects(CStateManager& mgr, CPlayer& player) {
 }
 
 float CPlayerKnockBackMgr::GetBurnDeathAlpha() const {
-  return mBurnDeath ? mBurnDeathRemainingTime * 0.5f : 1.f;
+  return mBurnDeath ? mBurnDeathRemainingTime / 2.f : 1.f;
 }
 
 bool CPlayerKnockBackMgr::IsAlive(const CActor& actor) const {
@@ -145,7 +145,10 @@ CKnockBackMgr::ECharacterState CPlayerKnockBackMgr::GetCharacterState(const CAct
 
 bool CPlayerKnockBackMgr::HasAnimReaction(const CActor& actor, EAnimReaction reaction) const {
   const int state = skAnimationStates[reaction];
-  return state != -1 && actor.GetAnimationData()->GetPASDatabase().HasState(state);
+  if (state != -1) {
+    return actor.GetAnimationData()->GetPASDatabase().HasState(state);
+  }
+  return false;
 }
 
 void CPlayerKnockBackMgr::DoKnockBackAnimation(const CVector3f& direction, CStateManager& mgr,
