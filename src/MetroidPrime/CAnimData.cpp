@@ -579,12 +579,13 @@ bool CAnimData::IsAdditiveAnimation(uint idx) const {
 
 SAdvancementResults CAnimData::AdvanceAdditiveAnim(rstl::rc_ptr< CAnimTreeNode >& tree,
                                                    CCharAnimTime time) {
-  // TODO: Advance and simplify the additive tree, preserving its unconsumed time.
-  SAdvancementResults result;
-  result.mRemTime = time;
-  result.mDeltas.mPosDelta = CVector3f::Zero();
-  result.mDeltas.mRotDelta = CQuaternion::NoRotation();
-  return result;
+  const SAdvancementResults results = tree->VAdvanceView(time);
+  const rstl::optional_object< rstl::ownership_transfer< IAnimReader > > simplified =
+      tree->Simplified();
+  if (simplified.valid()) {
+    tree = Cast(simplified.data());
+  }
+  return results;
 }
 
 CAdvancementDeltas CAnimData::UpdateAdditiveAnims(float dt) {
