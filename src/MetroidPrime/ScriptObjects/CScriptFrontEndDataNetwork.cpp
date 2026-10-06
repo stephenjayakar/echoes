@@ -1065,7 +1065,8 @@ uchar CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CStat
     handled = true;
     if (!mRotationSfx) {
       mRotationSfx = CSfxManager::SfxStart(mRotationSound, mRotationSoundVolume, 0x3f,
-                                           mgr.GetNextAreaId().Value(), true, true);
+                                           mgr.GetNextAreaId().Value(), true, true,
+                                           short(CSfxManager::kMedPriority));
     }
   } else if (mRotationSfx) {
     CSfxManager::SfxStop(mRotationSfx);
