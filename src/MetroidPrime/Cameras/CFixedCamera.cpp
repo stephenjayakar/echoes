@@ -156,7 +156,7 @@ void CFixedCamera::Think(float dt, CStateManager& mgr) {
       SetFovAndTarget(info.GetFov());
     }
   }
-  SetTransform(ValidateCameraTransform(GetTransform(), oldXf));
+  SetTransform(ValidateCameraTransform(GetTransform(), oldXf, dt));
   CActor::Think(dt, mgr);
 }
 
