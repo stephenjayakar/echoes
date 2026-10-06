@@ -17,23 +17,27 @@ CEntity* LoadCounter(CStateManager& mgr, CInputStream& input, CEntityInfo& info)
 void CScriptCounter::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   const EScriptObjectMessage message = msg.GetMessage();
 
-  if (GetActive()) {
-    switch (message) {
-    case kSM_SetToZero:
+  switch (message) {
+  case kSM_SetToZero:
+    if (GetActive()) {
       mCurrent = 0;
       SendScriptMsgs(kSS_Zero, mgr);
       if (mAutoReset) {
         mCurrent = mInitial;
       }
-      break;
-    case kSM_SetToMax:
+    }
+    break;
+  case kSM_SetToMax:
+    if (GetActive()) {
       mCurrent = mMax;
       SendScriptMsgs(kSS_MaxReached, mgr);
       if (mAutoReset) {
         mCurrent = mInitial;
       }
-      break;
-    case kSM_Decrement:
+    }
+    break;
+  case kSM_Decrement:
+    if (GetActive()) {
       if (mCurrent == 0 && !mWrap) {
         return;
       }
@@ -50,8 +54,10 @@ void CScriptCounter::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) 
           mCurrent = mInitial;
         }
       }
-      break;
-    case kSM_Increment:
+    }
+    break;
+  case kSM_Increment:
+    if (GetActive()) {
       if (mCurrent == mMax && !mWrap) {
         return;
       }
@@ -71,13 +77,15 @@ void CScriptCounter::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) 
           mCurrent = mInitial;
         }
       }
-      break;
-    case kSM_Reset:
-      mCurrent = mInitial;
-      break;
-    default:
-      break;
     }
+    break;
+  case kSM_Reset:
+    if (GetActive()) {
+      mCurrent = mInitial;
+    }
+    break;
+  default:
+    break;
   }
 
   CEntity::AcceptScriptMsg(mgr, msg);
