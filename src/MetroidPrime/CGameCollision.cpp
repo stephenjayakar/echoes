@@ -635,7 +635,7 @@ static float CollisionImpulseFiniteVsFinite(float mass, float otherMass, float v
 }
 
 static float CollisionImpulseFiniteVsInfinite(float mass, float velocity, float restitution) {
-  return mass * -(1.f + restitution) * velocity;
+  return mass * (-(1.f + restitution) * velocity);
 }
 
 bool CGameCollision::IsFloor(const CMaterialList& material, const CVector3f& normal) {

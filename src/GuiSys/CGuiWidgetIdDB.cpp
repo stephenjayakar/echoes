@@ -20,7 +20,7 @@ short CGuiWidgetIdDB::AddWidget(const rstl::string& name) {
     mNames.push_back_unsafe(name);
     id = mNames.size() - 1;
   }
-  return id;
+  return static_cast< short >(id);
 }
 
 short CGuiWidgetIdDB::FindWidgetID(const rstl::string& name) const {

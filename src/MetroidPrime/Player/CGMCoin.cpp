@@ -77,7 +77,7 @@ int CGMCoin::GetItemAmount(const CStateManager& mgr, uint playerIndex) const {
 }
 
 bool CGMCoin::IsNearScoreLimit(const CStateManager& mgr, uint playerIndex) const {
-  return mCoinLimit - GetItemAmount(mgr, playerIndex) < 2 && mCoinLimit > 1;
+  return mCoinLimit - GetItemAmount(mgr, playerIndex) <= 1 && mCoinLimit > 1;
 }
 
 bool CGMCoin::IsNearTimeLimit() const {
