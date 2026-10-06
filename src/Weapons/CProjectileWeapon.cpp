@@ -457,25 +457,23 @@ void CProjectileWeapon::UpdateBillboardEffects() {
 }
 
 const bool CProjectileWeapon::IsSystemDeletable() const {
+  bool ret = true;
   if (mAPSMGen && !mAPSMGen->IsSystemDeletable()) {
-    return false;
+    ret = false;
+  } else if (mAPS2Gen && !mAPS2Gen->IsSystemDeletable()) {
+    ret = false;
+  } else if (mSwoosh1 && !mSwoosh1->IsSystemDeletable()) {
+    ret = false;
+  } else if (mSwoosh2 && !mSwoosh2->IsSystemDeletable()) {
+    ret = false;
+  } else if (mSwoosh3 && !mSwoosh3->IsSystemDeletable()) {
+    ret = false;
+  } else if (x16c_ && !x16c_->IsSystemDeletable()) {
+    ret = false;
+  } else if (mActive) {
+    ret = mCurFrame >= mLifetime;
   }
-  if (mAPS2Gen && !mAPS2Gen->IsSystemDeletable()) {
-    return false;
-  }
-  if (mSwoosh1 && !mSwoosh1->IsSystemDeletable()) {
-    return false;
-  }
-  if (mSwoosh2 && !mSwoosh2->IsSystemDeletable()) {
-    return false;
-  }
-  if (mSwoosh3 && !mSwoosh3->IsSystemDeletable()) {
-    return false;
-  }
-  if (x16c_ && !x16c_->IsSystemDeletable()) {
-    return false;
-  }
-  return !mActive || mCurFrame >= mLifetime;
+  return ret;
 }
 
 void CProjectileWeapon::Render() const {
