@@ -129,7 +129,8 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
 
   const TUniqueId id = actor.GetUniqueId();
   const int bit = 1 << (id.Value() & 7);
-  uchar& membership = mScanObjectMembership[id.Value() >> 3];
+  uchar* bits = mScanObjectMembership;
+  uchar& membership = bits[id.Value() >> 3];
   if (membership & bit) {
     return true;
   }
@@ -144,18 +145,24 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
 }
 
 void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
-  const CFrustumPlanes frustum(GetScanFrustum(mgr));
+  const CFrustumPlanes frustum = GetScanFrustum(mgr);
   const bool cull = !close_enough(mRefreshTimer, 0.f);
   rstl::vector< SScanObject >::iterator it = mScanObjects.begin();
   while (it != mScanObjects.end()) {
-    const CEntity* entity = mgr.GetObjectById(it->mId);
+    SScanObject& obj = *it;
+    const float fadeTime = obj.mFadeTime;
+    const CEntity* entity = mgr.GetObjectById(TUniqueId(obj.mId));
     bool keep = false;
     if (IsInVisibleArea(mgr, entity)) {
       if (!cull) {
         keep = true;
       } else if (entity) {
-        keep = TCastToConstPtr< CScriptPointOfInterest >(entity) ||
-               frustum.BoxFrustumPlanesCheck(GetTargetBounds(mgr, it->mId)) != 0;
+        if (TCastToConstPtr< CScriptPointOfInterest >(entity)) {
+          keep = true;
+        } else {
+          const CAABox bounds = GetTargetBounds(mgr, TUniqueId(obj.mId));
+          keep = frustum.BoxFrustumPlanesCheck(bounds) != 0;
+        }
       }
     }
 
@@ -164,15 +171,15 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
       it = mScanObjects.erase(it);
       mScanObjectMembership[id.Value() >> 3] &= ~(1 << (id.Value() & 7));
     } else {
-      if (!close_enough(it->mFadeTime, 0.f)) {
-        it->mFadeTime = rstl::max_val(0.f, it->mFadeTime - dt);
+      if (!close_enough(obj.mFadeTime, 0.f)) {
+        obj.mFadeTime = rstl::max_val(0.f, fadeTime - dt);
       }
       ++it;
     }
   }
 
   if (mgr.IsMultiplayer()) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       if (player->GetUniqueId() != mPlayerId) {
         AddScanObject(*player, mgr);
@@ -182,7 +189,7 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
     const CObjectList& actors = mgr.GetObjectListById(kOL_Actor);
     for (int index = actors.GetFirstObjectIndex(); index != -1;
          index = actors.GetNextObjectIndex(index)) {
-      const CActor* actor = TCastToConstPtr< CActor >(actors[index]);
+      const CActor* const actor = TCastToConstPtr< CActor >(actors[index]);
       if (!actor || !actor->GetMaterialList().HasMaterial(kMT_Scannable) || !actor->GetActive() ||
           !IsInVisibleArea(mgr, actor)) {
         continue;
@@ -195,10 +202,20 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
 
       bool add = false;
       if (actor->HasModelData()) {
-        add = id != mPlayerId &&
-              (!cull || frustum.BoxFrustumPlanesCheck(GetTargetBounds(mgr, id)) != 0);
+        if (mPlayerId != id) {
+          if (cull) {
+            const CAABox bounds = GetTargetBounds(mgr, id);
+            add = frustum.BoxFrustumPlanesCheck(bounds) != 0;
+          } else {
+            add = true;
+          }
+        }
       } else if (TCastToConstPtr< CScriptPointOfInterest >(actor)) {
-        add = !cull || HasStaticGeometry(mgr, id);
+        if (cull) {
+          add = HasStaticGeometry(mgr, id);
+        } else {
+          add = true;
+        }
       }
       if (add && !AddScanObject(*actor, mgr)) {
         return;
@@ -214,7 +231,8 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
   const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mPlayerId));
   mScanTime += dt;
   if (player) {
-    if (player->GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Scan) {
+    switch (player->GetPlayerState()->GetActiveVisor(mgr)) {
+    case CPlayerState::kPV_Scan: {
       mTargetTime += dt;
       mRefreshTimer = rstl::max_val(0.f, mRefreshTimer - dt);
       UpdateScanObjects(dt, mgr);
@@ -223,12 +241,12 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
         UpdateScanObjects(dt, mgr);
       }
 
-      const TUniqueId nextTarget = player->GetOrbitNextTargetId();
+      TUniqueId nextTarget = player->GetOrbitNextTargetId();
       if (nextTarget != mTargetId) {
         rstl::vector< SScanObject >::iterator it = rstl::binary_find(
             mScanObjects.begin(), mScanObjects.end(), mTargetId, SScanObjectLess());
         if (it != mScanObjects.end()) {
-          it->mPreviousColor = GetScanObjectColor(mgr, it - mScanObjects.begin());
+          it->mPreviousColor = GetScanObjectColor(mgr, rstl::distance(mScanObjects.begin(), it));
           it->mFadeTime = gpTweakGui->GetScanVisorFadeOutTime();
         }
 
@@ -236,8 +254,11 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
         mResolvedTargetId = ResolveScanTarget(mgr, nextTarget);
         mTargetTime = 0.f;
       }
-    } else {
+      break;
+    }
+    default:
       mRefreshTimer = 0.f;
+      break;
     }
   }
 }
@@ -248,23 +269,20 @@ bool SScanObjectLess::operator()(TUniqueId id, const CPlayerTargeting::SScanObje
 
 int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUniqueId& id) const {
   const TUniqueId resolved = ResolveScanTarget(mgr, id);
-  if (resolved == kInvalidUniqueId) {
-    return 0;
-  }
-
-  if (!IsInVisibleArea(mgr, mgr.GetObjectById(id))) {
+  if (resolved == kInvalidUniqueId || !IsInVisibleArea(mgr, mgr.GetObjectById(id))) {
     return 0;
   }
 
   rstl::vector< SScanObject >::const_iterator it =
       rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
   if (it != mScanObjects.end()) {
-    return it - mScanObjects.begin() + 2;
+    return rstl::distance(mScanObjects.begin(), it) + 2;
   }
 
-  it = rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), resolved, SScanObjectLess());
-  if (it != mScanObjects.end()) {
-    return it - mScanObjects.begin() + 2;
+  rstl::vector< SScanObject >::const_iterator resolvedIt =
+      rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), resolved, SScanObjectLess());
+  if (resolvedIt != mScanObjects.end()) {
+    return rstl::distance(mScanObjects.begin(), resolvedIt) + 2;
   }
 
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(resolved));
@@ -272,10 +290,11 @@ int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUnique
 }
 
 CColor CPlayerTargeting::GetScanObjectColor(CStateManager& mgr, int index) const {
-  const SScanObject& object = mScanObjects[index];
-  const TUniqueId resolved = ResolveScanTarget(mgr, object.mId);
+  const TUniqueId resolved = ResolveScanTarget(mgr, TUniqueId(mScanObjects[index].mId));
   if (resolved == mTargetId) {
     const float factor = rstl::min_val(mTargetTime / gpTweakGui->GetScanVisorBurnInTime(), 1.f);
+    const CColor color = CColor::Lerp(gpTweakGui->GetScanVisorBurnInColor(),
+                                      GetHighlightColor(mgr, mTargetId), factor);
     return CColor::Lerp(gpTweakGui->GetScanVisorBurnInColor(), GetHighlightColor(mgr, mTargetId),
                         factor);
   }
@@ -287,8 +306,10 @@ CColor CPlayerTargeting::GetScanObjectColor(CStateManager& mgr, int index) const
                            gpTweakGui->GetScanVisorPreviouslyScannedColor(),
                            gpTweakGui->GetScanVisorCriticalPreviouslyScannedColor(),
                            gpTweakGui->GetScanVisorHackedColor()};
-  const float factor = rstl::max_val(object.mFadeTime / gpTweakGui->GetScanVisorFadeOutTime(), 0.f);
-  return CColor::Lerp(colors[GetScanState(mgr, resolved)], object.mPreviousColor, factor);
+  const EScanState state = GetScanState(mgr, resolved);
+  const float fadeTime = mScanObjects[index].mFadeTime;
+  const float factor = rstl::max_val(fadeTime / gpTweakGui->GetScanVisorFadeOutTime(), 0.f);
+  return CColor::Lerp(colors[state], mScanObjects[index].mPreviousColor, factor);
 }
 
 CColor CPlayerTargeting::GetHighlightColor(CStateManager& mgr, const TUniqueId& id) const {
@@ -372,9 +393,9 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
   CColor palette[64] = {
       CColor(0.f, 0.f, 0.f, 0.f),
       CColor::Lerp(skScanPulseStart, skScanPulseEnd,
-                   (1.f + CMath::FastCosR(3.f * CGraphics::GetSecondsMod900())) * 0.5f)};
-  const int count = mScanObjects.size();
-  for (int i = 2; i < count + 2; ++i) {
+                   (1.f + CMath::FastCosR(3.f * CGraphics::GetSecondsMod900())) / 2.f)};
+  const int count = mScanObjects.size() + 2;
+  for (int i = 2; i < count; ++i) {
     palette[i] = GetScanObjectColor(mgr, i - 2);
   }
 
@@ -395,7 +416,7 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
           CColor::Lerp(CColor::White(), gpTweakGui->GetScanVisorInactiveColor(), transition),
           CColor::Lerp(CColor::White(), gpTweakGui->GetScanVisorInactiveExternalColor(),
                        transition),
-          palette, count + 2, direction);
+          palette, count, direction);
 }
 
 TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueId id) const {

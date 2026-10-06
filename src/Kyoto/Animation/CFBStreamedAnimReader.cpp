@@ -275,7 +275,8 @@ CSegIdToIndexConverter::CSegIdToIndexConverter(const CFBStreamedAnimReaderTotals
   }
   uint count = totals.NumEntries();
   for (uint i = 0; i < count; ++i) {
-    mIndices[totals.GetSegId(i)] = i;
+    const uint segId = totals.GetSegId(i);
+    mIndices[segId] = i;
   }
   CCharAnimMemoryMetrics::AddToTotalSize(sizeof(mIndices), CCharAnimMemoryMetrics::kASS_Two);
 }

@@ -138,7 +138,7 @@ void CPoseAsTransforms_Linear::RotateHierarchy(const CCharLayoutInfo& layout, co
     mUnscaledRotations[id] = unscaled;
   }
 
-  if (layout.GetSegmentData(seg).GetNumConnectedParts() >= 2) {
+  if (layout.GetSegmentData(CSegId(seg)).GetNumConnectedParts() >= 2) {
     rstl::vector< CSegId >::const_iterator it =
         layout.GetSegmentData(seg).GetConnectedParts().begin();
     rstl::vector< CSegId >::const_iterator end = ConnectedPartsEnd(layout, seg);

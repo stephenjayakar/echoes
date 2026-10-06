@@ -7,8 +7,7 @@
 class CCollisionSurface {
 public:
   CCollisionSurface() {}
-  CCollisionSurface(const CVector3f& a, const CVector3f& b, const CVector3f& c, u64 flags)
-  : mA(a), mB(b), mC(c), mFlags(flags) {}
+  CCollisionSurface(const CVector3f& a, const CVector3f& b, const CVector3f& c, u64 flags);
 
   CVector3f GetNormal() const;
   CPlane GetPlane() const;
