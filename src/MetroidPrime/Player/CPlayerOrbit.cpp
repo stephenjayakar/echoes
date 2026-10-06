@@ -859,7 +859,7 @@ TUniqueId CPlayer::FindOrbitTargetId(CStateManager& mgr) {
         !WithinOrbitScreenBox(positionInBox, mOrbitZoneMode, mOrbitZoneType)) {
       mOrbitTargetDistance = 10000.f;
       mOrbitTargetScreenDistance = 10000.f;
-      mOrbitNextTargetId = kInvalidUniqueId;
+      SetOrbitNextTargetId(kInvalidUniqueId);
       return kInvalidUniqueId;
     }
     const float screenX = screenPosition.GetX() - idealX;
@@ -1420,7 +1420,7 @@ void CPlayer::UpdateGrappleState(const CFinalInput& input, CStateManager& mgr) {
                 mGrappleSwingAxis.Normalize();
                 mGrappleSwingTimer = 0.f;
                 SetOrbitTargetId(mOrbitNextTargetId, mgr);
-                mOrbitNextTargetId = kInvalidUniqueId;
+                SetOrbitNextTargetId(kInvalidUniqueId);
                 mGrappleState = kGS_Pull;
                 if (mGun->GrappleArm()) {
                   mGun->GrappleArm()->GrappleBeamConnected(mgr);
