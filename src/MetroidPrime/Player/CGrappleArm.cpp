@@ -706,17 +706,27 @@ void CGrappleArm::ReturnToDefault(CStateManager& mgr, float delay, bool reset) {
   }
 }
 
-void CGrappleArm::SetStateFlags(uint flags) {
+void CGrappleArm::SetStateFlags(int flags) {
   uint preserved = 0;
-  if (flags == kSF_Default) {
+  switch (flags) {
+  case kSF_FreeLook:
+    if (mStateFlags & kSF_GunChanging) {
+      mStateFlags &= ~kSF_GunChanging;
+    }
+    break;
+  case kSF_Default:
     if (mStateFlags & kSF_GunChanging) {
       preserved = kSF_GunChanging;
     }
     if (mStateFlags & kSF_Grappling) {
       preserved = kSF_Grappling;
     }
+    break;
   }
-  mStateFlags = flags != 0 ? flags | kSF_Default | preserved : 0;
+  if (flags != 0) {
+    flags = flags | kSF_Default | preserved;
+  }
+  mStateFlags = flags;
 }
 
 bool CGrappleArm::HoldGun(CStateManager& mgr, const float& arg) {
