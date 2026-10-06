@@ -985,6 +985,7 @@ MetroidPrime/PathFinding/CPathFindRegion.cpp:
 
 MetroidPrime/PathFinding/CPathFindArea.cpp:
 	.text       start:0x8013FDB8 end:0x801419C4
+	.rodata     start:0x803A91C0 end:0x803A91C8
 	.sdata2     start:0x8041C188 end:0x8041C198
 
 MetroidPrime/PathFinding/CPathFindSpline.cpp:

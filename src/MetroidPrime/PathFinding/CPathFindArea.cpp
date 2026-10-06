@@ -32,6 +32,8 @@ private:
   uchar* mCurrent;
 };
 
+extern "C" void fn_80141594(int* out, CPFMemoryStream* stream) { *out = stream->ReadInt32(); }
+
 uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
   uint index = 0;
   if (point[kDX] > mCenter[kDX]) {
@@ -72,7 +74,7 @@ inline void CPFAreaOctree::GetRegionListList(
 }
 
 CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
-: mBestPointDistSq(FLT_MAX)
+: mBestPointDistSq(3.4028235e38f)
 , mClosestPoint(CVector3f::Zero())
 , mCachedRegionList(nullptr)
 , mCachedRegionListPoint(CVector3f::Zero())
@@ -81,8 +83,11 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
 , mVersion(-1)
 , mData(data.release())
 , mTransform(CTransform4f::Identity()) {
+  int maxRegionNodes;
   CPFMemoryStream stream(mData.get(), size);
-  mVersion = stream.ReadInt32();
+  int version;
+  fn_80141594(&version, &stream);
+  mVersion = version;
 
   int numNodes = stream.ReadInt32();
   mNodes.set_size(numNodes);
@@ -90,13 +95,13 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
   int numLinks = stream.ReadInt32();
   mLinks.set_size(numLinks);
   mLinks.set_data(static_cast< CPFLink* >(stream.GetBlock(numLinks, sizeof(CPFLink))));
-  const int numRegions = stream.ReadInt32();
+  int numRegions = stream.ReadInt32();
   mRegions.set_size(numRegions);
   mRegions.set_data(static_cast< CPFRegion* >(stream.GetBlock(numRegions, sizeof(CPFRegion))));
   mRegionData.reserve(numRegions);
   CPFRegionData dataValue = CPFRegionData();
   mRegionData.resize(numRegions, dataValue);
-  int maxRegionNodes = 0;
+  maxRegionNodes = 0;
   int i;
   for (i = 0; i < numRegions; ++i) {
     mRegions[i].Fixup(*this, maxRegionNodes);
@@ -141,11 +146,11 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
       mPointConnections.set_size(numPointWords);
       mPointConnections.set_data(
           static_cast< uint* >(stream.GetBlock(numPointWords, sizeof(uint))));
-      for (i = 0; i < numPoints; ++i) {
-        mPoints[i].Fixup(*this);
+      for (int j = 0; j < numPoints; ++j) {
+        mPoints[j].Fixup(*this);
       }
     }
-    mPointSearchState = rs_new CPFPointSearchState(mPoints.size());
+    mPointSearchState = rs_new CPFPointSearchState(numPoints);
   }
 }
 
