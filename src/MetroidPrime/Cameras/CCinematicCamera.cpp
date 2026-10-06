@@ -44,14 +44,14 @@ void CCinematicCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
 }
 
 bool CCinematicCamera::CanSkip(const CStateManager& mgr) const {
+  bool result = false;
   if (gpGameState->GetHardModeEnabled()) {
-    return true;
+    result = true;
+  } else if (const CScriptCamera* camera =
+                 TCastToConstPtr< CScriptCamera >(mgr.GetObjectById(mScriptCameraId))) {
+    result = camera->HasBeenViewed();
   }
-  if (const CScriptCamera* camera =
-          TCastToConstPtr< CScriptCamera >(mgr.GetObjectById(mScriptCameraId))) {
-    return camera->HasBeenViewed();
-  }
-  return false;
+  return result;
 }
 
 void CCinematicCamera::Think(float dt, CStateManager& mgr) {

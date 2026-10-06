@@ -121,7 +121,11 @@ bool CPlayerBodyController::SLocomotionState::IsStrafing(
     const CPlayerBodyController& controller) const {
   const CPBCLocomotionCmd* command =
       static_cast< const CPBCLocomotionCmd* >(controller.CommandMgr().GetCmd(kPBSC_Locomotion));
-  return command && command->GetFacing().IsNonZero() && command->GetMovement().IsNonZero();
+  if (command && (command->GetFacing().GetX() != 0.f || command->GetFacing().GetY() != 0.f ||
+                  command->GetFacing().GetZ() != 0.f)) {
+    return command->GetMovement().IsNonZero();
+  }
+  return false;
 }
 
 void CPlayerBodyController::SLocomotionState::UpdateStrafe(float speed,
