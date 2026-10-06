@@ -135,14 +135,15 @@ public:
   }
 
   red_black_tree& operator=(const red_black_tree& other) {
-    if (this != &other) {
-      clear();
-      node* root = copy_from(other.mHeader.get_root());
-      mHeader.set_leftmost(leftmost(root));
-      mHeader.set_rightmost(rightmost(root));
-      mHeader.set_root(root);
-      mCount = other.mCount;
+    if (this == &other) {
+      return *this;
     }
+    clear();
+    node* root = copy_from(other.mHeader.get_root());
+    mHeader.set_leftmost(leftmost(root));
+    mHeader.set_rightmost(rightmost(root));
+    mHeader.set_root(root);
+    mCount = other.mCount;
     return *this;
   }
 

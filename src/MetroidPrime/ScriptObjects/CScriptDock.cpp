@@ -55,12 +55,12 @@ rstl::optional_object< CAABox > CScriptDock::GetTouchBounds() const {
 void CScriptDock::SetLoadConnected(CStateManager& mgr, bool loadConnected, bool pauseValidation) {
   CGameArea* area = mgr.World()->Area(mArea);
   const IGameArea::Dock& dock = area->GetDock(mDock);
-  const TAreaId connectedArea = dock.GetConnectedAreaId(dock.GetReferenceCount());
-  if (connectedArea != kInvalidAreaId) {
-    mgr.World()->Area(connectedArea)->SetValidationPaused(pauseValidation);
+  if (dock.GetConnectedAreaId(dock.GetReferenceCount()) != kInvalidAreaId) {
+    mgr.World()->Area(dock.GetConnectedAreaId(dock.GetReferenceCount()))->SetValidationPaused(pauseValidation);
   }
 
-  if (loadConnected != dock.GetShouldLoadOther(dock.GetReferenceCount())) {
+  const bool shouldLoad = dock.GetShouldLoadOther(dock.GetReferenceCount());
+  if (loadConnected != shouldLoad) {
     area->DockNC(mDock).SetShouldLoadOther(dock.GetReferenceCount(), loadConnected);
   }
 }
@@ -217,7 +217,11 @@ void CScriptDock::Think(float dt, CStateManager& mgr) {
     const CGameArea& area = mgr.GetWorld()->GetAreaAlways(connectedArea);
     if (mAreaPostConstructed != area.IsLoaded()) {
       mAreaPostConstructed = area.IsLoaded();
-      SendScriptMsgs(mAreaPostConstructed ? kSS_MaxReached : kSS_Zero, mgr);
+      if (mAreaPostConstructed) {
+        SendScriptMsgs(kSS_MaxReached, mgr);
+      } else {
+        SendScriptMsgs(kSS_Zero, mgr);
+      }
     }
   }
 
@@ -253,8 +257,9 @@ bool CScriptDock::HasPointCrossedDock(const CStateManager& mgr, const CVector3f&
 
 CPlane CScriptDock::GetPlane(const CStateManager& mgr) const {
   const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetDock(mDock);
-  const rstl::reserved_vector< CVector3f, 4 >& vertices = dock.GetPlaneVertices();
-  return CPlane(vertices[0], vertices[1], vertices[2]);
+  const CVector3f* vertices = dock.GetPlaneVertices().data();
+  const CPlane plane(vertices[0], vertices[1], vertices[2]);
+  return plane;
 }
 
 int CScriptDock::GetDockReference(const CStateManager& mgr) const {
@@ -271,10 +276,12 @@ void CScriptDock::UpdateAreaActivateFlags(CStateManager& mgr) {
   }
 
   const IGameArea::Dock& dock = area.GetDock(mDock);
-  for (int i = 0; i < dock.GetDockRefs().size(); ++i) {
+  const int count = dock.GetDockRefs().size();
+  for (int i = 0; i < count; ++i) {
+    const bool active = dock.GetReferenceCount() == i;
     const TAreaId connectedArea = dock.GetConnectedAreaId(i);
     if (connectedArea != kInvalidAreaId) {
-      mgr.World()->Area(connectedArea)->SetActive(dock.GetReferenceCount() == i);
+      mgr.World()->Area(connectedArea)->SetActive(active);
     }
   }
   mgr.SetCurrentAreaId(mgr.GetNextAreaId());
