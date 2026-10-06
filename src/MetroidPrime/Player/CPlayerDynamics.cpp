@@ -180,8 +180,8 @@ bool CPlayer::SidewaysDashAllowed(float strafeInput, float forwardInput,
     const CVector3f stickEdge = CalculateLeftStickEdgePosition(strafeInput, forwardInput);
     const float inputMagnitude =
         CMath::SqrtF(strafeInput * strafeInput + forwardInput * forwardInput);
-    const float threshold = inputMagnitude / stickEdge.Magnitude();
-    if (threshold >= GetTweakPlayer()->GetDashStrafeInputThreshold()) {
+    const float edgeMagnitude = stickEdge.Magnitude();
+    if (inputMagnitude / edgeMagnitude >= GetTweakPlayer()->GetDashStrafeInputThreshold()) {
       return true;
     }
   }
@@ -1184,10 +1184,10 @@ void CPlayer::UpdatePlayerBodyController(float dt, CStateManager& mgr) {
     switch (mMorphBallState) {
     case kMS_Unmorphed:
       if (mOrbitState == kOS_Grapple || mGrappleState != kGS_None) {
-        if (mGrappleState == kGS_JumpOff) {
-          commandMgr.DeliverCmd(CPBCJumpCmd(0, 0));
-        } else {
+        if (mGrappleState != kGS_JumpOff) {
           commandMgr.DeliverCmd(CPBCGrappleCmd(0));
+        } else {
+          commandMgr.DeliverCmd(CPBCJumpCmd(0, 0));
         }
       } else if (mMovementState == NPlayer::kMS_ApplyJump || mMovementState == NPlayer::kMS_Jump) {
         if (mBodyController->IsFastLocomotion()) {
@@ -1214,7 +1214,8 @@ void CPlayer::UpdatePlayerBodyController(float dt, CStateManager& mgr) {
       if (!mBodyController->IsMoving()) {
         mBodyController->SetLocomotionMode(6);
       }
-      commandMgr.DeliverCmd(CPBCAimCmd(GetFirstPersonCameraTransform().GetForward()));
+      commandMgr.DeliverCmd(
+          CPBCAimCmd(static_cast< const CPlayer* >(this)->GetPlayerGun()->GetTransform().GetForward()));
     }
   }
   mBodyController->Update(dt, mgr);
