@@ -154,7 +154,8 @@ void CScriptDynamicLight::UpdateLight(float dt) {
   }
   CLight& light = Light();
   const ELightKind kind = mDescription.mKind;
-  mIntensity = UpdateSplineTimer(mDescription.mIntensitySpline, mIntensityTime, dt,
+  const CMayaSpline& intensitySpline = mDescription.mIntensitySpline;
+  mIntensity = UpdateSplineTimer(intensitySpline, mIntensityTime, dt,
                                  mDescription.mIntensityDuration, mDescription.mIntensityLoops);
   if (kind == kLK_LocalAmbient || kind == kLK_Directional || kind == kLK_Spot) {
     const float red = ClampToOne(mIntensity * mDescription.mColor.GetRed());
@@ -165,9 +166,10 @@ void CScriptDynamicLight::UpdateLight(float dt) {
     light.SetColor(color);
   }
   if (kind == kLK_Point || kind == kLK_Spot) {
-    const float falloff =
-        UpdateSplineTimer(mDescription.mFalloffSpline, mFalloffTime, dt,
-                          mDescription.mFalloffDuration, mDescription.mFalloffLoops);
+    const CMayaSpline& falloffSpline = mDescription.mFalloffSpline;
+    const float falloff = UpdateSplineTimer(falloffSpline, mFalloffTime, dt,
+                                            mDescription.mFalloffDuration,
+                                            mDescription.mFalloffLoops);
     const EFalloffType falloffType = mDescription.mFalloffType;
     switch (kind) {
     case kLK_Point:
@@ -180,7 +182,8 @@ void CScriptDynamicLight::UpdateLight(float dt) {
     }
   }
   if (kind == kLK_Spot) {
-    light.SetSpotCutoff(UpdateSplineTimer(mDescription.mSpotlightSpline, mSpotlightTime, dt,
+    const CMayaSpline& spotlightSpline = mDescription.mSpotlightSpline;
+    light.SetSpotCutoff(UpdateSplineTimer(spotlightSpline, mSpotlightTime, dt,
                                           mDescription.mSpotlightDuration,
                                           mDescription.mSpotlightLoops));
   }
