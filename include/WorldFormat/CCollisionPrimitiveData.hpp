@@ -14,7 +14,8 @@ class CVector3f;
 // COBBTree owns its arrays through SIndexData instead.
 class CCollisionPrimitiveData {
 public:
-  CCollisionPrimitiveData();
+  // COBBTree passes a zero argument that the body ignores; the parameter type is a guess.
+  explicit CCollisionPrimitiveData(int);
   CCollisionPrimitiveData(int materialCount, int vertexCount, int edgeCount, int triangleCount,
                           const u64* materials, const uchar* vertexMaterials,
                           const uchar* edgeMaterials, const uchar* surfaceMaterials,

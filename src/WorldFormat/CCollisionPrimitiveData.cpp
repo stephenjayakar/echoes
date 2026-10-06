@@ -41,7 +41,7 @@ CCollisionPrimitiveData::CCollisionPrimitiveData(
 , mCacheId(CollisionPrimitiveDataCache::AllocateId())
 , mOwnsArrays(ownsArrays) {}
 
-CCollisionPrimitiveData::CCollisionPrimitiveData()
+CCollisionPrimitiveData::CCollisionPrimitiveData(int)
 : mMaterialCount(0)
 , mVertexCount(0)
 , mEdgeCount(0)

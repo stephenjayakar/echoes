@@ -2397,6 +2397,7 @@ WorldFormat/CWorldLight.cpp:
 
 WorldFormat/COBBTree.cpp:
 	.text       start:0x8024DE68 end:0x8024F784
+	.rodata     start:0x803AD878 end:0x803AD880
 	.bss        start:0x80410E14 end:0x80410E24 align:4 common
 	.sbss       start:0x80419708 end:0x8041970C
 	.sdata2     start:0x8041DDA8 end:0x8041DDB0
