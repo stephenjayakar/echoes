@@ -1432,7 +1432,8 @@ bool CSwarmBasics::IsBoidVisibleForLockOn(const CStateManager& mgr, const CBoid&
                                           const CVector3f& cameraForward) const {
   const CVector3f delta = boid.GetTranslation() - cameraPos;
   const float distance = delta.Magnitude();
-  const CVector3f dir = (1.f / distance) * delta;
+  const float inv = 1.f / distance;
+  const CVector3f dir = inv * delta;
   if (CVector3f::Dot(cameraForward, dir) > 0.9238795f) {
     const CMaterialFilter filter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59));
     const CRayCastResult result = mgr.RayStaticIntersection(cameraPos, dir, distance, filter);
@@ -1824,7 +1825,8 @@ void CSwarmBasics::UpdateEffects(CStateManager& mgr, CAnimData& animData, int vo
   if (count > 0 && nodes != nullptr) {
     for (int i = 0; i < count; ++i) {
       const CSoundPOINode& node = nodes[i];
-      if (mgr.Random()->Float() <= node.GetWeight()) {
+      const float roll = mgr.Random()->Float();
+      if (roll <= node.GetWeight()) {
         const int character = node.GetCharacterIndex();
         if (node.GetPoiType() == kPT_Sound &&
             (character == -1 || character == animData.GetCharacterIndex())) {
