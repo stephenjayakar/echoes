@@ -257,6 +257,7 @@ void CBSJump::ForceLand(CBodyController& bc, CStateManager& mgr) {
 }
 
 uchar CBSJump::CheckForWallJump(CBodyController& bc, CStateManager& mgr) {
+  bool ret = false;
   if (mWallJump && !mHasWallBounced) {
     if (CPatterned* actor = TCastToPtr< CPatterned >(&bc.GetOwner())) {
       const float distToWall = (mWaypoint1 - actor->GetTranslation()).Magnitude();
@@ -268,11 +269,11 @@ uchar CBSJump::CheckForWallJump(CBodyController& bc, CStateManager& mgr) {
                                               CPASAnimParm::FromEnum(mAnimationVariant)),
                              *mgr.Random());
         mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
-        return true;
+        ret = true;
       }
     }
   }
-  return false;
+  return ret;
 }
 
 pas::EAnimationState CBSJump::GetBodyStateTransition(float dt, CBodyController& bc) {
