@@ -166,8 +166,8 @@ private:
   CAssetId mWorldId;
   CAssetId mDesiredWorldId;
   rstl::vector< CWorldState > mWorldStates;
-  rstl::reserved_vector< rstl::rc_ptr< CPlayerState >, 4 > mPlayerStates;
-  rstl::rc_ptr< CWorldTransManager > mTransManager;
+  rstl::reserved_vector< rstl::ncrc_ptr< CPlayerState >, 4 > mPlayerStates;
+  rstl::ncrc_ptr< CWorldTransManager > mTransManager;
   double mTotalPlayTime;
   float mEscapeTime;
   CPersistentOptions mSystemOptions;
