@@ -215,7 +215,8 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
   const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mPlayerId));
   mScanTime += dt;
   if (player) {
-    if (player->GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Scan) {
+    switch (player->GetPlayerState()->GetActiveVisor(mgr)) {
+    case CPlayerState::kPV_Scan: {
       mTargetTime += dt;
       mRefreshTimer = rstl::max_val(0.f, mRefreshTimer - dt);
       UpdateScanObjects(dt, mgr);
@@ -224,12 +225,12 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
         UpdateScanObjects(dt, mgr);
       }
 
-      const TUniqueId nextTarget = player->GetOrbitNextTargetId();
+      TUniqueId nextTarget = player->GetOrbitNextTargetId();
       if (nextTarget != mTargetId) {
         rstl::vector< SScanObject >::iterator it = rstl::binary_find(
             mScanObjects.begin(), mScanObjects.end(), mTargetId, SScanObjectLess());
         if (it != mScanObjects.end()) {
-          it->mPreviousColor = GetScanObjectColor(mgr, it - mScanObjects.begin());
+          it->mPreviousColor = GetScanObjectColor(mgr, rstl::distance(mScanObjects.begin(), it));
           it->mFadeTime = gpTweakGui->GetScanVisorFadeOutTime();
         }
 
@@ -237,8 +238,11 @@ void CPlayerTargeting::Update(float dt, CStateManager& mgr) {
         mResolvedTargetId = ResolveScanTarget(mgr, nextTarget);
         mTargetTime = 0.f;
       }
-    } else {
+      break;
+    }
+    default:
       mRefreshTimer = 0.f;
+      break;
     }
   }
 }
