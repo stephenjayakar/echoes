@@ -334,12 +334,16 @@ const CColor& CElementGen::GetModulationColor() const { return mModuColor; }
 
 void CElementGen::SetGlobalScale(const CVector3f& scale) {
   mGlobalScale = scale;
-  for (int i = 0; i < 3; ++i) {
-    if (close_enough(mGlobalScale[i], 0.f, 0.0001f)) {
-      mGlobalScale[i] = 0.0001f * (mGlobalScale[i] < 0.f ? -1.f : 1.f);
-    }
+  if (close_enough(mGlobalScale.GetX(), 0.f, 0.0001f)) {
+    mGlobalScale.SetX(0.0001f * CMath::Sign(mGlobalScale.GetX()));
   }
-  mGlobalScaleTransform = CTransform4f::Scale(mGlobalScale);
+  if (close_enough(mGlobalScale.GetY(), 0.f, 0.0001f)) {
+    mGlobalScale.SetY(0.0001f * CMath::Sign(mGlobalScale.GetY()));
+  }
+  if (close_enough(mGlobalScale.GetZ(), 0.f, 0.0001f)) {
+    mGlobalScale.SetZ(0.0001f * CMath::Sign(mGlobalScale.GetZ()));
+  }
+  mGlobalScaleTransform = CTransform4f::Scale(mGlobalScale.GetX(), mGlobalScale.GetY(), mGlobalScale.GetZ());
   mGlobalScaleTransformInverse = CTransform4f::Scale(
       1.f / mGlobalScale.GetX(), 1.f / mGlobalScale.GetY(), 1.f / mGlobalScale.GetZ());
   for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
@@ -350,12 +354,16 @@ void CElementGen::SetGlobalScale(const CVector3f& scale) {
 
 void CElementGen::SetLocalScale(const CVector3f& scale) {
   mLocalScale = scale;
-  for (int i = 0; i < 3; ++i) {
-    if (close_enough(mLocalScale[i], 0.f, 0.0001f)) {
-      mLocalScale[i] = 0.0001f * (mLocalScale[i] < 0.f ? -1.f : 1.f);
-    }
+  if (close_enough(mLocalScale.GetX(), 0.f, 0.0001f)) {
+    mLocalScale.SetX(0.0001f * CMath::Sign(mLocalScale.GetX()));
   }
-  mLocalScaleTransform = CTransform4f::Scale(mLocalScale);
+  if (close_enough(mLocalScale.GetY(), 0.f, 0.0001f)) {
+    mLocalScale.SetY(0.0001f * CMath::Sign(mLocalScale.GetY()));
+  }
+  if (close_enough(mLocalScale.GetZ(), 0.f, 0.0001f)) {
+    mLocalScale.SetZ(0.0001f * CMath::Sign(mLocalScale.GetZ()));
+  }
+  mLocalScaleTransform = CTransform4f::Scale(mLocalScale.GetX(), mLocalScale.GetY(), mLocalScale.GetZ());
   mLocalScaleTransformInverse = CTransform4f::Scale(
       1.f / mLocalScale.GetX(), 1.f / mLocalScale.GetY(), 1.f / mLocalScale.GetZ());
   for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
@@ -2917,19 +2925,17 @@ int CElementGen::GetParticleCountAllInternal() const {
   for (rstl::vector< CParticleGen* >::const_iterator it = mActivePartChildren.begin();
        it != mActivePartChildren.end(); ++it) {
     CParticleGen* child = (*it);
-    if (child->Get4CharId() == 'PART') {
-      count += static_cast< CElementGen* >(child)->GetParticleCountAll();
-    } else {
-      count += child->GetParticleCount();
-    }
+    count += child->Get4CharId() == 'PART' ? static_cast< CElementGen* >(child)->GetParticleCountAll()
+                                           : child->GetParticleCount();
   }
   return count;
 }
 
 int CElementGen::GetSystemCount() {
   int count = static_cast< int >(mActiveParticleCount) > 0;
-  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
-       it != mActivePartChildren.end(); ++it) {
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin(),
+                                               end = mActivePartChildren.end();
+       it != end; ++it) {
     count += (*it)->GetSystemCount();
   }
   return count;
