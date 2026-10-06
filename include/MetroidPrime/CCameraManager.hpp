@@ -101,7 +101,7 @@ public:
   void SetFixedCamera(TUniqueId uid, const CTransform4f& xf, CStateManager& mgr); // Guessed name
   void ClearFixedCamera();                                                        // Guessed name
   void SetSurfaceCamera(TUniqueId uid, CStateManager& mgr);                       // Guessed name
-  void ClearSurfaceCamera();                                                      // Guessed name
+  void ClearSurfaceCamera(CStateManager& mgr);                                    // Guessed name
   float GetCameraBobMagnitude() const;
   void AddCamera(TUniqueId uid, CStateManager& mgr);                                // Guessed name
   void UpdateCameraHistory(CStateManager& mgr);                                     // Guessed name

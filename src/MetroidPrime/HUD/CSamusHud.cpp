@@ -538,7 +538,7 @@ void CSamusHud::UpdateHudWidgetColors() {
 
 void CSamusHud::DisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& info) {
   for (int i = 0; i < 4; ++i) {
-    if (gpSamusHud[i] != nullptr && info.EnabledForPlayer(i)) {
+    if (info.EnabledForPlayer(i) && gpSamusHud[i] != nullptr) {
       gpSamusHud[i]->InternalDisplayHudMemo(text, info);
     }
   }
@@ -546,7 +546,7 @@ void CSamusHud::DisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& i
 
 void CSamusHud::DeferHintMemo(CAssetId stringTable, uint index, const CHUDMemoParms& info) {
   for (int i = 0; i < 4; ++i) {
-    if (gpSamusHud[i] != nullptr && info.EnabledForPlayer(i)) {
+    if (info.EnabledForPlayer(i) && gpSamusHud[i] != nullptr) {
       gpSamusHud[i]->InternalDeferHintMemo(stringTable, index, info);
     }
   }
@@ -2238,8 +2238,8 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
 }
 
 rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasVisors(const CStateManager& mgr) const {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   rstl::reserved_vector< bool, 4 > result;
+  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   result.push_back(state.HasPowerUp(CPlayerState::kIT_CombatVisor));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_EchoVisor));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_ScanVisor));
@@ -2248,8 +2248,8 @@ rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasVisors(const CStateMan
 }
 
 rstl::reserved_vector< bool, 4 > CSamusHud::BuildPlayerHasBeams(const CStateManager& mgr) const {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   rstl::reserved_vector< bool, 4 > result;
+  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   result.push_back(state.HasPowerUp(CPlayerState::kIT_PowerBeam));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_DarkBeam));
   result.push_back(state.HasPowerUp(CPlayerState::kIT_LightBeam));

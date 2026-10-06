@@ -160,16 +160,13 @@ void CSortedListManager::Move(const CActor* actor, const CAABox& box) {
 
 void CSortedListManager::AddToLinkedList(short nodeId, short& headId, short& tailId) const {
   if (headId == -1) {
-    mNodes[nodeId].mNext = -1;
-    tailId = headId = nodeId;
-    return;
+    mNodes[nodeId].mNext = headId;
+    tailId = nodeId;
+    headId = nodeId;
+  } else if (mNodes[nodeId].mNext == -1 && nodeId != tailId) {
+    mNodes[nodeId].mNext = headId;
+    headId = nodeId;
   }
-  if (mNodes[nodeId].mNext != -1 || nodeId == tailId) {
-    return;
-  }
-
-  mNodes[nodeId].mNext = headId;
-  headId = nodeId;
 }
 
 short CSortedListManager::CalculateIntersections(ESortedLists minList, ESortedLists maxList,
