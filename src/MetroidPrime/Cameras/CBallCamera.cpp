@@ -644,51 +644,63 @@ void CBallCamera::UpdateObjectTooCloseId(CStateManager& mgr) {
   }
 }
 
-bool CBallCamera::ConstrainElevationAndDistance(float& elevation, float& distance, float dt,
-                                                CStateManager& mgr) {
+const bool CBallCamera::ConstrainElevationAndDistance(float& elevation, float& distance, float dt,
+                                                      CStateManager& mgr) {
   const CScriptCameraHint* hint = TCastToConstPtr< CScriptCameraHint >(
       CameraManager(mgr).GetHintManager()->GetCurrentHint(mgr));
   if (hint != nullptr && (hint->GetInfo().GetFlags() & 0x800000) != 0) {
     return false;
   }
 
-  const CPlayer& player = GetPlayer(mgr);
+  const CPlayer& player = Player(mgr);
   if (GetWatchedObject() != player.GetUniqueId()) {
     return false;
   }
 
-  const CVector3f ballToCamera = GetTranslation() - player.GetBallPosition();
-  float currentDistance = 0.f;
-  if (ballToCamera.IsMagnitudeSafe()) {
-    currentDistance = CVector2f(ballToCamera.GetX(), ballToCamera.GetY()).Magnitude();
+  CVector3f ballToCam = GetTranslation() - player.GetBallPosition();
+  float ballToCamMag = 0.f;
+  if (ballToCam.IsMagnitudeSafe()) {
+    CVector2f flat(ballToCam.GetX(), ballToCam.GetY());
+    ballToCamMag = flat.Magnitude();
+  } else {
+    ballToCam = -player.GetMovementDirection();
   }
 
   const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(mTooCloseActorId));
-  bool nearDoor = false;
-  float stretch = 1.f;
-  float targetDistance = distance;
+  bool doorClose = false;
+  const float curDistance = distance;
+  float newDistance = curDistance;
+  float stretchFac = 1.f;
   float baseElevation = elevation;
-  float springScale = 1.f;
-  if (door != nullptr && !door->IsBallDoor()) {
-    stretch = CMath::Limit(CMath::AbsF(mTooCloseActorDist / (3.f * distance)), 1.f);
-    nearDoor = mTooCloseActorDist < 3.f * distance;
-    if (door->IsOpen()) {
-      targetDistance =
-          stretch * (distance - mConservativeDoorCamDistance) + mConservativeDoorCamDistance;
-    } else {
-      targetDistance = stretch * (distance - 5.f) + 5.f;
+  float springMul = 1.f;
+  if (door) {
+    if (!door->IsBallDoor()) {
+      const float doorDistance = 3.f * curDistance;
+      stretchFac = CMath::Limit(CMath::AbsF(mTooCloseActorDist / doorDistance), 1.f);
+      if (mTooCloseActorDist < doorDistance) {
+        doorClose = true;
+      }
+      if (door->IsOpen()) {
+        newDistance = stretchFac * (distance - mConservativeDoorCamDistance) +
+                      mConservativeDoorCamDistance;
+      } else {
+        newDistance = stretchFac * (distance - 5.f) + 5.f;
+      }
+      if (mObtuseDirection) {
+        newDistance = newDistance * (1.f + mSpeedFactor);
+      }
+      baseElevation = 0.75f;
+      if (!door->IsOpen()) {
+        baseElevation = 1.5f;
+      }
+      springMul = 4.f;
     }
-    if (mObtuseDirection) {
-      targetDistance *= 1.f + mSpeedFactor;
-    }
-    baseElevation = door->IsOpen() ? 0.75f : 1.5f;
-    springScale = 4.f;
   }
 
-  distance =
-      mBallCameraSpring.ApplyDistanceSpring(targetDistance, currentDistance, dt * springScale);
-  elevation = (elevation - baseElevation) * stretch + baseElevation;
-  return nearDoor;
+  distance = mBallCameraSpring.ApplyDistanceSpring(newDistance, ballToCamMag, dt * springMul);
+  const float elevationDelta = elevation - baseElevation;
+  elevation = elevationDelta * stretchFac + baseElevation;
+  return doorClose;
 }
 
 CVector3f CBallCamera::ConstrainYawAngle(const CPlayer& player, float yawSpeed, float dampenAngle,
@@ -1671,43 +1683,45 @@ CVector3f CBallCamera::ClampElevationToWater(CVector3f position, CStateManager& 
 }
 
 CVector3f CBallCamera::MoveCollisionActor(const CVector3f& position, float dt, CStateManager& mgr) {
-  CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mCollisionActorId));
-  if (actor == nullptr) {
-    return position;
-  }
-  CVector3f delta = position - actor->GetTranslation();
-  if (!delta.IsMagnitudeSafe() || delta.Magnitude() < 0.01f) {
-    actor->Stop();
+  if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mCollisionActorId))) {
+    CVector3f posDelta = position - actor->GetTranslation();
+    if (!posDelta.IsMagnitudeSafe() || posDelta.Magnitude() < 0.01f) {
+      actor->Stop();
+      return actor->GetTranslation();
+    }
+
+    const CVector3f oldVel = actor->GetVelocityWR();
+    const CVector3f oldTranslation = actor->GetTranslation();
+    CVector3f newVel = posDelta * (1.f / dt);
+    newVel = ComputeVelocity(oldVel, newVel, dt);
+    actor->SetVelocityWR(newVel);
+    actor->SetMovable(true);
+    actor->AddMaterial(kMT_Unknown59, mgr);
+    CGameCollision::Move(mgr, *actor, dt, nullptr);
+
+    CVector3f postDelta = actor->GetTranslation() - position;
+    if (postDelta.IsMagnitudeSafe() && postDelta.Magnitude() > 0.1f) {
+      actor->SetTranslation(oldTranslation);
+      CVector3f tweenVel = TweenVelocity(oldVel, newVel, 50.f, dt);
+      actor->SetVelocityWR(tweenVel);
+      CGameCollision::Move(mgr, *actor, dt, nullptr);
+      postDelta = actor->GetTranslation() - position;
+      if (postDelta.Magnitude() > 0.1f) {
+        mShortMoveCount += 1;
+      } else {
+        mShortMoveCount = 0;
+      }
+    } else {
+      actor->Stop();
+      mShortMoveCount = 0;
+    }
+
+    actor->SetMovable(false);
+    actor->RemoveMaterial(kMT_Unknown59, mgr);
     return actor->GetTranslation();
   }
 
-  CVector3f oldVelocity = actor->GetVelocityWR();
-  CVector3f oldPosition = actor->GetTranslation();
-  CVector3f velocity = ComputeVelocity(oldVelocity, delta / dt, dt);
-  actor->SetVelocityWR(velocity);
-  actor->SetMovable(true);
-  actor->AddMaterial(kMT_Unknown59, mgr);
-  CGameCollision::Move(mgr, *actor, dt, nullptr);
-
-  CVector3f remaining = actor->GetTranslation() - position;
-  if (remaining.IsMagnitudeSafe() && remaining.Magnitude() > 0.1f) {
-    actor->SetTranslation(oldPosition);
-    actor->SetVelocityWR(TweenVelocity(oldVelocity, velocity, 50.f, dt));
-    CGameCollision::Move(mgr, *actor, dt, nullptr);
-    remaining = actor->GetTranslation() - position;
-    if (remaining.Magnitude() > 0.1f) {
-      ++mShortMoveCount;
-    } else {
-      mShortMoveCount = 0;
-    }
-  } else {
-    actor->Stop();
-    mShortMoveCount = 0;
-  }
-
-  actor->SetMovable(false);
-  actor->RemoveMaterial(kMT_Unknown59, mgr);
-  return actor->GetTranslation();
+  return position;
 }
 
 void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool teleport) {

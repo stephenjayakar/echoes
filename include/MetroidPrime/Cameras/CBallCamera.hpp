@@ -115,8 +115,8 @@ private:
   CVector3f FindDesiredPosition(float distance, float elevation, CVector3f direction,
                                 CStateManager& mgr, bool fullTest);
   CTransform4f FindDesiredTransform(CVector3f direction, CStateManager& mgr);
-  bool ConstrainElevationAndDistance(float& elevation, float& distance, float dt,
-                                     CStateManager& mgr);
+  const bool ConstrainElevationAndDistance(float& elevation, float& distance, float dt,
+                                           CStateManager& mgr);
   CVector3f ConstrainYawAngle(const CPlayer& player, float yawSpeed, float dampenAngle, float dt,
                               CStateManager& mgr);
   void UpdateTransform(const CVector3f& lookDirection, const CVector3f& position, float dt,
