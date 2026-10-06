@@ -156,22 +156,39 @@ public:
   void UpdateArmorColor(float dt, CStateManager& mgr);
   void UpdateStampede(CStateManager& mgr, float dt);
   void UpdateCinematicState(CStateManager& mgr);
+  bool QueryDoubleCharge(CStateManager& mgr);
+  bool QueryTripleCharge(CStateManager& mgr);
+  bool QueryDarkBeamAttack(CStateManager& mgr);
+  bool IsStampeding() const;
+  void UpdateCollisionActorResponses(CStateManager& mgr);
+  void SetCollisionActorVulnerability(CStateManager& mgr, const CDamageVulnerability& headVuln,
+                                      const CDamageVulnerability& bodyVuln);
+  void SetCollisionActorExtendedTouchBounds(CStateManager& mgr, const CVector3f& extents);
+  bool IsInSuckRange(const CPlayer& player) const;
+  bool IsLeader(const CStateManager& mgr) const;
+  bool AreSpheresUnlocked(const CStateManager& mgr) const;
+  int GetNumActiveBosses(const CStateManager& mgr) const;
+  void GetActiveBosses(CStateManager& mgr, rstl::reserved_vector< TUniqueId, 3 >& bosses);
+  int GetNumActiveSafeZones(const CStateManager& mgr) const;
+  float GetStampedeSpeed(const CStateManager& mgr) const;
+  TUniqueId SelectDarkBeamBoss(CStateManager& mgr) const;
   void RenderArmor(const CStateManager& mgr, const CTransform4f& xf, const CModelFlags& flags,
                    const CModelFlags& headFlags) const;
 
 private:
   // Guessed names; per-piece armor state.
   enum EArmorState {
-    kArmor_Attached,
+    kArmor_None,
     kArmor_Stampede,
-    kArmor_Destroyed,
+    kArmor_Attached,
   };
 
   // Guessed name; cinematic state values reported to the other bosses.
   enum ECinematicState {
-    kCS_Normal,
+    kCS_None,
     kCS_UnderGround,
     kCS_Stampede,
+    kCS_Normal,
     kCS_Stunned,
     kCS_Choking,
     kCS_ExitSphere,
@@ -181,11 +198,11 @@ private:
   rstl::single_ptr< CCollisionActorManager > mCollisionActorManager;
   CBoneTracking mBoneTracking;
   rstl::reserved_vector< TUniqueId, 3 > mOtherBosses; // Guessed name.
-  int xde4_;
+  int mRound;
   float xde8_;
   rstl::single_ptr< TLockedToken< CScannableObjectInfo > > mScanInfo; // Guessed name.
-  int xdf0_;
-  int xdf4_;
+  int mSyncState;
+  int mCinematicState;
   int xdf8_;
   int xdfc_;
   CProjectileInfo mDarkBeamInfo;   // Guessed name.
@@ -209,18 +226,18 @@ private:
   CColor xf0c_;
   float xf10_;
   float xf14_;
-  float xf18_;
-  float xf1c_;
+  float mChargeBeamTimer;
+  float mDarkBeamTimer;
   float xf20_;
-  float xf24_;
+  float mStampedeHP;
   float xf28_;
-  float xf2c_;
+  float mHeadArmorHP;
   float xf30_;
   float xf34_;
   float xf38_;
   int xf3c_;
   float xf40_;
-  int xf44_;
+  int mAttackOrder;
   int xf48_;
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mAttachedArmorModels; // Guessed name.
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mStampedeArmorModels; // Guessed name.

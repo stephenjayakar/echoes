@@ -37,6 +37,7 @@ public:
   bool Passes(const CMaterialList& other) const;
   const CMaterialList& GetIncludeList() const { return mInclude; }
   const CMaterialList& GetExcludeList() const { return mExclude; }
+  CMaterialList& ExcludeList() { return mExclude; } // Guessed name.
   EFilterType GetType() const { return mType; }
 
   // Guessed name; simplify the filter for geometry carrying these fixed materials.

@@ -60,6 +60,9 @@ public:
   TUniqueId GetLastTouchedObject() const;
   TUniqueId GetOwnerId() const { return mOwner; }
   float GetSphereRadius() const;
+  // Guessed names, from Prime.
+  void SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes type) { mResponseType = type; }
+  void SetExtendedTouchBounds(const CVector3f& bounds) { mExtendedTouchBounds = bounds; }
   void SetSphereRadius(float radius);
 
 private:

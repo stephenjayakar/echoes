@@ -8,6 +8,7 @@
 #include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CAnimData.hpp"
+#include "MetroidPrime/CCollisionActor.hpp"
 #include "MetroidPrime/CCollisionActorManager.hpp"
 #include "MetroidPrime/CParticleDatabase.hpp"
 #include "MetroidPrime/CSafeZoneManager.hpp"
@@ -19,6 +20,8 @@
 #include "MetroidPrime/ScriptObjects/CScriptSafeZone.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
+
+#include <float.h>
 
 // Spine joints, head first; the last entry is the skeleton root.
 static const char* const skSpineJoints[] = {
@@ -36,11 +39,11 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , mData(data)
 , mCollisionActorManager(nullptr)
 , mBoneTracking(*GetModelData()->GetAnimationData(), skHeadJoint, 1.0471976f, 1.5707964f, 1)
-, xde4_(0)
+, mRound(0)
 , xde8_(pInfo.GetTurnSpeed())
 , mScanInfo(nullptr)
-, xdf0_(0)
-, xdf4_(0)
+, mSyncState(0)
+, mCinematicState(0)
 , xdf8_(0)
 , xdfc_(-1)
 , mDarkBeamInfo(data.darkBeamProjectile, LdrToDamageInfo(data.darkBeamDamage))
@@ -73,22 +76,22 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , xf0c_(CColor::Black())
 , xf10_(0.f)
 , xf14_(0.f)
-, xf18_(data.unknown_0x7619e561.doubleCharge.minChargeBeamAttackTime)
-, xf1c_(data.minDarkBeamAttackTime)
+, mChargeBeamTimer(data.unknown_0x7619e561.doubleCharge.minChargeBeamAttackTime)
+, mDarkBeamTimer(data.minDarkBeamAttackTime)
 , xf20_(0.f)
-, xf24_(data.stampedeProperties.breakStampedeHP)
+, mStampedeHP(data.stampedeProperties.breakStampedeHP)
 , xf28_(0.f)
-, xf2c_(data.headArmorHP)
+, mHeadArmorHP(data.headArmorHP)
 , xf30_(0.f)
 , xf34_(0.f)
 , xf38_(0.f)
 , xf3c_(1)
 , xf40_(0.f)
-, xf44_(0)
+, mAttackOrder(0)
 , xf48_(0)
 , mAttachedArmorModels(rstl::optional_object< CModelData >())
 , mStampedeArmorModels(rstl::optional_object< CModelData >())
-, mArmorStates(kArmor_Attached)
+, mArmorStates(kArmor_None)
 , mNormalSkinnedModel(GetModelData()->GetAnimationData()->GetModelData())
 , mTailArmorSkinnedModel(rs_new CSkinnedModel(
       TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', data.withTailArmorModel))),
@@ -168,7 +171,7 @@ void CSandBoss::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       if (mCollisionActorManager.get() != nullptr) {
         mCollisionActorManager->SetActive(mgr, true);
       }
-      if (xde4_ == 0 && mData.commandIndex == 0) {
+      if (mRound == 0 && mData.commandIndex == 0) {
         if (CActor* ent = static_cast< CActor* >(mgr.ObjectById(xe86_))) {
           mgr.SetBossParams(ent->GetUniqueId(), ent->GetHealthInfo()->GetHP(),
                             gpStringTable->GetStringIndex("BossSandBoss"));
@@ -198,8 +201,8 @@ void CSandBoss::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     OnCollisionActorDamage(mgr, msg.GetSenderId());
     break;
   case kSM_Increment:
-    if (msg.GetSenderId() == GetUniqueId() || xdf0_ == 0) {
-      ++xde4_;
+    if (msg.GetSenderId() == GetUniqueId() || mSyncState == 0) {
+      ++mRound;
     }
     break;
   default:
@@ -398,7 +401,7 @@ bool CSandBoss::IsRecovered(CStateManager& mgr, const CTriggerData& data) const 
 
 bool CSandBoss::CanStartNewRound(CStateManager& mgr, const CTriggerData& data) const {
   bool ret = false;
-  if (xde4_ >= GetStage() && xde4_ < 3) {
+  if (mRound >= GetStage() && mRound < 3) {
     ret = true;
   }
   return ret;
@@ -413,19 +416,151 @@ bool CSandBoss::FoundStampedePoint(CStateManager& mgr, const CTriggerData& data)
 }
 
 bool CSandBoss::StampedeOver(CStateManager& mgr, const CTriggerData& data) const {
-  return xf28_ <= 0.f;
+  return mStampedeHP <= 0.f;
+}
+
+bool CSandBoss::ShouldDarkBeamAttack(CStateManager& mgr, const CTriggerData& data) const {
+  if (!x165e_24_ && !x165e_25_) {
+    if (IsLeader(mgr)) {
+      if (GetNumActiveBosses(mgr) == 1) {
+        return mDarkBeamTimer <= 0.f;
+      }
+      if (mAttackOrder > 0 && mDarkBeamTimer <= 0.f) {
+        const TUniqueId id = SelectDarkBeamBoss(mgr);
+        if (id == GetUniqueId()) {
+          return true;
+        }
+        if (id != kInvalidUniqueId) {
+          if (CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(id))) {
+            other->QueryDarkBeamAttack(mgr);
+          }
+        }
+      }
+    } else {
+      return x165e_26_;
+    }
+  }
+  return false;
+}
+
+bool CSandBoss::ShouldRepeaterAttack(CStateManager& mgr, const CTriggerData& data) const {
+  const CPlayer* player = mgr.GetPlayer(0);
+  if (GetNumActiveSafeZones(mgr) == 0) {
+    return true;
+  }
+  CVector3f diff = player->GetTranslation() - GetTranslation();
+  diff.SetZ(0.f);
+  if (CVector3f::GetAngleDiff(GetTransform().GetForward(), diff) > 1.2217305f) {
+    return false;
+  }
+  if (mgr.GetSafeZoneManager()->IsObjectInSafeZone(*player, mgr)) {
+    return mgr.Random()->Range(0.f, 100.f) > mData.unknown_0x2b42dddf;
+  }
+  return mgr.Random()->Range(0.f, 100.f) > mData.unknown_0x1562e0d6;
 }
 
 bool CSandBoss::FoundSafeZoneTarget(CStateManager& mgr, const CTriggerData& data) const {
   return xe88_ != kInvalidUniqueId;
 }
 
+bool CSandBoss::ShouldTripleCharge(CStateManager& mgr, const CTriggerData& data) const {
+  if (GetNumActiveBosses(mgr) == 3) {
+    if (IsLeader(mgr)) {
+      if (mChargeBeamTimer <= 0.f && x165e_27_ && mAttackOrder <= 0) {
+        for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+          CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+          if (other != nullptr && other != this && other->x165d_24_ && !other->x165e_27_) {
+            return false;
+          }
+        }
+        for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+          CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+          if (other != nullptr && other != this && other->x165d_24_ &&
+              !other->QueryTripleCharge(mgr)) {
+            for (const TUniqueId* it2 = mOtherBosses.begin(); it2 != it; ++it2) {
+              CSandBoss* prev = TCastToPtr< CSandBoss >(mgr.ObjectById(*it2));
+              if (prev != nullptr && prev != this && prev->x165d_24_) {
+                prev->BodyController()->CommandMgr().DeliverCmd(
+                    CBodyStateCmd(kBSC_ExitState));
+                prev->mAnimationState.SetState(CAnimationState::kAS_Over);
+              }
+            }
+            return false;
+          }
+        }
+        return true;
+      }
+    } else if (x165e_25_) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool CSandBoss::ShouldDoubleCharge(CStateManager& mgr, const CTriggerData& data) const {
+  if (GetNumActiveBosses(mgr) == 2) {
+    if (IsLeader(mgr)) {
+      if (mChargeBeamTimer <= 0.f && x165e_27_ && mAttackOrder <= 0) {
+        const CPlayer* player = mgr.GetPlayer(0);
+        const CVector3f diff = player->GetTranslation() - GetTranslation();
+        if (CVector3f::Dot(GetTransform().GetForward(), diff) > 0.f) {
+          for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+            CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+            if (other != nullptr && other != this && other->x165d_24_) {
+              if (CVector3f::Dot(other->GetTransform().GetForward(), diff) > 0.f) {
+                return other->QueryDoubleCharge(mgr);
+              }
+              return false;
+            }
+          }
+        }
+      }
+    } else if (x165e_24_) {
+      return x165e_27_;
+    }
+  }
+  return false;
+}
+
+bool CSandBoss::ShouldSnapJaws(CStateManager& mgr, const CTriggerData& data) const {
+  if (!x165e_24_) {
+    const CVector3f diff = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
+    const float distSq = diff.MagSquared();
+    if (distSq >= mMinAttackRange * mMinAttackRange &&
+        distSq <= mMaxAttackRange * mMaxAttackRange) {
+      return CVector3f::GetAngleDiff(GetTransform().GetForward(), diff) < 0.5235988f;
+    }
+  }
+  return false;
+}
+
+bool CSandBoss::ShouldDestroySphere(CStateManager& mgr, const CTriggerData& data) const {
+  bool ret = false;
+  if (x165d_24_ && GetNumActiveBosses(mgr) == 1) {
+    ret = true;
+  }
+  return ret;
+}
+
+bool CSandBoss::IsFacingPlayer(CStateManager& mgr, const CTriggerData& data) const {
+  return CVector3f::GetAngleDiff(GetTransform().GetForward(),
+                                 mgr.GetPlayer(0)->GetTranslation() - GetTranslation()) <=
+         0.34906584f;
+}
+
+bool CSandBoss::IsBallInSuckRange(CStateManager& mgr, const CTriggerData& data) const {
+  if (x165d_27_ && mgr.GetPlayer(0)->GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+    return IsInSuckRange(*mgr.GetPlayer(0));
+  }
+  return false;
+}
+
 bool CSandBoss::IsLastStage(CStateManager& mgr, const CTriggerData& data) const {
-  return xde4_ == 2;
+  return mRound == 2;
 }
 
 bool CSandBoss::HeadArmorDestroyed(CStateManager& mgr, const CTriggerData& data) const {
-  return xf2c_ <= 0.f;
+  return mHeadArmorHP <= 0.f;
 }
 
 bool CSandBoss::ArmorDestroyed(CStateManager& mgr, const CTriggerData& data) const {
@@ -435,7 +570,7 @@ bool CSandBoss::ArmorDestroyed(CStateManager& mgr, const CTriggerData& data) con
 bool CSandBoss::SyncStampede(CStateManager& mgr, const CTriggerData& data) const {
   for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
     const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
-    if (other != nullptr && other->xdf0_ != 1 && other->xdf0_ != 0) {
+    if (other != nullptr && other->mSyncState != 1 && other->mSyncState != 0) {
       return false;
     }
   }
@@ -445,28 +580,363 @@ bool CSandBoss::SyncStampede(CStateManager& mgr, const CTriggerData& data) const
 bool CSandBoss::SyncAttachToSphere(CStateManager& mgr, const CTriggerData& data) const {
   for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
     const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
-    if (other != nullptr && other->xdf0_ != 2 && other->xdf0_ != 0) {
+    if (other != nullptr && other->mSyncState != 2 && other->mSyncState != 0) {
       return false;
     }
   }
   return true;
 }
 
-void CSandBoss::WaitStampede(CStateManager& mgr, float dt) { xdf0_ = 1; }
+void CSandBoss::SetTripleChargeArmor(CStateManager& mgr, float dt) {
+  for (int i = 0; i < 8; ++i) {
+    mArmorStates[i] = kArmor_Attached;
+  }
+  SetCollisionActorVulnerability(mgr, x162c_, x162c_);
+  UpdateCollisionActorResponses(mgr);
+  mDamageColor = skHitsWithoutDamageColor;
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(15), true);
+}
 
-void CSandBoss::WaitAttachToSphere(CStateManager& mgr, float dt) { xdf0_ = 2; }
+void CSandBoss::SetDoubleChargeArmor(CStateManager& mgr, float dt) {
+  for (int i = 0; i < 8; ++i) {
+    mArmorStates[i] = kArmor_Attached;
+  }
+  SetCollisionActorVulnerability(mgr, x15fc_, x15fc_);
+  UpdateCollisionActorResponses(mgr);
+  mDamageColor = skHitsWithoutDamageColor;
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(15), true);
+}
+
+void CSandBoss::SetStampedeArmor(CStateManager& mgr, float dt) {
+  for (int i = 0; i < 8; ++i) {
+    mArmorStates[i] = kArmor_Stampede;
+  }
+  SetCollisionActorVulnerability(mgr, mStampedeVulnerability, mStampedeVulnerability);
+  UpdateCollisionActorResponses(mgr);
+  mDamageColor = skHitsWithoutDamageColor;
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(15), true);
+}
+
+void CSandBoss::SetAttachedArmor(CStateManager& mgr, float dt) {
+  for (int i = 0; i < 8; ++i) {
+    mArmorStates[i] = kArmor_Attached;
+  }
+  SetCollisionActorVulnerability(mgr, mDamageVulnerability,
+                                 CDamageVulnerability::ReflectVulnerabilty());
+  UpdateCollisionActorResponses(mgr);
+  mDamageColor = skHitsWithoutDamageColor;
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(15), true);
+}
+
+void CSandBoss::SetSuckAirArmor(CStateManager& mgr, float dt) {
+  mArmorStates[0] = kArmor_None;
+  for (int i = 1; i < 8; ++i) {
+    mArmorStates[i] = kArmor_Attached;
+  }
+  SetCollisionActorVulnerability(mgr, mSuckAirVulnerability,
+                                 CDamageVulnerability::ReflectVulnerabilty());
+  UpdateCollisionActorResponses(mgr);
+  mDamageColor = skDamageColor;
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(15), false);
+  SetVisorOrbitableFlags(CVisorParameters::EVisorOrbitableFlags(2), true);
+}
+
+void CSandBoss::RemovePlayerCollision(CStateManager& mgr, float dt) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      CMaterialFilter filter = act->GetMaterialFilter();
+      filter.ExcludeList().Add(kMT_Player);
+      act->SetMaterialFilter(filter);
+    }
+  }
+}
+
+void CSandBoss::RestorePlayerCollision(CStateManager& mgr, float dt) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      CMaterialFilter filter = act->GetMaterialFilter();
+      filter.ExcludeList().Remove(kMT_Player);
+      act->SetMaterialFilter(filter);
+    }
+  }
+  mgr.GetPlayer(0)->EnableLeaveMorphBall(true);
+}
+
+void CSandBoss::SelectSafeZoneTarget(CStateManager& mgr, float dt) {
+  const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
+  const CVector3f pos = GetTranslation();
+  const CVector3f forward = GetTransform().GetForward();
+  float bestDistSq = FLT_MAX;
+  xe88_ = kInvalidUniqueId;
+  for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+       it != GetConnectionList().end(); ++it) {
+    if (it->state == kSS_Attack && it->msg == kSM_Attach) {
+      const TUniqueId id = mgr.GetIdForScript(it->objId);
+      const CScriptSafeZone* zone = TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(id));
+      if (zone != nullptr && zone->GetActive()) {
+        const CVector3f zonePos = zone->GetTranslation();
+        if (CVector3f::GetAngleDiff(forward, zonePos - pos) <= 1.2217305f) {
+          const float distSq = (zonePos - playerPos).MagSquared();
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            xe88_ = zone->GetUniqueId();
+          }
+        }
+      }
+    }
+  }
+}
+
+void CSandBoss::WaitStampede(CStateManager& mgr, float dt) { mSyncState = 1; }
+
+void CSandBoss::WaitAttachToSphere(CStateManager& mgr, float dt) { mSyncState = 2; }
+
+void CSandBoss::LockSphere(CStateManager& mgr, float dt) { x165d_31_ = true; }
+
+void CSandBoss::UnLockSphere(CStateManager& mgr, float dt) { x165d_31_ = false; }
+
+void CSandBoss::AllowSyncAttacks(CStateManager& mgr, float dt) { x165e_27_ = true; }
+
+void CSandBoss::PreventSyncAttacks(CStateManager& mgr, float dt) { x165e_27_ = false; }
 
 void CSandBoss::Deactivate(CStateManager& mgr, float dt) { x165c_27_ = true; }
 
 void CSandBoss::EndStampede(CStateManager& mgr, float dt) { x165c_27_ = false; }
 
-void CSandBoss::ResetHeadArmorHP(CStateManager& mgr, float dt) { xf2c_ = mData.headArmorHP; }
+void CSandBoss::ResetHeadArmorHP(CStateManager& mgr, float dt) { mHeadArmorHP = mData.headArmorHP; }
 
-void CSandBoss::SetCinematicStateExitSphere(CStateManager& mgr, float dt) { xdf4_ = 6; }
+void CSandBoss::ResetAttackTimes(CStateManager& mgr, float dt) {
+  switch (GetNumActiveBosses(mgr)) {
+  case 3:
+    mChargeBeamTimer = mData.unknown_0x7619e561.tripleCharge.minChargeBeamAttackTime +
+                       mgr.Random()->Range(0.f, mData.unknown_0x7619e561.tripleCharge
+                                                    .chargeBeamAttackTimeVariance);
+    mDarkBeamTimer = mData.unknown_0x7619e561.tripleCharge.minDarkBeamAttackTime +
+                     mgr.Random()->Range(0.f, mData.unknown_0x7619e561.tripleCharge
+                                                  .darkBeamAttackTimeVariance);
+    break;
+  case 2:
+    mChargeBeamTimer = mData.unknown_0x7619e561.doubleCharge.minChargeBeamAttackTime +
+                       mgr.Random()->Range(0.f, mData.unknown_0x7619e561.doubleCharge
+                                                    .chargeBeamAttackTimeVariance);
+    mDarkBeamTimer = mData.unknown_0x7619e561.doubleCharge.minDarkBeamAttackTime +
+                     mgr.Random()->Range(0.f, mData.unknown_0x7619e561.doubleCharge
+                                                  .darkBeamAttackTimeVariance);
+    break;
+  default:
+    mChargeBeamTimer = FLT_MAX;
+    mDarkBeamTimer =
+        mData.minDarkBeamAttackTime + mgr.Random()->Range(0.f, mData.darkBeamAttackTimeVariance);
+    break;
+  }
+  x165d_30_ = false;
+}
 
-void CSandBoss::SetCinematicStateChoking(CStateManager& mgr, float dt) { xdf4_ = 5; }
+void CSandBoss::SetCinematicStateUnderGround(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_UnderGround;
+}
+
+void CSandBoss::SetCinematicStateStampede(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_Stampede;
+}
+
+void CSandBoss::SetCinematicStateNormal(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_Normal;
+}
+
+void CSandBoss::SetCinematicStateStunned(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_Stunned;
+}
+
+void CSandBoss::SetCinematicStateChoking(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_Choking;
+}
+
+void CSandBoss::SetCinematicStateExitSphere(CStateManager& mgr, float dt) {
+  mCinematicState = kCS_ExitSphere;
+}
+
+bool CSandBoss::QueryDoubleCharge(CStateManager& mgr) {
+  if (x165e_27_) {
+    x165e_24_ = true;
+    mStateMachine->Update(mgr, *this, 0.f);
+    x165e_24_ = false;
+  }
+  return x165c_30_;
+}
+
+bool CSandBoss::QueryTripleCharge(CStateManager& mgr) {
+  x165e_25_ = true;
+  mStateMachine->Update(mgr, *this, 0.f);
+  x165e_25_ = false;
+  return x165c_31_;
+}
+
+bool CSandBoss::QueryDarkBeamAttack(CStateManager& mgr) {
+  x165e_26_ = true;
+  mStateMachine->Update(mgr, *this, 0.f);
+  x165e_26_ = false;
+  return x165c_28_;
+}
+
+bool CSandBoss::IsStampeding() const {
+  bool ret = false;
+  if (!x165c_28_ && GetBodyController()->GetCurrentStateId() == pas::kAS_Locomotion) {
+    ret = true;
+  }
+  return ret;
+}
 
 int CSandBoss::GetStage() const { return mData.commandIndex; }
+
+void CSandBoss::UpdateCollisionActorResponses(CStateManager& mgr) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      act->SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes(47));
+      for (int j = 0; j < 8; ++j) {
+        if (desc.GetName() == skSpineJoints[j]) {
+          if (j == 0) {
+            if (mArmorStates[j] == kArmor_Attached) {
+              act->SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes(77));
+            }
+          } else if (mArmorStates[j] == kArmor_Attached) {
+            act->SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes(107));
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
+void CSandBoss::SetCollisionActorVulnerability(CStateManager& mgr,
+                                               const CDamageVulnerability& headVuln,
+                                               const CDamageVulnerability& bodyVuln) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      if (id == xe8c_) {
+        act->SetDamageVulnerability(headVuln);
+      } else {
+        act->SetDamageVulnerability(bodyVuln);
+      }
+    }
+  }
+}
+
+void CSandBoss::SetCollisionActorExtendedTouchBounds(CStateManager& mgr,
+                                                     const CVector3f& extents) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc =
+        mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      act->SetExtendedTouchBounds(extents);
+    }
+  }
+}
+
+bool CSandBoss::IsInSuckRange(const CPlayer& player) const {
+  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  const CVector3f diff = player.GetTranslation() - xf.GetTranslation();
+  if (diff.MagSquared() < mData.suckMorphballRange * mData.suckMorphballRange) {
+    return CVector3f::GetAngleDiff(GetTransform().GetForward(),
+                                   CVector3f(CVector2f(diff.GetX(), diff.GetY()), 0.f)) <=
+           0.2617994f;
+  }
+  return false;
+}
+
+bool CSandBoss::IsLeader(const CStateManager& mgr) const {
+  if (x165d_24_) {
+    const int stage = mData.commandIndex;
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+      if (other != nullptr && other != this && other->x165d_24_ &&
+          other->mData.commandIndex < stage) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+bool CSandBoss::AreSpheresUnlocked(const CStateManager& mgr) const {
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+    if (other != nullptr && other->x165d_31_) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int CSandBoss::GetNumActiveBosses(const CStateManager& mgr) const {
+  int count = 0;
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+    if (other != nullptr && other->x165d_24_) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+void CSandBoss::GetActiveBosses(CStateManager& mgr,
+                                rstl::reserved_vector< TUniqueId, 3 >& bosses) {
+  bosses.clear();
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr && other->x165d_24_) {
+      bosses.push_back(*it);
+    }
+  }
+}
+
+int CSandBoss::GetNumActiveSafeZones(const CStateManager& mgr) const {
+  int count = 0;
+  for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+       it != GetConnectionList().end(); ++it) {
+    if (it->state == kSS_Attack && it->msg == kSM_Attach) {
+      const TUniqueId id = mgr.GetIdForScript(it->objId);
+      const CScriptSafeZone* zone = TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(id));
+      if (zone != nullptr && zone->GetActive()) {
+        ++count;
+      }
+    }
+  }
+  return count;
+}
+
+float CSandBoss::GetStampedeSpeed(const CStateManager& mgr) const {
+  int count = 0;
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+    if (other != nullptr && other->x165c_27_) {
+      ++count;
+    }
+  }
+  switch (count) {
+  case 3:
+    return mData.stampedeProperties.unknown_0x5fb66017;
+  case 2:
+    return mData.stampedeProperties.unknown_0xc2b98161;
+  default:
+    return mData.stampedeProperties.unknown_0xbed8a4ba;
+  }
+}
 
 SSandBoss_FuncPtrs REL_loader_SandBoss;
 
