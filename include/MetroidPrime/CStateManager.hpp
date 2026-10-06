@@ -52,6 +52,7 @@ class CWorldTransManager;
 class CPlayer;
 class CPatterned;
 class CCameraManager;
+class CCollisionResponseData;
 class CRumbleManager;
 class CSaveGameScreen;
 class CScriptSpawnPoint;
@@ -300,6 +301,9 @@ public:
   RayWorldIntersection(TUniqueId& idOut, const CVector3f& position, const CVector3f& direction,
                        float length, const CMaterialFilter& filter,
                        const rstl::reserved_vector< TUniqueId, 1024 >& nearList) const;
+  // Original name from the Wii SEL exports.
+  void DoCollisionResponse(const CCollisionResponseData& data, const CRayCastResult& result,
+                           TUniqueId id, const CDamageInfo& damage, bool unknown);
   CRayCastResult RayStaticIntersection(const CVector3f& position, const CVector3f& direction,
                                        float length, const CMaterialFilter& filter) const;
   void BuildNearList(rstl::reserved_vector< TUniqueId, 1024 >& nearList, const CVector3f& position,
