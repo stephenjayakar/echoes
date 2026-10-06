@@ -1261,7 +1261,7 @@ CEntity* LoadBrizgee(CStateManager& mgr, CInputStream& input, CEntityInfo& info)
 
   return rs_new CParasite(
       mgr.AllocateUniqueId(), sldrThis.editorProperties.name, CPatterned::kFT_Zero,
-      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      info, LdrToTransform4f(sldrThis.editorProperties),
       *modelData, LdrToPatternedInfo(sldrThis.patterned, nullptr), static_cast< EBodyType >(6), 10.f,
       sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed, sldrThis.floorTurnSpeed,
       sldrThis.downTurnSpeed, 0.2f, 0.4f, 6.f, 2.6f, 1.f, 0.8f, 0.7f, 0.9f,
