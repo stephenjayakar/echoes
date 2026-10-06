@@ -92,8 +92,8 @@ void CMapArea::BuildDisplayLists() {
 
     int numSurfaces = *surface++;
     for (int j = 0; j < numSurfaces; ++j) {
-      surface++;
-      int numVertices = *surface++;
+      int numVertices = surface[1];
+      surface += 2;
       surface += ((numVertices + 3) & ~3) / 4;
       mSurfaceDisplayListSize += 2;
       mSurfaceDisplayListSize += 2;
@@ -147,9 +147,8 @@ void CMapArea::BuildDisplayLists() {
   }
 
   for (int i = 0; i < mSurfaceCount; ++i) {
-    const uchar normalIdx = i;
-    int numSurfaces = *mSurfaceStart[i].mSurfOffset;
     const int* surface = &mSurfaceStart[i].mSurfOffset[1];
+    int numSurfaces = *mSurfaceStart[i].mSurfOffset;
     for (int j = 0; j < numSurfaces; ++j) {
       uint primitive = *surface++;
       int numVertices = *surface++;
@@ -161,7 +160,7 @@ void CMapArea::BuildDisplayLists() {
       out.WriteShort(numVertices);
       for (int v = 0; v < numVertices; ++v) {
         out.WriteUint8(data[v]);
-        out.WriteUint8(normalIdx);
+        out.WriteUint8(i);
       }
     }
   }
@@ -171,8 +170,8 @@ void CMapArea::BuildDisplayLists() {
 
   mOutlineDisplayList = mSurfaceDisplayList + mSurfaceDisplayListSize;
   for (int i = 0; i < mSurfaceCount; ++i) {
-    int numOutlines = *mSurfaceStart[i].mOutlineOffset;
     const int* outline = &mSurfaceStart[i].mOutlineOffset[1];
+    int numOutlines = *mSurfaceStart[i].mOutlineOffset;
     for (int j = 0; j < numOutlines; ++j) {
       int numVertices = *outline++;
       const uchar* data = reinterpret_cast< const uchar* >(outline);
