@@ -816,7 +816,7 @@ void CScriptFrontEndDataNetwork::CloseNode(CStateManager& mgr) {
     if (parentNode->GetConstNetwork(mgr)->mIsProxy) {
       parentNode->GetNetwork(mgr)->SendScriptMsgs(kSS_PressB, mgr);
       selection = parentNode->mParent;
-      parentNode = &mNodes[selection];
+      parentNode = &mNodes[parentNode->mParent];
     }
     CScriptFrontEndDataNetwork* parentNet = parentNode->GetNetwork(mgr);
     parentNet->SendScriptMsgs(kSS_Entered, mgr);
