@@ -2011,8 +2011,8 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
 
     mScrewAttackDirection = mWallNormal;
     mWallContactTime += dt;
-    const float wallTimeScale = mWallJumpCount != 0 ? 1.f : 1.5f;
-    const float maxWallContactTime = wallTimeScale * gpTweakBall->GetScrewAttackWallJumpMaxTime();
+    const float maxWallContactTime =
+        (mWallJumpCount != 0 ? 1.f : 1.5f) * gpTweakBall->GetScrewAttackWallJumpMaxTime();
     if (mTouchingWall && mWallContactTime > maxWallContactTime) {
       mEndScrewAttackRequested = true;
     }
@@ -2039,6 +2039,7 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
       }
     }
   } else {
+    float steeringAngle;
     const float verticalVelocity = gpTweakBall->GetScrewAttackVerticalJumpVelocity();
     const float jumpEnergy = mass * (0.5f * verticalVelocity * verticalVelocity);
     const float horizontalVelocity = gpTweakBall->GetScrewAttackHorizontalJumpVelocity();
@@ -2052,7 +2053,7 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
         const float jumpSpeed = CMath::SqrtF(2.f * (jumpEnergy + potentialEnergy) / mass);
         const CVector2f steering = CalculateSpiderBallAttractionSurfaceForces(input);
         if (CMath::AbsF(steering.GetX()) > 0.05f) {
-          const float steeringAngle =
+          steeringAngle =
               -(gpTweakBall->GetScrewAttackMaxSteeringAngle().AsRadians() * steering.GetX());
           moveDir = CTransform4f::RotateZ(CRelAngle::FromRadians(steeringAngle)).Rotate(moveDir);
           CTransform4f playerXf = mPlayer.GetTransform();
