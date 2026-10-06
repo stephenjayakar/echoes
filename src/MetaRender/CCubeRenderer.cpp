@@ -211,17 +211,20 @@ void Buckets::Sort() {
     }
   }
   int precision = 50;
-  PlaneBucketList& planeBuckets = *sPlaneObjectBucket;
-  if (planeBuckets.size() != 0) {
-    rstl::sort(planeBuckets.begin(), planeBuckets.end(), planeSorter());
-    precision = 50 / (planeBuckets.size() + 1);
-    pitch = 1.f / (delta * (1.f / static_cast< float >(precision - 2)));
-    short position = 0;
-    for (ushort* bucket = planeBuckets.begin(); bucket != planeBuckets.end();
-         ++bucket, ++position) {
-      (*sPlaneObjectData)[*bucket].SetBucketIndex(precision * (position + 1));
+  {
+    PlaneBucketList& planeBuckets = *sPlaneObjectBucket;
+    if (planeBuckets.size() != 0) {
+      rstl::sort(planeBuckets.begin(), planeBuckets.end(), planeSorter());
+      precision = 50 / (planeBuckets.size() + 1);
+      pitch = 1.f / (delta * (1.f / static_cast< float >(precision - 2)));
+      short position = 0;
+      for (ushort* bucket = planeBuckets.begin(); bucket != planeBuckets.end();
+           ++bucket, ++position) {
+        (*sPlaneObjectData)[*bucket].SetBucketIndex(precision * (position + 1));
+      }
     }
   }
+  PlaneBucketList& planeBuckets = *sPlaneObjectBucket;
   PlaneList& planeData = *sPlaneObjectData;
   for (CDrawable* drawable = sData->begin(); drawable != sData->end(); ++drawable) {
     int slot = -1;
@@ -236,13 +239,20 @@ void Buckets::Sort() {
         bool partial;
         bool full;
         if (plane.IsOptimalPlane()) {
-          partial = drawable->GetBounds().GetMaxPoint().GetZ() > plane.GetPlane().GetConstant();
-          full = drawable->GetBounds().GetMinPoint().GetZ() > plane.GetPlane().GetConstant();
+          partial =
+              drawable->GetBounds().GetMaxPoint().GetZ() > plane.GetPlane().GetConstant() ? true
+                                                                                           : false;
+          full = drawable->GetBounds().GetMinPoint().GetZ() > plane.GetPlane().GetConstant() ? true
+                                                                                             : false;
         } else {
           partial = plane.GetPlane().GetHeight(drawable->GetBounds().ClosestPointAlongVector(
-                        plane.GetPlane().GetNormal())) > 0.f;
+                        plane.GetPlane().GetNormal())) > 0.f
+                        ? true
+                        : false;
           full = plane.GetPlane().GetHeight(drawable->GetBounds().FurthestPointAlongVector(
-                     plane.GetPlane().GetNormal())) > 0.f;
+                     plane.GetPlane().GetNormal())) > 0.f
+                     ? true
+                     : false;
         }
         bool continueTest;
         if (drawable->IsAlpha()) {
