@@ -423,7 +423,7 @@ void CMotionSpline::CalculateLength() {
   mLength = length;
 }
 
-float CMotionSpline::ValidateLength(float distance) const {
+float CMotionSpline::ValidateLength(const float distance) const {
   if (close_enough(distance, 0.f, 0.001f)) {
     return 0.f;
   }

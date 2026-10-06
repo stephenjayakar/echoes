@@ -426,7 +426,7 @@ void CModelData::EnableLooping(bool enable) {
 }
 
 float CModelData::GetAnimationDuration(int anim) const {
-  return HasAnimation() ? mAnimData->GetAnimationDuration(anim) : 0.f;
+  return !HasAnimation() ? 0.f : mAnimData->GetAnimationDuration(anim);
 }
 
 bool CModelData::GetIsLoop() const { return HasAnimation() && mAnimData->GetIsLoop(); }
