@@ -241,7 +241,7 @@ void CBallCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
       CTransform4f cameraXf = player->CreateTransformFromMovementDirection();
       cameraXf.SetTranslation(position);
       TeleportCamera(cameraXf, mgr);
-      CameraManager(mgr).SetPlayerCamera(mgr, GetUniqueId());
+      const_cast< CCameraManager& >(GetCameraManager(mgr)).SetPlayerCamera(mgr, GetUniqueId());
       ResetFovInterpolation(GetTargetFov());
     }
 
@@ -258,7 +258,7 @@ void CBallCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
     x3b4_ = 0;
     x3b8_ = 0;
     mColliderMag = 1.f;
-    InvalidateSpline();
+    mSplineState = kBSS_Invalid;
     mAvoidGeometryFull = true;
     mForceProcessing = true;
     Think(0.1f, mgr);
