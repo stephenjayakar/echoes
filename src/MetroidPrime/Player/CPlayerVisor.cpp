@@ -570,8 +570,8 @@ void CPlayerVisor::UpdateScanWindow(float dt, const CStateManager& mgr) {
 
 CVector2i CPlayerVisor::GetScanWindowViewportSize(const CStateManager& mgr) const {
   const CViewport& viewport = CGraphics::GetViewport();
-  const int vpWidth = viewport.mWidth;
-  const int vpHeight = viewport.mHeight;
+  int vpWidth = viewport.mWidth;
+  int vpHeight = viewport.mHeight;
   const float transFactor = mgr.GetPlayerState(mPlayerIndex)->GetVisorTransitionFactor();
   const float scanSidesStart = gpTweakGui->GetScanSidesStartTime();
   const float scanSidesDuration = gpTweakGui->GetScanSidesDuration();

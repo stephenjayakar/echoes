@@ -548,7 +548,8 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Cached(const COctreeLeafC
     const CAreaOctTree::Node& node = leafCache.GetLeaf(i);
     if (aabb.DoBoundsOverlap(node.GetBoundingBox())) {
       CAreaOctTree::TriListReference list = node.GetTriangleArray();
-      const CAreaOctTree& owner = node.GetOwner();
+      const CAreaOctTree& tree = node.GetOwner();
+      const CAreaOctTree& owner = tree;
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
