@@ -392,84 +392,78 @@ float CMayaSpline::EvaluateAtUnclamped(float time) const {
   if (mKnots.empty()) {
     return 0.f;
   }
-
-  int lastIdx = mKnots.size() - 1;
-  bool segmentKnown = false;
-  float nextTime;
+  const int last = mKnots.size() - 1;
   if (time < mKnots[0].GetTime()) {
     if (mPreInfinity == 0) {
       return mKnots[0].GetAmplitude();
     }
     return EvaluateInfinities(time, true);
-  } else if (mKnots[lastIdx].GetTime() >= time) {
-    segmentKnown = false;
-    int nextKnotIndex = -1;
-    int cachedKnotIndex = mCache.mKnotIndex;
-    if (cachedKnotIndex != -1) {
-      if (lastIdx <= cachedKnotIndex || mKnots[lastIdx].GetTime() >= time) {
-        if (cachedKnotIndex > 0 && mKnots[cachedKnotIndex].GetTime() > time) {
-          int previousKnotIndex = cachedKnotIndex - 1;
-          segmentKnown = mKnots[previousKnotIndex].GetTime() < time;
-          if (segmentKnown) {
-            nextKnotIndex = cachedKnotIndex;
-          }
-          if (mKnots[previousKnotIndex].GetTime() == time) {
-            mCache.mKnotIndex = previousKnotIndex;
-            return mKnots[mCache.mKnotIndex].GetAmplitude();
-          }
-        }
-      } else {
-        nextTime = mKnots[cachedKnotIndex + 1].GetTime();
-        if (nextTime == time) {
-          mCache.mKnotIndex = lastIdx;
-          return mKnots[mCache.mKnotIndex].GetAmplitude();
-        }
+  }
+  if (time > mKnots[last].GetTime()) {
+    if (mPostInfinity == 0) {
+      return mKnots[last].GetAmplitude();
+    }
+    return EvaluateInfinities(time, false);
+  }
 
-        if (nextTime > time) {
-          segmentKnown = true;
-          nextKnotIndex = cachedKnotIndex + 1;
-        }
+  int knotIndex = -1;
+  bool found = false;
+  const int& cached = mCache.mKnotIndex;
+  if (cached != -1) {
+    // The original checks the final knot, making this shortcut unreachable for finite times.
+    if (cached < last && time > mKnots[last].GetTime()) {
+      const int next = cached + 1;
+      if (time == mKnots[next].GetTime()) {
+        mCache.mKnotIndex = last;
+        return mKnots[mCache.mKnotIndex].GetAmplitude();
+      }
+      if (time < mKnots[next].GetTime()) {
+        knotIndex = next;
+        found = true;
+      }
+    } else if (cached > 0 && time < mKnots[mCache.mKnotIndex].GetTime()) {
+      const int previous = cached - 1;
+      if (time > mKnots[previous].GetTime()) {
+        knotIndex = cached;
+        found = true;
+      }
+      if (time == mKnots[previous].GetTime()) {
+        mCache.mKnotIndex = previous;
+        return mKnots[mCache.mKnotIndex].GetAmplitude();
       }
     }
-
-    if (!segmentKnown && (FindKnot(time, nextKnotIndex))) {
-      if (nextKnotIndex == 0) {
-        mCache.mKnotIndex = 0;
-        return mKnots[0].GetAmplitude();
-      }
-      if (nextKnotIndex == mKnots.size()) {
-        mCache.mKnotIndex = 0;
-        return mKnots[lastIdx].GetAmplitude();
-      }
+  }
+  if (!found && FindKnot(time, knotIndex)) {
+    if (knotIndex == 0) {
+      mCache.mKnotIndex = knotIndex;
+      return mKnots[knotIndex].GetAmplitude();
     }
-
-    lastIdx = nextKnotIndex - 1;
-    if (mCache.mSegmentIndex != lastIdx) {
-      mCache.mKnotIndex = lastIdx;
-      mCache.mSegmentIndex = lastIdx;
-      if (mKnots[mCache.mKnotIndex].GetTangentModeB() == 3) {
-        mCache.mStepSegment = true;
-      } else {
-        mCache.mStepSegment = false;
-        rstl::reserved_vector< CVector2f, 4 > points;
-        FindControlPoints(mCache.mKnotIndex, points);
-        CalculateHermiteCoefficients(points, mCache.mHermiteCoefs);
-        mCache.mMinTime = points[0].GetX();
-      }
+    if (knotIndex == mKnots.size()) {
+      mCache.mKnotIndex = 0;
+      return mKnots[last].GetAmplitude();
     }
+  }
 
-    if (mCache.mStepSegment) {
-      return mKnots[mCache.mKnotIndex].GetAmplitude();
+  const int segment = knotIndex - 1;
+  if (mCache.mSegmentIndex != segment) {
+    mCache.mKnotIndex = segment;
+    mCache.mSegmentIndex = segment;
+    if (mKnots[mCache.mKnotIndex].GetTangentModeB() == 3) {
+      mCache.mStepSegment = true;
     } else {
-      return EvaluateHermite(time);
+      mCache.mStepSegment = false;
+      rstl::reserved_vector< CVector2f, 4 > points;
+      FindControlPoints(mCache.mKnotIndex, points);
+      // Unused in the original as well.
+      rstl::reserved_vector< CVector2f, 4 > unused;
+      CalculateHermiteCoefficients(points, mCache.mHermiteCoefs);
+      mCache.mMinTime = points[0].GetX();
     }
   }
-
-  if (mPostInfinity == 0) {
-    return mKnots[lastIdx].GetAmplitude();
+  if (mCache.mStepSegment) {
+    return mKnots[mCache.mKnotIndex].GetAmplitude();
   }
-
-  return EvaluateInfinities(time, false);
+  return EvaluateHermite(time);
 }
 
 CMayaSpline CMayaSpline::CreateFor(float timeA, float amplitudeA, float timeB, float amplitudeB) {
