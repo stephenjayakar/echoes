@@ -6,6 +6,7 @@
 #include "Kyoto/CFactoryMgr.hpp"
 #include "Kyoto/Streams/CInputStream.hpp"
 
+#include <stdio.h>
 #include <string.h>
 
 extern "C" char* strchr(const char*, int);
@@ -123,6 +124,22 @@ rstl::string CStringExtras::CreateFromInteger(int v) {
 
   return ret;
 }
+
+// The two helpers below are unused and dead-stripped in the target; only their pooled strings
+// survive in the unit's string table. Names and bodies are guesses.
+rstl::string CreateStringFromFloat(float v, int precision) {
+  char buf[64];
+  if (precision < 0) {
+    sprintf(buf, "%f", v);
+  } else {
+    char format[16];
+    sprintf(format, "%%.%df", precision);
+    sprintf(buf, format, v);
+  }
+  return rstl::string_l(buf);
+}
+
+bool IsStringWhitespaceOrQuote(char c) { return strchr(" \t\n\r\"", c) != nullptr; }
 
 rstl::string CStringExtras::ConvertToANSI(const rstl::wstring& str) {
   rstl::string ret;
