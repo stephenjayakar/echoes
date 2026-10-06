@@ -99,15 +99,16 @@ void CTextExecuteBuffer::AddImage(const CFontImageDef& image) {
   }
 
   if (mCurrentBlock && image.IsLoaded()) {
-    bool wrap = mState.IsWordWrapping();
-    if (wrap) {
-      const int width = mCurrentLine->GetWidth() + image.GetWidth();
-      wrap = width > mCurrentBlock->GetOutputWidth();
+    bool newLine = false;
+    bool overflow = false;
+    if (mState.IsWordWrapping() &&
+        mCurrentLine->GetWidth() + image.GetWidth() > mCurrentBlock->GetOutputWidth()) {
+      overflow = true;
     }
-    if (wrap) {
-      wrap = mCurrentLine->GetWordCount() > 0;
+    if (overflow && mCurrentLine->GetWordCount() > 0) {
+      newLine = true;
     }
-    if (wrap) {
+    if (newLine) {
       StartNewLine();
     }
     mCurrentLine->TestLargestImage(image.GetMonoWidth(), image.GetHeight(),
