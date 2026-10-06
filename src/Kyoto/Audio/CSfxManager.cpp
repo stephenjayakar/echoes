@@ -341,11 +341,11 @@ CSfxHandle CSfxManager::AddEmitter(ushort id, const CVector3f& position, uchar v
   return AddEmitter(params, area, useAcoustics, looped, priority);
 }
 
-CSfxManager::CSfxEmitterWrapper::~CSfxEmitterWrapper() {}
 
 CSfxHandle CSfxManager::AddEmitter(CAudioSys::C3DEmitterParmData& params, int area,
                                    bool useAcoustics, bool looped, short priority) {
-  if ((mMuted && !looped) || params.mSfxId == kInternalInvalidSfxId) {
+  if ((mMuted && !looped) || params.mSfxId == 0xffffffff ||
+      params.mSfxId == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
   }
   CAudioSys::C3DEmitterParmData emitter(params);
@@ -354,22 +354,24 @@ CSfxHandle CSfxManager::AddEmitter(CAudioSys::C3DEmitterParmData& params, int ar
   }
   emitter.mSfxId = TranslateSFXID(params.mSfxId);
   const uchar areaVolume = GetAreaVolume(area);
-  if (areaVolume != 127) {
-    emitter.mMaxVol = areaVolume * rstl::min_val(int(emitter.mMaxVol), 127) / 127;
-  }
+  emitter.mMaxVol =
+      areaVolume == 127
+          ? emitter.mMaxVol
+          : uchar(areaVolume * (emitter.mMaxVol > 127 ? 127 : emitter.mMaxVol) / 127);
   if (emitter.mSfxId == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
   }
 
+  CSfxChannel& channel = mChannels[mCurrentChannel];
   mDoUpdate = true;
-  const CSfxHandle handle = LocateHandle();
+  const CSfxHandle handle = LocateHandle(priority);
   if (handle) {
     CSfxEmitterWrapper* sound = AllocateCSfxEmitterWrapper(
         CSfxEmitterWrapper(looped, priority, emitter, handle, useAcoustics, area));
     if (mMuted) {
       sound->UpdateEmitterSilent();
     }
-    mChannels[mCurrentChannel].mSounds[handle.GetIndex()] = sound;
+    channel.mSounds[handle.GetIndex()] = sound;
   }
   return handle;
 }
@@ -400,24 +402,28 @@ void CSfxManager::UpdateEmitter(CSfxHandle handle, const CVector3f& position,
 
 void CSfxManager::RemoveEmitter(CSfxHandle handle) { StopSound(mCurrentChannel, handle); }
 
+// Guessed helper: applies the area volume scale to a sound volume.
+static inline uchar ScaleVolumeForArea(uchar volume, int area) {
+  const uchar areaVolume = CSfxManager::GetAreaVolume(area);
+  return areaVolume == 127 ? volume
+                           : uchar(areaVolume * (volume > 127 ? 127 : volume) / 127);
+}
+
 CSfxHandle CSfxManager::SfxStart(ushort id, short volume, short pan, int area, bool useAcoustics,
                                  bool looped, short priority) {
-  if ((mMuted && !looped) || id == kInternalInvalidSfxId) {
+  if ((mMuted && !looped) || id == 0xffffffff || id == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
   }
+  CSfxChannel& channel = mChannels[mCurrentChannel];
   mDoUpdate = true;
-  const CSfxHandle handle = LocateHandle();
+  const CSfxHandle handle = LocateHandle(priority);
   if (handle) {
-    const ushort translatedId = TranslateSFXID(id);
-    if (translatedId == kInternalInvalidSfxId) {
+    id = TranslateSFXID(id);
+    if (id == kInternalInvalidSfxId) {
       return CSfxHandle::NullHandle();
     }
-    const uchar areaVolume = GetAreaVolume(area);
-    if (areaVolume != 127) {
-      volume = areaVolume * rstl::min_val(int(uchar(volume)), 127) / 127;
-    }
-    mChannels[mCurrentChannel].mSounds[handle.GetIndex()] = AllocateCSfxWrapper(CSfxWrapper(
-        looped, priority, translatedId, uchar(volume), pan, handle, useAcoustics, area));
+    channel.mSounds[handle.GetIndex()] = AllocateCSfxWrapper(CSfxWrapper(
+        looped, priority, id, ScaleVolumeForArea(volume, area), pan, handle, useAcoustics, area));
   }
   return handle;
 }
@@ -602,7 +608,7 @@ void CSfxManager::TurnOnChannel(ESfxChannels channel) {
   }
 }
 
-CSfxHandle CSfxManager::LocateHandle() {
+CSfxHandle CSfxManager::LocateHandle(int) {
   CSfxChannel& channel = mChannels[mCurrentChannel];
   for (int i = 0; i < channel.mSounds.size(); ++i) {
     if (channel.mSounds[i] == nullptr) {
@@ -1305,7 +1311,6 @@ void CSfxManager::SetIgnoreAreaLowPass(CSfxHandle handle, bool ignore) {
   sound->SetIgnoreAreaLowPass(ignore);
 }
 
-CSfxManager::CSfxWrapper::~CSfxWrapper() {}
 
 bool CSfxManager::CSfxWrapper::IsEmitter() const { return false; }
 
