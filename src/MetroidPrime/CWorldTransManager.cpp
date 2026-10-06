@@ -406,9 +406,9 @@ void CWorldTransManager::UpdateLights(float dt) {
     CLight wrappedLight = light;
     wrappedLight.SetPosition(lightPos +
                              CVector3f(0.f, 0.f, mGoingUp ? mLightHeight : -mLightHeight));
-    wrappedLight.SetColor(CColor::Lerp(CColor::Black(), pointColor, 1.f - intensity));
+    wrappedLight.SetColor(CColor::Lerp(CColor::Black(), light.GetColor(), 1.f - intensity));
     lights.push_back_unsafe(wrappedLight);
-    movingLight.SetColor(CColor::Lerp(CColor::Black(), movingColor, intensity));
+    movingLight.SetColor(CColor::Lerp(CColor::Black(), movingLight.GetColor(), intensity));
   }
   lights.push_back_unsafe(movingLight);
   movingLight.SetPosition(
