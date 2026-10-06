@@ -62,9 +62,13 @@ CGameCollision::RayWorldIntersection(const CStateManager& mgr, TUniqueId& idOut,
       RayStaticIntersection(mgr, position, direction, length, filter);
   const CRayCastResult dynamicResult =
       RayDynamicIntersection(mgr, idOut, position, direction, length, filter, nearList);
-  if (dynamicResult.IsValid() &&
-      (!staticResult.IsValid() || dynamicResult.GetTime() <= staticResult.GetTime())) {
-    return dynamicResult;
+  if (dynamicResult.IsValid()) {
+    if (!staticResult.IsValid()) {
+      return dynamicResult;
+    }
+    if (staticResult.GetTime() >= dynamicResult.GetTime()) {
+      return dynamicResult;
+    }
   }
   idOut = kInvalidUniqueId;
   return staticResult;
@@ -658,7 +662,10 @@ static float CollisionImpulseFiniteVsInfinite(float mass, float velocity, float 
 }
 
 bool CGameCollision::IsFloor(const CMaterialList& material, const CVector3f& normal) {
-  return material.HasMaterial(kMT_Floor) || normal.GetZ() > 0.85f;
+  if (material.HasMaterial(kMT_Floor)) {
+    return true;
+  }
+  return normal.GetZ() > 0.85f;
 }
 
 bool CGameCollision::CanBlock(const CMaterialList& material, const CVector3f& normal) {
@@ -668,7 +675,10 @@ bool CGameCollision::CanBlock(const CMaterialList& material, const CVector3f& no
   if (material.HasMaterial(kMT_NoPlayerCollision)) {
     return false;
   }
-  return material.HasMaterial(kMT_Floor) || normal.GetZ() > 0.85f;
+  if (material.HasMaterial(kMT_Floor)) {
+    return true;
+  }
+  return normal.GetZ() > 0.85f;
 }
 
 float CGameCollision::GetMinExtentForCollisionPrimitive(const CCollisionPrimitive& primitive) {
