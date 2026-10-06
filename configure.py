@@ -1484,6 +1484,12 @@ config.libs = [
         ],
     },
     Rel(
+        "FishCloud",
+        [
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CFishCloud.cpp"),
+        ],
+    ),
+    Rel(
         "ForgottenObject",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptForgottenObject.cpp"),

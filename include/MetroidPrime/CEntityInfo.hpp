@@ -29,6 +29,7 @@ enum EEntityType {
   kET_Explosion = 22,
   kET_FirstPersonCamera = 23,
   kET_FixedCamera = 24, // Guessed name; runtime fixed camera.
+  kET_FishCloud = 25, // Guessed name; FishCloud REL TypesMatch tag.
   kET_GameLight = 26,
   kET_HomingBlob = 27, // Guessed name; Dark impact's multi-target particle weapon.
   kET_HUDBillboardEffect = 28,
@@ -168,6 +169,7 @@ enum EScriptObjectState {
   kSS_AreaLightDamage = 0x44414c47,
   kSS_UnknownSourceDamage = 0x44554e53,
   kSS_InheritBounds = 0x49424e44,
+  kSS_Modify = 0x4d444659, // Prime name; fish cloud modifier connections.
   kSS_InternalState00 = 0x49533030, // Guessed name: base of the ten counter-condition states.
   kSS_InternalState01 = 0x49533031, // Guessed name
   // Guessed names; portal-transition connections use these internal states.
