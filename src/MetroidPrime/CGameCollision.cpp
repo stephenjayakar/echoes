@@ -111,7 +111,8 @@ bool CGameCollision::RayDynamicLineOfSightTest(
         const CTransform4f& xf = actor->GetPrimitiveTransform();
         const CCollisionPrimitive* prim = actor->GetCollisionPrimitive();
         const CInternalRayCastStructure ray(position, direction, maxDistance, xf, filter);
-        if (prim->CastRayInternal(ray).IsValid()) {
+        const CRayCastResult result = prim->CastRayInternal(ray);
+        if (result.IsValid()) {
           return false;
         }
       }
