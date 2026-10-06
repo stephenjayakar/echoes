@@ -128,15 +128,18 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
   }
 
   const TUniqueId id = actor.GetUniqueId();
-  if (!(mScanObjectMembership[id.Value() >> 3] & (1 << (id.Value() & 7)))) {
-    ResolveScanTarget(mgr, id);
-    const rstl::vector< SScanObject >::iterator it =
-        rstl::lower_bound(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
-    const CColor previous = !close_enough(mRefreshTimer, 0.f) ? skScanPulseStart : CColor::Black();
-    mScanObjects.insert(it, SScanObject(id, previous, gpTweakGui->GetScanVisorFadeOutTime()));
-    mScanObjectMembership[id.Value() >> 3] |= 1 << (id.Value() & 7);
+  const int bit = 1 << (id.Value() & 7);
+  uchar& membership = mScanObjectMembership[id.Value() >> 3];
+  if (membership & bit) {
+    return true;
   }
 
+  ResolveScanTarget(mgr, id);
+  const rstl::vector< SScanObject >::iterator it =
+      rstl::lower_bound(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
+  const CColor previous = close_enough(mRefreshTimer, 0.f) ? CColor::Black() : skScanPulseStart;
+  mScanObjects.insert(it, SScanObject(id, previous, gpTweakGui->GetScanVisorFadeOutTime()));
+  membership |= bit;
   return true;
 }
 
