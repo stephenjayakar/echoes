@@ -546,9 +546,13 @@ bool CGameCollision::DetectStaticCollisionBoolean_Cached(const CStateManager& mg
                                                          const CTransform4f& transform,
                                                          const CMaterialFilter& filter) {
   const CMaterialFilter staticFilter = filter.WithImplicitMaterials(skStaticGeometryMaterials);
-  if (staticFilter.GetType() == CMaterialFilter::kFT_Never || primitive.GetPrimType() == 'OBTG') {
+  if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return false;
   }
+  if (primitive.GetPrimType() == 'OBTG') {
+    return false;
+  }
+  bool hit = false;
   const CAABox bounds = primitive.CalculateAABox(transform);
   if (!bounds.Inside(cache.GetCacheBounds())) {
     const CVector3f margin(0.2f, 0.2f, 0.2f);
@@ -563,31 +567,34 @@ bool CGameCollision::DetectStaticCollisionBoolean_Cached(const CStateManager& mg
     return DetectStaticCollisionBoolean(mgr, primitive, transform, staticFilter);
   }
   if (primitive.GetPrimType() == 'AABX') {
-    for (uint i = 0; i < cache.GetNumCaches(); ++i) {
+    for (int i = 0; i < static_cast< int >(cache.GetNumCaches()); ++i) {
       if (CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(cache.GetOctreeLeafCache(i),
                                                                   bounds, staticFilter)) {
-        return true;
+        hit = true;
+        break;
       }
     }
   } else if (primitive.GetPrimType() == 'SPHR') {
-    const CSphere& localSphere = static_cast< const CCollidableSphere& >(primitive).GetSphere();
-    const CSphere sphere(transform * localSphere.GetCenter(), localSphere.GetRadius());
-    for (uint i = 0; i < cache.GetNumCaches(); ++i) {
+    const CSphere sphere = static_cast< const CCollidableSphere& >(primitive).Transform(transform);
+    for (int i = 0; i < static_cast< int >(cache.GetNumCaches()); ++i) {
       if (CMetroidAreaCollider::SphereCollisionCheckBoolean_Cached(cache.GetOctreeLeafCache(i),
                                                                    bounds, sphere, staticFilter)) {
-        return true;
+        hit = true;
+        break;
       }
     }
-  }
-  if (primitive.GetPrimType() == 'ABSH') {
+  } else if (primitive.GetPrimType() == 'ABSH') {
     const CCollidableAABoxSphere& compound =
         static_cast< const CCollidableAABoxSphere& >(primitive);
-    return DetectStaticCollisionBoolean_Cached(mgr, cache, compound.GetCollidableAABox(), transform,
-                                               staticFilter) ||
-           DetectStaticCollisionBoolean_Cached(mgr, cache, compound.GetCollidableSphere(),
-                                               transform, staticFilter);
+    if (DetectStaticCollisionBoolean_Cached(mgr, cache, compound.GetCollidableAABox(), transform,
+                                            staticFilter)) {
+      hit = true;
+    } else if (DetectStaticCollisionBoolean_Cached(mgr, cache, compound.GetCollidableSphere(),
+                                                   transform, staticFilter)) {
+      hit = true;
+    }
   }
-  return false;
+  return hit;
 }
 
 bool CGameCollision::DetectStaticCollisionBoolean(const CStateManager& mgr,
