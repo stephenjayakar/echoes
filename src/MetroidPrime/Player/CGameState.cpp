@@ -475,6 +475,44 @@ void CGameState::InitializeMemoryWorlds() {
   }
 }
 
+CGameState::GameFileStateInfo CGameState::LoadGameFileState(const void* data) {
+  CMemoryInStream memStream(data, 0x1000);
+  CBitStreamReader stream(memStream);
+  GameFileStateInfo ret;
+  stream.ReadBits(32); // GMST
+  const uint timestamp = stream.ReadBits(32);
+  ret.mHardMode = stream.ReadPackedBool();
+  stream.ReadPackedBool();
+  ret.x21_ = stream.ReadPackedBool();
+  ret.mMlvlId = stream.ReadBits(32);
+
+  const uint playTimeHigh = stream.ReadBits(32);
+  union {
+    double value;
+    u64 bits;
+  } playTime;
+  const uint playTimeLow = stream.ReadBits(32);
+  playTime.bits = playTimeHigh;
+  playTime.bits <<= 32;
+  playTime.bits |= playTimeLow;
+  ret.mPlayTime = playTime.value;
+
+  CPlayerState playerState(0, stream);
+  ret.mHealth = playerState.GetHealthInfo().GetHP();
+  ret.mEnergyTanks = playerState.GetItemCapacity(CPlayerState::kIT_EnergyTanks);
+  ret.mTimestamp = timestamp;
+  ret.mItemPercent = playerState.GetItemPercentageRatio();
+  float scanPercent;
+  if (playerState.GetTotalLogScans() == 0) {
+    scanPercent = 0.f;
+  } else {
+    scanPercent = 100.f * (static_cast< float >(playerState.GetLogScans()) /
+                           static_cast< float >(playerState.GetTotalLogScans()));
+  }
+  ret.mScanPercent = scanPercent;
+  return ret;
+}
+
 void CGameState::SerializeNewForCleanSlot(CBitStreamWriter& out, bool hardMode) {
   CGameState state;
   state.SetHardMode(hardMode);
