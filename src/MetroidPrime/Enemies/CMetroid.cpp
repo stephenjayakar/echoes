@@ -1160,11 +1160,11 @@ bool CMetroid::ShouldReleaseFromTarget(CStateManager& mgr) {
   } else if (mAttackTarget != kInvalidUniqueId) {
     if (const CSpacePirate* pirate =
             TCastToConstPtr< CSpacePirate >(mgr.GetObjectById(mAttackTarget))) {
+      // TODO: the original also returns true when the pirate's energy is fully drained (bit 0x02
+      // of CSpacePirate+0x8F8); CSpacePirate.hpp is claimed by the SpacePirate REL work.
       bool ret = true;
-      if (!pirate->AllEnergyDrained()) {
-        if (!pirate->GetBodyController()->GetBodyStateInfo().GetCurrentState()->IsDead()) {
-          ret = false;
-        }
+      if (!pirate->GetBodyController()->GetBodyStateInfo().GetCurrentState()->IsDead()) {
+        ret = false;
       }
       return ret;
     }
