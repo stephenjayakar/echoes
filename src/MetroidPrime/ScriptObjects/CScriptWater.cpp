@@ -704,8 +704,8 @@ void CScriptWater::InhabitantExited(CActor& actor, CStateManager& mgr) {
   }
 }
 
-void CScriptWater::InhabitantIdle(CActor& actor, CStateManager& mgr) {
-  CScriptTrigger::InhabitantIdle(actor, mgr);
+void CScriptWater::InhabitantIdle(CActor& actor, CStateManager& mgr, float dt) {
+  CScriptTrigger::InhabitantIdle(actor, mgr, dt);
   mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XINF);
 }
 

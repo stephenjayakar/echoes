@@ -209,10 +209,13 @@ enum EScriptObjectMessage {
   kSM_Kill = 0x4b494c4c,
   kSM_InternalMessage00 = 0x494d3030,
   kSM_InternalMessage01 = 0x494d3031,
+  kSM_InternalMessage02 = 0x494d3032,
+  kSM_InternalMessage03 = 0x494d3033,
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
   kSM_XENZ = 0x58454e5a, // Guessed name; makes a flagged bouncy grenade explode.
+  kSM_XEXZ = 0x5845585a, // Guessed name; paired with XENZ on safe-zone exit.
   kSM_Clear = 0x58434c52, // Guessed DKCR HD name; clears an effect's particles.
   kSM_AreaLoaded = 0x58414c44,
   kSM_WorldLoaded = 0x58574c44,

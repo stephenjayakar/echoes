@@ -53,7 +53,7 @@ public:
 
   // CScriptTrigger
   void InhabitantAdded(CActor& actor, CStateManager& mgr) override;
-  void InhabitantIdle(CActor& actor, CStateManager& mgr) override;
+  void InhabitantIdle(CActor& actor, CStateManager& mgr, float dt) override;
   void InhabitantExited(CActor& actor, CStateManager& mgr) override;
 
   bool CanRippleAtPoint(const CVector3f& point) const;
