@@ -325,9 +325,9 @@ CVector3f CBallCamera::ApplyColliders() {
 CVector3f CBallCamera::AvoidGeometryFull(const CTransform4f& xf,
                                          const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
                                          CStateManager& mgr) {
-  mSmallColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 1, 4.f, nearList, mgr);
-  mMediumColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 3, 4.f, nearList, mgr);
-  mLargeColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 4, 4.f, nearList, mgr);
+  mSmallColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 1, 4.f, nearList, mgr);
+  mMediumColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 3, 4.f, nearList, mgr);
+  mLargeColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 4, 4.f, nearList, mgr);
   return ApplyColliders();
 }
 
@@ -336,18 +336,20 @@ CVector3f CBallCamera::AvoidGeometry(const CTransform4f& xf,
                                      CStateManager& mgr) {
   switch (mAvoidGeomCycle) {
   case 0:
-    mSmallColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 1, 4.f, nearList, mgr);
+    mSmallColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 1, 4.f, nearList, mgr);
     break;
   case 1:
-    mMediumColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 3, 4.f, nearList, mgr);
+    mMediumColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 3, 4.f, nearList, mgr);
     break;
   case 2:
+    mLargeColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 4, 4.f, nearList, mgr);
+    break;
   case 3:
-    mLargeColliders.UpdateColliders(xf, GetPlayer(mgr).GetBallPosition(), 4, 4.f, nearList, mgr);
+    mLargeColliders.UpdateColliders(xf, Player(mgr).GetBallPosition(), 4, 4.f, nearList, mgr);
     break;
   }
 
-  if (++mAvoidGeomCycle > 3) {
+  if (++mAvoidGeomCycle >= 4) {
     mAvoidGeomCycle = 0;
   }
   return ApplyColliders();
@@ -1580,23 +1582,34 @@ void CBallCamera::UpdateUsingFreeLook(float dt, CStateManager& mgr) {
 
 void CBallCamera::UpdateUsingTransitions(float dt, CStateManager& mgr) {
   mLookAtBall = false;
-  CPlayer& player = Player(mgr);
+  const CPlayer& player = GetPlayer(mgr);
+  // Unused, like the Prime version's ball/eye positions and transform copy.
+  const CVector3f ballPos = player.GetBallPosition();
+  const CVector3f eyePos = player.GetEyePosition();
+  const CTransform4f oldXf(GetTransform());
 
-  if (mState == kBCS_FromBall) {
-    if (UpdateTransitionFromBallCamera(mgr)) {
-      player.SkipMorphTransition();
-    }
-  } else if (mState == kBCS_ToBall) {
+  switch (mState) {
+  case kBCS_ToBall: {
     bool finished;
     if (player.GetSpawnedMorphballState() == CPlayer::kMS_Morphed) {
       finished = UpdateTransitionToBallCamera(mgr);
     } else {
       finished = UpdateTransitionToBallCamera(dt, mgr);
     }
-    CameraManager(mgr).FirstPersonCamera()->SetTransform(GetTransform());
+    const_cast< CFirstPersonCamera* >(GetCameraManager(mgr).GetFirstPersonCamera())
+        ->SetTransform(GetTransform());
     if (finished) {
-      player.SkipMorphTransition();
+      const_cast< CPlayer& >(player).SkipMorphTransition();
     }
+    break;
+  }
+  case kBCS_FromBall:
+    if (UpdateTransitionFromBallCamera(mgr)) {
+      const_cast< CPlayer& >(player).SkipMorphTransition();
+    }
+    break;
+  default:
+    break;
   }
 }
 
@@ -1902,20 +1915,30 @@ void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
 }
 
 bool CBallCamera::CheckDoorProximity(const CVector3f& position, const CStateManager& mgr) const {
-  const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(mTooCloseActorId));
-  if (door == nullptr || door->IsOpen()) {
+  const CScriptDoor* door =
+      TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(TUniqueId(mTooCloseActorId)));
+  if (door == nullptr || (door != nullptr && door->IsOpen())) {
     return false;
   }
 
   const rstl::optional_object< CAABox > bounds = door->GetTouchBounds();
   const CVector3f extent(0.3f, 0.3f, 0.3f);
-  if (!bounds || !bounds->DoBoundsOverlap(CAABox(position - extent, position + extent))) {
+  const CVector3f boxMin = position - extent;
+  const CVector3f boxMax = position + extent;
+  const CAABox box(boxMin, boxMax);
+  if (!bounds || !bounds->DoBoundsOverlap(box)) {
     return false;
   }
 
-  const CScriptDock* dock =
-      TCastToConstPtr< CScriptDock >(mgr.GetObjectById(door->GetConnectedDockID()));
-  return dock != nullptr && CMath::AbsF(dock->GetPlane(mgr).GetHeight(position)) < 1.15f;
+  const TUniqueId dockId = door->GetConnectedDockID();
+  const CScriptDock* dock = TCastToConstPtr< CScriptDock >(mgr.GetObjectById(dockId));
+  if (dock == nullptr) {
+    return false;
+  }
+  if (CMath::AbsF(dock->GetPlane(mgr).GetHeight(position)) < 1.15f) {
+    return true;
+  }
+  return false;
 }
 
 void CBallCamera::DoorClosing(TUniqueId uid) {
