@@ -1151,7 +1151,7 @@ void CPlayer::UpdateFootstepSounds(float dt, const CFinalInput& input, CStateMan
       !mLookButtonHeld) {
     char sfxVol = 127;
     mFootstepSfxTimer += dt;
-    float turn = TurnInput(input);
+    float turn = TurnInput(input, mgr);
     const float forward = fabsf(ForwardInput(input, turn));
     turn = fabsf(turn);
     float sfxDelay = 0.f;
@@ -2319,7 +2319,7 @@ void CPlayer::UpdateMorphBallState(const CFinalInput& input, float dt, CStateMan
       (morphPressed && playerState->GetItemAmount(CPlayerState::kIT_MorphBall, true) != 0)) {
     switch (mMorphBallState) {
     case kMS_Unmorphed:
-      if (CanEnterMorphBallState() && mCanStartMorphTransition) {
+      if (CanEnterMorphBallState(mgr, 0.f) && mCanStartMorphTransition) {
         mMorphTime = 0.f;
         if (state == kMS_Morphed) {
           mMorphDuration = screwAttackIntoBallDuration;
@@ -3291,7 +3291,7 @@ void CPlayer::SetHudDisable(float staticTimer, float fadeOutSpeed, float fadeInS
   }
 }
 
-bool CPlayer::CanEnterMorphBallState() const {
+bool CPlayer::CanEnterMorphBallState(CStateManager& mgr, float dt) const {
   if (mGrappleState != kGS_None || !mCanEnterMorphBall) {
     return false;
   }
@@ -3436,7 +3436,7 @@ float CPlayer::GetPrevDamageAmount() const { return mPrevDamageAmount; }
 
 CVector3f CPlayer::GetDamageLocationWR() const { return mDamageLocation; }
 
-uint CPlayer::GetDamageWeaponType() const { return mDamageWeaponType; }
+int CPlayer::GetDamageWeaponType() const { return mDamageWeaponType; }
 
 void CPlayer::FluidFXThink(EFluidState state, CScriptWater& water, CStateManager& mgr) {
   if (mMorphBallState == kMS_Morphed) {

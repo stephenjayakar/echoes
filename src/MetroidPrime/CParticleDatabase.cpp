@@ -242,36 +242,24 @@ void CParticleDatabase::AddParticleEffect(uint name, int flags, const CPositiona
 }
 
 CParticleGenInfo* CParticleDatabase::GetParticleEffect(uint name) {
-  {
-    DrawMap::iterator it = mRendererDrawLoop.find(name);
-    if (it != mRendererDrawLoop.end())
-      return it->second.get();
-  }
-  {
-    DrawMap::iterator it = mFirstDrawLoop.find(name);
-    if (it != mFirstDrawLoop.end())
-      return it->second.get();
-  }
-  {
-    DrawMap::iterator it = mLastDrawLoop.find(name);
-    if (it != mLastDrawLoop.end())
-      return it->second.get();
-  }
-  {
-    DrawMap::iterator it = mRendererDraw.find(name);
-    if (it != mRendererDraw.end())
-      return it->second.get();
-  }
-  {
-    DrawMap::iterator it = mFirstDraw.find(name);
-    if (it != mFirstDraw.end())
-      return it->second.get();
-  }
-  {
-    DrawMap::iterator it = mLastDraw.find(name);
-    if (it != mLastDraw.end())
-      return it->second.get();
-  }
+  DrawMap::iterator it = mRendererDrawLoop.find(name);
+  if (it != mRendererDrawLoop.end())
+    return it->second.get();
+  it = mFirstDrawLoop.find(name);
+  if (it != mFirstDrawLoop.end())
+    return it->second.get();
+  it = mLastDrawLoop.find(name);
+  if (it != mLastDrawLoop.end())
+    return it->second.get();
+  it = mRendererDraw.find(name);
+  if (it != mRendererDraw.end())
+    return it->second.get();
+  it = mFirstDraw.find(name);
+  if (it != mFirstDraw.end())
+    return it->second.get();
+  it = mLastDraw.find(name);
+  if (it != mLastDraw.end())
+    return it->second.get();
   return nullptr;
 }
 

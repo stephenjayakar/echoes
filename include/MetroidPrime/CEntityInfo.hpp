@@ -226,6 +226,7 @@ enum EScriptObjectMessage {
   kSM_Load = 0x4c4f4144,
   kSM_Unload = 0x554c4f44,
   kSM_Activate = 0x41435456,
+  kSM_Alert = 0x414c5254, // Guessed Prime name; sets the Metroid alert flag.
   kSM_Deactivate = 0x44435456,
   kSM_ToggleActive = 0x54435456,
   kSM_SetToZero = 0x5a45524f,
@@ -261,7 +262,6 @@ enum EScriptObjectMessage {
   kSM_InternalMessage13 = 0x494d3133, // Guessed name.
   kSM_InternalMessage14 = 0x494d3134, // Guessed name.
   kSM_Escape = 0x45534350,            // Guessed name; clears a GUI widget's controllers.
-  kSM_Alert = 0x414c5254,             // Guessed name; GUI widget relays it as kSS_Attack.
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
@@ -303,6 +303,9 @@ struct SConnection {
   SConnection(EScriptObjectState state, EScriptObjectMessage msg, TEditorId id)
   : state(state), msg(msg), objId(id) {}
 };
+namespace rstl {
+RSTL_DECLARE_TRIVIALLY_DESTRUCTIBLE(SConnection)
+} // namespace rstl
 
 class CEntityInfo {
   TAreaId mAreaId;
@@ -316,7 +319,6 @@ class CEntityInfo {
 public:
   CEntityInfo(TAreaId aid, const rstl::vector< SConnection >& connections, bool active,
               TEditorId eid = kInvalidEditorId);
-  ~CEntityInfo();
 
   TAreaId GetAreaId() const { return mAreaId; }
   const rstl::vector< SConnection >& GetConnectionList() const { return mConnections; }

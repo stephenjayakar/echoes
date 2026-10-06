@@ -488,14 +488,14 @@ public:
     mKnockBack = cmd;
   }
 
-  void DeliverCmd(const CBCMeleeAttackCmd& cmd) {
-    DeliverCmd(cmd.GetCommandId());
-    mMeleeAttack = cmd;
-  }
-
   void DeliverCmd(const CBCGenerateCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mGenerate = cmd;
+  }
+
+  void DeliverCmd(const CBCMeleeAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mMeleeAttack = cmd;
   }
 
   void DeliverCmd(const CBCHurledCmd& cmd) {
@@ -531,6 +531,7 @@ public:
   void BlendSteeringCmds();
   void ClearLocomotionCmds();
   void SetSteeringSpeedRange(float minimum, float maximum);
+  void SetSteeringBlendMode(ESteeringBlendMode mode) { mSteeringMode = mode; }
   void Reset();
   CBodyStateCmd* GetCmd(EBodyStateCmd cmd);
   const CBodyStateCmd* GetCmd(EBodyStateCmd cmd) const;

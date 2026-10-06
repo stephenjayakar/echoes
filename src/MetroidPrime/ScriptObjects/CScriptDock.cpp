@@ -4,7 +4,7 @@
 #include "MetroidPrime/CPortalTransition.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/CWorld.hpp"
-#include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
+#include "MetroidPrime/Enemies/CMetroid.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptDoor.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPortalTransition.hpp"
@@ -42,7 +42,7 @@ void CScriptDock::Touch(CActor& actor, CStateManager& mgr) {
   if (TCastToPtr< CPlayer >(actor)) {
     mDockState = kDS_PlayerTouched;
   }
-  if (CMetroidAlpha* metroid = TCastToPtr< CMetroidAlpha >(actor)) {
+  if (CMetroid* metroid = TCastToPtr< CMetroid >(actor)) {
     metroid->OnDockTouch(mgr);
   }
 }
