@@ -243,7 +243,7 @@ bool SScanObjectLess::operator()(TUniqueId id, const CPlayerTargeting::SScanObje
   return id < object.mId;
 }
 
-int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, TUniqueId id) const {
+int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUniqueId& id) const {
   const TUniqueId resolved = ResolveScanTarget(mgr, id);
   if (resolved == kInvalidUniqueId) {
     return 0;
@@ -338,26 +338,31 @@ void CPlayerTargeting::PrepareStaticGeometry(const CStateManager& mgr,
   }
   const CStaticGeometryMap* map =
       mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap.get();
-  if (!map) {
-    gpRender->DisablePVS(areaId.Value());
-    return;
-  }
-  const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = map->GetData().GetMappings();
-  TEditorId previousId = kInvalidEditorId;
-  int paletteIndex = -1;
-  rstl::vector< rstl::pair< int, int > > visible;
-  visible.reserve(mappings.size());
-  for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-       it != mappings.end(); ++it) {
-    if (it->second != previousId) {
-      paletteIndex = GetScanTargetIndex(mgr, mgr.GetIdForScript(it->second));
+  if (map) {
+    const rstl::vector< CStaticGeometryMapData::TMapping >& mappings =
+        map->GetData().GetMappings();
+    TEditorId previousId = kInvalidEditorId;
+    int paletteIndex = -1;
+    rstl::vector< rstl::pair< int, int > > visible;
+    visible.reserve(mappings.size());
+    for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
+         it != mappings.end(); ++it) {
+      int index;
+      if (it->second == previousId) {
+        index = paletteIndex;
+      } else {
+        index = GetScanTargetIndex(mgr, mgr.GetIdForScript(it->second));
+      }
       previousId = it->second;
+      paletteIndex = index;
+      if (index > 0) {
+        visible.push_back_unsafe(rstl::pair< int, int >(it->first, index));
+      }
     }
-    if (paletteIndex > 0) {
-      visible.push_back_unsafe(rstl::pair< int, int >(it->first, paletteIndex));
-    }
+    gpRender->EnablePVS(areaId.Value(), visible);
+  } else {
+    gpRender->DisablePVS(areaId.Value());
   }
-  gpRender->EnablePVS(areaId.Value(), visible);
 }
 
 void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui) const {
