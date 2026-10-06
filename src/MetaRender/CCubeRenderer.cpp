@@ -1300,14 +1300,14 @@ void CCubeRenderer::RenderFogVolumeModel(const CAABox& bounds, const CModel* mod
     CGX::SetVtxDescv(desc);
     const CUnitVector3f forward(view.GetForward());
     const CVector3f& min = worldBounds.GetMinPoint();
-    const CVector3f max = -worldBounds.GetMaxPoint();
+    const CVector3f& max = worldBounds.GetMaxPoint();
     const CPlane planes[7] = {
         CPlane(min.GetX(), CVector3f::Right()),
-        CPlane(max.GetX(), CVector3f::Left()),
+        CPlane(-max.GetX(), CVector3f::Left()),
         CPlane(min.GetY(), CVector3f::Forward()),
-        CPlane(max.GetY(), CVector3f::Back()),
+        CPlane(-max.GetY(), CVector3f::Back()),
         CPlane(min.GetZ(), CVector3f::Up()),
-        CPlane(max.GetZ(), CVector3f::Down()),
+        CPlane(-max.GetZ(), CVector3f::Down()),
         CPlane(CVector3f::Dot(view.GetTranslation(), forward) + 0.2f + 0.1f, forward),
     };
     CGraphics::SetModelMatrix(CTransform4f::Identity());
