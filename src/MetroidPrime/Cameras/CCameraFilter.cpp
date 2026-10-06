@@ -341,7 +341,8 @@ void CCameraFilterPass::DrawDialogBox(const CColor& color, const CTexture* textu
   CGraphics::StreamEnd();
 }
 
-void CCameraFilterPass::DrawCinematicPlaceholderLabel() {
+void CCameraFilterPass::DrawCinematicPlaceholderLabel(const CColor& color, const CTexture* texture,
+                                                      float alpha) {
   const CViewport viewport = CGraphics::GetViewport();
   gpRender->SetDepthReadWrite(false, false);
   gpRender->SetModelMatrix(CTransform4f::Identity());
@@ -441,7 +442,7 @@ void CCameraFilterPass::DrawFilterShape(EFilterShape shape, const CColor& color,
     DrawDialogBox(color, tex, lod);
     break;
   case kFS_CinematicPlaceholderLabel:
-    DrawCinematicPlaceholderLabel();
+    DrawCinematicPlaceholderLabel(color, tex, lod);
     break;
   case kFS_CookieCutterDepthRandomStatic:
     DrawRandomStatic(color, lod, true);
