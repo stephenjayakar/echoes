@@ -50,7 +50,7 @@ CAssetId CTextParser::GetAssetIdFromString(
   if (textureMap) {
     typedef rstl::pair< CAssetId, CAssetId > AssetPair;
     rstl::vector< AssetPair >::const_iterator it = rstl::binary_find(
-        textureMap->begin(), textureMap->end(), id,
+        textureMap->begin(), textureMap->end(), CAssetId(id),
         rstl::pair_sorter_finder< AssetPair, rstl::less< CAssetId > >(rstl::less< CAssetId >()));
     if (it != textureMap->end()) {
       return it->second;
