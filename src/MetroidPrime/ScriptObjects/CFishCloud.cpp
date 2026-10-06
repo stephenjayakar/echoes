@@ -690,13 +690,12 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
         const float ballRadiusSquared = ballRadius * ballRadius;
         const CVector3f ballPos =
             player->GetTranslation() + CVector3f(mgr.Random()->Range(-0.1f, 0.1f), 0.f, 0.f);
-        const float outerSquared = 0.8f + ballRadiusSquared;
         const float distanceSquared = mPlayerBallDistance * mPlayerBallDistance;
         int index = 0;
         for (TBoidVector::iterator it = mBoids.begin(); it != mBoids.end(); ++it, ++index) {
           const CVector3f delta = ballPos - it->GetTranslation();
           const float magSquared = delta.MagSquared();
-          if (magSquared > outerSquared) {
+          if (magSquared > 0.8f + ballRadiusSquared) {
             if ((index & mUpdateMask) != (mThinkCounter & mUpdateMask) &&
                 magSquared < distanceSquared) {
               const float priority = mPlayerBallPriority;
@@ -711,10 +710,9 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
                 const float mag = flat.Magnitude();
                 const CVector3f velocity = vel.AsNormalized();
                 const CVector3f normal = VecDiv(-flat, mag);
-                const float push = 0.1f + (ballRadius - mag);
                 const float dot = CVector3f::Dot(velocity, normal);
                 vel += 0.25f * (velocity - 2.f * (dot * normal));
-                it->mPos += push * normal;
+                it->mPos = it->mPos + (0.1f + (ballRadius - mag)) * normal;
               }
             } else {
               CVector3f& vel = it->mVel;
@@ -722,28 +720,29 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
                 const float mag = delta.Magnitude();
                 const CVector3f velocity = vel.AsNormalized();
                 const CVector3f normal = VecDiv(-delta, mag);
-                const float push = 0.1f + (ballRadius - mag);
                 const float dot = CVector3f::Dot(velocity, normal);
                 vel += 0.25f * (velocity - 2.f * (dot * normal));
-                it->mPos += push * normal;
+                it->mPos = it->mPos + (0.1f + (ballRadius - mag)) * normal;
               }
             }
           }
         }
-      }
-      CRandom16& random = *mgr.Random();
-      const CVector3f playerPos = player->GetTranslation();
-      for (TBoidVector::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
-        CVector3f adjustedPos = playerPos;
-        const float dz = it->GetTranslation().GetZ() - adjustedPos.GetZ();
-        if (dz > 0.f && dz < 2.3) {
-          adjustedPos.SetZ(it->GetTranslation().GetZ());
+      } else {
+        CRandom16& random = *mgr.Random();
+        const CVector3f playerPos = player->GetTranslation();
+        for (TBoidVector::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+          CVector3f adjustedPos = playerPos;
+          const CVector3f diff = it->GetTranslation() - adjustedPos;
+          const float dz = diff.GetZ();
+          if (dz > 0.f && dz < 2.3) {
+            adjustedPos.SetZ(it->GetTranslation().GetZ());
+          }
+          adjustedPos[kDX] += 0.2f * random.Float() - 0.1f;
+          adjustedPos[kDY] += 0.2f * random.Float() - 0.1f;
+          ApplyRepulsion(*it, adjustedPos, 8.f, mPlayerRepelMagnitude - mPlayerRepelDamping);
         }
-        adjustedPos[kDX] += 0.2f * random.Float() - 0.1f;
-        adjustedPos[kDY] += 0.2f * random.Float() - 0.1f;
-        ApplyRepulsion(*it, adjustedPos, 8.f, mPlayerRepelMagnitude - mPlayerRepelDamping);
+        mEnablePlayerRepelDamping = true;
       }
-      mEnablePlayerRepelDamping = true;
     }
   }
 }
