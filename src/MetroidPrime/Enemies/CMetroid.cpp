@@ -62,7 +62,7 @@ CMetroid::CMetroid(TUniqueId uid, const rstl::string& name, const CEntityInfo& i
                       GetMaterialList())
 , mPathFindSearch(nullptr, 0x303, pInfo.GetPathfindingIndex(), 1.f, 1.f, 0, CPFRegion::kRP_Center)
 , mAttackTarget(kInvalidUniqueId)
-, x9b8_(0.f)
+, mTelegraphAttackTime(0.f)
 , mEnergyDrained(0.f)
 , x9c0_(0.f)
 , x9c4_(0.f)
@@ -1163,6 +1163,121 @@ bool CMetroid::ShouldReleaseFromTarget(CStateManager& mgr) {
     return true;
   }
   return false;
+}
+
+void CMetroid::TelegraphAttack(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mState = kAiState_Zero;
+    mTelegraphAttackTime = mMetroidData.mTelegraphAttackTime;
+    mSeekTime = 0.f;
+    BodyController()->CommandMgr().ClearLocomotionCmds();
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    break;
+  case kStateMsg_Update:
+    switch (mState) {
+    case kAiState_Zero:
+      mTelegraphAttackTime -= dt;
+      if (mTelegraphAttackTime < 0.f) {
+        mState = kAiState_Two;
+        const CVector3f delta = GetAttackTargetPos(mgr) - GetTranslation();
+        const float magnitude = delta.Magnitude();
+        const float speed = mSpeed;
+        float extraTime = 0.f;
+        const float distance = 1.25f * magnitude;
+        if (speed > 0.f) {
+          extraTime = 1.15f / speed;
+        }
+        mMaxSeekTime =
+            extraTime + distance / BodyController()->GetBodyStateInfo().GetMaxSpeed();
+        BodyController()->SetTurnSpeed(speed > 0.f ? 20.f / speed : 20.f);
+      } else if (mAttackTarget != kInvalidUniqueId) {
+        if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackTarget))) {
+          const CVector3f direction = actor->GetTranslation() - GetTranslation();
+          if (direction.CanBeNormalized()) {
+            BodyController()->CommandMgr().DeliverCmd(
+                CBCLocomotionCmd(CVector3f::Zero(), direction.AsNormalized(), 1.f));
+          }
+        }
+      }
+      break;
+    case kAiState_One:
+      break;
+    case kAiState_Two: {
+      mSeekTime += dt;
+      const CVector3f targetPos = GetAttackTargetPos(mgr);
+      const CVector3f move = mSteeringBehaviors.Seek(*this, targetPos);
+      BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(move, CVector3f::Zero(), 1.f));
+      break;
+    }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    BodyController()->SetTurnSpeed(mTurnSpeed);
+    if (Attacked(mgr, CTriggerData(0.f))) {
+      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId,
+                                  GetUniqueId(), false);
+    } else if (PatternShagged(mgr, CTriggerData(0.f))) {
+      CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId,
+                                  GetUniqueId(), false);
+      mAttackTarget = kInvalidUniqueId;
+    }
+    break;
+  }
+}
+
+void CMetroid::Generate(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (mGrowthEnergy >= mMetroidData.mExplosionGrowthEnergy) {
+      MassiveDeath(mgr);
+    }
+    mState = kAiState_One;
+    mScale2 = GetModelData()->GetScale();
+    mGrowing = true;
+    break;
+  case kStateMsg_Update:
+    switch (mState) {
+    case kAiState_One:
+      if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+        mGrowthDuration = BodyController()->GetAnimTimeRemaining();
+        mState = mGrowthDuration > 0.f ? kAiState_Two : kAiState_Over;
+      } else if (Attacked(mgr, CTriggerData(0.f))) {
+        BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Two, -1));
+      } else {
+        BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Seven, -1));
+      }
+      break;
+    case kAiState_Two:
+      if (BodyController()->GetCurrentStateId() != pas::kAS_Generate) {
+        mState = kAiState_Over;
+      } else if (!BodyController()->IsFrozen()) {
+        if (Attacked(mgr, CTriggerData(0.f))) {
+          const float timeRemaining = BodyController()->GetAnimTimeRemaining();
+          CVector3f scale = mScale2;
+          const float t = CMath::Clamp(0.f, 1.f - timeRemaining / mGrowthDuration, 1.f);
+          if (t < 0.25f) {
+            scale = CMath::Clamp(0.f, 1.f - 0.5f * (t / 0.25f), 1.f) * mScale2;
+          } else {
+            const float duration = 0.75f * mGrowthDuration;
+            const CVector3f halfScale = 0.5f * mScale2;
+            scale = halfScale + (duration - timeRemaining) * ((1.f / duration) * (mScale1 - halfScale));
+          }
+          ModelData()->SetScale(scale);
+        }
+      }
+      break;
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mGrowthDuration = 0.f;
+    mGrowing = false;
+    if (Attacked(mgr, CTriggerData(0.f))) {
+      mLastGrowthEnergy = mGrowthEnergy;
+      ModelData()->SetScale(mScale1);
+    }
+    break;
+  }
 }
 
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {

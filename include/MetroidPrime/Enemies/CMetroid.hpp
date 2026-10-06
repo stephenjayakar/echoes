@@ -194,7 +194,7 @@ protected:
   CCollidableSphere mCollisionPrimitive;
   CPathFindSearch mPathFindSearch;
   TUniqueId mAttackTarget;
-  float x9b8_;
+  float mTelegraphAttackTime;
   float mEnergyDrained;
   float x9c0_;
   float x9c4_;
