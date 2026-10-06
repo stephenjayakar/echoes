@@ -273,7 +273,7 @@ u32 CGraphics::mClearDepthValue = GX_MAX_Z24;
 float CGraphics::mPixelAspectRatio = 1.f;
 bool CGraphics::mIsGXModelMatrixIdentity = true;
 bool CGraphics::mFirstFrame = true;
-GXBool CGraphics::mUseVideoFilter = GX_TRUE;
+bool CGraphics::mUseVideoFilter = true;
 float CGraphics::mBrightness = 1.f;
 
 const GXTexMapID CGraphics::kSpareBufferTexMapID = GX_TEXMAP7;
@@ -1652,7 +1652,7 @@ void CGraphics::SetUseVideoFilter(const bool b) {
                   mRenderModeObj.vfilter);
 }
 
-GXBool CGraphics::GetUseVideoFilter() { return mUseVideoFilter; }
+bool CGraphics::GetUseVideoFilter() { return mUseVideoFilter; }
 
 int CGraphics::GetFrameCounter() { return mFrameCounter; }
 
