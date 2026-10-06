@@ -966,7 +966,10 @@ void CCubeRenderer::SetDebugOption(EDebugOption option, int value) {
 
 CTexture* CCubeRenderer::GetRealReflection() {
   mReflectionAge = 0;
-  return mReflectionTex.get() ? mReflectionTex.get() : &mBlackTex;
+  if (mReflectionTex.null()) {
+    return &mBlackTex;
+  }
+  return mReflectionTex.get();
 }
 
 void CCubeRenderer::CacheReflection(void (*callback)(void*, const CVector3f&), void* context,
@@ -2007,11 +2010,11 @@ uchar CCubeRenderer::FindOrAddLightSet(uint lightSet) {
       return static_cast< uchar >(i);
     }
   }
-  if (mLightSets.size() == mLightSets.capacity()) {
-    return 0;
+  if (mLightSets.size() < mLightSets.capacity()) {
+    mLightSets.push_back(lightSet);
+    return static_cast< uchar >(mLightSets.size() - 1);
   }
-  mLightSets.push_back(lightSet);
-  return static_cast< uchar >(mLightSets.size() - 1);
+  return 0;
 }
 
 void CCubeRenderer::FindOverlappingWorldModels(rstl::vector< uint >& models, const CAABox& bounds) {

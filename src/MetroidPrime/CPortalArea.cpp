@@ -92,7 +92,8 @@ void CPortalArea::AddActor(CStateManager& mgr, CActor& actor) {
 }
 
 bool CPortalArea::RemoveActor(CStateManager& mgr, const TUniqueId& uid) {
-  bool removed = mUnassignedActors.RemoveActor(uid);
+  bool removed = false;
+  removed |= mUnassignedActors.RemoveActor(uid);
   for (int i = 0; i < mVolumes.size(); ++i) {
     removed |= mVolumes[i].RemoveActor(uid);
   }

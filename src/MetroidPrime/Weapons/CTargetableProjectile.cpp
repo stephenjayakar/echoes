@@ -37,7 +37,7 @@ CEntity* CTargetableProjectile::TypesMatch(int typeId) const {
 
 void CTargetableProjectile::ResolveCollisionWithActor(const CRayCastResult& result, CActor& actor,
                                                       CStateManager& mgr) {
-  if (actor.TypesMatch(0x98) != nullptr) {
+  if (TCastToPtr< CTargetableProjectile >(actor) != nullptr) {
     return;
   }
 
