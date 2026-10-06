@@ -259,8 +259,68 @@ CAdvancementDeltas CAnimData::Advance(float dt, float minParticleWeight, const C
 
 CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendEffects, CRandom16& random,
                                         bool advanceTree) {
-  // TODO: Advance the animation tree, process POIs and combine additive deltas.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  suspendEffects = false;
+  CVector3f offsetPre(0.f, 0.f, 0.f);
+  CVector3f offsetPost(0.f, 0.f, 0.f);
+  CQuaternion quatPre = CQuaternion::NoRotation();
+  const float scaledDt = dt * mSpeedScale;
+  CQuaternion quatPost = CQuaternion::NoRotation();
+  ResetPOILists();
+  if (mAdditiveAnims.size() > 0) {
+    const CAdvancementDeltas deltas = UpdateAdditiveAnims(scaledDt);
+    offsetPost = deltas.GetOffsetDelta();
+    quatPost = deltas.GetOrientationDelta();
+  }
+  mPoseBuilt = false;
+  if (mAnimating != 1) {
+    suspendEffects = true;
+    return CAdvancementDeltas(offsetPre, quatPre);
+  }
+  if (mAnimationJustStarted) {
+    mAnimationJustStarted = false;
+    suspendEffects = true;
+  }
+  if (advanceTree) {
+    SetRandomPlaybackRate(random);
+    CCharAnimTime time(scaledDt);
+    if (mLoop) {
+      while (time.GreaterThanZero() && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
+                                                      mPassedIntCount, 0);
+        mPassedBoolCount +=
+            mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
+                                                              mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        AdvanceAnim(time, offsetPre, quatPre);
+      }
+    } else {
+      CCharAnimTime remaining = mAnimRoot->VGetTimeRemaining();
+      while (!close_enough(remaining.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
+                                                      mPassedIntCount, 0);
+        mPassedBoolCount +=
+            mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
+                                                              mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        AdvanceAnim(time, offsetPre, quatPre);
+        remaining = mAnimRoot->VGetTimeRemaining();
+        time = CCharAnimTime(
+            rstl::max_val(0.f, rstl::min_val(time.GetSeconds(), remaining.GetSeconds())));
+        if (close_enough(remaining.GetSeconds(), 0.f)) {
+          mAnimating = false;
+          mAlignPos = CVector3f::Zero();
+          x2ac_28_ = false;
+          mAligningPos = false;
+        }
+      }
+    }
+    mPoseBuilt = false;
+  }
+  return CAdvancementDeltas(offsetPre + offsetPost, quatPre * quatPost);
 }
 
 // Guessed name.
