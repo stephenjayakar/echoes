@@ -35,9 +35,9 @@
 #include "MetroidPrime/Player/CPlayerGun.hpp"
 #include "MetroidPrime/Player/CPlayerRagDoll.hpp"
 
-static const CMaterialList BallTransitionInclude(kMT_Unknown59);
-static const CMaterialList BallTransitionExclude(kMT_NoPlatformCollision, kMT_Player, kMT_Character,
-                                                 kMT_CameraPassthrough);
+static const CMaterialList BallTransitionInclude = CMaterialList(kMT_Unknown59);
+static const CMaterialList BallTransitionExclude =
+    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough);
 static const CMaterialFilter BallTransitionCollide =
     CMaterialFilter::MakeIncludeExclude(BallTransitionInclude, BallTransitionExclude);
 
@@ -1037,7 +1037,9 @@ float CPlayer::GetUnbiasedEyeHeight() const {
   return mFpBounds.GetPointE().GetZ() - GetTweakPlayer()->GetEyeOffset();
 }
 
-float CPlayer::GetEyeHeight() const { return mEyeZBias + GetUnbiasedEyeHeight(); }
+float CPlayer::GetEyeHeight() const {
+  return mEyeZBias + (mFpBounds.GetPointE().GetZ() - GetTweakPlayer()->GetEyeOffset());
+}
 
 CVector3f CPlayer::GetEyePosition() const {
   return GetTranslation() + CVector3f(0.f, 0.f, GetEyeHeight());
