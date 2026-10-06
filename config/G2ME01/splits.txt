@@ -1091,7 +1091,7 @@ MetroidPrime/CVisorFlare.cpp:
 MetroidPrime/CWorldTransManager.cpp:
 	.text       start:0x801576FC end:0x8015C67C
 	.ctors      start:0x803A5538 end:0x803A553C
-	.sbss       start:0x804191B8 end:0x804191C0
+	.sbss       start:0x804191B8 end:0x804191D0
 
 MetroidPrime/ScriptObjects/CScriptMidi.cpp:
 	.text       start:0x8015C67C end:0x8015CD4C

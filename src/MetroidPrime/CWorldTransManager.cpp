@@ -658,20 +658,21 @@ void CWorldTransManager::UpdateText(float dt) {
   if (mTextDirty) {
     TToken< CStringTable > stringTable = *mStrTable;
     if (stringTable.IsLoaded()) {
-      const CStringTable& strings = **stringTable;
-      if (mStrIdx < strings.GetStringCount()) {
-        mTextData->SetText(rstl::wstring(strings.GetString(mStrIdx)));
+      if (mStrIdx < stringTable->GetStringCount()) {
+        const rstl::wstring text(stringTable->GetString(mStrIdx));
+        mTextData->SetText(text);
         if (mDisplaySubtitles) {
-          mSubtitleData->SetText(rstl::wstring(strings.GetString(mStrIdx + 1)));
+          mSubtitleData->SetText(rstl::wstring(stringTable->GetString(mStrIdx + 1)));
         }
       }
-      if (CStringExtras::CompareCaseInsensitive(mAudioStream, rstl::string_l("UseStringTable")) ==
-              0 &&
-          mStrIdx + 1 < strings.GetStringCount()) {
-        mAudioStream = CStringExtras::ConvertToANSI(rstl::wstring(strings.GetString(mStrIdx + 1)));
+      const int useStringTable =
+          CStringExtras::CompareCaseInsensitive(mAudioStream, rstl::string_l("UseStringTable"));
+      if (useStringTable == 0 && mStrIdx + 1 < stringTable->GetStringCount()) {
+        const rstl::wstring audio(stringTable->GetString(mStrIdx + 1));
+        mAudioStream = CStringExtras::ConvertToANSI(audio);
       }
-      const rstl::wstring introAudio(strings.GetString(0));
-      if (mIntroText && introAudio.size() != 0) {
+      const rstl::wstring introAudio(stringTable->GetString(0));
+      if (mIntroText && introAudio.length() != 0) {
         mAudioStream = CStringExtras::ConvertToANSI(introAudio);
       }
       mSfxInterval = 0.f;
@@ -687,7 +688,7 @@ void CWorldTransManager::UpdateText(float dt) {
   }
 
   if (mCurTime >= mTextStartTime) {
-    if (mAudioStream.size() != 0 && CDvdFile::FileExists(mAudioStream.c_str())) {
+    if (mAudioStream.length() != 0 && CDvdFile::FileExists(mAudioStream.c_str())) {
       CStreamAudioManager::PlaySoftwareAudio(CStreamAudioManager::kSC_Default, mAudioStream, 0.f,
                                              0.f, mVolume, false);
       mAudioStream = rstl::string_l("");
@@ -714,83 +715,92 @@ void CWorldTransManager::UpdateText(float dt) {
   float endDelay = mTextEndDelay;
   bool textReadyToFinish = true;
   if (mIntroText && mStrTable && mStrTable->IsLoaded()) {
-    const CStringTable& strings = ***mStrTable;
     if (!mIntroAudioStopped && mCurTime >= mTextStartTime + 27.25f) {
       mIntroAudioStopped = true;
       CStreamAudioManager::StopSoftwareAudio(CStreamAudioManager::kSC_OneShot,
                                              rstl::string_l(kIntroAudio));
     }
-    endDelay = mStrIdx + 1 == strings.GetStringCount() ? 4.f : (mStrIdx & 1 ? 0.5f : 2.f);
+    endDelay = mStrIdx % 2 != 0 ? 0.5f : 2.f;
+    if (mStrIdx + 1 == (*mStrTable)->GetStringCount()) {
+      endDelay = 4.f;
+    }
     if (mIntroTextFadeTimer > 0.f) {
       mIntroTextFadeTimer = rstl::max_val(mIntroTextFadeTimer - 2.f * dt, 0.f);
       mTextData->SetGeometryColor(CColor::White().WithAlphaOf(mIntroTextFadeTimer));
     }
-    if (mStrIdx == strings.GetStringCount() - 1 &&
-        mTextData->GetTotalAnimationTime() < mTextElapsedTime) {
-      mTextData->SetTypeWriteEffectOptions(false, 0.f, FLT_MAX);
-      static float flashTime = FLT_MAX;
+    TToken< CStringTable > table = *mStrTable;
+    if (mStrIdx == table->GetStringCount() - 1 &&
+        mTextElapsedTime > mTextData->GetTotalAnimationTime()) {
+      mTextData->SetTypeWriteEffectOptions(false, 0.f, 3.4028235e38f);
+      rstl::wstring text(table->GetString(mStrIdx));
+      static float flashTime = 3.4028235e38f;
       static bool flashBlue = false;
       flashTime += dt;
       if (flashTime > 0.25f) {
         flashBlue = !flashBlue;
         flashTime = 0.f;
-        rstl::wstring text(strings.GetString(mStrIdx));
-        const char* markup = flashBlue ? "&main-color=#89D6FF;_" : "&main-color=#000000;_";
-        text.append(CStringExtras::ConvertToUNICODE(rstl::string_l(markup)));
+        text.append(CStringExtras::ConvertToUNICODE(
+            rstl::string_l(flashBlue ? "&main-color=#89D6FF;_" : "&main-color=#000000;_")));
         mTextData->SetText(text);
       }
     }
 
-    const float pageCompletion = endDelay + (1.f + mTextData->GetTotalAnimationTime());
-    if (pageCompletion >= mTextElapsedTime) {
-      textReadyToFinish = false;
-    } else if (!mIntroTextSeen) {
-      static bool pageFadeStarted = false;
-      const bool newPage = (mStrIdx + 1) % 2 != 0;
-      if (mIntroTextFadeTimer > 0.f) {
-        textReadyToFinish = false;
-      } else if (!pageFadeStarted && (newPage || mStrIdx - 1 == strings.GetStringCount())) {
-        pageFadeStarted = true;
-        mIntroTextFadeTimer = 1.f;
-        textReadyToFinish = false;
-      } else if (mStrIdx + 1 < strings.GetStringCount()) {
-        ++mStrIdx;
-        rstl::wstring text(strings.GetString(mStrIdx));
-        if (newPage) {
-          if (mStrIdx + 1 == strings.GetStringCount()) {
-            text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("_")));
+    if (endDelay + (1.f + mTextData->GetTotalAnimationTime()) < mTextElapsedTime) {
+      if (!mIntroTextSeen && mIntroText && mStrTable && mStrTable->IsLoaded()) {
+        TToken< CStringTable > pageTable = *mStrTable;
+        const bool newPage = (mStrIdx + 1) % 2 != 0;
+        static bool pageFadeStarted = false;
+        if (mIntroTextFadeTimer > 0.f) {
+          textReadyToFinish = false;
+        } else if (!pageFadeStarted && (newPage || mStrIdx - 1 == pageTable->GetStringCount())) {
+          textReadyToFinish = false;
+          mIntroTextFadeTimer = 1.f;
+          pageFadeStarted = true;
+        } else if (mStrIdx + 1 < pageTable->GetStringCount()) {
+          ++mStrIdx;
+          rstl::wstring text(pageTable->GetString(mStrIdx));
+          if (newPage) {
+            if (mStrIdx + 1 == (*mStrTable)->GetStringCount()) {
+              text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("_")));
+            }
+            mTextData->SetText(text);
+            mSfxInterval = 0.f;
+            mTextElapsedTime = 0.f;
+            mIntroTextFadeTimer = 0.f;
+          } else {
+            mTextData->AddText(text);
+            pageFadeStarted = false;
           }
-          mTextData->SetText(text);
-          mSfxInterval = 0.f;
-          mTextElapsedTime = 0.f;
-          mIntroTextFadeTimer = 0.f;
-        } else {
-          mTextData->AddText(text);
-          pageFadeStarted = false;
+          mTextData->SetGeometryColor(CColor::White());
+          if (mDisplaySubtitles) {
+            mSubtitleData->SetText(rstl::wstring(pageTable->GetString(mStrIdx + 1)));
+          }
+          textReadyToFinish = false;
         }
-        mTextData->SetGeometryColor(CColor::White());
-        if (mDisplaySubtitles) {
-          mSubtitleData->SetText(rstl::wstring(strings.GetString(mStrIdx + 1)));
-        }
-        textReadyToFinish = false;
       }
+    } else {
+      textReadyToFinish = false;
     }
   }
 
   if (mStopSoon) {
-    const float completion = endDelay + (1.f + mTextData->GetTotalAnimationTime());
-    if (textReadyToFinish && mTextElapsedTime > completion) {
-      if (mCurTime - mStopTime > 1.f) {
-        gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("SeenIntroText")->Set(1);
-        mTransitionFinished = true;
+    bool finishing = false;
+    if (textReadyToFinish) {
+      if (endDelay + (1.f + mTextData->GetTotalAnimationTime()) < mTextElapsedTime) {
+        finishing = true;
+        if (mCurTime - mStopTime > 1.f) {
+          gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("SeenIntroText")->Set(1);
+          mTransitionFinished = true;
+        }
+        if (mIntroText && mIntroTextSeen && !mIntroAudioStopped) {
+          mIntroAudioStopped = true;
+          CStreamAudioManager::FadeOutSoftwareAudio(CStreamAudioManager::kSC_OneShot, 1.f);
+          CStreamAudioManager::StopSoftwareAudio(CStreamAudioManager::kSC_OneShot,
+                                                 rstl::string_l(kIntroAudio));
+        }
       }
-      if (mIntroText && mIntroTextSeen && !mIntroAudioStopped) {
-        mIntroAudioStopped = true;
-        CStreamAudioManager::FadeOutSoftwareAudio(CStreamAudioManager::kSC_OneShot, 1.f);
-        CStreamAudioManager::StopSoftwareAudio(CStreamAudioManager::kSC_OneShot,
-                                               rstl::string_l(kIntroAudio));
-      }
-    } else {
+    }
+    if (!finishing) {
       mStopTime = mCurTime;
     }
   }
