@@ -69,7 +69,7 @@ void CPlayerKnockBackMgr::Update(float dt, CStateManager& mgr, CActor& actor) {
     mFreezePending = false;
   }
   UpdateBurning(dt, mgr, *player);
-  UpdateImplosion(mgr, *player);
+  UpdateImplosion(dt, mgr, *player);
   UpdateElectrocution(dt, mgr, *player);
 
   mRagDollDelay -= dt;
@@ -78,7 +78,7 @@ void CPlayerKnockBackMgr::Update(float dt, CStateManager& mgr, CActor& actor) {
     player->PlayerRagDoll() =
         rs_new CPlayerRagDoll(mgr, player, CSfxManager::kInternalInvalidSfxId, 0);
   }
-  if (mBurnDeath && dt < mBurnDeathRemainingTime) {
+  if (mBurnDeath && mBurnDeathRemainingTime > dt) {
     mBurnDeathRemainingTime -= dt;
   }
 }
@@ -530,7 +530,7 @@ void CPlayerKnockBackMgr::StartBlackHoleDeath(CStateManager& mgr, TUniqueId sour
   }
 }
 
-void CPlayerKnockBackMgr::UpdateImplosion(CStateManager& mgr, CPlayer& player) {
+void CPlayerKnockBackMgr::UpdateImplosion(float dt, CStateManager& mgr, CPlayer& player) {
   if (mImploding && player.GetDeathTime() > 1.5f) {
     mgr.ActorModelParticles()->StopImplosion(player);
   }
