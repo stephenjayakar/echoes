@@ -1752,13 +1752,14 @@ void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool telepo
   const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(GetWatchedObject()));
   if (player == nullptr) {
     if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(GetWatchedObject()))) {
-      mLookPos = actor->GetOrbitPosition(mgr);
+      mLookPos = actor->GetScanObjectIndicatorPosition(mgr);
     }
     return;
   }
 
   if (player->GetBombJumpCounter() == 1) {
-    const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(mTooCloseActorId));
+    const CScriptDoor* door =
+        TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(TUniqueId(mTooCloseActorId)));
     if (door != nullptr && !door->IsOpen()) {
       return;
     }
@@ -1792,6 +1793,7 @@ void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool telepo
   if (cameraTransitioning) {
     offset.SetZ(GetTranslation().GetZ() - 2.f);
     lookAhead.SetZ(offset.GetZ());
+    cameraTransitioning = true;
   }
   mLookPosAhead = lookAhead;
   mFixedLookPos = ballPosition + CVector3f(0.f, 0.f, offset.GetZ());
@@ -1802,7 +1804,9 @@ void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool telepo
     if (lookDelta.IsMagnitudeSafe()) {
       lookDelta.Normalize();
     }
-    const float springScale = 1.f + 2.f * CMath::Clamp(0.f, mSpeedingTime / 3.f, 1.f);
+    const float speedingTime = mSpeedingTime / 3.f;
+    float springScale = 1.f;
+    springScale += 2.f * CMath::Clamp(0.f, speedingTime, 1.f);
     const float springDistance =
         mBallCameraLookAtSpring.ApplyDistanceSpring(0.f, lookDeltaMagnitude, dt * springScale);
     if (springDistance > 0.0001f) {
@@ -1827,8 +1831,8 @@ void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool telepo
       CameraManager(mgr).HintManager()->HasHint(mgr) && !cameraTransitioning) {
     const CTransform4f hintTransform =
         CameraManager(mgr).HintManager()->GetCurrentHint(mgr)->GetTransform();
-    const float distance = CVector3f::Dot(Player(mgr).GetBallPosition() - GetTranslation(),
-                                          hintTransform.GetForward());
+    const CVector3f ballToCamera = Player(mgr).GetBallPosition() - GetTranslation();
+    const float distance = CVector3f::Dot(ballToCamera, hintTransform.GetForward());
     mLookPos = hintTransform.GetTranslation() + distance * hintTransform.GetForward();
     mLookPosAhead = mLookPos;
     mFixedLookPos = mLookPos;
