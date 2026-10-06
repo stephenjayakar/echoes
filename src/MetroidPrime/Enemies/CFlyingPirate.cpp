@@ -332,7 +332,8 @@ void CFlyingPirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     if (GetActive()) {
       AddToTeam(mgr);
     }
-    UpdateParticleEffects(mgr, 0.f, mIsFlyingPirate);
+    const bool jetpackActive = mIsFlyingPirate;
+    UpdateParticleEffects(mgr, 0.f, jetpackActive);
     AnimationData()->SetEffectState(skEyes, true, mgr);
     mLineOfSightTracker.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
     break;
