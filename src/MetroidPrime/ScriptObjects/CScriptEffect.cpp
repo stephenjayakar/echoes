@@ -419,31 +419,31 @@ void CScriptEffect::CreateSystem(const CVector3f& scale, const CColor& color) {
 }
 
 void CScriptEffect::UpdateSpline(float dt) {
-  if (!mHasSpline || !mEmitting) {
-    return;
-  }
-  mSplineTime += dt;
-  const float duration = mSpline.GetPositionSpline().GetDuration();
-  if (mSplineTime >= duration) {
-    mSplineTime = mLoopSpline ? 0.f : duration;
-  }
-  SetTranslation(mSpline.GetPositionByTime(mSplineTime));
-  if (mOrientToSpline) {
-    const float time = mSpline.GetDuration() * mSpline.PositionTimeSpline().EvaluateAt(mSplineTime);
-    const CVector3f forward = mSpline.GetPositionSpline().GetTangentByTime(time);
-    if (forward.CanBeNormalized()) {
-      CTransform4f xf = CTransform4f::Identity();
-      xf.SetTranslation(GetTranslation());
-      xf.SetColumn(kDY, forward);
-      CVector3f planar = forward.DropZ();
-      planar.Normalize();
-      if (CVector3f::Dot(forward, planar) < 0.99999f) {
-        const CQuaternion rotation = CQuaternion::LookAt(
-            CUnitVector3f(planar), CUnitVector3f(forward), CRelAngle::FromRadians(M_2PIF));
-        xf.SetColumn(kDZ, rotation.Transform(CVector3f::Up()));
+  if (mHasSpline && mEmitting) {
+    mSplineTime += dt;
+    if (mSplineTime >= mSpline.GetPositionSpline().GetDuration()) {
+      mSplineTime = mLoopSpline ? 0.f : mSpline.GetPositionSpline().GetDuration();
+    }
+    const CVector3f position = mSpline.GetPositionByTime(mSplineTime);
+    SetTranslation(position);
+    if (mOrientToSpline) {
+      const float time =
+          mSpline.GetDuration() * mSpline.PositionTimeSpline().EvaluateAt(mSplineTime);
+      const CVector3f forward = mSpline.GetPositionSpline().GetTangentByTime(time);
+      if (forward.CanBeNormalized()) {
+        CTransform4f xf = CTransform4f::Identity();
+        xf.SetTranslation(GetTranslation());
+        xf.SetColumn(kDY, forward);
+        CVector3f planar = forward.DropZ();
+        planar.Normalize();
+        if (CVector3f::Dot(forward, planar) < 0.99999f) {
+          const CQuaternion rotation = CQuaternion::LookAt(
+              CUnitVector3f(planar), CUnitVector3f(forward), CRelAngle::FromRadians(M_2PIF));
+          xf.SetColumn(kDZ, rotation.Transform(CVector3f::Up()));
+        }
+        xf.SetColumn(kDX, CVector3f::Cross(forward, xf.GetUp()));
+        SetTransform(xf);
       }
-      xf.SetColumn(kDX, CVector3f::Cross(forward, xf.GetUp()));
-      SetTransform(xf);
     }
   }
 }
