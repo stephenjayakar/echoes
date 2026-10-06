@@ -131,7 +131,7 @@ private:
   void UpdateBeamEffect(float dt, CStateManager& mgr);
   void UpdateStuckTimer(float dt, CStateManager& mgr);
   void UpdateAlertEffect(CStateManager& mgr);
-  int FindDodgeDirection(CStateManager& mgr);
+  pas::EStepDirection FindDodgeDirection(CStateManager& mgr);
   void MoveTo(const CVector3f& pos, float dt);
   void StopLaserSweep(CStateManager& mgr);
   CVector3f GetSeparation(CStateManager& mgr);
@@ -165,7 +165,7 @@ private:
   float xf1c_;
   int xf20_;
   CVector3f mFaceDirection;
-  int xf30_;
+  pas::EStepDirection mDodgeDirection;
   int xf34_;
   CVector3f xf38_;
   CVector3f xf44_;

@@ -498,6 +498,11 @@ public:
     mMeleeAttack = cmd;
   }
 
+  void DeliverCmd(const CBCProjectileAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mProjectileAttack = cmd;
+  }
+
   void DeliverCmd(const CBCHurledCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mHurled = cmd;
