@@ -847,20 +847,26 @@ void CSlideShow::DrawControls() const {
 CIOWin::EMessageReturn CSlideShow::SSlideData::ProcessUserInput(const CFinalInput& input) {
   if (IsReady()) {
     const CViewport& viewport = CGraphics::GetViewport();
-    const float aspect = float(viewport.mWidth) / viewport.mHeight;
-    const float textureSize = rstl::max_val(mTextureWidth, mTextureHeight);
+    const int vpWidth = viewport.mWidth;
+    const int vpHeight = viewport.mHeight;
     const CControlMapper& mapper = gpGameState->ControlMapper();
+    const float aspect = float(vpWidth) / vpHeight;
+    const float textureHeight = mTextureHeight;
+    const float textureWidth = mTextureWidth;
+    const float textureSize = rstl::max_val(textureWidth, textureHeight);
     const float zoomIn = mapper.GetAnalogInput(CControlMapper::kC_MapZoomIn, input);
     const float zoomOut = mapper.GetAnalogInput(CControlMapper::kC_MapZoomOut, input);
     const float zoom = textureSize * (zoomOut - zoomIn) / 1024.f;
     const CVector2f oldSize = mVpSize;
     if (zoom != 0.f) {
       CVector2f offset = mVpSize;
-      const float delta = gpTweakContents->TweakSlideShow.scaleMultiplier * zoom;
+      const float delta = zoom * gpTweakSlideShow->GetScaleMultiplier();
       mVpSize[0] += aspect * delta;
       mVpSize[1] += delta;
-      mVpSize[0] = CMath::Clamp(float(viewport.mWidth), mVpSize.GetX(), mCanvasSize.GetX());
-      mVpSize[1] = CMath::Clamp(float(viewport.mHeight), mVpSize.GetY(), mCanvasSize.GetY());
+      const float minWidth = vpWidth;
+      mVpSize[0] = CMath::Clamp(minWidth, mVpSize.GetX(), mCanvasSize.GetX());
+      const float minHeight = vpHeight;
+      mVpSize[1] = CMath::Clamp(minHeight, mVpSize.GetY(), mCanvasSize.GetY());
       offset -= mVpSize;
       offset /= 2.f;
       mVpOffset += offset;
@@ -868,12 +874,16 @@ CIOWin::EMessageReturn CSlideShow::SSlideData::ProcessUserInput(const CFinalInpu
     mParent->SetZoomSfx(!(oldSize == mVpSize));
 
     const CVector2f oldOffset = mVpOffset;
-    const float forward = mapper.GetAnalogInput(CControlMapper::kC_MapMoveForward, input);
-    const float back = mapper.GetAnalogInput(CControlMapper::kC_MapMoveBack, input);
-    const float left = mapper.GetAnalogInput(CControlMapper::kC_MapMoveLeft, input);
-    const float right = mapper.GetAnalogInput(CControlMapper::kC_MapMoveRight, input);
-    const float speed =
-        gpTweakContents->TweakSlideShow.translationMultiplier * textureSize / 1024.f;
+    const float forward =
+        gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapMoveForward, input);
+    const float back =
+        gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapMoveBack, input);
+    const float left =
+        gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapMoveLeft, input);
+    const float right =
+        gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapMoveRight, input);
+    const float speed = rstl::max_val(mTextureWidth, mTextureHeight) *
+                        gpTweakSlideShow->GetTranslationMultiplier() / 1024.f;
     mVpOffset[0] -= speed * left;
     mVpOffset[0] += speed * right;
     mVpOffset[1] += speed * forward;
@@ -881,8 +891,8 @@ CIOWin::EMessageReturn CSlideShow::SSlideData::ProcessUserInput(const CFinalInpu
     mVpOffset[0] = CMath::Clamp(0.f, mVpOffset.GetX(), mCanvasSize.GetX() - mVpSize.GetX());
     mVpOffset[1] = CMath::Clamp(0.f, mVpOffset.GetY(), mCanvasSize.GetY() - mVpSize.GetY());
 
-    const float availableX = mTextureWidth / 2.f - mVpSize.GetX() / 2.f;
-    const float availableY = mTextureHeight / 2.f - mVpSize.GetY() / 2.f;
+    const float availableX = textureWidth / 2.f - mVpSize.GetX() / 2.f;
+    const float availableY = textureHeight / 2.f - mVpSize.GetY() / 2.f;
     const float halfX = rstl::max_val(0.f, availableX);
     const float halfY = rstl::max_val(0.f, availableY);
     mVpOffset[0] =
