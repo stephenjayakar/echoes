@@ -223,6 +223,6 @@ CEntity* LoadRoomAcoustics(CStateManager& mgr, CInputStream& input, CEntityInfo&
       float(sldrThis.unknown_0xf51a1d6a), sldrThis.bitcrusherGain / 24.5f,
       float(sldrThis.bitcrusherBitDepth) / 24.f, sldrThis.bitcrusherSampleRateReduction / 40.f,
       sldrThis.phaserEnabled, sldrThis.phaserFrequency * 0.25f, sldrThis.phaserFeedback / 0.99f,
-      (1.f + sldrThis.phaserInvert) * 0.5f, sldrThis.phaserMix,
+      (1.f + sldrThis.phaserInvert) / 2.f, sldrThis.phaserMix,
       (sldrThis.phaserSweep - 200.f) / 7800.f);
 }

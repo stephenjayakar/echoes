@@ -10,7 +10,8 @@ CFactoryFnReturn FProjectileWeaponDataFactory(const SObjectTag& tag, CInputStrea
                                               const CVParamTransfer& transfer) {
   rstl::rc_ptr< IVParamObj > obj = transfer.GetObj();
   CSimplePool* pool = static_cast< TObjOwnerParam< CSimplePool* >* >(obj.GetPtr())->GetData();
-  return CProjectileWeaponDataFactory::GetGeneratorDesc(in, pool);
+  CWeaponDescription* desc = CProjectileWeaponDataFactory::GetGeneratorDesc(in, pool);
+  return desc;
 }
 
 CWeaponDescription* CProjectileWeaponDataFactory::GetGeneratorDesc(CInputStream& in,

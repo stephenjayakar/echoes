@@ -86,7 +86,7 @@ void CScriptCounter::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) 
 CScriptCounter::~CScriptCounter() {}
 
 CScriptCounter::CScriptCounter(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
-                               int initial, int max, bool autoReset, bool wrap)
+                               int initial, int max, const bool autoReset, const bool wrap)
 : CEntity(uid, info, name, 0)
 , mInitial(initial)
 , mCurrent(initial)

@@ -23,7 +23,7 @@ CVisorFlare::CFlareDef::CFlareDef(const TToken< CTexture >& tex, float pos, floa
 CVisorFlare::CVisorFlare(EBlendMode blendMode, bool distanceScaled, float fadeTime,
                          float angularFalloff, float rotationScale, uint darkVisorMode,
                          uint combatVisorMode, const rstl::vector< CFlareDef >& flares,
-                         bool smallOcclusionTest, bool noOcclusionTest)
+                         const bool smallOcclusionTest, const bool noOcclusionTest)
 : mBlendMode(blendMode)
 , mFlareDefs(flares)
 , mAngularFalloff(angularFalloff)
@@ -37,8 +37,10 @@ CVisorFlare::CVisorFlare(EBlendMode blendMode, bool distanceScaled, float fadeTi
 , mNoOcclusionTest(noOcclusionTest)
 , mOcclusionAverage(smallOcclusionTest ? 2 : 10)
 , mOcclusionWarmupFrames(4)
-, mSavedFramebuffer(kTF_RGBA8, smallOcclusionTest ? 8 : 64, smallOcclusionTest ? 4 : 64, 1)
-, mOcclusionTexture(kTF_I8, smallOcclusionTest ? 8 : 32, smallOcclusionTest ? 4 : 32, 1) {}
+, mSavedFramebuffer(kTF_RGBA8, smallOcclusionTest ? short(8) : short(64),
+                    smallOcclusionTest ? short(4) : short(64), 1)
+, mOcclusionTexture(kTF_I8, smallOcclusionTest ? short(8) : short(32),
+                    smallOcclusionTest ? short(4) : short(32), 1) {}
 
 CVisorFlare::~CVisorFlare() {
   mSavedFramebuffer.ScheduleDeletion();

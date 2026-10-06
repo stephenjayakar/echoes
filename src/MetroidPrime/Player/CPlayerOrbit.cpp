@@ -63,7 +63,7 @@ CAABox BuildNearListBox(bool cropBottom, const CTransform4f& xf, float x, float 
 // Definitions follow reverse target order for deferred inlining.
 
 bool CPlayer::ValidateOrbitTargetIdAndPointer(TUniqueId target, const CStateManager& mgr) const {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     return false;
   }
   return TCastToConstPtr< CActor >(mgr.GetObjectById(target)) != nullptr;
@@ -135,7 +135,7 @@ int CPlayer::ValidateCurrentOrbitTargetId(CStateManager& mgr) {
 }
 
 int CPlayer::ValidateOrbitTargetId(TUniqueId target, CStateManager& mgr) const {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     return kOVR_InvalidTarget;
   }
   const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(target));
@@ -1002,7 +1002,7 @@ void CPlayer::UpdateAimCandidates(CStateManager& mgr) {
 
 bool CPlayer::ValidateObjectForMode(TUniqueId target, CStateManager& mgr) const {
   const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(target));
-  if (!act || target == kInvalidUniqueId) {
+  if (!act || target.value == kInvalidUniqueId.value) {
     return false;
   }
   if (TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(target))) {
@@ -1048,7 +1048,7 @@ bool CPlayer::ValidateObjectForMode(TUniqueId target, CStateManager& mgr) const 
 }
 
 bool CPlayer::ValidateAimTargetId(TUniqueId target, CStateManager& mgr) {
-  if (target == kInvalidUniqueId) {
+  if (target.value == kInvalidUniqueId.value) {
     mAimTargetAverage.clear();
     mAimTargetTimer = 0.f;
     return false;
@@ -1187,7 +1187,11 @@ void CPlayer::SetOrbitTargetId(TUniqueId target, const CStateManager& mgr) {
   if (target != kInvalidUniqueId) {
     const CPatterned* patterned = TCastToConstPtr< CPatterned >(mgr.GetObjectById(target));
     const CSwarmBasics* swarm = TCastToConstPtr< CSwarmBasics >(mgr.GetObjectById(target));
-    mOrbitingEnemy = patterned || swarm;
+    if (patterned || swarm) {
+      mOrbitingEnemy = true;
+    } else {
+      mOrbitingEnemy = false;
+    }
     mOrbitTargetLineOfSightClear = true;
   }
   mOrbitTargetId = target;
@@ -1262,12 +1266,15 @@ void CPlayer::PreventFallingCameraPitch() {
 }
 
 bool CPlayer::InGrappleJumpCooldown() const {
-  return mMovementState != NPlayer::kMS_OnGround &&
-         (mGrappleJumpTimeout > 0.f || (mJumpCameraTimer == 0.f && mOrbitState == kOS_NoOrbit));
+  if (mMovementState != NPlayer::kMS_OnGround &&
+      (mGrappleJumpTimeout > 0.f || (mJumpCameraTimer == 0.f && mOrbitState == kOS_NoOrbit))) {
+    return true;
+  }
+  return false;
 }
 
 void CPlayer::SetOrbitRequestForOtherPlayers(EPlayerOrbitRequest request, CStateManager& mgr) {
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < static_cast< uint >(mgr.GetNumPlayers()); ++i) {
     CPlayer& player = *mgr.Player(i);
     if (player.GetUniqueId() != GetUniqueId() && player.GetOrbitTargetId() == GetUniqueId()) {
       player.SetOrbitRequestForTarget(GetUniqueId(), request, mgr);
@@ -1816,9 +1823,11 @@ void CPlayer::UpdateGrappleArmTransform(const CVector3f& offset, CStateManager& 
 
 CVector3f CPlayer::GetCameraForwardPoint() const {
   const CVector3f eyePosition = GetEyePosition();
-  float distance = 10.f;
+  float distance;
   if (mOrbitState == kOS_OrbitObject) {
     distance = (mOrbitPoint - eyePosition).Magnitude();
+  } else {
+    distance = 10.f;
   }
   return eyePosition + distance * GetFirstPersonCameraTransform().GetForward();
 }

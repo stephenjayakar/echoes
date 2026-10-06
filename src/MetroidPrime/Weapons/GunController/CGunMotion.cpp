@@ -68,8 +68,10 @@ bool CGunMotion::PlayPasAnim(SamusGun::EAnimationState state, CStateManager& mgr
 
 void CGunMotion::Update(float dt, CStateManager& mgr) {
   mModelData.AdvanceAnimation(dt, mgr, kInvalidAreaId, true);
-  if (mGunController.Update(dt, mgr)) {
+  switch (mGunController.Update(dt, mgr)) {
+  case 1:
     mAnimPlaying = false;
+    break;
   }
 }
 
