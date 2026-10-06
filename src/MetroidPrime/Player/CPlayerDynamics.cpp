@@ -227,7 +227,8 @@ void CPlayer::BeginSidewaysDash(float strafeInput, CStateManager& mgr) {
     }
   }
   CPlayerBodyStateCmdMgr& cmdMgr = mBodyController->CommandMgr();
-  if (CVector3f::Dot(GetTransform().GetRight(), velocity) > 0.f) {
+  const CTransform4f& xf = GetTransform();
+  if (CVector3f::Dot(xf.GetRight(), velocity) > 0.f) {
     cmdMgr.DeliverCmd(CPBCDashCmd(1));
   } else {
     cmdMgr.DeliverCmd(CPBCDashCmd(0));
