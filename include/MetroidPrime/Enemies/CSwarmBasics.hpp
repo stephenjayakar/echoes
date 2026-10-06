@@ -142,8 +142,8 @@ public:
   void CachePose(CModelData& modelData, SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
   void DrawBoidSkinnedModel(const CBoid* boid, const SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
   void UpdateSeekerTargets(CStateManager& mgr);
-  void AssignSeekerBoids(CStateManager& mgr, const rstl::vector< int >& taken, uint numNeeded,
-                         rstl::vector< int >& out);
+  void AssignSeekerBoids(CStateManager& mgr, const rstl::vector< uint >& taken, uint numNeeded,
+                         rstl::vector< uint >& out);
   void StopLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds);
   void AddParticle(const CTransform4f& xf);
   void FreezeCollision(const CMarkerGrid& grid);
@@ -199,6 +199,7 @@ public:
                                                  const CRelAngle& angle);
   void HardwareLight(const CStateManager& mgr, const CAABox& bounds) const;
   CColor SoftwareLight(const CStateManager& mgr, const CAABox& bounds) const;
+  void FinishConstruction(); // Guessed name; empty in the base class.
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 
@@ -251,10 +252,10 @@ private:
   rstl::single_ptr< SwarmRenderHelpers::CSwarmSkinnedModelState > mSkinnedModelState;
   CModelData::EWhichModel mWhichModel;
   rstl::vector< CRepulsor > mDoorRepulsors;
-  rstl::optional_object< TCachedToken< CGenDescription > > mParticleDescription;
+  rstl::optional_object< TLockedToken< CGenDescription > > mParticleDescription;
   rstl::single_ptr< CElementGen > mParticleGenerator;
   int mNumDeathParticles;
-  int mAttackerCount;
+  int mNumBoids;
   int mMaxCreatedBoids;
   int mCreatedBoids;
   bool x4f0_24_ : 1;
@@ -299,7 +300,7 @@ private:
   int x560_;
   rstl::vector< TUniqueId > mSeekerTargets;
   rstl::vector< int > mSeekerBoidIndices; // Boid index per entry of mSeekerTargets.
-  rstl::vector< int > mActiveBoidIndices;
+  rstl::vector< uint > mActiveBoidIndices;
 };
 NESTED_CHECK_SIZEOF(CSwarmBasics, CBoid, 0xb8)
 NESTED_CHECK_SIZEOF(CSwarmBasics, CRepulsor, 0x10)

@@ -55,6 +55,11 @@
 #include "MetroidPrime/CActorLights.hpp"
 #include "rstl/math.hpp"
 
+#include "MetroidPrime/CAnimRes.hpp"
+#include "Kyoto/CSimplePool.hpp"
+#include "Kyoto/Particles/CGenDescription.hpp"
+#include "MetroidPrime/CBasicSwarmData.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
@@ -115,6 +120,109 @@ static int CompareBoidRefsByListenerDistance(const void* a, const void* b) {
   }
   return 0;
 }
+
+static CModelData GetModelDataForAnimRes(const CAnimRes& animRes) {
+  return animRes.GetId() != kInvalidAssetId ? CModelData(animRes) : CModelData::CModelDataNull();
+}
+
+CSwarmBasics::CSwarmBasics(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
+                           const CVector3f& boundingBoxExtent, const CTransform4f& xf,
+                           const CAnimRes& animRes, CActorParameters actorParameters,
+                           const CBasicSwarmData& data, bool animated)
+: CActor(uid, name, info, 0, xf, GetModelDataForAnimRes(animRes),
+         CMaterialList(kMT_Scannable, kMT_Trigger, kMT_NonSolidDamageable, kMT_RadarObject),
+         actorParameters, kInvalidUniqueId)
+, mAabox(CVector3f(0.f, 0.f, 0.f), CVector3f(0.f, 0.f, 0.f))
+, mOccludedTimer(5.f)
+, mBoundingBoxExtent(boundingBoxExtent)
+, mLastOrbitPosition(0.f, 0.f, 0.f)
+, mLastKilledOffset(CVector3f::Zero())
+, mSeparationRadius(data.mInfluenceRadius)
+, mCohesionMagnitude(data.mCohesionPriority)
+, mAlignmentWeight(data.mAlignmentPriority)
+, mSeparationMagnitude(data.mSeparationPriority)
+, mMoveToWaypointWeight(data.mPathFollowingPriority)
+, mAttractionMagnitude(data.mPlayerAttractPriority)
+, mAttractionRadius(data.mPlayerAttractDistance)
+, x1c8_(0.f)
+, mAnimPlaybackSpeed(data.mSpeed)
+, mWaypointGoalRadius(3.f)
+, mPartitionedBoidLists(125, nullptr)
+, mOutlierBoidList(nullptr)
+, mBoidGenRate(data.mSpawnSpeed)
+, mBoidGenCooldownTimer(0.f)
+, mDamageCooldownTimer(0.f)
+, mDamageCooldown(data.mDamageWaitTime)
+, mBoidRadius(data.mCollisionRadius)
+, mTouchRadius(data.mTouchRadius)
+, mTurnRate(data.mTurnRate)
+, mPlayerTouchRadius(data.mDamageRadius)
+, mDamage(data.mContactDamage)
+, mRadiusDamage(data.mContactDamage)
+, mHealthInfo(data.mHealth)
+, mDamageVulnerability(data.mDamageVulnerability)
+, mLockOnIndex(-1)
+, mWhichModel(CModelData::kWM_Normal)
+, mNumDeathParticles(data.mNumDeathParticles)
+, mNumBoids(data.mCount)
+, mMaxCreatedBoids(data.mMaxCount)
+, mCreatedBoids(0)
+, x4f0_24_(true)
+, x4f0_25_(true)
+, x4f0_26_(true)
+, x4f0_27_(animated)
+, x4f0_28_(data.mIsVulnerableToSafeZone)
+, x4f0_29_(data.xdc_1)
+, x4f0_30_(true)
+, x4f0_31_(false)
+, x4f1_24_(false)
+, x4f1_25_(data.mIsOrbitable)
+, x4f4_(1.5f)
+, mLocomotionLoopedSound(data.mLocomotionLoopedSound)
+, mAttackLoopedSound(data.mAttackLoopedSound)
+, mSoundFallOff(data.mSoundFallOff)
+, mMaxAudibleDistance(data.mMaxAudibleDistance)
+, mMinVolume(data.mMinVolume)
+, mMaxVolume(data.mMaxVolume)
+, mMaxLocomotionEmitters(4)
+, mMaxAttackEmitters(4)
+, x52c_(0)
+, x530_(0)
+, x534_(0)
+, mFreezeDuration(data.mFreezeDuration)
+, x544_(0)
+, mLifeTime(data.mLifeTime)
+, x54c_24_(data.mIndividuallyTargetable)
+, x54c_25_(false)
+, x550_(CVector3f::Zero())
+, x55c_(0.f)
+, x560_(15)
+, mSeekerBoidIndices(5, -1) {
+  if (x4f0_27_) {
+    mModelDatas.reserve(4);
+    mAdvancementDeltas.reserve(4);
+    if (animRes.GetId() != kInvalidAssetId) {
+      for (uint i = 0; i < 4; ++i) {
+        mModelDatas.push_back(CModelData(animRes));
+        mAdvancementDeltas.push_back(
+            CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation()));
+      }
+      mModelData = rs_new CModelData(animRes);
+      mDisplayList = rs_new SwarmRenderHelpers::CSwarmDisplayList(
+          **mModelData->GetAnimationData()->GetModelData());
+    }
+  }
+  if (data.mDeathParticleEffect != kInvalidAssetId) {
+    mParticleDescription = rstl::optional_object< TLockedToken< CGenDescription > >(
+        TLockedToken< CGenDescription >(
+            gpSimplePool->GetObj(SObjectTag('PART', data.mDeathParticleEffect))));
+    mParticleGenerator = rs_new CElementGen(*mParticleDescription);
+    mParticleGenerator->SetParticleEmission(false);
+  }
+  FinishConstruction();
+}
+
+CSwarmBasics::~CSwarmBasics() {}
 
 CAABox CSwarmBasics::GetBoundingBox() const {
   CVector3f he = mBoundingBoxExtent * 0.5f;
@@ -604,7 +712,7 @@ void CSwarmBasics::UpdatePartition() {
         StopLoopedSound(*it, mLocomotionSounds);
       }
     } else {
-      mActiveBoidIndices.push_back_unsafe(it->mIndex);
+      mActiveBoidIndices.push_back_unsafe(uint(it->mIndex));
       const CVector3f pos = it->GetTranslation();
       const CVector3f delta = pos - bounds.GetMinPoint();
       const int x = CCast::ToInt32(delta.GetX() / size.GetX());
@@ -1119,8 +1227,8 @@ struct SSeekerCandidateSorter {
   }
 };
 
-void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< int >& taken,
-                                     uint numNeeded, rstl::vector< int >& out) {
+void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< uint >& taken,
+                                     uint numNeeded, rstl::vector< uint >& out) {
   float maxDistSq = mgr.GetPlayer(0)->GetOrbitMaxTargetDistance();
   maxDistSq *= maxDistSq;
   CTransform4f camXf = mgr.GetCameraManager(0)->GetFirstPersonCamera()->GetTransform();
@@ -1510,7 +1618,7 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
   const rstl::reserved_vector< rstl::pair< TUniqueId, float >, 5 >& gunTargets =
       mgr.GetPlayer(0)->GetPlayerGun()->GetSeekerTargets();
   rstl::vector< TUniqueId > lostTargets(numTargets);
-  rstl::vector< int > keptBoids(numTargets);
+  rstl::vector< uint > keptBoids(numTargets);
   for (uint i = 0; i < numTargets; ++i) {
     bool found = false;
     TUniqueId uid = mSeekerTargets[i];
@@ -1526,7 +1634,7 @@ void CSwarmBasics::UpdateSeekerTargets(CStateManager& mgr) {
     }
   }
   int numLost = lostTargets.size();
-  rstl::vector< int > newBoids(numLost);
+  rstl::vector< uint > newBoids(numLost);
   AssignSeekerBoids(mgr, keptBoids, numLost, newBoids);
   for (uint i = 0; i < newBoids.size(); ++i) {
     for (uint j = 0; j < numTargets; ++j) {
@@ -1576,6 +1684,8 @@ TUniqueId CSwarmBasics::GetSeekerTargetLockedOn() const {
 const CHealthInfo* CSwarmBasics::GetHealthInfo() const { return &mHealthInfo; }
 
 CHealthInfo* CSwarmBasics::HealthInfo() { return &mHealthInfo; }
+
+void CSwarmBasics::FinishConstruction() {}
 
 static void* NullSwarmBasicsFactory() { return nullptr; }
 
