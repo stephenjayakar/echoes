@@ -34,9 +34,10 @@ static inline float debris_frand_range(CStateManager& mgr, float min, float max)
 
 static CVector3f debris_cone(CStateManager& mgr, float coneAngle, float minMag, float maxMag) {
   const float magnitude = debris_frand_range(mgr, minMag, maxMag);
-  const float cosine = CMath::FastCosR(CRelAngle::FromDegrees(coneAngle * 0.5f).AsRadians());
+  const float cosine = CMath::FastCosR((M_PIF / 360.f) * coneAngle);
   const float z = 1.f - (1.f - cosine) * mgr.Random()->Float();
-  const float xy = magnitude * CMath::FastSqrtF(CMath::Max(0.f, 1.f - z * z));
+  const float zSquared = z * z;
+  const float xy = magnitude * CMath::FastSqrtF(rstl::max_val(1.f - zSquared, 0.f));
   const float angle = M_2PIF * mgr.Random()->Float();
   return CVector3f(xy * CMath::FastCosR(angle), xy * CMath::FastSinR(angle), magnitude * z);
 }
