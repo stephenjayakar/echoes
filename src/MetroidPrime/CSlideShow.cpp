@@ -37,7 +37,7 @@ static const char skImageTagEnd[] = ";";
 static const char* const skLogbookName = "Logbook";
 
 static CVector2f sZeroVector(0.f, 0.f);
-static rstl::string sSlideShowMusic;
+static rstl::string sSlideShowMusic = rstl::string_l("");
 
 static int GetStickDirection(float up, float down, float left, float right) {
   uint direction = 0;

@@ -1270,6 +1270,7 @@ MetroidPrime/CSlideShow.cpp:
 	.ctors      start:0x803A5558 end:0x803A555C
 	.rodata     start:0x803AA050 end:0x803AA1E0
 	.data       start:0x803B5B58 end:0x803B5BA0
+	.bss        start:0x803DB468 end:0x803DB488
 	.sbss       start:0x80419258 end:0x80419268
 	.sdata2     start:0x8041CA58 end:0x8041CAC0
 
