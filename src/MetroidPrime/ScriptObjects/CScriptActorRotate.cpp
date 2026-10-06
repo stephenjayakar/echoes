@@ -11,7 +11,7 @@ void CScriptActorRotate::StopRotation() { mPlaying = false; }
 
 void CScriptActorRotate::StartRotation() { mPlaying = true; }
 
-void CScriptActorRotate::SetCurrentTime(float time) {
+void CScriptActorRotate::SetCurrentTime(float time, CStateManager&) {
   if (time < 0.f) {
     mCurrentTime = 0.f;
   } else if (time > mDuration) {

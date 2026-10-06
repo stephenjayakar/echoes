@@ -96,7 +96,7 @@ void CScriptSequenceTimer::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
   CEntity::AcceptScriptMsg(mgr, msg);
 }
 
-void CScriptSequenceTimer::SetCurrentTime(float time) {
+void CScriptSequenceTimer::SetCurrentTime(float time, CStateManager&) {
   mCurrentTime = float(fmod(time, mMaxTime));
 }
 

@@ -30,7 +30,7 @@ public:
 
   void StartRotation();            // Guessed name.
   void StopRotation();             // Guessed name.
-  void SetCurrentTime(float time); // Guessed name.
+  void SetCurrentTime(float time, CStateManager& mgr); // Guessed name.
   void UpdateActors(bool next, CStateManager& mgr);
   void UpdateTargetRotation(CStateManager& mgr);           // Guessed name.
   void SetActorTransforms(const CTransform4f& xf);         // Guessed name.

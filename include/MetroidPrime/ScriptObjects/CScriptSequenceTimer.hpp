@@ -17,7 +17,7 @@ public:
   void Think(float dt, CStateManager& mgr) override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
 
-  void SetCurrentTime(float time); // Guessed name
+  void SetCurrentTime(float time, CStateManager& mgr); // Guessed name
   void ReceiveExternalTime(CStateManager& mgr, float time);
 
 private:

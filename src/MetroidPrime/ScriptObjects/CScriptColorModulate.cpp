@@ -285,7 +285,7 @@ void CScriptColorModulate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
 }
 
 // Guessed name
-void CScriptColorModulate::SetExternalTime(float time) {
+void CScriptColorModulate::SetExternalTime(float time, CStateManager&) {
   if (mExternalTime) {
     if (mControlSpline.GetKnots().empty()) {
       const float duration = mFadeState == kFS_BtoA ? mTimeB2A : mTimeA2B;
