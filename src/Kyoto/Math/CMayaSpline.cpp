@@ -11,7 +11,6 @@
 // Polynomial solvers; original GameCube names have not been established.
 extern "C" int fn_802CB608(double c0, double c1, double c2, double c3, double tolerance,
                            double* roots);
-extern "C" bool fn_802CC064(float a, float b, float c, float& rootA, float& rootB);
 
 CMayaSplineKnot::CMayaSplineKnot(CInputStream& in)
 : mTime(in.ReadFloat())
@@ -496,21 +495,21 @@ void CMayaSpline::FindControlPoints(int knotIndex,
                                     rstl::reserved_vector< CVector2f, 4 >& controlPoints) const {
   const CMayaSplineKnot* knot = &mKnots[knotIndex];
   controlPoints.push_back(CVector2f(knot->GetTime(), knot->GetAmplitude()));
-
   CVector2f tangentA(0.f, 0.f);
   CVector2f tangentB(0.f, 0.f);
-  const CMayaSplineKnot* next = knotIndex + 1 < mKnots.size() ? &mKnots[knotIndex + 1] : nullptr;
-  const CMayaSplineKnot* prev = knotIndex - 1 >= 0 ? &mKnots[knotIndex - 1] : nullptr;
-  knot->GetTangents(prev, next, tangentA, tangentB);
+  knot->GetTangents(knotIndex - 1 >= 0 ? &mKnots[knotIndex - 1] : nullptr,
+                    knotIndex + 1 < mKnots.size() ? &mKnots[knotIndex + 1] : nullptr, tangentA,
+                    tangentB);
   controlPoints.push_back(controlPoints[0] + tangentB * (1.f / 3.f));
 
-  knot = &mKnots[knotIndex + 1];
+  ++knotIndex;
+  knot = &mKnots[knotIndex];
   CVector2f nextTangentA(0.f, 0.f);
   CVector2f nextTangentB(0.f, 0.f);
-  next = knotIndex + 2 < mKnots.size() ? &mKnots[knotIndex + 2] : nullptr;
-  prev = knotIndex >= 0 ? &mKnots[knotIndex] : nullptr;
-  knot->GetTangents(prev, next, nextTangentA, nextTangentB);
-  CVector2f knotPoint(knot->GetTime(), knot->GetAmplitude());
+  knot->GetTangents(knotIndex - 1 >= 0 ? &mKnots[knotIndex - 1] : nullptr,
+                    knotIndex + 1 < mKnots.size() ? &mKnots[knotIndex + 1] : nullptr,
+                    nextTangentA, nextTangentB);
+  const CVector2f knotPoint(knot->GetTime(), knot->GetAmplitude());
   controlPoints.push_back(knotPoint - nextTangentA * (1.f / 3.f));
   controlPoints.push_back(knotPoint);
 }
@@ -518,24 +517,23 @@ void CMayaSpline::FindControlPoints(int knotIndex,
 void CMayaSpline::CalculateHermiteCoefficients(
     const rstl::reserved_vector< CVector2f, 4 >& controlPoints, float* coefs) const {
   const CVector2f span = controlPoints[3] - controlPoints[0];
-  const float time = span.GetX();
-  const float amplitude = span.GetY();
-  const CVector2f tangentA = controlPoints[1] - controlPoints[0];
   float slopeA = 5729578.f;
-  if (tangentA.GetX() != 0.f) {
-    slopeA = tangentA.GetY() / tangentA.GetX();
+  const CVector2f tangentA = controlPoints[1] - controlPoints[0];
+  if (tangentA[0] != 0.f) {
+    slopeA = tangentA[1] / tangentA[0];
   }
-  const CVector2f tangentB = controlPoints[3] - controlPoints[2];
   float slopeB = 5729578.f;
-  if (tangentB.GetX() != 0.f) {
-    slopeB = tangentB.GetY() / tangentB.GetX();
+  const CVector2f tangentB = controlPoints[3] - controlPoints[2];
+  if (tangentB[0] != 0.f) {
+    slopeB = tangentB[1] / tangentB[0];
   }
+  const float& amplitude = span[1];
+  const float time = span.GetX();
   const float invTimeSq = 1.f / (time * time);
   const float amplitudeA = slopeA * time;
   const float amplitudeB = slopeB * time;
-  coefs[0] = invTimeSq * ((amplitudeA + amplitudeB - amplitude) - amplitude) / time;
-  coefs[1] =
-      invTimeSq * (((amplitude + amplitude + amplitude - amplitudeA) - amplitudeA) - amplitudeB);
+  coefs[0] = invTimeSq * (amplitudeA + amplitudeB - amplitude - amplitude) / time;
+  coefs[1] = invTimeSq * (amplitude + (amplitude + amplitude) - amplitudeA - amplitudeA - amplitudeB);
   coefs[2] = slopeA;
   coefs[3] = controlPoints[0].GetY();
 }
@@ -703,14 +701,12 @@ bool CMayaSpline::IsSegmentConstant(int knotIndex) const {
 void CMayaSpline::FindSegmentExtrema(
     int knotIndex, rstl::reserved_vector< rstl::pair< float, float >, 2 >& extrema) const {
   typedef rstl::pair< float, float > Point;
-  const CMayaSplineKnot& knot = mKnots[knotIndex];
-  if (knot.GetTangentModeB() == 3) {
-    extrema.push_back(Point(knot.GetTime(), knot.GetAmplitude()));
-    extrema.push_back(Point(mKnots[knotIndex + 1].GetTime(), knot.GetAmplitude()));
-  } else if (knot.GetTangentModeB() == 0) {
-    extrema.push_back(Point(knot.GetTime(), knot.GetAmplitude()));
-    const CMayaSplineKnot& next = mKnots[knotIndex + 1];
-    extrema.push_back(Point(next.GetTime(), next.GetAmplitude()));
+  if (mKnots[knotIndex].GetTangentModeB() == 3) {
+    extrema.push_back(Point(mKnots[knotIndex].GetTime(), mKnots[knotIndex].GetAmplitude()));
+    extrema.push_back(Point(mKnots[knotIndex + 1].GetTime(), mKnots[knotIndex].GetAmplitude()));
+  } else if (mKnots[knotIndex].GetTangentModeB() == 0) {
+    extrema.push_back(Point(mKnots[knotIndex].GetTime(), mKnots[knotIndex].GetAmplitude()));
+    extrema.push_back(Point(mKnots[knotIndex + 1].GetTime(), mKnots[knotIndex + 1].GetAmplitude()));
   } else {
     rstl::reserved_vector< CVector2f, 4 > points;
     FindControlPoints(knotIndex, points);
@@ -718,18 +714,18 @@ void CMayaSpline::FindSegmentExtrema(
     CalculateHermiteCoefficients(points, coefs);
     float rootA = 0.f;
     float rootB = 0.f;
-    bool found = fn_802CC064(3.f * coefs[0], 2.f * coefs[1], coefs[2], rootA, rootB);
+    bool found = CMath::SolveQuadratic(3.f * coefs[0], 2.f * coefs[1], coefs[2], rootA, rootB);
     const float start = mKnots[knotIndex].GetTime();
     const float end = mKnots[knotIndex + 1].GetTime();
     if (found) {
       rootA += start;
+      rootB += start;
       if (CMath::IsEpsilon(rootA, start, 0.002f)) {
         rootA = start;
       }
       if (CMath::IsEpsilon(rootA, end, 0.002f)) {
         rootA = end;
       }
-      rootB += start;
       if (CMath::IsEpsilon(rootB, start, 0.002f)) {
         rootB = start;
       }
