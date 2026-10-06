@@ -145,18 +145,24 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
 }
 
 void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
-  const CFrustumPlanes frustum(GetScanFrustum(mgr));
+  const CFrustumPlanes frustum = GetScanFrustum(mgr);
   const bool cull = !close_enough(mRefreshTimer, 0.f);
   rstl::vector< SScanObject >::iterator it = mScanObjects.begin();
   while (it != mScanObjects.end()) {
-    const CEntity* entity = mgr.GetObjectById(it->mId);
+    SScanObject& obj = *it;
+    const float fadeTime = obj.mFadeTime;
+    const CEntity* entity = mgr.GetObjectById(TUniqueId(obj.mId));
     bool keep = false;
     if (IsInVisibleArea(mgr, entity)) {
       if (!cull) {
         keep = true;
       } else if (entity) {
-        keep = TCastToConstPtr< CScriptPointOfInterest >(entity) ||
-               frustum.BoxFrustumPlanesCheck(GetTargetBounds(mgr, it->mId)) != 0;
+        if (TCastToConstPtr< CScriptPointOfInterest >(entity)) {
+          keep = true;
+        } else {
+          const CAABox bounds = GetTargetBounds(mgr, TUniqueId(obj.mId));
+          keep = frustum.BoxFrustumPlanesCheck(bounds) != 0;
+        }
       }
     }
 
@@ -165,8 +171,8 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
       it = mScanObjects.erase(it);
       mScanObjectMembership[id.Value() >> 3] &= ~(1 << (id.Value() & 7));
     } else {
-      if (!close_enough(it->mFadeTime, 0.f)) {
-        it->mFadeTime = rstl::max_val(0.f, it->mFadeTime - dt);
+      if (!close_enough(obj.mFadeTime, 0.f)) {
+        obj.mFadeTime = rstl::max_val(0.f, fadeTime - dt);
       }
       ++it;
     }
@@ -196,10 +202,20 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
 
       bool add = false;
       if (actor->HasModelData()) {
-        add = id != mPlayerId &&
-              (!cull || frustum.BoxFrustumPlanesCheck(GetTargetBounds(mgr, id)) != 0);
+        if (mPlayerId != id) {
+          if (cull) {
+            const CAABox bounds = GetTargetBounds(mgr, id);
+            add = frustum.BoxFrustumPlanesCheck(bounds) != 0;
+          } else {
+            add = true;
+          }
+        }
       } else if (TCastToConstPtr< CScriptPointOfInterest >(actor)) {
-        add = !cull || HasStaticGeometry(mgr, id);
+        if (cull) {
+          add = HasStaticGeometry(mgr, id);
+        } else {
+          add = true;
+        }
       }
       if (add && !AddScanObject(*actor, mgr)) {
         return;
