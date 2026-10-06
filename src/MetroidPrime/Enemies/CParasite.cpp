@@ -1286,10 +1286,8 @@ CEntity* LoadCrystallite(CStateManager& mgr, CInputStream& input, CEntityInfo& i
 
   const CDamageInfo contactDamage = LdrToDamageInfo(sldrThis.patterned.contactDamage);
   CDamageVulnerability vulnerability(LdrToDamageVulnerability(sldrThis.patterned.vulnerability));
-  vulnerability.SetVulnerability(
-      6, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
-  vulnerability.SetComboVulnerability(
-      0, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
+  vulnerability.SetVulnerability(6, CWeaponTypeVulnerability::Normal());
+  vulnerability.SetComboVulnerability(0, CWeaponTypeVulnerability::Normal());
 
   return rs_new CParasite(
       mgr.AllocateUniqueId(), sldrThis.editorProperties.name, CPatterned::kFT_Zero,
