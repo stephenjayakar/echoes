@@ -145,7 +145,7 @@ private:
   float x658_;
   int mNearChance;
   int mMidChance;
-  bool mBehaviorEnabled : 1;
+  uchar mBehaviorEnabled : 1;
   bool mFlinch : 1;
   bool mAlert : 1;
   bool mOnGround : 1;
