@@ -77,7 +77,7 @@ void CScriptCannonBall::Think(float dt, CStateManager& mgr) {
   }
 }
 
-CScriptCannonBall::TrackedShot::TrackedShot(TUniqueId id, bool b)
+CScriptCannonBall::TrackedShot::TrackedShot(TUniqueId id, const bool b)
 : m_scriptObject(id), m_f(1.0), m_updateFrameIdx(0), m_b(b) {}
 
 void CScriptCannonBall::TrackedShot::Think(float dt, CStateManager& mgr, int index) {
