@@ -27,6 +27,7 @@
 #include "MetroidPrime/CPirateEchoEmitter.hpp"
 #include "MetroidPrime/CEchoEmitter.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAiJumpPoint.hpp"
@@ -758,6 +759,138 @@ bool CSpacePirate::LostInterest(CStateManager& mgr, const CTriggerData& data) co
   return false;
 }
 
+void CSpacePirate::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mJumpPoint = kInvalidUniqueId;
+    if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
+      mReflectedDestPos = GetTranslation();
+      mInPosition = false;
+      mDestObj = cp->GetUniqueId();
+      mDestPos = cp->GetTranslation();
+    }
+    if (GetSearchPath()->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
+      mReflectedDestPos = GetTranslation();
+      mDestPos = GetSearchPath()->GetPoint();
+      mInPosition = false;
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCLocomotionCmd(mDestPos - GetTranslation(), CVector3f::Zero(), 1.f));
+    } else {
+      CScriptAiJumpPoint* best = nullptr;
+      float minDistSq = 3.4028235e38f;
+      CObjectList& list = mgr.ObjectListById(kOL_AiWaypoint);
+      for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+        if (CScriptAiJumpPoint* jp = TCastToPtr< CScriptAiJumpPoint >(list[i])) {
+          if (jp->GetActive() && jp->GetType() == 0 && !jp->GetInUse(GetUniqueId()) &&
+              jp->GetJumpTarget() == kInvalidUniqueId &&
+              jp->GetCurrentAreaId() == GetCurrentAreaId()) {
+            CVector3f toJump = jp->GetTranslation() - GetTranslation();
+            float distSq = toJump.MagSquared();
+            if (distSq > 25.f && CVector3f::Dot(jp->GetTransform().GetForward(), toJump) > 0.f) {
+              if (const CScriptWaypoint* wp =
+                      TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(jp->GetJumpPoint()))) {
+                if ((mDestPos[kDZ] - GetTranslation().GetZ()) *
+                        (wp->GetTranslation().GetZ() - jp->GetTranslation().GetZ()) >
+                    0.f) {
+                  distSq += 4.f * toJump.GetZ() * toJump.GetZ();
+                  CVector3f toDest = mDestPos - wp->GetTranslation();
+                  distSq += toDest.MagSquared() + 9.f * toDest.GetZ() * toDest.GetZ();
+                  if (distSq < minDistSq &&
+                      GetSearchPath()->PathExists(GetTranslation(), jp->GetTranslation()) ==
+                          CPathFindSearch::kR_Success) {
+                    bool good = false;
+                    bool noPath = GetSearchPath()->PathExists(wp->GetTranslation(), mDestPos) !=
+                                  CPathFindSearch::kR_Success;
+                    if (noPath) {
+                      distSq += 1000.f;
+                    }
+                    if (!noPath) {
+                      good = true;
+                    }
+                    if (distSq < minDistSq) {
+                      minDistSq = distSq;
+                      best = jp;
+                      if (good) {
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      if (best) {
+        mDestPos = best->GetTranslation();
+        if (GetSearchPath()->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
+          mReflectedDestPos = GetTranslation();
+          mDestPos = GetSearchPath()->GetPoint();
+          mInPosition = false;
+          mJumpPoint = best->GetUniqueId();
+          mJumpHeight = best->GetJumpApex();
+          if (const CScriptWaypoint* wp =
+                  TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(best->GetJumpPoint()))) {
+            mPatrolDestPos = wp->GetTranslation();
+            BodyController()->CommandMgr().DeliverCmd(
+                CBCLocomotionCmd(mDestPos, CVector3f::Zero(), 1.f));
+          }
+        }
+      }
+    }
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_FullSpeed);
+    if (mEnableAim) {
+      mSteeringSpeed = 1.f;
+    }
+    mInRange = false;
+    mNormalDodge = true;
+    break;
+  case kStateMsg_Update:
+    CPatterned::PathFind(mgr, msg, dt);
+    BodyController()->CommandMgr().SetTargetVector(mgr.GetPlayer(0)->GetTranslation() -
+                                                   GetTranslation());
+    if (mJumpPoint != kInvalidUniqueId) {
+      if (CScriptAiJumpPoint* jp = TCastToPtr< CScriptAiJumpPoint >(mgr.ObjectById(mJumpPoint))) {
+        float maxSpeed = BodyController()->GetBodyStateInfo().GetMaxSpeed();
+        const CVector3f& scale = GetModelData()->GetScale();
+        float jumpDistance = maxSpeed * ((1.5f * dt + 0.1f) * scale.GetY()) + mIntoJumpDist;
+        if ((GetTranslation() - jp->GetTranslation()).MagSquared() <
+            jumpDistance * jumpDistance) {
+          mAnimationState.SetState(CAnimationState::kAS_Ready);
+          if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Jump)) {
+            BodyController()->CommandMgr().DeliverCmd(CBCJumpCmd(
+                mDestPos, pas::kJT_Normal, pas::kJS_IntoJump, 0, CBCJumpCmd::kFF_AmbushJump));
+          }
+          x8fa_29_ = true;
+        }
+      }
+    }
+    AvoidActors(mgr);
+    if (!mInRange) {
+      if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
+        float maxSpeed = BodyController()->GetBodyStateInfo().GetMaxSpeed();
+        const CVector3f& scale = GetModelData()->GetScale();
+        mCoverRange = maxSpeed * ((1.5f * dt + 0.1f) * scale.GetY());
+        if (cp->ShouldWallHang()) {
+          mCoverRange += mIntoJumpDist;
+        }
+        mInRange =
+            (GetTranslation() - cp->GetTranslation()).MagSquared() < mCoverRange * mCoverRange;
+      }
+    }
+    UpdateCantSeePlayer(mgr, dt);
+    UpdateHeldPosition(mgr, dt);
+    break;
+  case kStateMsg_Deactivate:
+    CPatterned::PathFind(mgr, msg, dt);
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    mJumpPoint = kInvalidUniqueId;
+    mInRange = false;
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+    break;
+  }
+}
+
 bool CSpacePirate::InRange(CStateManager& mgr, const CTriggerData& data) const { return mInRange; }
 
 bool CSpacePirate::LineOfSight(CStateManager& mgr, const CTriggerData& data) const {
@@ -1371,6 +1504,23 @@ void CSpacePirate::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
   }
 }
 
+CVector3f CSpacePirate::GetTargetPos(CStateManager& mgr) {
+  const CActor* actor = static_cast< const CActor* >(mgr.GetObjectById(mTargetId));
+  const CPlayer* player = TCastToConstPtr< CPlayer >(actor);
+  if (!player) {
+    if (actor && actor->GetActive()) {
+      return actor->GetTranslation();
+    }
+    mTargetId = ChooseAttackTarget(mgr);
+    SetTeamAiTarget(mgr);
+    mBoneTracking.SetTarget(mTargetId);
+    player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mTargetId));
+  } else {
+    return player->GetTranslation();
+  }
+  return GetTranslation() + 10.f * GetTransform().GetForward();
+}
+
 void CSpacePirate::SetCinematicCollision(CStateManager& mgr) {
   RemoveMaterial(kMT_AIBlock, mgr);
   CMaterialList include = GetMaterialFilter().GetIncludeList();
@@ -1894,6 +2044,61 @@ void CSpacePirate::Bounce(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
+class CValidWaypointPredicate : public CValidEntityPredicate {
+public:
+  ~CValidWaypointPredicate() {}
+  bool IsValid(const CStateManager& mgr, TUniqueId id) const {
+    return TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id)) != nullptr;
+  }
+};
+
+void CSpacePirate::WallHang(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mInWallHang = true;
+    if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
+      if (const CScriptWaypoint* wp = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(
+              cp->CheckConnectedObject_if(mgr, kSS_Arrived, kSM_Next, CValidWaypointPredicate())))) {
+        mDestObj = wp->GetUniqueId();
+        mDestPos = wp->GetTranslation();
+        mReflectedDestPos = GetTranslation();
+        mInPosition = false;
+      }
+      mTargetDelta = cp->GetTransform().GetForward();
+    }
+    mInAttackState = true;
+    mBoneTracking.SetActive(false);
+    x8fa_30_ = true;
+    break;
+  case kStateMsg_Update: {
+    bool canHang = true;
+    if (mAnimationState.GetState() == CAnimationState::kAS_Ready) {
+      if (CVector3f::GetAngleDiff(GetTransform().GetForward(), mTargetDelta) > 0.2617994f) {
+        canHang = false;
+        BodyController()->CommandMgr().DeliverCmd(
+            CBCLocomotionCmd(CVector3f::Zero(), mTargetDelta, 1.f));
+      }
+    }
+    if (canHang && mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_WallHang)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCWallHangCmd(mDestObj));
+    }
+    if (BodyController()->GetCurrentStateId() == pas::kAS_WallHang) {
+      x8fa_30_ = !BodyController()->GetBodyStateInfo().GetCurrentState()->CanShoot();
+    }
+    mBurstFire.SetBurstType(1);
+    break;
+  }
+  case kStateMsg_Deactivate:
+    mInWallHang = false;
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    mInAttackState = false;
+    mBoneTracking.SetActive(true);
+    x8fa_30_ = false;
+    break;
+  }
+}
+
 void CSpacePirate::WallDetach(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
@@ -1910,6 +2115,45 @@ void CSpacePirate::WallDetach(CStateManager& mgr, EStateMsg msg, float dt) {
     x8fa_31_ = false;
     break;
   }
+}
+
+bool CSpacePirate::ShouldStrafe(CStateManager& mgr, const CTriggerData& data) const {
+  bool result = false;
+  bool noPlayerStrafe = false;
+  const_cast< CSpacePirate* >(this)->mSkidDir = pas::kSD_Invalid;
+  if (!mNonAggressive) {
+    CVector3f toTarget = const_cast< CSpacePirate* >(this)->GetTargetPos(mgr) - GetTranslation();
+    if (CVector3f::Dot(toTarget, GetTransform().GetForward()) > 0.f) {
+      if ((mLowHealthFrenzyTimer < 0.66f || mTimeSinceHitByPlayer < 0.66f) &&
+          mStrafeDelayTimer == 0.f) {
+        CVector3f center = GetBoundingBox().GetCenterPoint();
+        const CVector3f& delta =
+            (const_cast< CSpacePirate* >(this)->GetTargetPos(mgr) - center).AsNormalized();
+        if (CVector3f::Dot(delta, GetTransform().GetForward()) > 0.707f) {
+          const_cast< CSpacePirate* >(this)->mSkidDir =
+              const_cast< CSpacePirate* >(this)->GetStrafeDir(mgr, 10.f);
+          if (mSkidDir != pas::kSD_Invalid) {
+            result = true;
+          } else {
+            noPlayerStrafe = true;
+          }
+        }
+      }
+      if (!noPlayerStrafe && !result && mTimeNoPlayerLos > 1.f) {
+        if (const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mTargetId))) {
+          if ((player->GetTranslation() - GetTranslation()).Magnitude() < 15.f &&
+              mSkidDir == pas::kSD_Invalid) {
+            const_cast< CSpacePirate* >(this)->mSkidDir =
+                const_cast< CSpacePirate* >(this)->GetStrafeDir(mgr, 5.f);
+            if (mSkidDir != pas::kSD_Invalid) {
+              result = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  return result;
 }
 
 void CSpacePirate::Crouch(CStateManager& mgr, EStateMsg msg, float dt) {
@@ -1959,6 +2203,117 @@ bool CSpacePirate::SpotPlayer(CStateManager& mgr, const CTriggerData& data) cons
   return false;
 }
 
+void CSpacePirate::Dodge(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mEnableBreakDodge = false;
+    if (!mNormalDodge && !mNoBreakDodge && mDodgeDelayTimer <= 0.f) {
+      float chance = 0.15f * (1.f + (4.f * (mInitialHP - HealthInfo()->GetHP())) / mInitialHP);
+      if (mgr.Random()->Float() < chance) {
+        mEnableBreakDodge = true;
+      }
+      mDodgeDelayTimer = mgr.Random()->Range(mPirateData.mDodgeDelayTimeMin,
+                                             mPirateData.mDodgeDelayTimeMax);
+    }
+    mDodgeDir = GetStrafeDir(mgr, mEnableBreakDodge ? mBreakDodgeDist : mDodgeDist);
+    if (mDodgeDir != pas::kSD_Invalid) {
+      mAnimationState.SetState(CAnimationState::kAS_Ready);
+    }
+    break;
+  case kStateMsg_Update:
+    if (!mEnableBreakDodge) {
+      if (mNormalDodge || mgr.Random()->Float() < 0.5f) {
+        if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Step)) {
+          BodyController()->CommandMgr().DeliverCmd(CBCStepCmd(mDodgeDir, pas::kStep_Dodge));
+        }
+      } else if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Step)) {
+        BodyController()->CommandMgr().DeliverCmd(CBCStepCmd(mDodgeDir, pas::kStep_RollDodge));
+      }
+    } else {
+      if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Step)) {
+        BodyController()->CommandMgr().DeliverCmd(CBCStepCmd(mDodgeDir, pas::kStep_BreakDodge));
+      }
+      if (GetMaterialList().HasMaterial(kMT_Orbit) && mStateMachine->GetTime() > 0.5f) {
+        RemoveMaterial(kMT_Orbit, mgr);
+        mgr.GetPlayer(0)->SetOrbitRequestForTarget(GetUniqueId(), CPlayer::kOR_ActivateOrbitSource,
+                                                   mgr);
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    mNoPlayerDodge = true;
+    if (!GetMaterialList().HasMaterial(kMT_Orbit)) {
+      AddMaterial(kMT_Orbit, mgr);
+    }
+    break;
+  }
+}
+
+bool CSpacePirate::ShouldDodge(CStateManager& mgr, const CTriggerData& data) const {
+  bool result = false;
+  if (mEnableDodge) {
+    if (!mNonAggressive && !mNoPlayerDodge) {
+      CVector3f toTarget = const_cast< CSpacePirate* >(this)->GetTargetPos(mgr) - GetTranslation();
+      if (CVector3f::Dot(toTarget, GetTransform().GetForward()) > 0.f &&
+          (mTimeSinceHitByPlayer < 0.33f || mLowHealthFrenzyTimer < 0.33f) &&
+          mTimeNoPlayerLos < 0.5f) {
+        result = true;
+      }
+    }
+    if (!result) {
+      if (const CMetroidAlpha* metroid =
+              TCastToConstPtr< CMetroidAlpha >(mgr.GetObjectById(mTargetId))) {
+        if (metroid->IsAttacking()) {
+          CVector3f delta = GetTranslation() - metroid->GetTranslation();
+          if (CVector3f::Dot(delta, metroid->GetTransform().GetForward()) > 0.f) {
+            result = true;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+void CSpacePirate::Shuffle(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_Normal);
+    CVector3f target = GetTargetPos(mgr);
+    if (!mNoShuffleCloseCheck && TooClose(mgr, CTriggerData(0.f))) {
+      SetDestPos(GetTranslation() + mMinAttackRange * (GetTranslation() - target).AsNormalized() +
+                 Random2f(mgr, 0.f, 5.f));
+      mDestObj = kInvalidUniqueId;
+      mShuffleClose = true;
+    } else {
+      CVector3f fromTarget = GetTranslation() - target;
+      CVector3f side = SpacePirateCross(CVector3f::Up(), fromTarget);
+      float range = mMaxAttackRange;
+      float distance = range * mgr.Random()->Float() + range;
+      range = mMaxAttackRange;
+      float sideDistance = 2.f * range * (mgr.Random()->Float() - 0.5f);
+      SetDestPos(target + distance * fromTarget.AsNormalized() + sideDistance * side.AsNormalized());
+      mDestObj = kInvalidUniqueId;
+      mShuffleClose = false;
+    }
+    mSteeringSpeed = 1.f;
+    break;
+  }
+  }
+  CPatterned::PathFind(mgr, msg, dt);
+  BodyController()->CommandMgr().SetTargetVector(mgr.GetPlayer(0)->GetTranslation() -
+                                                 GetTranslation());
+  switch (msg) {
+  case kStateMsg_Update:
+    AvoidActors(mgr);
+    break;
+  case kStateMsg_Deactivate:
+    mShuffleClose = false;
+    break;
+  }
+}
+
 void CSpacePirate::TurnAround(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate: {
@@ -1983,6 +2338,136 @@ void CSpacePirate::TurnAround(CStateManager& mgr, EStateMsg msg, float dt) {
     UpdateCantSeePlayer(mgr, dt);
     break;
   case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSpacePirate::Taunt(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mEnableAim = true;
+    BodyController()->AbortScriptedAnimations();
+    SquadAdd(mgr);
+    if (mTargetId == kInvalidUniqueId) {
+      mTargetId = ChooseAttackTarget(mgr);
+      SetTeamAiTarget(mgr);
+    }
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetTarget(mTargetId);
+    if (BodyController()->HasBodyState(pas::kAS_Taunt)) {
+      if (!mShadowPirate) {
+        bool findOtherPirate = true;
+        if (mMelee) {
+          const CPASAnimParmData parms(pas::kAS_Taunt, CPASAnimParm::FromEnum(2));
+          const CPASDatabase& db = BodyController()->GetPASDatabase();
+          const rstl::pair< float, int > anim = db.FindBestAnimation(parms, *mgr.Random(), -1);
+          if (anim.first > 0.f) {
+            findOtherPirate = false;
+            mTaunt = pas::kTT_Two;
+          }
+        }
+        if (findOtherPirate) {
+          bool withOtherPirate = false;
+          const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+          for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+            CSpacePirate* pirate = TCastToPtr< CSpacePirate >(const_cast< CEntity* >(list[i]));
+            if (pirate && pirate != this && !pirate->mEnableAim && pirate->mAlive &&
+                pirate->GetCurrentAreaId() == GetCurrentAreaId()) {
+              if ((pirate->GetTranslation() - GetTranslation()).MagSquared() <
+                  mPirateData.mHearingRadius * mPirateData.mHearingRadius) {
+                withOtherPirate = true;
+              }
+            }
+          }
+          mTaunt = withOtherPirate ? pas::kTT_Zero : pas::kTT_One;
+        }
+      } else {
+        mTaunt = mAlertBeforeCloak ? pas::kTT_One : pas::kTT_Zero;
+      }
+      mAnimationState.SetState(CAnimationState::kAS_Ready);
+    } else {
+      CSfxManager::AddEmitter(mPirateData.mSound_Alert, GetTranslation(),
+                              GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+    }
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Taunt)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCTauntCmd(mTaunt));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    if (mTaunt == pas::kTT_Zero) {
+      mgr.InformListeners(GetTranslation(), kLNT_PlayerFire);
+    }
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSpacePirate::Lurk(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    ReleaseCoverPoint(mgr, mCoverPoint, true);
+    mSteeringSpeed = 0.f;
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    mNoPlayerLos = true;
+    mTimeNoPlayerLos = 0.f;
+    float aggression = mPirateData.mAggressionCheck;
+    mAlwaysAggressive = mgr.Random()->Range(0.f, 100.f) < aggression;
+    float cover = mPirateData.mCoverCheck;
+    mCoverCheck = mgr.Random()->Range(0.f, 100.f) < cover;
+    float dodge = mPirateData.mDodgeCheck;
+    mEnableDodge = mgr.Random()->Range(0.f, 100.f) < dodge;
+    mEnableAim = true;
+    BodyController()->AbortScriptedAnimations();
+    if (mTargetId == kInvalidUniqueId) {
+      mTargetId = ChooseAttackTarget(mgr);
+      SetTeamAiTarget(mgr);
+      mBoneTracking.SetActive(true);
+      mBoneTracking.SetTarget(mTargetId);
+    }
+    if (mOnlyAttackInRange) {
+      mBurstFire.SetBurstType(4);
+      BodyController()->SetLocomotionType(pas::kLT_Combat);
+    }
+    mNormalDodge = false;
+    break;
+  }
+  case kStateMsg_Update:
+    if (BodyController()->HasBodyState(pas::kAS_Turn)) {
+      if (mAnimationState.GetState() != CAnimationState::kAS_NotReady &&
+          mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Turn)) {
+        CVector3f delta = xbc4_ - GetTranslation();
+        if (delta.IsMagnitudeSafe()) {
+          BodyController()->CommandMgr().DeliverCmd(
+              CBCLocomotionCmd(CVector3f::Zero(), delta.AsNormalized(), 1.f));
+        }
+      }
+      if (mAnimationState.GetState() != CAnimationState::kAS_Repeat) {
+        xbc4_ = GetTargetPos(mgr);
+        CVector3f delta = xbc4_ - GetTranslation();
+        delta.SetZ(0.f);
+        if (CVector3f::Dot(GetTransform().GetForward(), delta.AsNormalized()) < 0.9f) {
+          mAnimationState.SetState(CAnimationState::kAS_Ready);
+        }
+      }
+    }
+    if (mSeated && mSatUp) {
+      if (mAttackRemTime > GetAverageAttackTime() &&
+          BodyController()->GetLocomotionType() == pas::kLT_Combat) {
+        BodyController()->SetLocomotionType(pas::kLT_Internal5);
+      } else if (mAttackRemTime < 0.5f * GetAverageAttackTime() &&
+                 BodyController()->GetLocomotionType() == pas::kLT_Internal5) {
+        BodyController()->SetLocomotionType(pas::kLT_Combat);
+      }
+    }
+    UpdateCantSeePlayer(mgr, dt);
+    UpdateHeldPosition(mgr, dt);
+    break;
+  case kStateMsg_Deactivate:
+    mAlwaysAggressive = false;
+    mNoPlayerDodge = false;
     mAnimationState.SetState(CAnimationState::kAS_NotReady);
     break;
   }
@@ -2125,6 +2610,62 @@ void CSpacePirate::Approach(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
+void CSpacePirate::DoubleSnap(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (!mNoMeleeAttack) {
+      mAnimationState.SetState(CAnimationState::kAS_Ready);
+    }
+    xbc4_ = GetTargetPos(mgr);
+    mTargetDelta = xbc4_ - GetTranslation();
+    mSteeringSpeed = 0.f;
+    mEnableMeleeAttack = true;
+    mMeleeSeverity = pas::kS_One;
+    mAppliedBladeDamage = false;
+    mInAttackState = true;
+    mCloseMelee = false;
+    mChargePlayerList.remove(GetUniqueId());
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_MeleeAttack)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCMeleeAttackCmd(mMeleeSeverity));
+    }
+    if (mMeleeSeverity == pas::kS_One &&
+        mAnimationState.GetState() == CAnimationState::kAS_Over) {
+      CVector3f delta = GetTargetPos(mgr) - GetTranslation();
+      if (delta.MagSquared() < mMinAttackRange * mMinAttackRange &&
+          CVector3f::Dot(delta.AsNormalized(), GetTransform().GetForward()) > -0.123f) {
+        mAnimationState.SetState(CAnimationState::kAS_Ready);
+        mMeleeSeverity = pas::kS_Two;
+        mAppliedBladeDamage = false;
+        mTargetDelta = delta;
+        mCloseMelee = true;
+      }
+    }
+    if (mCloseMelee) {
+      mTargetDelta = GetTargetPos(mgr) - GetTranslation();
+    }
+    BodyController()->CommandMgr().SetTargetVector(mTargetDelta);
+    if (mShadowPirate) {
+      if (mAnimationState.GetState() == CAnimationState::kAS_Over) {
+        mAlphaDelta = -0.4f;
+      } else {
+        mAlphaDelta = 1.f;
+        mMaxCloakAlpha = 0.75f;
+      }
+    }
+    UpdateCantSeePlayer(mgr, dt);
+    UpdateHeldPosition(mgr, dt);
+    CheckBlade(mgr);
+    break;
+  case kStateMsg_Deactivate:
+    mEnableMeleeAttack = false;
+    mInAttackState = false;
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
 bool CSpacePirate::ShouldCrouch(CStateManager& mgr, const CTriggerData& data) const {
   bool result = false;
   if (CScriptCoverPoint* cp = GetCoverPoint(mgr, mCoverPoint)) {
@@ -2240,6 +2781,46 @@ bool CSpacePirate::AnimOver(CStateManager& mgr, const CTriggerData& data) const 
     return GetBodyController()->GetCurrentStateId() != pas::kAS_WallHang;
   }
   return CPatterned::AnimOver(mgr, data);
+}
+
+void CSpacePirate::JumpBack(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (!ShouldJumpBack(mgr, CTriggerData(0.f))) {
+    return;
+  }
+  switch (msg) {
+  case kStateMsg_Activate:
+    if (!mOnlyAttackInRange && !CantJumpBack(mgr, -GetTransform().GetForward(), 5.f)) {
+      float height = GetSearchPath()->GetCharacterHeight();
+      mPathFindSearch.SetCharacterHeight(5.f + height);
+      CVector3f dest = GetTranslation() + 10.f * GetTransform().GetForward();
+      if (GetSearchPath()->Search(GetTranslation(), dest) == CPathFindSearch::kR_Success &&
+          (GetSearchPath()->GetWaypoints().back() - dest).MagSquared() < 3.f &&
+          CMath::AbsF(GetSearchPath()->RemainingPathDistance(GetTranslation()) - 10.f) < 4.f) {
+        mPatrolDestPos = GetSearchPath()->GetWaypoints().back();
+        mJumpHeight = 5.f;
+        mUseJumpBackJump = true;
+        mAnimationState.SetState(CAnimationState::kAS_Ready);
+      }
+      GetSearchPath()->SetCharacterHeight(height);
+    }
+    break;
+  case kStateMsg_Update:
+    if (!mUseJumpBackJump) {
+      BodyController()->CommandMgr().DeliverCmd(CBCStepCmd(pas::kSD_Backward, pas::kStep_Normal));
+      BodyController()->CommandMgr().SetTargetVector(GetTargetPos(mgr) - GetTranslation());
+    } else if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Jump)) {
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCJumpCmd(mDestPos, pas::kJT_Normal, pas::kJS_IntoJump, 0, CBCJumpCmd::kFF_AmbushJump));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    if (mUseJumpBackJump) {
+      mAnimationState.SetState(CAnimationState::kAS_NotReady);
+      mUseJumpBackJump = false;
+    }
+    mHoldPositionTime = 0.f;
+    break;
+  }
 }
 
 bool CSpacePirate::ShouldJumpBack(CStateManager& mgr, const CTriggerData& data) const {

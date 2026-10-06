@@ -499,6 +499,16 @@ public:
     mMeleeAttack = cmd;
   }
 
+  void DeliverCmd(const CBCTauntCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mTaunt = cmd;
+  }
+
+  void DeliverCmd(const CBCWallHangCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mWallHang = cmd;
+  }
+
   void DeliverCmd(const CBCCoverCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mCover = cmd;
