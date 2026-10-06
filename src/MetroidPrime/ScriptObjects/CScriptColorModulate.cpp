@@ -200,34 +200,36 @@ void CScriptColorModulate::Think(float dt, CStateManager& mgr) {
   if (!GetActive() || !mEnable) {
     return;
   }
-  if (mUpdateTime && !mExternalTime) {
+  if (mEnable && mUpdateTime && !mExternalTime) {
     mCurTime += dt;
   }
-  if (!mControlSpline.GetKnots().empty()) {
+  if (mControlSpline.GetKnots().empty()) {
+    switch (mFadeState) {
+    case kFS_AtoB: {
+      const float t = close_enough(mTimeA2B, 0.f) ? 1.f : rstl::min_val(1.f, mCurTime / mTimeA2B);
+      const CColor color = CColor::Lerp(mColorA, mColorB, t);
+      SetTargetFlags(mgr, CalculateFlags(color));
+      if (mCurTime > mTimeA2B) {
+        End(mgr);
+      }
+      break;
+    }
+    case kFS_BtoA: {
+      const float t = close_enough(mTimeB2A, 0.f) ? 1.f : rstl::min_val(1.f, mCurTime / mTimeB2A);
+      const CColor color = CColor::Lerp(mColorB, mColorA, t);
+      SetTargetFlags(mgr, CalculateFlags(color));
+      if (mCurTime > mTimeB2A) {
+        End(mgr);
+      }
+      break;
+    }
+    }
+  } else {
     const CColor color = CColor::Lerp(mColorA, mColorB, mControlSpline.EvaluateAt(mCurTime));
     SetTargetFlags(mgr, CalculateFlags(color));
     if (mCurTime >= mControlSpline.GetMaxTime()) {
       End(mgr);
     }
-    return;
-  }
-  switch (mFadeState) {
-  case kFS_AtoB: {
-    const float t = close_enough(mTimeA2B, 0.f) ? 1.f : rstl::min_val(1.f, mCurTime / mTimeA2B);
-    SetTargetFlags(mgr, CalculateFlags(CColor::Lerp(mColorA, mColorB, t)));
-    if (mCurTime > mTimeA2B) {
-      End(mgr);
-    }
-    break;
-  }
-  case kFS_BtoA: {
-    const float t = close_enough(mTimeB2A, 0.f) ? 1.f : rstl::min_val(1.f, mCurTime / mTimeB2A);
-    SetTargetFlags(mgr, CalculateFlags(CColor::Lerp(mColorB, mColorA, t)));
-    if (mCurTime > mTimeB2A) {
-      End(mgr);
-    }
-    break;
-  }
   }
 }
 
@@ -239,33 +241,51 @@ void CScriptColorModulate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
   }
   switch (message) {
   case kSM_Increment:
-  case kSM_Decrement: {
     CopyTargetColor(mgr);
     if (mReversing) {
       mFadeState = mFadeState == kFS_AtoB ? kFS_BtoA : kFS_AtoB;
       mReversing = false;
     } else {
-      const bool forward = message == kSM_Increment;
       if (mEnable) {
         if (mFadeState == kFS_AtoB) {
           mCurTime = 0.f;
-        } else if (forward) {
-          mCurTime = mTimeA2B - mTimeA2B * (mCurTime / mTimeB2A);
         } else {
-          mCurTime = mTimeB2A - mTimeB2A * (mCurTime / mTimeA2B);
+          mCurTime = mTimeA2B - mTimeA2B * (mCurTime / mTimeB2A);
         }
       } else {
-        SetTargetFlags(mgr, CalculateFlags(forward ? mColorA : mColorB));
+        SetTargetFlags(mgr, CalculateFlags(mColorA));
       }
       mEnable = true;
-      mFadeState = forward ? kFS_AtoB : kFS_BtoA;
+      mFadeState = kFS_AtoB;
     }
     if ((mFadeState == kFS_AtoB && mTimeA2B == 0.f) ||
         (mFadeState == kFS_BtoA && mTimeB2A == 0.f)) {
       Think(0.f, mgr);
     }
     break;
-  }
+  case kSM_Decrement:
+    CopyTargetColor(mgr);
+    if (mReversing) {
+      mFadeState = mFadeState == kFS_AtoB ? kFS_BtoA : kFS_AtoB;
+      mReversing = false;
+    } else {
+      if (mEnable) {
+        if (mFadeState == kFS_AtoB) {
+          mCurTime = 0.f;
+        } else {
+          mCurTime = mTimeB2A - mTimeB2A * (mCurTime / mTimeA2B);
+        }
+      } else {
+        SetTargetFlags(mgr, CalculateFlags(mColorB));
+      }
+      mEnable = true;
+      mFadeState = kFS_BtoA;
+    }
+    if ((mFadeState == kFS_AtoB && mTimeA2B == 0.f) ||
+        (mFadeState == kFS_BtoA && mTimeB2A == 0.f)) {
+      Think(0.f, mgr);
+    }
+    break;
   case kSM_Start:
     CopyTargetColor(mgr);
     mEnable = true;
