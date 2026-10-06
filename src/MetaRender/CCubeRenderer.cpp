@@ -706,17 +706,20 @@ void CCubeRenderer::AddWorldSurface(short modelIndex, ushort surfaceIndex, uint 
 void CCubeRenderer::DrawRenderBucketsDebug() {}
 
 void CCubeRenderer::RenderBucketItems(const CAreaListItem* area, bool alpha) {
+  const rstl::reserved_vector< ushort, 50 >& bucketIndices = Buckets::sBucketIndex;
+  const Buckets::BucketList& buckets = *Buckets::sBuckets;
   int lastType = -1;
   const CCubeModel* currentModel = nullptr;
-  uint lastLightSet = 255;
+  uchar lastLightSet = 255;
   if (alpha) {
     GXSetAlphaUpdate(GX_FALSE);
   }
-  for (int bucketIndex = 0; bucketIndex < Buckets::sBucketIndex.size(); ++bucketIndex) {
-    const Buckets::Bucket& bucket = (*Buckets::sBuckets)[Buckets::sBucketIndex[bucketIndex]];
-    for (int itemIndex = 0; itemIndex < bucket.size(); ++itemIndex) {
-      const CDrawable& drawable = *bucket[itemIndex];
-      const int type = drawable.GetType();
+  for (rstl::reserved_vector< ushort, 50 >::const_iterator bucketIt = bucketIndices.begin();
+       bucketIt != bucketIndices.end(); ++bucketIt) {
+    const Buckets::Bucket& bucket = buckets[*bucketIt];
+    for (Buckets::Bucket::const_iterator it = bucket.begin(); it != bucket.end(); ++it) {
+      const CDrawable* drawable = *it;
+      const int type = drawable->GetType();
       if (lastType == kDT_WorldSurface && type != kDT_WorldSurface) {
         SetupCGraphicsStates();
         SetMaterialMode(0);
@@ -725,17 +728,19 @@ void CCubeRenderer::RenderBucketItems(const CAreaListItem* area, bool alpha) {
           GXSetAlphaUpdate(GX_FALSE);
         }
       }
-      if (type == kDT_Particle) {
-        const_cast< CParticleGen* >(static_cast< const CParticleGen* >(drawable.GetData()))
+      switch (type) {
+      case kDT_Particle:
+        const_cast< CParticleGen* >(static_cast< const CParticleGen* >(drawable->GetData()))
             ->Render();
-      } else if (type == kDT_WorldSurface) {
-        if (lastType != kDT_WorldSurface) {
+        break;
+      case kDT_WorldSurface: {
+        if (lastType != type) {
           SetupRendererStates(false);
           currentModel = nullptr;
           SetMaterialMode(mRequestedMaterialMode);
           lastLightSet = 255;
         }
-        const uint packed = reinterpret_cast< uint >(drawable.GetData());
+        const uint packed = reinterpret_cast< uint >(drawable->GetData());
         const short modelIndex = packed >> 16;
         const ushort surfaceIndex = packed;
         const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
@@ -746,19 +751,26 @@ void CCubeRenderer::RenderBucketItems(const CAreaListItem* area, bool alpha) {
           currentModel = model;
         }
         const ushort areaIndex = instance.GetSurfaceAreaIndex(surfaceIndex);
-        const uint lightSet = area->mLightSetIndices[areaIndex];
+        const uchar lightSet = area->mLightSetIndices[areaIndex];
         if (lightSet != lastLightSet) {
           ActivateLightsForModel(mLightSets[lightSet]);
           lastLightSet = lightSet;
         }
         if (alpha) {
           const uchar destinationAlpha = area->mPVSAlpha[areaIndex];
-          CGX::SetDstAlpha(destinationAlpha != 0, destinationAlpha);
-          GXSetAlphaUpdate(destinationAlpha != 0);
+          const bool enabled = destinationAlpha != 0;
+          CGX::SetDstAlpha(enabled, destinationAlpha);
+          GXSetAlphaUpdate(enabled);
         }
         model->DrawSurface(surface, skNormalFlagNoUpdate);
-      } else if (mDrawableCallback != nullptr) {
-        mDrawableCallback(drawable.GetData(), mDrawableCallbackUserData, type - kDT_Actor);
+        break;
+      }
+      default:
+        if (mDrawableCallback != nullptr) {
+          mDrawableCallback(drawable->GetData(), mDrawableCallbackUserData,
+                            drawable->GetType() - kDT_Actor);
+        }
+        break;
       }
       lastType = type;
     }
@@ -778,19 +790,24 @@ void CCubeRenderer::DrawSortedGeometry(int mode, int areaId) {
     area = &*it;
   }
   if (area != nullptr) {
-    for (int modelIndex = 0; modelIndex < area->mGeometry->size(); ++modelIndex) {
-      const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
-      const CCubeModel& model = *(*area->mModels)[modelIndex];
+    const rstl::vector< CMetroidModelInstance >* geometry = area->mGeometry;
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->mModels.get();
+    for (int modelIndex = 0; modelIndex < geometry->size(); ++modelIndex) {
+      const CMetroidModelInstance& instance = (*geometry)[modelIndex];
+      const CCubeModel* model = (*models)[modelIndex].get();
       const SModelSurfaceOrder& order = area->mModelSurfaceOrders[modelIndex];
       const ushort* begin = order.mSurfaceIndices.get() + order.mOpaqueEnd;
       const ushort* end = order.mSurfaceIndices.get() + order.mSortedEnd;
+      const ushort* records = instance.GetSurfaceRecords();
+      const rstl::vector< void* >& surfaces = model->GetModelInstance().Surfaces();
       for (const ushort* index = begin; index != end; ++index) {
-        if (area->mLightSetIndices[instance.GetSurfaceAreaIndex(*index)] == 255) {
-          continue;
+        const uint surfaceIndex = *index;
+        if (area->mLightSetIndices[records[surfaceIndex * 2 + 2]] != 255) {
+          const CCubeSurface surface(surfaces[surfaceIndex]);
+          const CCubeMaterial material = model->GetMaterial(surface);
+          AddWorldSurface(modelIndex, surfaceIndex, material.GetCompressedBlend(),
+                          surface.GetBounds());
         }
-        const CCubeSurface surface(instance.GetSurfaces()[*index]);
-        const CCubeMaterial material = model.GetMaterial(surface);
-        AddWorldSurface(modelIndex, *index, material.GetCompressedBlend(), surface.GetBounds());
       }
     }
   }
