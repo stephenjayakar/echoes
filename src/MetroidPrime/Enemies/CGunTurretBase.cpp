@@ -347,31 +347,32 @@ bool CGunTurretBase::PlayerInRange(CStateManager& mgr, float range) const {
   const float rangeSq = range * range;
   if (TCastToConstPtr< CGunTurretTop >(mgr.GetObjectById(mTopId))) {
     for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
-      if (mTeamIndex == -1 || mTeamIndex != mgr.GetPlayerState(i)->GetTeamIndex()) {
+      const CPlayerState* playerState = mgr.GetPlayerState(i);
+      if (mTeamIndex == -1 || mTeamIndex != static_cast< int >(playerState->GetTeamIndex())) {
         const CPlayer* player = mgr.GetPlayer(i);
-        const CVector3f delta = player->GetTranslation() - pos;
-        if (delta.MagSquared() < rangeSq &&
+        if ((player->GetTranslation() - pos).MagSquared() < rangeSq &&
             InDetectionHeight(*player, mDetectionHeightUp, -mDetectionHeightDown)) {
           return true;
         }
       }
     }
     if (x8bf_) {
+      rstl::reserved_vector< TUniqueId, 1024 > nearList;
       static CMaterialFilter filter =
           CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Character),
                                               CMaterialList(kMT_NoPlatformCollision, kMT_Player));
-      rstl::reserved_vector< TUniqueId, 1024 > nearList;
       const float r = mDetectionRange;
-      mgr.BuildNearList(nearList, CAABox(pos - CVector3f(r, r, r), pos + CVector3f(r, r, r)),
-                        filter, this);
+      const CAABox bounds(pos + CVector3f(-r, -r, -r), pos + CVector3f(r, r, r));
+      mgr.BuildNearList(nearList, bounds, filter, this);
       for (rstl::reserved_vector< TUniqueId, 1024 >::iterator it = nearList.begin();
            it != nearList.end(); ++it) {
-        const CPatterned* patterned = TCastToConstPtr< CPatterned >(mgr.GetObjectById(*it));
+        CPatterned* patterned =
+            const_cast< CPatterned* >(TCastToConstPtr< CPatterned >(mgr.GetObjectById(*it)));
         if (patterned && patterned->GetUniqueId() != mTopId && patterned->GetAlive()) {
-          if (!TCastToConstPtr< CGunTurretBase >(patterned) &&
-              !TCastToConstPtr< CGunTurretTop >(patterned)) {
-            const CVector3f delta = patterned->GetTranslation() - pos;
-            if (delta.MagSquared() < rangeSq &&
+          const CGunTurretBase* base = TCastToConstPtr< CGunTurretBase >(patterned);
+          const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(patterned);
+          if (!base && !top) {
+            if ((patterned->GetTranslation() - pos).MagSquared() < rangeSq &&
                 InDetectionHeight(*patterned, mDetectionHeightUp, -mDetectionHeightDown)) {
               return true;
             }
@@ -818,13 +819,12 @@ void CGunTurretBase::UpdateGunOrientation(CStateManager& mgr, CSegId seg, bool a
 
   if (!top->GetBodyController()->IsFrozen()) {
     const CTransform4f xf = GetTransform();
+    const CVector3f pos = xf.GetTranslation();
     const CTransform4f gunXf = xf * GetScaledLocatorTransform(seg);
+    const CVector3f gunPos = gunXf.GetTranslation();
     const CTransform4f invXf = xf.GetQuickInverse();
-    const CVector3f localTarget =
-        invXf.BuildMatrix3f() * (mTargetPos - xf.GetTranslation()) + xf.GetTranslation();
-    const CVector3f localGun =
-        invXf.BuildMatrix3f() * (gunXf.GetTranslation() - xf.GetTranslation()) +
-        xf.GetTranslation();
+    const CVector3f localTarget = invXf.BuildMatrix3f() * (mTargetPos - pos) + pos;
+    const CVector3f localGun = invXf.BuildMatrix3f() * (gunPos - pos) + pos;
 
     float speed;
     if (mFirstShot) {
@@ -837,28 +837,22 @@ void CGunTurretBase::UpdateGunOrientation(CStateManager& mgr, CSegId seg, bool a
                                     : CTransform4f::Identity();
     const float horizontal =
         CMath::SqrtF(lookXf.Get11() * lookXf.Get11() + lookXf.Get01() * lookXf.Get01());
-    float pitch = aim ? -static_cast< float >(atan2(-lookXf.Get21(), horizontal)) : 0.f;
-    if (pitch > 0.f) {
-      pitch = mMaxPitchAngleUp < pitch ? mMaxPitchAngleUp : pitch;
-    } else {
-      pitch = pitch < mMaxPitchAngleDown ? mMaxPitchAngleDown : pitch;
-    }
-    const float pitchDelta = pitch - x8ac_;
+    const float pitch = aim ? -static_cast< float >(atan2(-lookXf.Get21(), horizontal)) : 0.f;
+    const float clampedPitch = pitch > 0.f ? rstl::min_val(pitch, mMaxPitchAngleUp)
+                                           : rstl::max_val(pitch, mMaxPitchAngleDown);
+    const float pitchDelta = clampedPitch - x8ac_;
     const float pitchStep = pitchDelta > 0.f ? speed : -speed;
-    if (!(static_cast< float >(fabs(pitchDelta)) <= speed)) {
-      pitch = x8ac_ + pitchStep;
-    }
-    x8ac_ = pitch;
+    x8ac_ = static_cast< float >(fabs(pitchDelta)) <= speed ? clampedPitch : x8ac_ + pitchStep;
 
-    float yaw = aim ? -static_cast< float >(atan2(lookXf.Get01(), lookXf.Get11())) : 0.f;
+    const float yaw = aim ? -static_cast< float >(atan2(lookXf.Get01(), lookXf.Get11())) : 0.f;
     const float yawDelta = yaw - x8b0_;
-    if (!(yawDelta > 0.f)) {
+    if (yawDelta > 0.f) {
+    } else {
       speed = -speed;
     }
-    if (!(static_cast< float >(fabs(yawDelta)) <= static_cast< float >(fabs(speed)))) {
-      yaw = x8b0_ + speed;
-    }
-    x8b0_ = yaw;
+    x8b0_ = static_cast< float >(fabs(yawDelta)) <= static_cast< float >(fabs(speed))
+                ? yaw
+                : x8b0_ + speed;
 
     bool firing = false;
     if (aim) {
@@ -890,13 +884,14 @@ CActor* CGunTurretBase::FindTarget(CStateManager& mgr) {
       const CVector3f front = GetTransform().GetColumn(kDY);
       const float angleWeight = (mDetectionRange * mDetectionRange) / M_PIF;
       for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
-        if (mTeamIndex == -1 || mTeamIndex != mgr.GetPlayerState(i)->GetTeamIndex()) {
+        const CPlayerState* playerState = mgr.GetPlayerState(i);
+        if (mTeamIndex == -1 || mTeamIndex != static_cast< int >(playerState->GetTeamIndex())) {
           CPlayer* player = mgr.Player(i);
           if ((InRange(*player, mMaxAttackRange) && !InRange(*player, mMinAttackRange)) ||
               mGunHit) {
             const CVector3f delta = player->GetTranslation() - GetTranslation();
-            const float score =
-                CVector3f::GetAngleDiff(delta, front) * angleWeight + delta.MagSquared();
+            const float angle = CVector3f::GetAngleDiff(delta, front);
+            const float score = angle * angleWeight + delta.MagSquared();
             if (score < bestScore) {
               bestScore = score;
               mTargetIsNonPlayer = false;
@@ -907,14 +902,14 @@ CActor* CGunTurretBase::FindTarget(CStateManager& mgr) {
       }
 
       if (x8be_ && !mGunHit) {
+        rstl::reserved_vector< TUniqueId, 1024 > nearList;
         static CMaterialFilter filter =
             CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Character),
                                                 CMaterialList(kMT_NoPlatformCollision, kMT_Player));
-        rstl::reserved_vector< TUniqueId, 1024 > nearList;
         const float r = mMaxAttackRange;
         const CVector3f pos = GetTranslation();
-        mgr.BuildNearList(nearList, CAABox(pos - CVector3f(r, r, r), pos + CVector3f(r, r, r)),
-                          filter, this);
+        const CAABox bounds(pos + CVector3f(-r, -r, -r), pos + CVector3f(r, r, r));
+        mgr.BuildNearList(nearList, bounds, filter, this);
         for (rstl::reserved_vector< TUniqueId, 1024 >::iterator it = nearList.begin();
              it != nearList.end(); ++it) {
           CPatterned* patterned =
@@ -924,8 +919,8 @@ CActor* CGunTurretBase::FindTarget(CStateManager& mgr) {
             const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(patterned);
             if (!base && !top) {
               const CVector3f delta = patterned->GetTranslation() - pos;
-              const float score =
-                  CVector3f::GetAngleDiff(delta, front) * angleWeight + delta.MagSquared();
+              const float angle = CVector3f::GetAngleDiff(delta, front);
+              const float score = angle * angleWeight + delta.MagSquared();
               if (score < bestScore) {
                 bestScore = score;
                 mTargetIsNonPlayer = true;
