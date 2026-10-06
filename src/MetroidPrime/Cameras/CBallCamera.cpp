@@ -588,15 +588,17 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
 }
 
 CTransform4f CBallCamera::FindDesiredTransform(CVector3f direction, CStateManager& mgr) {
+  CVector3f dir = direction;
   if (!direction.IsMagnitudeSafe()) {
-    direction = CVector3f(0.f, 1.f, 0.f);
+    dir = CVector3f(0.f, 1.f, 0.f);
   }
   float distance = mCurMinDistance;
   float elevation = mElevation;
   ConstrainElevationAndDistance(elevation, distance, 0.f, mgr);
-  CVector3f position = FindDesiredPosition(distance, elevation, direction, mgr, false);
+  CVector3f position = FindDesiredPosition(distance, elevation, dir, mgr, false);
   UpdateLookAtPosition(0.f, mgr, false);
-  return CTransform4f::LookAt(position, mLookPos);
+  CTransform4f xf = CTransform4f::LookAt(position, mLookPos);
+  return xf;
 }
 
 void CBallCamera::UpdateObjectTooCloseId(CStateManager& mgr) {
@@ -828,18 +830,20 @@ void CBallCamera::UpdatePlayerMovement(float dt, CStateManager& mgr) {
 }
 
 CVector3f CBallCamera::InterpolateCameraElevation(CVector3f position, float dt) {
-  if (mElevation >= 2.f) {
-    if (!mClearLOS && mObscuringMaterial.HasMaterial(kMT_Floor)) {
-      mElevInterpTimer = 1.f;
-      mElevInterpStart = GetTranslation().GetZ();
-      position.SetZ(mElevInterpStart);
-    } else if (mElevInterpTimer > 0.f) {
-      mElevInterpTimer -= dt;
-      float t = 1.f - CMath::Clamp(0.f, mElevInterpTimer, 1.f);
-      position.SetZ((position.GetZ() - mElevInterpStart) * t + mElevInterpStart);
-    }
+  if (mElevation < 2.f) {
+    return position;
   }
-  return position;
+  CVector3f pos = position;
+  if (!mClearLOS && mObscuringMaterial.HasMaterial(kMT_Floor)) {
+    mElevInterpTimer = 1.f;
+    pos.SetZ(GetTranslation().GetZ());
+    mElevInterpStart = pos.GetZ();
+  } else if (mElevInterpTimer > 0.f) {
+    mElevInterpTimer -= dt;
+    float t = 1.f - CMath::Clamp(0.f, mElevInterpTimer, 1.f);
+    pos.SetZ((pos.GetZ() - mElevInterpStart) * t + mElevInterpStart);
+  }
+  return pos;
 }
 
 uchar CBallCamera::ShouldResetSpline(CStateManager& mgr) const {
@@ -1594,11 +1598,12 @@ CVector3f CBallCamera::TweenVelocity(const CVector3f& currentVelocity, const CVe
 
 CVector3f CBallCamera::ComputeVelocity(CVector3f currentVelocity, CVector3f positionDelta,
                                        float dt) {
-  float magnitude = positionDelta.Magnitude();
-  if (mClampVelTimer > 0.f && positionDelta.IsMagnitudeSafe() && !mObtuseDirection) {
-    positionDelta = positionDelta.AsNormalized() * CMath::Limit(magnitude, mClampVelRange);
+  CVector3f velocity = positionDelta;
+  float magnitude = velocity.Magnitude();
+  if (mClampVelTimer > 0.f && velocity.IsMagnitudeSafe() && !mObtuseDirection) {
+    velocity = velocity.AsNormalized() * CMath::Limit(magnitude, mClampVelRange);
   }
-  return positionDelta;
+  return velocity;
 }
 
 void CBallCamera::UpdateAnglePerSecond(float dt) {
@@ -1612,22 +1617,22 @@ void CBallCamera::UpdateAnglePerSecond(float dt) {
 }
 
 CVector3f CBallCamera::ClampElevationToWater(CVector3f position, CStateManager& mgr) const {
-  const CPlayer& player = GetPlayer(mgr);
   const CScriptWater* water =
-      TCastToConstPtr< CScriptWater >(mgr.GetObjectById(player.InFluidId()));
+      TCastToConstPtr< CScriptWater >(mgr.GetObjectById(Player(mgr).InFluidId()));
   if (water == nullptr) {
     water = TCastToConstPtr< CScriptWater >(mgr.GetObjectById(InFluidId()));
   }
+  CVector3f pos = position;
   if (water != nullptr) {
     const float waterZ = water->GetTriggerBoundsWR().GetMaxPoint().GetZ();
     const float deltaZ = position.GetZ() - waterZ;
     if (position.GetZ() >= waterZ && deltaZ <= 0.25f) {
-      position.SetZ(waterZ + 0.25f);
+      pos.SetZ(waterZ + 0.25f);
     } else if (position.GetZ() < waterZ && deltaZ >= -0.12f) {
-      position.SetZ(waterZ - 0.12f);
+      pos.SetZ(waterZ - 0.12f);
     }
   }
-  return position;
+  return pos;
 }
 
 CVector3f CBallCamera::MoveCollisionActor(const CVector3f& position, float dt, CStateManager& mgr) {
