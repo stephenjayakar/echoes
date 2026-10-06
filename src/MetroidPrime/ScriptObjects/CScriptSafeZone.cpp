@@ -23,6 +23,10 @@
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/Weapons/CGameProjectile.hpp"
 
+#include "Collision/CollisionUtil.hpp"
+#include "Kyoto/Math/CMath.hpp"
+#include "Kyoto/Math/CSphere.hpp"
+#include "Kyoto/Math/CVector2f.hpp"
 #include "rstl/algorithm.hpp"
 
 CEntity* REL_LoadSafeZone(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
@@ -102,8 +106,8 @@ void CScriptSafeZone::SetActive(const bool active) { CActor::SetActive(active); 
 CLight CScriptSafeZone::BuildLight() const {
   const float radius = mActivation * GetScale().GetX();
   if (mGenerateMobileLight) {
-    CLight light(CLight::BuildPoint(CVector3f::Zero(),
-                                    CColor::Lerp(CColor::Black(), CColor::White(), 1.f)));
+    const CColor color = CColor::Lerp(CColor::Black(), CColor::White(), 1.f);
+    CLight light(CLight::BuildPoint(CVector3f::Zero(), color));
     light.SetAttenuation(0.0001f, 1.f / (5000.f * radius), 1.f / (0.5f * radius));
     return light;
   }
@@ -513,8 +517,8 @@ void CScriptSafeZone::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   CScriptTrigger::InhabitantAdded(actor, mgr);
   CGameProjectile* proj = TCastToPtr< CGameProjectile >(actor);
   if (proj && HasInhabitant(proj->GetOwnerId())) {
-    if (rstl::find(mProjectiles.begin(), mProjectiles.end(), proj->GetUniqueId()) ==
-        mProjectiles.end()) {
+    if (rstl::find< rstl::list< TUniqueId >::const_iterator >(
+            mProjectiles.begin(), mProjectiles.end(), proj->GetUniqueId()) == mProjectiles.end()) {
       mProjectiles.push_back(proj->GetUniqueId());
     }
   } else {
@@ -522,6 +526,84 @@ void CScriptSafeZone::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   }
   mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XENZ, kInvalidUniqueId);
   UpdatePlayerInside(actor, true, mgr);
+}
+
+// Guessed name. Ray against a Z-aligned cylinder; the entry point is skipped when the ray starts
+// inside the circle.
+static bool RayCylinderIntersection(const CVector3f& center, const CVector3f& start,
+                                    const CVector3f& dir, float& t, CVector3f& hit, float radius,
+                                    float halfHeight, float maxDist) {
+  const CVector2f delta = center.ToVec2f() - start.ToVec2f();
+  const float b = CVector2f::Dot(delta, dir.ToVec2f());
+  const float b2 = b * b;
+  const float c = CVector2f::Dot(delta, delta);
+  const float r2 = radius * radius;
+  if (b < 0.f && c > r2) {
+    return false;
+  }
+  const float disc = r2 - (c - b2);
+  if (disc < 0.f) {
+    return false;
+  }
+  const float s = CMath::SqrtF(disc);
+  const float t0 = b - s;
+  const float t1 = b + s;
+  const float zMin = center.GetZ() - halfHeight;
+  const float zMax = halfHeight + center.GetZ();
+  for (int i = 0; i < 2; ++i) {
+    float tt;
+    if (i == 0) {
+      if (c <= r2) {
+        continue;
+      }
+      tt = t0;
+    } else {
+      tt = t1;
+    }
+    if (tt < maxDist || maxDist == 0.f) {
+      const CVector3f point = start + tt * dir;
+      if (point.GetZ() >= zMin && point.GetZ() <= zMax) {
+        hit = point;
+        t = tt;
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void CScriptSafeZone::HandleProjectile(CActor& actor, CStateManager& mgr) {
+  if (CGameProjectile* proj = TCastToPtr< CGameProjectile >(actor)) {
+    if (rstl::find< rstl::list< TUniqueId >::const_iterator >(
+            mProjectiles.begin(), mProjectiles.end(), proj->GetUniqueId()) == mProjectiles.end()) {
+      const CVector3f delta = proj->GetTranslation() - proj->GetPreviousPos();
+      if (delta.CanBeNormalized()) {
+        const CVector3f dir = delta.AsNormalized();
+        const float mag = delta.Magnitude();
+        const CVector3f start = proj->GetPreviousPos() - 2.f * (mag * dir);
+        const float maxDist = mag * 4.f;
+        float t = 0.f;
+        CVector3f hit = CVector3f::Zero();
+        switch (GetShape()) {
+        case kST_Cylinder:
+          if (!RayCylinderIntersection(GetTranslation(), start, dir, t, hit, GetScale().GetX(),
+                                       GetScale().GetZ(), maxDist)) {
+            return;
+          }
+          break;
+        case kST_Ellipsoid:
+          if (!CollisionUtil::RaySphereIntersection(CSphere(GetTranslation(), GetScale().GetX()),
+                                                    start, dir, maxDist, t, hit)) {
+            return;
+          }
+          break;
+        default:
+          return;
+        }
+        SpawnImpactEffect(hit, 1.f);
+      }
+    }
+  }
 }
 
 void CScriptSafeZone::InhabitantExited(CActor& actor, CStateManager& mgr) {
@@ -577,9 +659,14 @@ void CScriptSafeZone::InhabitantIdle(CActor& actor, CStateManager& mgr, float dt
   }
 }
 
+// Guessed helper; the per-frame damage is built in a by-value return slot.
+static inline CDamageInfo ScaleDamage(const CDamageInfo& info, float dt) {
+  return CDamageInfo(info, dt);
+}
+
 void CScriptSafeZone::ApplyDamageTo(CStateManager& mgr, float dt, TUniqueId id) {
-  CDamageInfo damage = mZoneType == kZT_Normal ? CDamageInfo(mNormalDamage, dt)
-                                               : CDamageInfo(mHurtfulDamage, dt);
+  CDamageInfo damage = mZoneType == kZT_Normal ? ScaleDamage(mNormalDamage, dt)
+                                               : ScaleDamage(mHurtfulDamage, dt);
   mgr.ApplyDamage(GetUniqueId(), id, GetUniqueId(), damage,
                   CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59), CMaterialList()),
                   CVector3f::Zero());
@@ -600,15 +687,18 @@ void CScriptSafeZone::UpdateObstruction(CStateManager& mgr, bool enable) {
 
 void CScriptSafeZone::ModifyObstruction(CStateManager& mgr, int delta, int type) {
   const float radiusSq = mObstructionRadius * mObstructionRadius;
+  const bool obstruction = type != 0;
   CPFArea* area = mgr.World()->Area(GetCurrentAreaId())->GetPostConstructed()->mPathArea;
   if (area != nullptr) {
-    const CTransform4f& transform = area->GetTransform();
-    const CVector3f point =
-        transform.TransposeRotate(mObstructionPos - transform.GetTranslation());
+    const CTransform4f& xf = area->GetTransform();
+    const CVector3f point = xf.TransposeRotate(
+        CVector3f(mObstructionPos.GetX() - xf.Get03(), mObstructionPos.GetY() - xf.Get13(),
+                  mObstructionPos.GetZ() - xf.Get23()));
     for (int i = 0; i < area->GetNumRegions(); ++i) {
-      CPFRegion* region = area->GetRegionPtr(i);
-      if ((region->GetCentroid() - point).MagSquared() <= radiusSq) {
-        region->ModifyObstructionCount(static_cast< EPathFindObstructions >(type != 0), delta);
+      CPFRegion& region = area->GetRegion(i);
+      const CVector3f d = region.GetCentroid() - point;
+      if (d.MagSquared() <= radiusSq) {
+        region.ModifyObstructionCount(static_cast< EPathFindObstructions >(obstruction), delta);
       }
     }
     mgr.InformListeners(mObstructionPos, static_cast< EListenNoiseType >(4));
