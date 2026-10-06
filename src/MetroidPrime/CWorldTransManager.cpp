@@ -199,41 +199,41 @@ void CWorldTransManager::EnableTransition(const CAnimRes& samusRes, bool renderG
   mCameraTransform = cameraTransform;
   mRandom.SetSeed(99);
 
-  SModelDatas& data = *mModelData;
-  data.mSamusModelData = CModelData(samusRes);
-  data.mSamusModelData.AnimationData()->SetAnimation(
+  mModelData->mSamusModelData = CModelData(samusRes);
+  mModelData->mSamusModelData.AnimationData()->SetAnimation(
       CAnimPlaybackParms(samusRes.GetDefaultAnim(), -1, 1.f, true), false);
-  data.mSecondPassSamusModelData = CModelData(samusRes);
-  data.mSecondPassSamusModelData.AnimationData()->SetAnimation(CAnimPlaybackParms(1, -1, 1.f, true),
+  mModelData->mSecondPassSamusModelData = CModelData(samusRes);
+  mModelData->mSecondPassSamusModelData.AnimationData()->SetAnimation(CAnimPlaybackParms(1, -1, 1.f, true),
                                                                false);
 
   const CAssetId beamRes =
       gpTweakPlayerRes->GetCinematicBeamResId(gpGameState->GetPlayerState()->GetCurrentBeam());
-  data.mBeamModel = gpSimplePool->GetObj(SObjectTag('CMDL', beamRes));
-  data.mBeamModel->Lock();
+  mModelData->mBeamModel = gpSimplePool->GetObj(SObjectTag('CMDL', beamRes));
+  mModelData->mBeamModel->Lock();
   if (renderGrapple) {
-    data.mGrappleModel =
+    mModelData->mGrappleModel =
         gpSimplePool->GetObj(SObjectTag('CMDL', gpTweakPlayerRes->GetCinematicGrappleResId()));
-    data.mGrappleModel->Lock();
+    mModelData->mGrappleModel->Lock();
   }
   mCharacterFactory =
       TLockedToken< CCharacterFactory >(gpCharacterFactoryBuilder->GetFactory(samusRes));
   const CCharacterInfo& character =
-      (*mCharacterFactory)->GetCharInfo(samusRes.GetCharacterNodeId());
-  data.mSuitModel = gpSimplePool->GetObj(SObjectTag('CMDL', character.GetModelId()));
-  data.mSuitModel->Lock();
-  data.mSuitSkin = gpSimplePool->GetObj(SObjectTag('CSKR', character.GetSkinRulesId()));
-  data.mSuitSkin->Lock();
+      (*mCharacterFactory)->GetCharInfo(mModelData->mSamusRes.GetCharacterNodeId());
+  mModelData->mSuitModel = gpSimplePool->GetObj(SObjectTag('CMDL', character.GetModelId()));
+  mModelData->mSuitModel->Lock();
+  mModelData->mSuitSkin = gpSimplePool->GetObj(SObjectTag('CSKR', character.GetSkinRulesId()));
+  mModelData->mSuitSkin->Lock();
 
   if (platformRes != kInvalidAssetId) {
-    data.mPlatformModelData = CModelData(CStaticRes(platformRes, platformScale));
-    data.mPlatformModelData.Touch(CModelData::kWM_Normal, 0);
+    mModelData->mPlatformModelData = CModelData(CStaticRes(platformRes, platformScale));
+    mModelData->mPlatformModelData.Touch(CModelData::kWM_Normal, 0);
   }
   if (bgRes != kInvalidAssetId) {
-    data.mBgModelData = CModelData(CStaticRes(bgRes, bgScale));
-    data.mBgModelData.Touch(CModelData::kWM_Normal, 0);
-    const CAABox bounds = data.mBgModelData.GetBounds();
-    mBgHeight = (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ()) * bgScale.GetZ();
+    mModelData->mBgModelData = CModelData(CStaticRes(bgRes, bgScale));
+    mModelData->mBgModelData.Touch(CModelData::kWM_Normal, 0);
+    const CAABox bounds = mModelData->mBgModelData.GetBounds();
+    const float height = bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ();
+    mBgHeight = height * bgScale.GetZ();
     mLightHeight = mBgHeight;
     if (mLightHeight > 10.f) {
       mLongShaft = true;
