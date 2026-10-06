@@ -1797,10 +1797,11 @@ void CPlayerGun::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 }
 
 void CPlayerGun::InitBeamData() {
-  mSelectableBeams[0] = mPowerBeam.get();
-  mSelectableBeams[1] = mDarkBeam.get();
-  mSelectableBeams[2] = mLightBeam.get();
-  mSelectableBeams[3] = mAnnihilatorBeam.get();
+  CGunWeapon* beams[4] = {mPowerBeam.get(), mDarkBeam.get(), mLightBeam.get(),
+                          mAnnihilatorBeam.get()};
+  for (int i = 0; i < 4; ++i) {
+    mSelectableBeams[i] = beams[i];
+  }
   mCurrentBeam = mSelectableBeams[0];
 }
 
