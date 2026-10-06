@@ -109,12 +109,13 @@ CScriptPlatform::CScriptPlatform(
 CScriptPlatform::~CScriptPlatform() {}
 
 rstl::optional_object< CAABox > CScriptPlatform::GetTouchBounds() const {
-  if (!GetActive())
-    return rstl::optional_object< CAABox >();
-  if (mTreeGroup.get()) {
-    return mTreeGroup->CalculateAABox(GetTransform());
+  if (GetActive()) {
+    if (mTreeGroup.get()) {
+      return mTreeGroup->CalculateAABox(GetTransform());
+    }
+    return GetBoundingBox();
   }
-  return GetBoundingBox();
+  return rstl::optional_object< CAABox >();
 }
 
 void CScriptPlatform::StopMotion() {
@@ -554,10 +555,10 @@ void CScriptPlatform::RotateMotion(const CQuaternion& rotation, const CVector3f&
 
 void CScriptPlatform::fn_800a1df8() {
   x48d_25_ = true;
-  if ((mMotionFlags & 8) == 0) {
-    StopMotion();
-  } else {
+  if ((mMotionFlags & 8) != 0) {
     mMotionActive = true;
+  } else {
+    StopMotion();
   }
   mDead = false;
   mHealth = mInitialHealth;
@@ -667,12 +668,12 @@ void CScriptPlatform::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
 }
 
 const CCollisionPrimitive* CScriptPlatform::GetCollisionPrimitive() const {
-  return mTreeGroup.get() ? mTreeGroup.get() : CPhysicsActor::GetCollisionPrimitive();
+  return !mTreeGroup.get() ? CPhysicsActor::GetCollisionPrimitive() : mTreeGroup.get();
 }
 
 CTransform4f CScriptPlatform::GetPrimitiveTransform() const {
   CTransform4f xf = GetTransform();
-  xf.SetTranslation(xf.GetTranslation() + GetPrimitiveOffset());
+  xf.AddTranslation(GetPrimitiveOffset());
   return xf;
 }
 
