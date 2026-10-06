@@ -683,11 +683,12 @@ CVector3f CBallCamera::ConstrainYawAngle(const CPlayer& player, float yawSpeed, 
   if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
     lookDir = player.GetMovementDirection();
     const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(mTooCloseActorId));
-    if ((door == nullptr || !door->IsOpen()) &&
+    if ((door == nullptr || (door != nullptr && !door->IsOpen())) &&
         (mState == kBCS_Boost || mState == kBCS_Chase || mBehaviour == kBCB_FreezeLookPosition)) {
       lookDir = player.GetLeaveMorphDirection();
     }
-  } else if (player.GetMorphballTransitionState() == CPlayer::kMS_Unmorphing) {
+  }
+  if (player.GetMorphballTransitionState() == CPlayer::kMS_Unmorphing) {
     lookDir = player.GetLeaveMorphDirection();
   }
 
@@ -697,10 +698,11 @@ CVector3f CBallCamera::ConstrainYawAngle(const CPlayer& player, float yawSpeed, 
   } else {
     lookDir = -playerToCamera;
   }
-  if (!playerToCamera.IsMagnitudeSafe()) {
+  if (playerToCamera.IsMagnitudeSafe()) {
+    playerToCamera.Normalize();
+  } else {
     return -lookDir;
   }
-  playerToCamera.Normalize();
 
   float dot = CMath::Limit(CVector3f::Dot(playerToCamera, -lookDir), 1.f);
   const float angle = acosf(dot);
@@ -709,12 +711,12 @@ CVector3f CBallCamera::ConstrainYawAngle(const CPlayer& player, float yawSpeed, 
   }
 
   float rotation = yawSpeed * dt;
-  if (x204_24_) {
+  if (mClearLOS) {
     rotation *= CMath::Clamp(0.f, 1.f - mSpeedFactor, 1.f);
   }
-  rotation *= CMath::Clamp(0.f, angle / dampenAngle, 1.f);
+  const float finalRotation = rotation * CMath::Clamp(0.f, angle / dampenAngle, 1.f);
   const CQuaternion quat = CQuaternion::LookAt(
-      CUnitVector3f(playerToCamera), CUnitVector3f(-lookDir), CRelAngle::FromRadians(rotation));
+      CUnitVector3f(playerToCamera), CUnitVector3f(-lookDir), CRelAngle::FromRadians(finalRotation));
   return quat.Transform(playerToCamera);
 }
 
