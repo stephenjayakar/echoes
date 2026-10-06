@@ -1172,27 +1172,17 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
   const float beamFactor = CMath::Clamp(0.f, mBeamMenuTransition, 1.f);
   const int darkAmmo = state.GetItemAmount(CPlayerState::kIT_DarkAmmo, true);
   const int lightAmmo = state.GetItemAmount(CPlayerState::kIT_LightAmmo, true);
-  if (init || darkAmmo != mDarkAmmo || beam != mAmmoBeam ||
+  if (init || mDarkAmmo != darkAmmo || beam != mAmmoBeam ||
       float(darkAmmo) <= float(state.GetItemCapacity(CPlayerState::kIT_DarkAmmo)) *
                              gpTweakGui->GetMissileWarningThreshold() ||
-      CMath::AbsF(mDarkAmmoPickupPulse) >= 0.00001f ||
-      (CMath::AbsF(beamFactor) >= 0.00001f && CMath::AbsF(beamFactor - 1.f) >= 0.00001f)) {
-    if (state.GetItemAmount(CPlayerState::kIT_DarkBeam, true) < 1 &&
-        state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) < 1) {
-      if (mDarkAmmoIcon != nullptr) {
-        mDarkAmmoIcon->SetIsVisible(false);
-      }
-      for (int i = 0; i < mDarkAmmoSegments.size(); ++i) {
-        mDarkAmmoSegments[i]->SetColor(gpTweakGuiColors->GetDarkAmmoTankEmptyUnselectedColor());
-        mDarkAmmoMeters[i]->SetVisibility(false, kTM_Children);
-        mDarkAmmoSegments[i]->SetVisibility(false, kTM_Children);
-      }
-
-    } else {
+      !close_enough(mDarkAmmoPickupPulse, 0.f) ||
+      (!close_enough(beamFactor, 0.f) && !close_enough(beamFactor, 1.f))) {
+    if (state.GetItemAmount(CPlayerState::kIT_DarkBeam, true) > 0 ||
+        state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0) {
       if (darkAmmo > mDarkAmmo) {
         mDarkAmmoPickupPulse = 0.5f;
       }
-      mDarkAmmoPickupPulse = rstl::max_val(0.f, mDarkAmmoPickupPulse - 0.0166f);
+      mDarkAmmoPickupPulse = rstl::max_val(mDarkAmmoPickupPulse - 0.0166f, 0.f);
       const float pickup = CMath::FastSinR(M_PIF * (mDarkAmmoPickupPulse / 0.5f));
       const CColor flash =
           CColor::Lerp(CColor::Black(), gpTweakGuiColors->GetDarkAmmoChangeFlash(), pickup);
@@ -1203,8 +1193,8 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
           float(darkAmmo) <= float(state.GetItemCapacity(CPlayerState::kIT_DarkAmmo)) *
                                  gpTweakGui->GetMissileWarningThreshold()) {
         warning =
-            (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) *
-            0.5f;
+            (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) /
+            2.f;
       }
       const CColor selectedEmpty =
           CColor::Lerp(gpTweakGuiColors->GetDarkAmmoTankEmptySelectedColor(),
@@ -1268,32 +1258,28 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
         mDarkAmmoIcon->SetIsVisible(true);
         mDarkAmmoIcon->SetColor(darkAmmo < 1 ? empty : full);
       }
+    } else {
+      if (mDarkAmmoIcon != nullptr) {
+        mDarkAmmoIcon->SetIsVisible(false);
+      }
+      for (int i = 0; i < mDarkAmmoSegments.size(); ++i) {
+        mDarkAmmoSegments[i]->SetColor(gpTweakGuiColors->GetDarkAmmoTankEmptyUnselectedColor());
+        mDarkAmmoMeters[i]->SetVisibility(false, kTM_Children);
+        mDarkAmmoSegments[i]->SetVisibility(false, kTM_Children);
+      }
     }
   }
-  if (init || lightAmmo != mLightAmmo || beam != mAmmoBeam ||
+  if (init || mLightAmmo != lightAmmo || beam != mAmmoBeam ||
       float(lightAmmo) <= float(state.GetItemCapacity(CPlayerState::kIT_LightAmmo)) *
                               gpTweakGui->GetMissileWarningThreshold() ||
-      CMath::AbsF(mLightAmmoPickupPulse) >= 0.00001f ||
-      (CMath::AbsF(beamFactor) >= 0.00001f && CMath::AbsF(beamFactor - 1.f) >= 0.00001f)) {
-    if (state.GetItemAmount(CPlayerState::kIT_LightBeam, true) < 1 &&
-        state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) < 1) {
-      if (mLightAmmoIcon != nullptr) {
-        mLightAmmoIcon->SetIsVisible(false);
-      }
-      for (int i = 0; i < mLightAmmoSegments.size(); ++i) {
-        mLightAmmoSegments[i]->SetColor(gpTweakGuiColors->GetLightAmmoTankEmptyUnselectedColor());
-        mLightAmmoMeters[i]->SetVisibility(false, kTM_Children);
-        mLightAmmoSegments[i]->SetVisibility(false, kTM_Children);
-      }
-      if (mLightAmmoDigits != nullptr) {
-        mLightAmmoDigits->TextSupport().SetFontColor(
-            gpTweakGuiColors->GetLightAmmoDepletionColor());
-      }
-    } else {
+      !close_enough(mLightAmmoPickupPulse, 0.f) ||
+      (!close_enough(beamFactor, 0.f) && !close_enough(beamFactor, 1.f))) {
+    if (state.GetItemAmount(CPlayerState::kIT_LightBeam, true) > 0 ||
+        state.GetItemAmount(CPlayerState::kIT_AnnihilatorBeam, true) > 0) {
       if (lightAmmo > mLightAmmo) {
         mLightAmmoPickupPulse = 0.5f;
       }
-      mLightAmmoPickupPulse = rstl::max_val(0.f, mLightAmmoPickupPulse - 0.0166f);
+      mLightAmmoPickupPulse = rstl::max_val(mLightAmmoPickupPulse - 0.0166f, 0.f);
       const float pickup = CMath::FastSinR(M_PIF * (mLightAmmoPickupPulse / 0.5f));
       const CColor flash =
           CColor::Lerp(CColor::Black(), gpTweakGuiColors->GetLightAmmoChangeFlash(), pickup);
@@ -1305,8 +1291,8 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
           float(lightAmmo) <= float(state.GetItemCapacity(CPlayerState::kIT_LightAmmo)) *
                                   gpTweakGui->GetMissileWarningThreshold()) {
         warning =
-            (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) *
-            0.5f;
+            (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) /
+            2.f;
       }
       const CColor selectedEmpty =
           CColor::Lerp(gpTweakGuiColors->GetLightAmmoTankEmptySelectedColor(),
@@ -1368,6 +1354,19 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
       if (mLightAmmoIcon != nullptr) {
         mLightAmmoIcon->SetIsVisible(true);
         mLightAmmoIcon->SetColor(lightAmmo < 1 ? empty : full);
+      }
+    } else {
+      if (mLightAmmoIcon != nullptr) {
+        mLightAmmoIcon->SetIsVisible(false);
+      }
+      for (int i = 0; i < mLightAmmoSegments.size(); ++i) {
+        mLightAmmoSegments[i]->SetColor(gpTweakGuiColors->GetLightAmmoTankEmptyUnselectedColor());
+        mLightAmmoMeters[i]->SetVisibility(false, kTM_Children);
+        mLightAmmoSegments[i]->SetVisibility(false, kTM_Children);
+      }
+      if (mLightAmmoDigits != nullptr) {
+        mLightAmmoDigits->TextSupport().SetFontColor(
+            gpTweakGuiColors->GetLightAmmoDepletionColor());
       }
     }
   }
