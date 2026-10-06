@@ -365,7 +365,10 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     mWasOpen = true;
     SendScriptMsgs(kSS_Opened, mgr);
     mPartnerDoorId = kInvalidUniqueId;
-    if (mOpeningSenderDoorId == kInvalidUniqueId || mgr.GetNextAreaId() == GetCurrentAreaId()) {
+    if (mOpeningSenderDoorId != kInvalidUniqueId && mgr.GetNextAreaId() != GetCurrentAreaId()) {
+      SetDoorAnimation(kDAT_Open);
+      SetDoorState(mgr, kDS_Open);
+    } else {
       SetDoorAnimation(kDAT_Opening);
       if (const CScriptDock* dock = TCastToConstPtr< CScriptDock >(mgr.GetObjectById(mDockId))) {
         const CScriptDock* connectedDock =
@@ -383,9 +386,6 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
           }
         }
       }
-    } else {
-      SetDoorAnimation(kDAT_Open);
-      SetDoorState(mgr, kDS_Open);
     }
     break;
   case kDS_Open:
