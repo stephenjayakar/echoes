@@ -265,20 +265,25 @@ CGameProjectile::RayCollisionCheckWithWorld(TUniqueId& idOut, const CVector3f& s
                                             CStateManager& mgr, EStaticGeometryTest staticTest) {
   idOut = kInvalidUniqueId;
   mPendingDamagee = kInvalidUniqueId;
-  CRayCastResult result;
+  CRayCastResult result = CRayCastResult::MakeInvalid();
   const CVector3f delta = end - start;
   if (!delta.CanBeNormalized()) {
     return result;
   }
   const CVector3f direction = delta.AsNormalized();
   float bestMagnitude = magnitude;
-  CRayCastResult worldResult;
-  if (staticTest == kSGT_CollisionGeometry) {
+  CRayCastResult worldResult = CRayCastResult::MakeInvalid();
+  switch (staticTest) {
+  case kSGT_None:
+    break;
+  case kSGT_CollisionGeometry:
     worldResult =
         CGameCollision::RayStaticIntersection(mgr, start, direction, magnitude, GetFilter());
-  } else if (staticTest == kSGT_RenderGeometry) {
+    break;
+  case kSGT_RenderGeometry:
     worldResult = RenderGeometryRayCast::RayWorldIntersection(mgr, start, direction, magnitude,
                                                               GetFilter(), nullptr);
+    break;
   }
   if (worldResult.IsValid()) {
     bestMagnitude = worldResult.GetTime();
@@ -319,8 +324,8 @@ CGameProjectile::RayCollisionCheckWithWorld(TUniqueId& idOut, const CVector3f& s
           }
         } else if (bounds->PointInside(start) ||
                    (projectile && GetProjectileBounds().DoBoundsOverlap(*bounds))) {
-          const CPlane plane(start, CUnitVector3f(-direction));
-          result = CRayCastResult(0.f, start, plane, actor->GetMaterialList());
+          result = CRayCastResult(0.f, start, CPlane(start, CUnitVector3f(-direction)),
+                                  actor->GetMaterialList());
           mPendingDamagee = idOut = actor->GetUniqueId();
           break;
         }
