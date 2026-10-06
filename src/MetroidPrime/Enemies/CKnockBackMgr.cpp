@@ -111,53 +111,58 @@ CKnockBackMgr::EKnockBackWeaponType CKnockBackMgr::GetKnockBackWeaponType(const 
                                                                           EWeaponType weapon,
                                                                           bool direct) const {
   const CWeaponMode& mode = info.GetWeaponMode();
+  EKnockBackWeaponType type = kKBWT_Invalid;
   switch (weapon) {
   case kWT_Power:
     if (mode.IsCharged()) {
-      return kKBWT_PowerCharged;
+      type = kKBWT_PowerCharged;
+    } else if (mode.IsComboed()) {
+      type = kKBWT_PowerCombo;
+    } else {
+      type = kKBWT_Power;
     }
-    if (mode.IsComboed()) {
-      return kKBWT_PowerCombo;
-    }
-    return kKBWT_Power;
+    break;
   case kWT_Dark:
     if (mode.IsCharged()) {
-      return direct ? kKBWT_DarkChargedDirect : kKBWT_DarkChargedIndirect;
+      type = direct ? kKBWT_DarkChargedDirect : kKBWT_DarkChargedIndirect;
+    } else if (mode.IsComboed()) {
+      type = kKBWT_DarkCombo;
+    } else {
+      type = kKBWT_Dark;
     }
-    if (mode.IsComboed()) {
-      return kKBWT_DarkCombo;
-    }
-    return kKBWT_Dark;
+    break;
   case kWT_Light:
     if (mode.IsCharged()) {
-      return kKBWT_LightCharged;
+      type = kKBWT_LightCharged;
+    } else if (mode.IsComboed()) {
+      type = info.NoImmunity() ? kKBWT_LightMissile : kKBWT_LightCombo;
+    } else {
+      type = kKBWT_Light;
     }
-    if (mode.IsComboed()) {
-      return info.NoImmunity() ? kKBWT_LightMissile : kKBWT_LightCombo;
-    }
-    return kKBWT_Light;
+    break;
   case kWT_Annihilator:
     if (mode.IsCharged()) {
       if (info.ShouldApplyRadiusDamage()) {
-        return kKBWT_AnnihilatorChargedEffect;
+        type = kKBWT_AnnihilatorChargedEffect;
+      } else {
+        type = kKBWT_AnnihilatorCharged;
       }
-      return kKBWT_AnnihilatorCharged;
+    } else if (mode.IsComboed()) {
+      type = kKBWT_AnnihilatorCombo;
+    } else if (info.GetDamage() == 0.f && info.GetRadiusDamage() == 0.f &&
+               info.GetRadius() == 0.f && info.GetKnockBackPower() == 0.f) {
+      type = kKBWT_AnnihilatorNoDamage;
+    } else {
+      type = kKBWT_Annihilator;
     }
-    if (mode.IsComboed()) {
-      return kKBWT_AnnihilatorCombo;
-    }
-    if (info.GetDamage() == 0.f && info.GetRadiusDamage() == 0.f && info.GetRadius() == 0.f &&
-        info.GetKnockBackPower() == 0.f) {
-      return kKBWT_AnnihilatorNoDamage;
-    }
-    return kKBWT_Annihilator;
+    break;
   default:
+    if (weapon >= kWT_Power && weapon <= kWT_SafeZone) {
+      type = skWeaponTypes[weapon];
+    }
     break;
   }
-  if (weapon >= 0 && weapon < kWT_Max) {
-    return skWeaponTypes[weapon];
-  }
-  return kKBWT_Invalid;
+  return type;
 }
 
 CVector3f CKnockBackMgr::GetKnockBackDirection(const CVector3f& direction,
