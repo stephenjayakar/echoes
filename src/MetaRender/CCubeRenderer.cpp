@@ -404,7 +404,8 @@ CGraphicsPalette* CCubeRenderer::ClonePalette(const TLockedToken< CTexture >& te
   const CGraphicsPalette* palette = texture->GetPalette();
   CGraphicsPalette* result =
       rs_new CGraphicsPalette(palette->GetFormat(), palette->GetEntryCount());
-  memcpy(result->Lock(), palette->GetPaletteData(), result->GetEntryCount() * sizeof(ushort));
+  void* dst = result->Lock();
+  memcpy(dst, palette->GetPaletteData(), static_cast< int >(result->GetEntryCount()) * 16 / 8);
   result->UnLock();
   return result;
 }
