@@ -6,6 +6,7 @@
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CSimpleShadow.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/CGenericFSM2State.hpp"
@@ -482,8 +483,7 @@ void CPatterned::SetIngPossessed(bool possessed, CStateManager& mgr) {
 void CPatterned::SetIngPossessed(bool possessed, float duration, CStateManager&) {
   if (!IsIngPossessed() && possessed) {
     if (mIngPossessionData.unknown_0xb68c0aa3) {
-      *HealthInfo() = CHealthInfo(mIngPossessionData.ingPossessedHealth.health,
-                                  mIngPossessionData.ingPossessedHealth.hI_KnockBackResistance);
+      *HealthInfo() = LdrToHealthInfo(mIngPossessionData.ingPossessedHealth);
     }
     mIngPossessionDelay = 0.f;
     mIngPossessionDuration = duration;
@@ -515,7 +515,7 @@ void CPatterned::UpdateIngPossession(float dt) {
 }
 
 const CDamageVulnerability* CPatterned::GetDamageVulnerability() const {
-  if (mIngPossessionBlend < mIngPossessionTarget) {
+  if (mIngPossessionTarget > mIngPossessionBlend) {
     return &CDamageVulnerability::ImmuneVulnerabilty();
   }
   if (IsIngPossessed() && mIngPossessionData.unknown_0xb68c0aa3) {

@@ -458,9 +458,10 @@ void CGameState::InitializeMemoryWorlds() {
   const rstl::vector< CMemoryCard::MemoryWorld >& worlds = gpMemoryCard->GetMemoryWorlds();
   for (rstl::vector< CMemoryCard::MemoryWorld >::const_iterator it = worlds.begin();
        it != worlds.end(); ++it) {
+    const CSaveWorldMemory& world = it->second;
     rstl::rc_ptr< CWorldLayerState > layers = StateForWorld(it->first).GetLayerState();
-    layers->InitializeWorldLayers(it->second.GetDefaultLayerStates(), it->second.GetLayerNames(),
-                                  it->second.GetLayerNameOffsets());
+    layers->InitializeWorldLayers(world.GetDefaultLayerStates(), world.GetLayerNames(),
+                                  world.GetLayerNameOffsets());
   }
 }
 

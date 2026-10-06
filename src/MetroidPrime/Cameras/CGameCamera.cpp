@@ -34,7 +34,7 @@ void CGameCamera::SetAspectRatio(float aspect) {
 }
 
 const CMatrix4f& CGameCamera::GetPerspectiveMatrix() const {
-  if (mPerspDirty) {
+  if (mPerspDirty == true) {
     mPerspectiveMatrix = CGraphics::CalculatePerspectiveMatrix(GetFov(), mAspect, mZnear, mZfar);
     mPerspDirty = false;
   }
