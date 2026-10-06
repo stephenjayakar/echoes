@@ -39,22 +39,6 @@ public:
   , mProjectileShakeData(projectileShakeData)
   , mGrenadeData(grenadeData) {}
 
-  float GetStickyReach() const { return mStickyReach; }
-  float GetFloorTurnSpeed() const { return mFloorTurnSpeed; }
-  float GetWaypointApproachDistance() const { return mWaypointApproachDistance; }
-  float GetVisibleDistance() const { return mVisibleDistance; }
-  float GetProjectileInterval() const { return mProjectileInterval; }
-  float GetProjectileStopHomingRange() const { return mProjectileStopHomingRange; }
-  const CDamageVulnerability& GetLegVulnerability() const { return mLegVulnerability; }
-  const TLockedToken< CWeaponDescription >& GetProjectile() const { return mProjectile; }
-  const TLockedToken< CGenDescription >& GetProjectileVisorParticle() const {
-    return mProjectileVisorParticle;
-  }
-  const CDamageInfo& GetProjectileDamage() const { return mProjectileDamage; }
-  const CCameraShakerData& GetProjectileShakeData() const { return mProjectileShakeData; }
-  const CBouncyGrenadeData& GetGrenadeData() const { return mGrenadeData; }
-
-private:
   float mStickyReach;
   float mFloorTurnSpeed;
   float mWaypointApproachDistance;

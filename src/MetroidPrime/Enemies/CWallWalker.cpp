@@ -35,26 +35,26 @@ CWallWalker::CWallWalker(TUniqueId uid, const rstl::string& name, CEntityInfo& i
                          const CActorParameters& actParms, const CPatternedInfo& pInfo,
                          const CWallWalkerData& data)
 : CWallCrawler(kPAI_WallWalker, uid, name, kFT_Zero, info, xf, mData, pInfo, kMT_Flyer, kCT_Zero,
-               kBT_WallWalker, actParms, pInfo.GetHalfExtent(), data.GetStickyReach(),
-               data.GetFloorTurnSpeed(), data.GetWaypointApproachDistance(),
-               data.GetVisibleDistance(), kT_WallWalker, false, 1.f, 0.167f, 0.6f, 1.5f, 0.6f,
+               kBT_WallWalker, actParms, pInfo.GetHalfExtent(), data.mStickyReach,
+               data.mFloorTurnSpeed, data.mWaypointApproachDistance,
+               data.mVisibleDistance, kT_WallWalker, false, 1.f, 0.167f, 0.6f, 1.5f, 0.6f,
                1.5f)
 , mCollisionActorManager(nullptr)
 , mPatrolState(kPS_Patrol)
-, mLegVulnerability(data.GetLegVulnerability())
-, mGrenadeData(data.GetGrenadeData())
+, mLegVulnerability(data.mLegVulnerability)
+, mGrenadeData(data.mGrenadeData)
 , mLeftLegHit(false)
 , mRightLegHit(false)
 , mExploded(false)
 , mLegHitByMissile(false)
-, mProjectile(data.GetProjectile())
-, mProjectileVisorParticle(data.GetProjectileVisorParticle())
-, mProjectileDamage(data.GetProjectileDamage())
-, mProjectileShakeData(data.GetProjectileShakeData())
+, mProjectile(data.mProjectile)
+, mProjectileVisorParticle(data.mProjectileVisorParticle)
+, mProjectileDamage(data.mProjectileDamage)
+, mProjectileShakeData(data.mProjectileShakeData)
 , mNumShots(0)
-, mProjectileTimer(data.GetProjectileInterval())
-, mProjectileInterval(data.GetProjectileInterval())
-, mProjectileStopHomingRange(data.GetProjectileStopHomingRange())
+, mProjectileTimer(data.mProjectileInterval)
+, mProjectileInterval(data.mProjectileInterval)
+, mProjectileStopHomingRange(data.mProjectileStopHomingRange)
 , mDeathTime(0.f)
 , mGrenadeId(kInvalidUniqueId) {
   SetDrawShadow(false);
