@@ -47,12 +47,13 @@ bool CPlayerBodyController::SAdditiveReactionState::Update(CStateManager& mgr,
       controller.GetPlayer().StopLoopedSounds();
     }
   } else {
-    if (!animation.IsAdditiveAnimation(mAnimationId)) {
-      return false;
-    }
-    const rstl::rc_ptr< CAnimTreeNode > tree = animation.GetAdditiveAnimationTree(mAnimationId);
-    if (tree && close_enough(tree->VGetTimeRemaining().GetSeconds(), 0.f)) {
-      StopAnimation(controller);
+    if (animation.IsAdditiveAnimationActive(mAnimationId)) {
+      const rstl::rc_ptr< CAnimTreeNode > tree = animation.GetAdditiveAnimationTree(mAnimationId);
+      if (tree && close_enough(tree->VGetTimeRemaining().GetSeconds(), 0.f)) {
+        StopAnimation(controller);
+        return false;
+      }
+    } else {
       return false;
     }
   }
