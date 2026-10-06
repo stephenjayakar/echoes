@@ -50,28 +50,62 @@
 #include <stdio.h>
 #include <string.h>
 
+namespace {
+const char* const skLogBookFrame = "FRME_LogBook";
+const char* const skSelectedNodeTexture = "TXTR_ScanNetworkSelected";
+const char* const skUnselectedNodeTexture = "TXTR_ScanNetworkUnselected";
+const char* const skSelectedCursorTexture = "TXTR_LogBookSelectedCursor";
+const char* const skHighlightTexture = "TXTR_LogbookHighlight";
+const char* const skParentNodeTexture = "TXTR_ScanNetworkParent";
+const char* const skFont = "FONT_Deface13B";
+const char* const skHexWidget = "model_hex";
+const char* const skBottomPane = "basewidget_bottomPane";
+const char* const skHistoryActive = "model_history%d_active";
+const char* const skHistoryBottom = "model_history%d_bottom";
+const char* const skHistoryText = "textpane_history%d";
+const char* const skHistoryMeter = "barmeter_percent%d";
+const char* const skHistoryMeterBackground = "model_barmeterbg%d";
+const char* const skHistoryDoubleActive = "model_historydouble%d_active";
+const char* const skHistoryDoubleBottom = "model_historydouble%d_bottom";
+const char* const skHistoryDoubleText = "textpane_historydouble%d";
+const char* const skInstructionsMid = "InstructionsMid";
+const char* const skInstructionsLeft = "InstructionsLeft";
+const char* const skInstructionsNext = "InstructionsNext";
+const char* const skInstructionsBack = "InstructionsBack";
+const char* const skInstructionRotate = "InstructionRotate";
+const char* const skInstructionMove = "InstructionMove";
+const char* const skScanPercentage = "textpane_percent";
+const char* const skItemPercentage = "textpane_percent1";
+const char* const skSliderModel = "CMDL_OptionSlider";
+const char* const skSliderEndModel = "CMDL_OptionSliderLeft";
+const char* const skSliderCenterModel = "CMDL_OptionSliderCenter";
+const char* const skMenuArrowModel = "CMDL_OptionsMenuArrow";
+const char* const skOptionBackgroundModel = "CMDL_OptionBackground";
+const char* const skLogBookPak = "logbook";
+} // namespace
+
 // Echoes combines the scan tree, options and model viewer in this screen.
 
 CPauseScreen::CPauseScreen()
-: mSelectedNodeTexture(gpSimplePool->GetObj("TXTR_ScanNetworkSelected"))
-, mUnselectedNodeTexture(gpSimplePool->GetObj("TXTR_ScanNetworkUnselected"))
-, mParentNodeTexture(gpSimplePool->GetObj("TXTR_ScanNetworkParent"))
-, mSelectedCursorTexture(gpSimplePool->GetObj("TXTR_LogBookSelectedCursor"))
-, mHighlightTexture(gpSimplePool->GetObj("TXTR_LogbookHighlight"))
+: mSelectedNodeTexture(gpSimplePool->GetObj(skSelectedNodeTexture))
+, mUnselectedNodeTexture(gpSimplePool->GetObj(skUnselectedNodeTexture))
+, mParentNodeTexture(gpSimplePool->GetObj(skParentNodeTexture))
+, mSelectedCursorTexture(gpSimplePool->GetObj(skSelectedCursorTexture))
+, mHighlightTexture(gpSimplePool->GetObj(skHighlightTexture))
 , mScanSweepTexture(gpSimplePool->GetObj("TXTR_ScanSweepBar"))
 , mStripedTexture(kTF_I4, 8, 8, 1)
-, mFont(gpSimplePool->GetObj("FONT_Deface13B"))
-, mSliderModel(gpSimplePool->GetObj("CMDL_OptionSlider"))
-, mSliderEndModel(gpSimplePool->GetObj("CMDL_OptionSliderLeft"))
-, mSliderCenterModel(gpSimplePool->GetObj("CMDL_OptionSliderCenter"))
-, mMenuArrowModel(gpSimplePool->GetObj("CMDL_OptionsMenuArrow"))
-, mOptionBackgroundModel(gpSimplePool->GetObj("CMDL_OptionBackground"))
+, mFont(gpSimplePool->GetObj(skFont))
+, mSliderModel(gpSimplePool->GetObj(skSliderModel))
+, mSliderEndModel(gpSimplePool->GetObj(skSliderEndModel))
+, mSliderCenterModel(gpSimplePool->GetObj(skSliderCenterModel))
+, mMenuArrowModel(gpSimplePool->GetObj(skMenuArrowModel))
+, mOptionBackgroundModel(gpSimplePool->GetObj(skOptionBackgroundModel))
 , mNodeText(nullptr)
 , mRotationInput(CVector2f::Zero())
 , mRotationVelocity(CVector2f::Zero())
 , mViewRotation(CQuaternion::NoRotation())
 , x1f8_(-1)
-, mFrameLoader(rs_new CGuiFrameLoader(gpResourceFactory->GetResourceIdByName("FRME_LogBook")->id,
+, mFrameLoader(rs_new CGuiFrameLoader(gpResourceFactory->GetResourceIdByName(skLogBookFrame)->id,
                                       *gpResourceFactory, *gpSimplePool))
 , mFrame(nullptr)
 , mAdvanceButton(nullptr)
@@ -118,7 +152,7 @@ CPauseScreen::CPauseScreen()
       gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("LogbookLegendVisible");
   mLegendVisible = legend->GetMaximum() == legend->GetValue();
   InitializeStripedTexture();
-  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string("logbook"), false, false);
+  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string(skLogBookPak), false, false);
 
   mSelectedNodeTexture.Lock();
   mUnselectedNodeTexture.Lock();
@@ -135,7 +169,7 @@ CPauseScreen::CPauseScreen()
 
   const CViewport& viewport = CGraphics::GetViewport();
   mNodeText = rs_new CGuiTextSupport(
-      gpResourceFactory->GetResourceIdByName("FONT_Deface13B")->id, viewport.mWidth,
+      gpResourceFactory->GetResourceIdByName(skFont)->id, viewport.mWidth,
       viewport.mHeight,
       CGuiTextProperties(false, kJustification_Center, kVerticalJustification_Top), CColor::White(),
       CColor::Black(), CColor::White(), gpSimplePool);
@@ -163,11 +197,11 @@ void CPauseScreen::InitializeFrameGlue() {
   }
 
   mLights.reserve(2);
-  mLights.push_back(CLight::BuildPoint(gpTweakGui->GetLogBookModelLight1Position(),
-                                       gpTweakGui->GetLogBookModelLight1Color()));
+  mLights.push_back_unsafe(CLight::BuildPoint(gpTweakGui->GetLogBookModelLight1Position(),
+                                              gpTweakGui->GetLogBookModelLight1Color()));
   mLights[0].SetAttenuation(1.f, 0.2f, 0.f);
-  mLights.push_back(CLight::BuildPoint(gpTweakGui->GetLogBookModelLight2Position(),
-                                       gpTweakGui->GetLogBookModelLight2Color()));
+  mLights.push_back_unsafe(CLight::BuildPoint(gpTweakGui->GetLogBookModelLight2Position(),
+                                              gpTweakGui->GetLogBookModelLight2Color()));
   mLights[1].SetAttenuation(1.f, 0.2f, 0.f);
   mActorLights->BuildFakeLightList(mLights, gpTweakGui->GetLogBookModelAmbientLightColor());
   mMessage = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_message"));
@@ -176,9 +210,9 @@ void CPauseScreen::InitializeFrameGlue() {
   mMessage->SetVisibility(false, kTM_Children);
   mHexWidgets.reserve(100);
   for (int i = 0; i < 100; ++i) {
-    CGuiWidget* widget = mFrame->FindWidget(CBasics::Stringize("%s%d", "model_hex", i));
+    CGuiWidget* widget = mFrame->FindWidget(CBasics::Stringize("%s%d", skHexWidget, i));
     if (widget != nullptr) {
-      mHexWidgets.push_back(widget);
+      mHexWidgets.push_back_unsafe(widget);
     }
   }
   if (CGuiWidget* widget = mFrame->FindWidget("model_topframe")) {
@@ -199,7 +233,7 @@ void CPauseScreen::InitializeFrameGlue() {
   if (CGuiWidget* widget = mFrame->FindWidget("model_backdrop2")) {
     widget->SetColor(gpTweakGui->GetLogBookLegendWindowBackgroundColor());
   }
-  mBottomPane = mFrame->FindWidget("basewidget_bottomPane");
+  mBottomPane = mFrame->FindWidget(skBottomPane);
   if (!mLegendVisible) {
     mBottomPane->SetVisibility(false, kTM_Children);
     mLegendHiddenAmount = 1.f;
@@ -209,25 +243,25 @@ void CPauseScreen::InitializeFrameGlue() {
   mAdvanceButton = mFrame->FindWidget("model_abutton");
   for (int i = 0; i < 6; ++i) {
     if (CGuiWidget* widget =
-            mFrame->FindWidget(CBasics::Stringize("model_history%d_active", i + 1))) {
+            mFrame->FindWidget(CBasics::Stringize(skHistoryActive, i + 1))) {
       mHistoryHighlights.push_back(widget);
       widget->SetVisibility(false, kTM_Children);
     }
     if (CGuiWidget* widget =
-            mFrame->FindWidget(CBasics::Stringize("model_history%d_bottom", i + 1))) {
+            mFrame->FindWidget(CBasics::Stringize(skHistoryBottom, i + 1))) {
       mHistoryBackgrounds.push_back(widget);
       widget->SetVisibility(false, kTM_Children);
       widget->SetColor(gpTweakGui->GetLogBookHistorySelectedFrame());
     }
     if (CGuiTextPane* widget = static_cast< CGuiTextPane* >(
-            mFrame->FindWidget(CBasics::Stringize("textpane_history%d", i + 1)))) {
+            mFrame->FindWidget(CBasics::Stringize(skHistoryText, i + 1)))) {
       mHistoryLabels.push_back(widget);
       widget->TextSupport().SetFontColor(gpTweakGui->GetLogBookHistoryUnselectedTitle());
       widget->SetVisibility(false, kTM_Children);
       widget->TextSupport().SetWordWrap(true);
     }
     if (CAuiBitmapMeter* widget = static_cast< CAuiBitmapMeter* >(
-            mFrame->FindWidget(CBasics::Stringize("barmeter_percent%d", i + 1)))) {
+            mFrame->FindWidget(CBasics::Stringize(skHistoryMeter, i + 1)))) {
       mHistoryMeters.push_back(widget);
       widget->SetVisibility(false, kTM_Children);
       widget->SetColor(gpTweakGui->GetLogBookHistoryPercentBarUnselected());
@@ -236,7 +270,7 @@ void CPauseScreen::InitializeFrameGlue() {
       widget->SetIncreaseSpeed(60.f);
       widget->SetDecreaseSpeed(60.f);
     }
-    if (CGuiWidget* widget = mFrame->FindWidget(CBasics::Stringize("model_barmeterbg%d", i + 1))) {
+    if (CGuiWidget* widget = mFrame->FindWidget(CBasics::Stringize(skHistoryMeterBackground, i + 1))) {
       mHistoryMeterBackgrounds.push_back(widget);
       widget->SetVisibility(false, kTM_Children);
       widget->SetColor(gpTweakGui->GetLogBookHistoryPercentBarBackgroundUnselected());
@@ -274,25 +308,25 @@ void CPauseScreen::InitializeFrameGlue() {
       rstl::wstring(gpStringTable->GetString("LogBookScreenInstructionPanelLabel")), false);
   mInstructionLabel->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   CGuiTextPane* left = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_left"));
-  left->TextSupport().SetText(rstl::wstring(gpStringTable->GetString("InstructionsLeft")), false);
+  left->TextSupport().SetText(rstl::wstring(gpStringTable->GetString(skInstructionsLeft)), false);
   left->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   mRightInstructions = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_right2"));
   mRightInstructions->TextSupport().SetText(
-      rstl::wstring(gpStringTable->GetString("InstructionsMid")), false);
+      rstl::wstring(gpStringTable->GetString(skInstructionsMid)), false);
   mRightInstructions->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   CGuiTextPane* next = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_instructions2"));
-  next->TextSupport().SetText(rstl::wstring(gpStringTable->GetString("InstructionsNext")), false);
+  next->TextSupport().SetText(rstl::wstring(gpStringTable->GetString(skInstructionsNext)), false);
   next->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   CGuiTextPane* back = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_instructions1"));
-  back->TextSupport().SetText(rstl::wstring(gpStringTable->GetString("InstructionsBack")), false);
+  back->TextSupport().SetText(rstl::wstring(gpStringTable->GetString(skInstructionsBack)), false);
   back->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   CGuiTextPane* zoom = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_right3"));
   zoom->TextSupport().SetText(rstl::wstring(gpStringTable->GetString("LogbookZoomInstructions")),
                               false);
   zoom->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
-  mScanPercentage = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_percent"));
+  mScanPercentage = static_cast< CGuiTextPane* >(mFrame->FindWidget(skScanPercentage));
   mScanPercentage->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
-  mItemPercentage = static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_percent1"));
+  mItemPercentage = static_cast< CGuiTextPane* >(mFrame->FindWidget(skItemPercentage));
   mItemPercentage->TextSupport().SetFontColor(gpTweakGui->GetLogBookLegendWindowFontColor());
   mLeftStickInstructions =
       static_cast< CGuiTextPane* >(mFrame->FindWidget("textpane_instructions"));
@@ -738,13 +772,13 @@ void CPauseScreen::Update(float dt, const CStateManager& mgr, CArchitectureQueue
   text.append(CStringExtras::ConvertToUNICODE(rstl::string(
       CBasics::Stringize("SI,0.6,1.0,%8.8X", gpTweakPlayerRes->mLStick[mLeftStickIcon]))));
   text.append(separator, -1);
-  text.append(gpStringTable->GetString("InstructionRotate"), -1);
+  text.append(gpStringTable->GetString(skInstructionRotate), -1);
   mLeftStickInstructions->TextSupport().SetText(text, false);
   text.assign(imagePrefix, -1);
   text.append(CStringExtras::ConvertToUNICODE(rstl::string(
       CBasics::Stringize("SI,0.6,1.0,%8.8X", gpTweakPlayerRes->mCStick[mRightStickIcon]))));
   text.append(separator, -1);
-  text.append(gpStringTable->GetString("InstructionMove"), -1);
+  text.append(gpStringTable->GetString(skInstructionMove), -1);
   mRightStickInstructions->TextSupport().SetText(text, false);
   if (mTransitionState == kTS_FadeIn) {
     mAlpha = rstl::min_val(mAlpha + dt / 0.4f, 1.f);
@@ -755,7 +789,7 @@ void CPauseScreen::Update(float dt, const CStateManager& mgr, CArchitectureQueue
     mAlpha = rstl::max_val(mAlpha - dt / 0.4f, 0.f);
     if (mAlpha == 0.f) {
       mDone = true;
-      gpResourceFactory->GetResLoader().RemovePakFile("logbook");
+      gpResourceFactory->GetResLoader().RemovePakFile(skLogBookPak);
       mFrame = rstl::auto_ptr< CGuiFrame >(nullptr);
       gpGameState->RecordCompressedGameOptions(gpGameState->SystemOptions().GetSaveIdx());
       CSfxManager::SfxStop(mRotateSfx);
