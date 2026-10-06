@@ -332,7 +332,7 @@ static void SetProgressiveFilter(GXRenderModeObj& mode) {
   memcpy(mode.vfilter, filter, sizeof(filter));
 }
 
-void CGraphics::ConfigureVideo(bool initial, bool progressive) {
+void CGraphics::ConfigureVideo(bool initial, uchar progressive) {
   if (!initial) {
     CFrameDelayedKiller::StallAndFlushAllAllocations();
   }
