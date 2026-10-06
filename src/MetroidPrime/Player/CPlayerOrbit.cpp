@@ -43,16 +43,16 @@ enum EOrbitValidationResult {
   kOVR_TargetingThroughDoor = 7,
 };
 
-const CMaterialList kLineOfSightIncludeList(kMT_Unknown59);
-const CMaterialList kLineOfSightExcludeList(kMT_NoPlatformCollision, kMT_ScanPassthrough,
-                                            kMT_Character);
+const CMaterialList kLineOfSightIncludeList = CMaterialList(kMT_Unknown59);
+const CMaterialList kLineOfSightExcludeList =
+    CMaterialList(kMT_NoPlatformCollision, kMT_ScanPassthrough, kMT_Character);
 const CMaterialFilter kLineOfSightFilter =
     CMaterialFilter::MakeIncludeExclude(kLineOfSightIncludeList, kLineOfSightExcludeList);
-const CMaterialList kPlayerLineOfSightExcludeList(kMT_NoPlatformCollision, kMT_ScanPassthrough,
-                                                  kMT_Character, kMT_Player);
+const CMaterialList kPlayerLineOfSightExcludeList =
+    CMaterialList(kMT_NoPlatformCollision, kMT_ScanPassthrough, kMT_Character, kMT_Player);
 const CMaterialFilter kPlayerLineOfSightFilter =
     CMaterialFilter::MakeIncludeExclude(kLineOfSightIncludeList, kPlayerLineOfSightExcludeList);
-CAABox staticBox(CVector3f::Zero(), CVector3f(1.f, 1.f, 1.f));
+CAABox staticBox(CVector3f(0.f, 0.f, 0.f), CVector3f(1.f, 1.f, 1.f));
 
 CAABox BuildNearListBox(bool cropBottom, const CTransform4f& xf, float x, float z, float y) {
   const CAABox bounds(-x, cropBottom ? 0.f : -y, -z, x, y, z);
