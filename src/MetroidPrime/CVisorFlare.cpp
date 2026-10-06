@@ -55,10 +55,11 @@ void CVisorFlare::Update(float dt, const CVector3f& pos, const CActor* actor, CS
     const rstl::optional_object< float > average = mOcclusionAverage.GetAverage();
     const float occlusion = average ? *average : 1.f;
     const CGameCamera& camera = *mgr.GetCameraManager(0)->GetCurrentCamera(mgr, true);
+    const CVector3f forward = camera.GetTransform().GetForward();
     const CVector3f direction = pos - camera.GetTransform().GetTranslation();
     mIntensity = 1.f - occlusion;
-    const float dot = CVector3f::Dot(direction.AsNormalized(), camera.GetTransform().GetForward());
-    mIntensity *= rstl::max_val(0.f, 1.f - 4.f * mAngularFalloff * (1.f - dot));
+    const float dot = CVector3f::Dot(direction.AsNormalized(), forward);
+    mIntensity *= rstl::max_val(0.f, 1.f - mAngularFalloff * 4.f * (1.f - dot));
   }
 }
 
@@ -94,7 +95,6 @@ void CVisorFlare::Render(const CVector3f& pos, const CActor& actor, const CState
 }
 
 void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr, int playerIndex) {
-  const CViewport& viewport = CGraphics::GetViewport();
   if (mOutsideFrustum) {
     mOcclusionAverage.AddValue(1.f);
     return;
@@ -104,8 +104,13 @@ void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr
     return;
   }
 
+  const bool largeTest = !mSmallOcclusionTest;
   const short width = mSmallOcclusionTest ? 8 : 64;
   const short height = mSmallOcclusionTest ? 4 : 64;
+  const CViewport& viewport = CGraphics::GetViewport();
+  const int vpTop = viewport.mTop;
+  const int vpWidth = viewport.mWidth;
+  const int vpHeight = viewport.mHeight;
   const int framebufferWidth = CGraphics::GetRenderMode().fbWidth;
   const int framebufferHeight = CGraphics::GetRenderMode().xfbHeight;
   CGraphics::DisableAllLights();
@@ -118,10 +123,10 @@ void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr
   const float screenY = 0.5f * screenPos.GetY() + 0.5f;
   const int left = (int(framebufferWidth * screenX) - width / 2) & ~1;
   const int top = (int(framebufferHeight * screenY) + height / 2) & ~1;
-  const int viewLeft = (int(viewport.mWidth * screenX) - width / 2) & ~1;
-  const int viewTop = (int(viewport.mHeight * screenY) + height / 2) & ~1;
-  if (left < 0 || left + width > framebufferWidth || top - height < viewport.mTop ||
-      top > framebufferHeight - viewport.mTop) {
+  const int viewLeft = (int(vpWidth * screenX) - width / 2) & ~1;
+  const int viewTop = (int(vpHeight * screenY) + height / 2) & ~1;
+  if (left < 0 || left + width > framebufferWidth || top - height < vpTop ||
+      top > framebufferHeight - vpTop) {
     mOcclusionAverage.AddValue(1.f);
     return;
   }
@@ -130,13 +135,14 @@ void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr
   CGraphics::SetUseVideoFilter(false);
   gpRender->SetDepthReadWrite(true, false);
   const CVector3f corner = camera.ConvertToWorldSpace(
-      CVector3f(2.f * (float(viewLeft) / viewport.mWidth) - 1.f,
-                2.f * (float(viewTop) / viewport.mHeight) - 1.f, screenPos.GetZ()));
+      CVector3f(-1.f + 2.f * (float(viewLeft) / vpWidth),
+                -1.f + 2.f * (float(viewTop) / vpHeight), screenPos.GetZ()));
   const CVector3f opposite = camera.ConvertToWorldSpace(
-      CVector3f(2.f * (float(viewLeft + width) / viewport.mWidth) - 1.f,
-                2.f * (float(viewTop + height) / viewport.mHeight) - 1.f, screenPos.GetZ()));
-  const float worldWidth = CVector3f::Dot(opposite - corner, right);
-  const float worldHeight = CVector3f::Dot(opposite - corner, up);
+      CVector3f(-1.f + 2.f * (float(viewLeft + width) / vpWidth),
+                -1.f + 2.f * (float(viewTop + height) / vpHeight), screenPos.GetZ()));
+  const CVector3f extent = opposite - corner;
+  const float worldWidth = CVector3f::Dot(extent, right);
+  const float worldHeight = CVector3f::Dot(extent, up);
 
   GXSetTexCopySrc(left, framebufferHeight - top, width, height);
   GXSetTexCopyDst(mSavedFramebuffer.GetWidth(), mSavedFramebuffer.GetHeight(), GX_TF_RGBA8, false);
@@ -161,7 +167,7 @@ void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr
   CGX::SetFog(fogType, fogStart, fogEnd, fogNear, fogFar, fogColor);
 
   GXSetTexCopySrc(left, framebufferHeight - top, width, height);
-  if (mSmallOcclusionTest) {
+  if (!largeTest) {
     GXSetTexCopyDst(width, height, GX_CTF_R8, false);
   } else {
     GXSetTexCopyDst(width / 2, height / 2, GX_CTF_R8, true);
@@ -174,40 +180,46 @@ void CVisorFlare::UpdateOcclusion(const CVector3f& pos, const CStateManager& mgr
   CGraphics::SetBlendMode(::kBM_Blend, kBF_One, kBF_Zero, kLO_Clear);
   CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvModulate);
   CGraphics::SetTevOp(kTS_Stage1, CGraphics::kEnvPassthru);
-  CGraphics::Render2D(mSavedFramebuffer, left, top - viewport.mTop, width, -height,
+  CGraphics::Render2D(mSavedFramebuffer, left, top - vpTop, width, -height,
                       CColor::White());
 
-  if (mOcclusionWarmupFrames != 0) {
-    --mOcclusionWarmupFrames;
-    return;
-  }
-
-  const void* pixels = mOcclusionTexture.Lock();
-  DCInvalidateRange(const_cast< void* >(pixels),
-                    mOcclusionTexture.GetWidth() * mOcclusionTexture.GetHeight());
-  int visibleSamples = 0;
-  int sampleCount;
-  if (mSmallOcclusionTest) {
-    sampleCount = width * height;
-    const uchar* sample = static_cast< const uchar* >(pixels);
-    for (int i = 0; i < sampleCount; ++i) {
-      if (sample[i] != 0) {
-        ++visibleSamples;
-      }
+  if (mOcclusionWarmupFrames == 0) {
+    const void* pixels = mOcclusionTexture.Lock();
+    DCInvalidateRange(const_cast< void* >(pixels),
+                      mOcclusionTexture.GetWidth() * mOcclusionTexture.GetHeight());
+    int visibleSamples = 0;
+    int sampleCount;
+    if (!largeTest) {
+      sampleCount = width * height;
+    } else {
+      sampleCount = (width * height) >> 2;
     }
+    float ratio;
+    if (!largeTest) {
+      const uchar* sample = static_cast< const uchar* >(pixels);
+      for (int i = 0; i < sampleCount; ++i) {
+        if (sample[i] != 0) {
+          ++visibleSamples;
+        }
+      }
+      ratio = float(visibleSamples) / float(sampleCount);
+    } else {
+      const int blockCount = sampleCount >> 3;
+      // The original tests each eight-byte block as a double against zero.
+      const double* sample = static_cast< const double* >(pixels);
+      for (int i = 0; i < blockCount; ++i) {
+        if (sample[i] != 0.0) {
+          ++visibleSamples;
+        }
+      }
+      ratio = float(visibleSamples) / float(blockCount);
+    }
+    const float occlusion = 1.f - ratio;
+    mOcclusionTexture.UnLock();
+    mOcclusionAverage.AddValue(0.5f * (occlusion * occlusion + occlusion));
   } else {
-    sampleCount = width * height / 4 / 8;
-    // The original tests each eight-byte block as a double against zero.
-    const double* sample = static_cast< const double* >(pixels);
-    for (int i = 0; i < sampleCount; ++i) {
-      if (sample[i] != 0.0) {
-        ++visibleSamples;
-      }
-    }
+    --mOcclusionWarmupFrames;
   }
-  const float occlusion = 1.f - float(visibleSamples) / sampleCount;
-  mOcclusionTexture.UnLock();
-  mOcclusionAverage.AddValue(0.5f * (occlusion * occlusion + occlusion));
 }
 
 void CVisorFlare::RenderFlares(const CVector3f& pos, const CStateManager& mgr) const {

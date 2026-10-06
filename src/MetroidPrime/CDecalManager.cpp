@@ -12,6 +12,11 @@
 #include "MetroidPrime/Player/CPlayerState.hpp"
 #include "rstl/math.hpp"
 
+namespace rstl {
+RSTL_DECLARE_TRIVIALLY_DESTRUCTIBLE(CCollisionSurface)
+RSTL_DECLARE_BITWISE_CONSTRUCTION(CCollisionSurface)
+} // namespace rstl
+
 rstl::reserved_vector< CDecalManager::SDecal, 64 > CDecalManager::mDecalPool;
 rstl::reserved_vector< int, 64 > CDecalManager::mActiveIndexList;
 int CDecalManager::mFreeIndex;
@@ -19,6 +24,11 @@ bool CDecalManager::mPoolInitialized = false;
 float CDecalManager::mDeltaTimeSinceLastDecalCreation;
 int CDecalManager::mLastDecalCreatedIndex;
 CAssetId CDecalManager::mLastDecalCreatedAssetId;
+
+// The target places this out-of-line constructor in this translation unit.
+CCollisionSurface::CCollisionSurface(const CVector3f& a, const CVector3f& b, const CVector3f& c,
+                                     u64 flags)
+: mA(a), mB(b), mC(c), mFlags(flags) {}
 
 namespace {
 const CMaterialList skImplicitWorldMaterials(kMT_Unknown59, kMT_Unknown60);
