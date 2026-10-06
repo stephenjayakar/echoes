@@ -261,7 +261,8 @@ void CProjectileWeapon::UpdatePSTranslationAndOrientation() {
 
 void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnly) {
   double useDt = close_enough(dt, 1.f / 60.f, 1.6666666851961054e-5f) ? 1.0 / 60.0 : dt;
-  if (mAPSMGen || mAPS2Gen || mSwoosh1 || mSwoosh2 || mSwoosh3) {
+  const bool hasSystems = mAPSMGen || mAPS2Gen || mSwoosh1 || mSwoosh2 || mSwoosh3;
+  if (hasSystems) {
     const CVector3f translation = GetTranslation() - mParticleTranslationOffset;
     const CVector3f globalTranslation =
         mUseParticleTranslationOffset ? translation + mParticleTranslationOffset : translation;
@@ -292,7 +293,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
       if (!mWeaponDesc->mSPS1 && !translationOnly) {
         mAPSMGen->Update(useDt);
       }
-      if (mAPSMGen->IsSystemDeletable()) {
+      if (mAPSMGen->IsSystemDeletable() == true) {
         delete mAPSMGen;
         mAPSMGen = nullptr;
       }
@@ -323,7 +324,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
       if (!mWeaponDesc->mSPS2 && !translationOnly) {
         mAPS2Gen->Update(useDt);
       }
-      if (mAPS2Gen->IsSystemDeletable()) {
+      if (mAPS2Gen->IsSystemDeletable() == true) {
         delete mAPS2Gen;
         mAPS2Gen = nullptr;
       }
@@ -349,7 +350,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
         mSwoosh1->SetWarmUp();
         mSwoosh1->Update(0.0);
       }
-      if (mSwoosh1->IsSystemDeletable()) {
+      if (mSwoosh1->IsSystemDeletable() == true) {
         delete mSwoosh1;
         mSwoosh1 = nullptr;
       }
@@ -375,7 +376,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
         mSwoosh2->SetWarmUp();
         mSwoosh2->Update(0.0);
       }
-      if (mSwoosh2->IsSystemDeletable()) {
+      if (mSwoosh2->IsSystemDeletable() == true) {
         delete mSwoosh2;
         mSwoosh2 = nullptr;
       }
@@ -401,7 +402,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
         mSwoosh3->SetWarmUp();
         mSwoosh3->Update(0.0);
       }
-      if (mSwoosh3->IsSystemDeletable()) {
+      if (mSwoosh3->IsSystemDeletable() == true) {
         delete mSwoosh3;
         mSwoosh3 = nullptr;
       }
@@ -410,7 +411,7 @@ void CProjectileWeapon::UpdateChildParticleSystems(float dt, bool translationOnl
 
   if (x16c_ && !translationOnly) {
     x16c_->Update(useDt);
-    if (x16c_->IsSystemDeletable()) {
+    if (x16c_->IsSystemDeletable() == true) {
       delete x16c_;
       x16c_ = nullptr;
     }
