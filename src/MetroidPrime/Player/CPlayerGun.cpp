@@ -3087,19 +3087,23 @@ void CPlayerGun::Fidgeting(CStateManager& mgr, int message, float dt) {
     AsyncLoadFidget(mgr);
     break;
   case kSM_Update:
-    if (state == CFidget::kS_Loading) {
+    switch (state) {
+    case CFidget::kS_Loading:
       if (IsFidgetLoaded()) {
         EnterFidget(mgr);
       }
-    } else if (state == CFidget::kS_MinorFidget || state == CFidget::kS_MajorFidget) {
+      break;
+    case CFidget::kS_MinorFidget:
+    case CFidget::kS_MajorFidget:
       mAnimPlaying =
           mGunMotionFidgeting
               ? mGunMotion->IsAnimPlaying()
               : mCurrentBeam->GetSolidModelData().GetAnimationData()->IsAnimTimeRemaining(
-                    0.001f, rstl::string("Whole Body"));
+                    0.001f, rstl::string_l("Whole Body"));
       if (!mAnimPlaying) {
         mFidget.ResetState();
       }
+      break;
     }
     break;
   case kSM_Exit:
