@@ -1743,14 +1743,12 @@ void CCubeRenderer::DrawModelDisintegrate(const SModelRenderData& model, const C
 void CCubeRenderer::DrawModelFlat(const SModelRenderData& model, const CModelFlags& flags,
                                   bool unsortedOnly) {
   const char blendMode = static_cast< char >(flags.GetTrans());
-  if (blendMode < 7) {
-    if (blendMode < 5) {
-      CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
-    } else {
-      CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-    }
-  } else {
+  if (blendMode > 6) {
     CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
+  } else if (blendMode > 4) {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+  } else {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
   }
   const uint otherFlags = flags.GetOtherFlags();
   CGX::SetZMode(true, (otherFlags & CModelFlags::kF_DepthCompare) ? GX_LEQUAL : GX_ALWAYS,
@@ -4093,9 +4091,14 @@ void SModelRenderData::DrawFlat(const CModelFlags& flags, bool unsorted, bool so
     return;
   }
   if (mModel) {
-    const CModel::EDrawFlatFlags selection = unsorted && sorted ? CModel::kDF_All
-                                             : unsorted         ? CModel::kDF_Unsorted
-                                                                : CModel::kDF_Sorted;
+    CModel::EDrawFlatFlags selection;
+    if (unsorted && sorted) {
+      selection = CModel::kDF_All;
+    } else if (!unsorted) {
+      selection = CModel::kDF_Sorted;
+    } else {
+      selection = CModel::kDF_Unsorted;
+    }
     mModel->PreDrawModel(flags);
     mModel->DolphinDrawFlat(selection);
   } else if (mSkinnedModel) {

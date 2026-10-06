@@ -112,16 +112,19 @@ void CEchoEmitter::DrawContour(const CVector3f* points, int count, int subdivisi
                                const SProjection& projection, const CStateManager& mgr) const {
   if (!mParameters.mOnlyEmitDamage) {
     const float visibility = mPlayerEchoVisibility[mgr.GetCurrentRenderPlayer()->GetPlayerIndex()];
+    const float inverse = 1.f - visibility;
     DrawWaves(points, count, subdivisions, projection, gpTweakGui->GetEchoOutlineColor(),
-              1.f + (1.f - visibility), 1.f - visibility, visibility);
+              1.f + inverse, inverse, visibility);
   }
   if (mDamage > 0.f) {
+    const float inverse = 1.f - mDamage;
     DrawWaves(points, count, subdivisions, projection, gpTweakGui->GetEchoDamageColor(),
-              1.f + (1.f - mDamage), 1.f - mDamage, mDamage);
+              1.f + inverse, inverse, mDamage);
   }
   if (mYellowDamage > 0.f) {
+    const float inverse = 1.f - mYellowDamage;
     DrawWaves(points, count, subdivisions, projection, gpTweakGui->GetEchoYellowDamageColor(),
-              1.f + (1.f - mYellowDamage), 1.f - mYellowDamage, mYellowDamage);
+              1.f + inverse, inverse, mYellowDamage);
   }
 }
 

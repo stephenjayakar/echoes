@@ -70,7 +70,8 @@ bool CGuiTextSupport::_GetIsTextSupportFinishedLoading() const {
 }
 
 void CGuiTextSupport::SetText(const rstl::string& text, bool multipage) {
-  SetText(CStringExtras::ConvertToUNICODE(text), multipage);
+  const rstl::wstring wtext = CStringExtras::ConvertToUNICODE(text);
+  SetText(wtext, multipage);
 }
 
 void CGuiTextSupport::SetText(const rstl::wstring& text, bool multipage) {
