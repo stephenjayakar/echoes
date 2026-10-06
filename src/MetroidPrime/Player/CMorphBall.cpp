@@ -1049,7 +1049,8 @@ void CMorphBall::CollidedWith(const TUniqueId& id, const CCollisionInfoList& lis
                                   CSfxManager::kMedPriority);
         }
         mPendingRecoil = true;
-        mPlayer.BodyController()->CommandMgr().DeliverCmd(CPBCMorphToScrewAttackCmd(3, 4));
+        CPlayerBodyStateCmdMgr& cmdMgr = mPlayer.BodyController()->CommandMgr();
+        cmdMgr.DeliverCmd(CPBCMorphToScrewAttackCmd(3, 4));
         mWallNormal = normal;
         mScrewAttackDirection = mWallNormal;
         mScrewAttackDirection.SetZ(0.f);
