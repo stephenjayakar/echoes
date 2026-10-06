@@ -29,11 +29,6 @@ CScriptActorKeyframe::CScriptActorKeyframe(TUniqueId uid, const rstl::string& na
 
 void CScriptActorKeyframe::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   switch (msg.GetMessage()) {
-  case kSM_AreaLoaded:
-    if (mAnimationId == -1) {
-      mAnimationId = 0;
-    }
-    break;
   case kSM_Action:
     if (GetActive()) {
       if (mUseOriginator && msg.GetOriginator() != kInvalidUniqueId) {
@@ -54,6 +49,11 @@ void CScriptActorKeyframe::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
       mPlaying = true;
       mLifetime = mInitialLifetime;
       SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+    }
+    break;
+  case kSM_AreaLoaded:
+    if (mAnimationId == -1) {
+      mAnimationId = 0;
     }
     break;
   default:
