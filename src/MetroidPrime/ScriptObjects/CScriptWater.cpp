@@ -539,7 +539,7 @@ EWeaponCollisionResponseTypes CScriptWater::GetCollisionResponseType(const CVect
   return kWCR_Water;
 }
 
-void CScriptWater::SetMorphing(bool morphing) {
+void CScriptWater::SetMorphing(const bool morphing) {
   if (morphing != mMorphing) {
     mMorphing = morphing;
     SetupGrid(!morphing);
