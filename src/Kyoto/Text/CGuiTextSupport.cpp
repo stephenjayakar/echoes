@@ -155,17 +155,16 @@ void CGuiTextSupport::CheckAndRebuildTextBuffer() const {
   mExecuteBuffer.AddWordWrapping(mProperties.mWordWrap);
   mExecuteBuffer.BeginBlock(0, 0, mExtentX, mExtentY, mImageBaseline, kTD_Horizontal,
                             mProperties.mJustification, mProperties.mVerticalJustification);
-  mExecuteBuffer.AddColor(kCT_Main, CTextColor(mFontColor.GetRedu8(), mFontColor.GetGreenu8(),
-                                               mFontColor.GetBlueu8(), mFontColor.GetAlphau8()));
-  mExecuteBuffer.AddColor(kCT_Outline,
-                          CTextColor(mOutlineColor.GetRedu8(), mOutlineColor.GetGreenu8(),
-                                     mOutlineColor.GetBlueu8(), mOutlineColor.GetAlphau8()));
+  mExecuteBuffer.AddColor(kCT_Main, mFontColor.GetRed(), mFontColor.GetGreen(),
+                          mFontColor.GetBlue(), mFontColor.GetAlpha());
+  mExecuteBuffer.AddColor(kCT_Outline, mOutlineColor.GetRed(), mOutlineColor.GetGreen(),
+                          mOutlineColor.GetBlue(), mOutlineColor.GetAlpha());
   mExecuteBuffer.AddCharacterExtraSpace(mExtraCharacterSpacing);
   mExecuteBuffer.AddLineExtraSpace(mExtraLineSpacing);
   rstl::wstring text;
   if (mFontId != kInvalidAssetId) {
-    text =
-        CStringExtras::ConvertToUNICODE(rstl::string(CBasics::Stringize("&font=%8.8X;", mFontId)));
+    text = rstl::wstring(CStringExtras::ConvertToUNICODE(
+        rstl::string(CBasics::Stringize("&font=%8.8X;", mFontId))));
   }
   text.append(mText);
   CTextParser parser(*mPool);

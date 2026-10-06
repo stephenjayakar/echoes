@@ -27,6 +27,10 @@ public:
   void AddFont(const TToken< CRasterFont >& font);
   void AddImage(const CFontImageDef& image);
   void AddColor(EColorType type, const CTextColor& color);
+  void AddColor(EColorType type, float r, float g, float b, float a) {
+    AddColor(type, CTextColor(static_cast< uchar >(255.f * r), static_cast< uchar >(255.f * g),
+                              static_cast< uchar >(255.f * b), static_cast< uchar >(255.f * a)));
+  }
   void AddColorOverride(int index, const CTextColor& color);
   void AddRemoveColorOverride(int index);
   void AddLineSpacing(float spacing);
@@ -40,7 +44,7 @@ public:
   void AddString(const wchar_t* str, int len);
   void AddString(const rstl::wstring& str) { AddString(str.data(), str.size()); }
 
-  void BeginBlock(int x, int y, int width, int height, bool imageBaseline, ETextDirection direction,
+  void BeginBlock(int x, int y, int width, int height, const bool imageBaseline, ETextDirection direction,
                   EJustification justification, EVerticalJustification verticalJustification);
   void EndBlock();
   void Clear();
