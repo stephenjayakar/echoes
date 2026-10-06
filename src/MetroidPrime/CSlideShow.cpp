@@ -278,11 +278,14 @@ void CSlideShow::BuildGalleryLists(uint flags) {
 
 bool CSlideShow::LoadTXTRDep(const char* name) {
   const SObjectTag* tag = gpResourceFactory->GetResourceIdByName(name);
-  if (tag == nullptr || tag->type != 'DGRP') {
+  if (tag != nullptr && tag->type == 'DGRP') {
+    if (mGalleryTXTRDeps.size() + 1 > mGalleryTXTRDeps.capacity()) {
+      mGalleryTXTRDeps.reserve(mGalleryTXTRDeps.size() + 1);
+    }
+    mGalleryTXTRDeps.push_back_unsafe(TToken< CDependencyGroup >(gpSimplePool->GetObj(*tag)));
+  } else {
     return false;
   }
-  mGalleryTXTRDeps.reserve(mGalleryTXTRDeps.size() + 1);
-  mGalleryTXTRDeps.push_back(TToken< CDependencyGroup >(gpSimplePool->GetObj(*tag)));
   return true;
 }
 
