@@ -202,8 +202,10 @@ void CBouncyGrenade::PreRenderAllViewports(CStateManager& mgr) {
     rstl::optional_object< CAABox > xrayBounds = mElementGenTrailXRay->GetBounds();
     if (xrayBounds.valid()) {
       if (bounds.valid()) {
-        bounds->AccumulateBounds(xrayBounds->GetMinPoint());
-        bounds->AccumulateBounds(xrayBounds->GetMaxPoint());
+        const CAABox& xrayBox = *xrayBounds;
+        CAABox& box = *bounds;
+        box.AccumulateBounds(xrayBox.GetMinPoint());
+        box.AccumulateBounds(xrayBox.GetMaxPoint());
       } else {
         bounds = xrayBounds;
       }
