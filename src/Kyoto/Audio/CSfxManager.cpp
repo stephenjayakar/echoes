@@ -951,9 +951,9 @@ void CSfxManager::SetActiveAreas(const rstl::reserved_vector< int, 10 >& areas, 
         effect->SetActive(false);
       }
     }
-    int bus = mStudioState.second;
+    bool bus = mStudioState.second;
     if (best->GetArea() != mStudioState.first) {
-      bus = mStudioState.second ? 0 : 1;
+      bus = mStudioState.second ? false : true;
     }
     best->SetProcessingId(
         mAuxEffectManager.AddEffect(bus, *best, CAuxEffectManager::kEC_Parallel, true));
@@ -977,7 +977,8 @@ void CSfxManager::SetActiveAreas(const rstl::reserved_vector< int, 10 >& areas, 
         }
       }
       mDoUpdate = true;
-      channel.mSounds[i]->SetInArea(inArea);
+      const bool active = inArea;
+      channel.mSounds[i]->SetInArea(active);
     }
   }
 }

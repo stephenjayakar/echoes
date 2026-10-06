@@ -135,7 +135,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheck_Internal(const CAreaOctTree::Node
     const CPlane* planes = cache.mPlanes;
     for (int j = 0; j < size; ++j) {
       ++gTrianglesProcessed;
-      ushort triIdx = list.GetAt(j);
+      uint triIdx = list.GetAt(j);
       if (sDupPrimitiveCheckCount == spDupTriangleList[triIdx]) {
         ++gDupTrianglesProcessed;
       } else {
@@ -401,7 +401,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Internal(const CAreaOctTree::Nod
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
-            ushort triIdx = list.GetAt(j);
+            uint triIdx = list.GetAt(j);
             if (sDupPrimitiveCheckCount == spDupTriangleList[triIdx]) {
               ++gDupTrianglesProcessed;
             } else {
@@ -449,7 +449,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Cached(const COctreeLeafCache& l
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
-        ushort triIdx = list.GetAt(j);
+        uint triIdx = list.GetAt(j);
         if (sDupPrimitiveCheckCount == spDupTriangleList[triIdx]) {
           ++gDupTrianglesProcessed;
         } else {
@@ -621,7 +621,7 @@ bool CMetroidAreaCollider::MovingSphereCollisionCheck_Cached(
       const CAreaOctTree& owner = node.GetOwner();
       int listSize = list.GetSize();
       for (int j = 0; j < listSize; ++j) {
-        ushort triIdx = list.GetAt(j);
+        uint triIdx = list.GetAt(j);
         if (sDupPrimitiveCheckCount != spDupTriangleList[triIdx]) {
           spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
           ++gTrianglesProcessed;
@@ -922,7 +922,7 @@ bool CMetroidAreaCollider::MovingAABoxCollisionCheck_Cached(
       const CAreaOctTree& owner = node.GetOwner();
       int listSize = list.GetSize();
       for (int j = 0; j < listSize; ++j) {
-        ushort triIdx = list.GetAt(j);
+        uint triIdx = list.GetAt(j);
         if (sDupPrimitiveCheckCount != spDupTriangleList[triIdx]) {
           spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
           ++gTrianglesProcessed;
@@ -1206,7 +1206,7 @@ void CMetroidAreaCollider::CacheNodes(const CAreaOctTree::Node& node, CCollision
       int size = list.GetSize();
       writer.ReserveTriangles(size);
       for (int j = 0; j < size; ++j) {
-        ushort index = list.GetAt(j);
+        uint index = list.GetAt(j);
         if (spDupTriangleList[index] != sDupPrimitiveCheckCount) {
           spDupTriangleList[index] = sDupPrimitiveCheckCount;
           CCollisionSurface surface = owner.GetTriangle(index);
@@ -1266,7 +1266,7 @@ void CMetroidAreaCollider::CacheAllNodes(const CAreaOctTree::Node& node,
     int size = list.GetSize();
     writer.ReserveTriangles(size);
     for (int i = 0; i < size; ++i) {
-      ushort index = list.GetAt(i);
+      uint index = list.GetAt(i);
       if (spDupTriangleList[index] != sDupPrimitiveCheckCount) {
         spDupTriangleList[index] = sDupPrimitiveCheckCount;
         CCollisionSurface surface = owner.GetTriangle(index);
