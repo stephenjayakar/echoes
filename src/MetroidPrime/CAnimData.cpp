@@ -299,7 +299,19 @@ void CAnimData::CalcPlaybackAlignmentParms(const CAnimPlaybackParms& parms,
 }
 
 void CAnimData::SetRandomPlaybackRate(CRandom16& random) {
-  // TODO: Read the random-rate POI and choose the signed playback-rate variation.
+  for (int i = 0; i < mPassedIntCount; ++i) {
+    const CInt32POINode& poi = mInt32POINodes[i];
+    if (poi.GetPoiType() == kPT_RandRate) {
+      const int range = poi.GetValue();
+      const float rate = (random.Next() % range) / 100.f;
+      if ((random.Next() % 100) < 50) {
+        mSpeedScale = 1.f + rate;
+      } else {
+        mSpeedScale = 1.f - rate;
+      }
+      break;
+    }
+  }
 }
 
 void CAnimData::SetPlaybackRate(float rate) { mSpeedScale = rate; }
