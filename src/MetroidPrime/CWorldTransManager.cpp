@@ -39,6 +39,9 @@
 static CColor sDarkPointLightColor(uchar(80), uchar(49), uchar(130), uchar(255));
 static CColor sDarkMovingLightColor(uchar(156), uchar(123), uchar(200), uchar(255));
 static const char* const kIntroAudio = "/Audio/swanp-mae32.dsp";
+// Shared locator names; defined with the player code.
+extern const char* const kGunLocator;
+extern const char* const kGrappleLocator;
 
 struct CWorldTransManager::SModelDatas {
   CAnimRes mSamusRes;
@@ -299,44 +302,41 @@ void CWorldTransManager::UpdatePortalTransition(float dt) {
 
 void CWorldTransManager::UpdateEnabled(float dt) {
   if (!mModelData.null() && !mModelData->mSamusModelData.IsNull()) {
-    SModelDatas& data = *mModelData;
-    if (mStopSoon && !data.mDissolveStarted && mCurTime >= 4.f) {
-      data.mDissolveStarted = true;
-      data.mDissolveStartTime = mCurTime;
-      data.mDissolveEndTime = 4.f + mCurTime - 4.f;
-      if (!mSecondPassCamera) {
-        data.mTransCompleteTime = 5.f + mCurTime - 4.f;
-      } else {
-        data.mTransCompleteTime = mCurTime + mSecondPassCamera->GetDuration();
-        data.mSamusModelData.AnimationData()->SetAnimation(CAnimPlaybackParms(1, -1, 1.f, true),
+    if (mStopSoon && !mModelData->mDissolveStarted && mCurTime >= 4.f) {
+      mModelData->mDissolveStarted = true;
+      mModelData->mDissolveStartTime = mCurTime;
+      mModelData->mDissolveEndTime = 4.f + mCurTime - 4.f;
+      if (mSecondPassCamera) {
+        mModelData->mTransCompleteTime = mCurTime + mSecondPassCamera->GetDuration();
+        mModelData->mSamusModelData.AnimationData()->SetAnimation(CAnimPlaybackParms(1, -1, 1.f, true),
                                                            false);
-        data.mSamusModelData.AnimationData()->EnableLooping(false);
+        mModelData->mSamusModelData.AnimationData()->EnableLooping(false);
+      } else {
+        mModelData->mTransCompleteTime = 5.f + mCurTime - 4.f;
       }
     }
-    if (data.mDissolveStarted && mCurTime > data.mTransCompleteTime) {
+    if (mCurTime > mModelData->mTransCompleteTime && mModelData->mDissolveStarted) {
       mTransitionFinished = true;
     }
-    data.mSamusModelData.AdvanceAnimationIgnoreParticles(dt, mRandom, true);
-    data.mGunXf = data.mSamusModelData.GetScaledLocatorTransform(rstl::string_l("GUN_LCTR"));
-    data.mGrappleXf =
-        data.mSamusModelData.GetScaledLocatorTransform(rstl::string_l("GRAPPLE_LCTR"));
-    data.mRandTimeout -= dt;
-    if (data.mRandTimeout <= 0.f) {
-      data.mRandTimeout = mRandom.Range(0.016666668f, 0.1f);
+    mModelData->mSamusModelData.AdvanceAnimationIgnoreParticles(dt, mRandom, true);
+    mModelData->mGunXf = mModelData->mSamusModelData.GetScaledLocatorTransform(rstl::string_l(kGunLocator));
+    mModelData->mGrappleXf =
+        mModelData->mSamusModelData.GetScaledLocatorTransform(rstl::string_l(kGrappleLocator));
+    mModelData->mRandTimeout -= dt;
+    if (mModelData->mRandTimeout <= 0.f) {
+      mModelData->mRandTimeout = mRandom.Range(0.016666668f, 0.1f);
       const CVector2f shake(mRandom.Range(-0.025f, 0.025f), mRandom.Range(-0.075f, 0.075f));
-      data.mShakeDelta = (shake - data.mShakeResult) / data.mRandTimeout;
+      mModelData->mShakeDelta = (shake - mModelData->mShakeResult) / mModelData->mRandTimeout;
       const float blur = mRandom.Range(-2.f, 4.f);
-      data.mBlurDelta = (blur - data.mBlurResult) / data.mRandTimeout;
+      mModelData->mBlurDelta = (blur - mModelData->mBlurResult) / mModelData->mRandTimeout;
     }
-    data.mShakeResult += data.mShakeDelta * dt;
-    data.mBlurResult += dt * data.mBlurDelta;
+    mModelData->mShakeResult += mModelData->mShakeDelta * dt;
+    mModelData->mBlurResult += dt * mModelData->mBlurDelta;
   }
 
   float bgDelta = 37.5f * dt;
-  float lightDelta = 18.75f * dt;
   if (mGoingUp) {
     bgDelta = -bgDelta;
-    lightDelta = -lightDelta;
   }
   mBgOffset += bgDelta;
   if (mBgOffset > mBgHeight) {
@@ -344,6 +344,10 @@ void CWorldTransManager::UpdateEnabled(float dt) {
   }
   if (mBgOffset < 0.f) {
     mBgOffset += mBgHeight;
+  }
+  float lightDelta = 18.75f * dt;
+  if (mGoingUp) {
+    lightDelta = -lightDelta;
   }
   mLightOffset += lightDelta;
   if (mLightOffset > mLightHeight) {
