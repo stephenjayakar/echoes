@@ -80,10 +80,10 @@ void CScriptDynamicLight::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& 
 }
 
 void CScriptDynamicLight::FindLightReceivers(CStateManager& mgr) {
-  const rstl::vector< TUniqueId > receivers = FindConnectedObjects(mgr, kSS_Play, kSM_Activate);
   bool found = false;
+  const rstl::vector< TUniqueId > receivers = FindConnectedObjects(mgr, kSS_Play, kSM_Activate);
   for (int i = 0; i < receivers.size(); ++i) {
-    CActor* actor = TCastToPtr< CActor >(mgr.GetObjectByIdFromListAll(receivers[i]));
+    CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(receivers[i]));
     if (actor && actor->HasActorLights()) {
       actor->ActorLights()->AddExplicitLightId(GetUniqueId());
       found = true;
