@@ -1066,31 +1066,31 @@ void CSamusHud::UpdateMissile(float dt, const CStateManager& mgr, bool init) {
   if (mMissileDigits == nullptr) {
     return;
   }
-  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->mGun;
   const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
-  const int enabled = !gun.GetMissileMode();
+  const CPlayerGun& gun = *mgr.GetPlayer(mPlayerIndex)->mGun;
+  const int enabled = gun.GetMissileMode() ? 0 : 1;
   const int missiles = state.GetItemAmount(CPlayerState::kIT_Missile, true);
   const int capacity = state.GetItemCapacity(CPlayerState::kIT_Missile);
   if (init || missiles != mMissileAmount || enabled != mMissileEnabled ||
-      capacity != mMissileCapacity || CMath::AbsF(mMissilePickupPulse) >= 0.00001f ||
-      CMath::AbsF(mMissileModeTransition) >= 0.00001f) {
+      capacity != mMissileCapacity || !close_enough(mMissilePickupPulse, 0.f) ||
+      !close_enough(mMissileModeTransition, 0.f)) {
     if (GetNextState() != kHS_Scan) {
       if (missiles > mMissileAmount) {
         mMissilePickupPulse = 0.5f;
       }
-      mMissilePickupPulse = rstl::max_val(0.f, mMissilePickupPulse - dt);
+      mMissilePickupPulse = rstl::max_val(mMissilePickupPulse - dt, 0.f);
       const float pickup = CMath::FastSinR(M_PIF * (mMissilePickupPulse / 0.5f));
       const CColor flash =
           CColor::Lerp(CColor::Black(), gpTweakGuiColors->GetMissileGroupChangeFlash(), pickup);
-      mMissileModeTransition = rstl::max_val(0.f, mMissileModeTransition - 3.f * dt);
+      mMissileModeTransition = rstl::max_val(mMissileModeTransition - 3.f * dt, 0.f);
       if (mMissileEnabled != enabled) {
         mMissileModeTransition = 1.f;
       }
       const float transition =
           gun.GetMissileMode() ? mMissileModeTransition : 1.f - mMissileModeTransition;
-      const CColor active =
+      const CColor& active =
           CColor::Add(ModulateColor(gpTweakGuiColors->GetMissileGroupActiveColor()), flash);
-      const CColor inactive =
+      const CColor& inactive =
           CColor::Add(ModulateColor(gpTweakGuiColors->GetMissileGroupInactiveColor()), flash);
       const CColor& depletion = gpTweakGuiColors->GetMissileDepletionColor();
       const CColor iconColor =
@@ -1100,9 +1100,9 @@ void CSamusHud::UpdateMissile(float dt, const CStateManager& mgr, bool init) {
         mMissileIcon->SetColor(iconColor);
         mMissileIcon->SetVisibility(visible, kTM_Children);
       }
-      const CColor activeText =
+      const CColor& activeText =
           CColor::Add(ModulateColor(gpTweakGuiColors->GetActiveTextForegroundColor()), flash);
-      const CColor inactiveText =
+      const CColor& inactiveText =
           CColor::Add(ModulateColor(gpTweakGuiColors->GetInactiveTextForegroundColor()), flash);
       const CColor textColor =
           missiles == 0 ? depletion : CColor::Lerp(activeText, inactiveText, transition);
@@ -1133,19 +1133,21 @@ void CSamusHud::UpdateMissile(float dt, const CStateManager& mgr, bool init) {
     const float transition =
         gun.GetMissileMode() ? mMissileModeTransition : 1.f - mMissileModeTransition;
     const float pulse =
-        (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) *
-        0.5f;
+        (1.f + CMath::FastCosR(CMath::WrapPi(M_2PIF * CGraphics::GetSecondsMod900() / 1.5f))) /
+        2.f;
     if (mMissileIcon != nullptr) {
-      const CColor base =
-          CColor::Lerp(ModulateColor(gpTweakGuiColors->GetMissileGroupActiveColor()),
-                       ModulateColor(gpTweakGuiColors->GetMissileGroupInactiveColor()), transition);
+      const CColor& activeColor = ModulateColor(gpTweakGuiColors->GetMissileGroupActiveColor());
+      const CColor& inactiveColor =
+          ModulateColor(gpTweakGuiColors->GetMissileGroupInactiveColor());
+      const CColor base = CColor::Lerp(activeColor, inactiveColor, transition);
       const CColor color = CColor::Lerp(base, gpTweakGuiColors->GetMissileWarningColor(), pulse);
       mMissileIcon->SetColor(color);
     }
     if (mMissileDigits != nullptr) {
-      const CColor base = CColor::Lerp(
-          ModulateColor(gpTweakGuiColors->GetActiveTextForegroundColor()),
-          ModulateColor(gpTweakGuiColors->GetInactiveTextForegroundColor()), transition);
+      const CColor& activeColor = ModulateColor(gpTweakGuiColors->GetActiveTextForegroundColor());
+      const CColor& inactiveColor =
+          ModulateColor(gpTweakGuiColors->GetInactiveTextForegroundColor());
+      const CColor base = CColor::Lerp(activeColor, inactiveColor, transition);
       const CColor color = CColor::Lerp(base, gpTweakGuiColors->GetMissileWarningColor(), pulse);
       mMissileDigits->TextSupport().SetFontColor(color);
       if (mMissileFraction != nullptr) {
