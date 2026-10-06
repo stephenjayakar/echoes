@@ -78,7 +78,7 @@ CWorldTransManager::CWorldTransManager()
 , mPanning(64)
 , mTransType(kTT_Disabled)
 , mTextStartTime(0.f)
-, mAudioStream(rstl::string_l(""))
+, mAudioStream()
 , mTextElapsedTime(0.f)
 , mIntroTextFadeTimer(0.f)
 , mPortalFade(0.f)
@@ -531,13 +531,14 @@ void CWorldTransManager::DrawSecondPass() const {
 }
 
 void CWorldTransManager::DrawEnabled() const {
-  if (mModelData.null()) {
+  const SModelDatas* data = mModelData.get();
+  if (data == nullptr) {
     return;
   }
   gpRender->SetRequestRGBA6(true);
-  if (mCurTime <= mModelData->mDissolveStartTime) {
+  if (mCurTime <= data->mDissolveStartTime) {
     DrawFirstPass();
-  } else if (mCurTime > mModelData->mDissolveStartTime) {
+  } else if (mCurTime > data->mDissolveStartTime) {
     DrawSecondPass();
   }
   CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Multiply, CCameraFilterPass::kFS_CinemaBars,
@@ -552,8 +553,9 @@ void CWorldTransManager::DrawEnabled() const {
     alpha = 1.f - (mModelData->mTransCompleteTime - mCurTime) / 0.25f;
   }
   if (alpha > 0.f) {
+    const CColor color(0.f, 0.f, 0.f, alpha);
     CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen,
-                                  CColor(0.f, 0.f, 0.f, alpha), nullptr, 1.f);
+                                  color, nullptr, 1.f);
   }
   CGraphics::SetIsBeginSceneClearFb(true);
 }
