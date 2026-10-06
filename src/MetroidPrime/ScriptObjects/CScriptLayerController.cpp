@@ -126,7 +126,7 @@ TAreaId CScriptLayerController::GetAreaIdAndWorldLayerState(CStateManager& mgr,
 }
 
 CGameArea* CScriptLayerController::GetAreaForAreaId(CStateManager& mgr, TAreaId area) {
-  if (area != kInvalidAreaId && mgr.World()->DoesAreaExist(area) &&
+  if (area.value != kInvalidAreaId.value && mgr.World()->DoesAreaExist(area) &&
       mgr.World()->IsAreaValid(area)) {
     return mgr.World()->Area(area);
   }
