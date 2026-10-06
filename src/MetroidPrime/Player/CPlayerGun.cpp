@@ -249,9 +249,12 @@ void CPlayerGun::UpdateChargeState(float dt, CStateManager& mgr) {
   }
 
   if (mChargePhase != kCP_NotCharging) {
-    if (mChargePhase == kCP_ChargeRequested &&
-        playerState->GetChargeAnimStart() < playerState->GetChargeBeamFactor()) {
-      mChargePhase = kCP_Charging;
+    switch (mChargePhase) {
+    case kCP_ChargeRequested:
+      if (playerState->GetChargeBeamFactor() > playerState->GetChargeAnimStart()) {
+        mChargePhase = kCP_Charging;
+      }
+      break;
     }
     if (mChargeSfx && mSeekerChargeState != kSCS_FullyCharged) {
       CSfxManager::PitchBend(mChargeSfx, mUnderwater ? 0 : 0x2000);
@@ -778,14 +781,15 @@ CStateMachine* CPlayerGun::GetStateMachine() {
 }
 
 void CPlayerGun::PollStateMachine(CStateManager& mgr) {
-  if (!mStateMachine.HasState() && GetStateMachine() != nullptr) {
+  if (mStateMachine.GetCurrentState() == nullptr && GetStateMachine() != nullptr) {
     InitializeStateMachine(mgr);
   }
 }
 
 void CPlayerGun::ResetStateMachine(CStateManager& mgr) {
-  if (!mStateMachine.HasState() || rstl::string(mStateMachine.GetName()) != rstl::string("Start")) {
-    mStateMachine.SetState(mgr, *this, rstl::string("Start"));
+  if (mStateMachine.GetCurrentState() == nullptr ||
+      strcmp("Start", mStateMachine.GetName()) != 0) {
+    mStateMachine.SetState(mgr, *this, rstl::string_l("Start"));
   }
 }
 
@@ -1684,7 +1688,8 @@ void CPlayerGun::StopChargeSound(CStateManager& mgr, bool start) {
     if (!mgr.IsMultiplayer() && mSeekerChargeState != kSCS_NotCharging) {
       sound = 0x184;
     }
-    mChargeSfx = PlaySfxForPlayer(nullptr, sound, mSoundVolume, -1, mUnderwater, true);
+    mChargeSfx =
+        PlaySfxForPlayer(nullptr, sound, mSoundVolume, CSfxManager::kAllAreas, mUnderwater, true);
     mChargeRumbleHandle = rumble->Rumble(mgr, kRFX_PlayerGunCharge, 1.f, kRP_Three);
   }
 }
@@ -2223,7 +2228,7 @@ void CPlayerGun::SetGunLightActive(bool active, CStateManager& mgr) {
   if (mLightId == kInvalidUniqueId) {
     return;
   }
-  CGameLight* light = TCastToPtr< CGameLight >(mgr.GetObjectByIdFromListAll(mLightId));
+  CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(mLightId));
   if (light != nullptr) {
     light->SetActive(active);
     if (active) {
@@ -2241,11 +2246,13 @@ void CPlayerGun::SetGunLightActive(bool active, CStateManager& mgr) {
 }
 
 void CPlayerGun::UpdateGunLight(const CTransform4f& transform, CStateManager& mgr) {
-  if (mLightId == kInvalidUniqueId ||
-      (mChargePhase == kCP_NotCharging && mSeekerChargeState == kSCS_NotCharging)) {
+  if (mLightId == kInvalidUniqueId) {
     return;
   }
-  CGameLight* light = TCastToPtr< CGameLight >(mgr.GetObjectByIdFromListAll(mLightId));
+  if (mChargePhase == kCP_NotCharging && mSeekerChargeState == kSCS_NotCharging) {
+    return;
+  }
+  CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(mLightId));
   if (light != nullptr && light->GetActive()) {
     light->SetTransform(transform);
     light->SetTranslation(transform.GetTranslation());
@@ -2255,8 +2262,9 @@ void CPlayerGun::UpdateGunLight(const CTransform4f& transform, CStateManager& mg
             : mCurrentBeam->GetMuzzleFx(1);
     if (generator != nullptr && generator->SystemHasLight()) {
       CLight muzzleLight = generator->GetLight();
-      muzzleLight.SetColor(CColor::Lerp(CColor::Black(), muzzleLight.GetColor(),
-                                        GetPlayer(mgr)->GetPlayerState()->GetChargeBeamFactor()));
+      muzzleLight.SetColor(
+          CColor(CColor::Lerp(0u, muzzleLight.GetColor().GetColor_u32(),
+                              GetPlayer(mgr)->GetPlayerState()->GetChargeBeamFactor())));
       light->SetLight(muzzleLight);
     }
   }
@@ -2455,15 +2463,15 @@ void CPlayerGun::HandleBeamChange(const CFinalInput& input, CStateManager& mgr) 
     if (state->HasPowerUp(beamItems[i])) {
       const float value = player->GetControlMapper().GetAnalogInput(beamCommands[i], input);
       if (value > 0.65f && value > maxInput) {
-        beam = i;
         maxInput = value;
+        beam = i;
       }
     }
   }
   if (mNextBeamId != state->GetCurrentBeam()) {
     beam = state->GetCurrentBeam();
   }
-  if (beam < 0) {
+  if (beam <= -1) {
     return;
   }
   if (mCurrentBeamId != beam && state->HasPowerUp(beamItems[beam])) {
