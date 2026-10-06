@@ -231,7 +231,7 @@ void CRainSplashGenerator::SSplashLine::Draw(float alpha, float dt,
 }
 
 CRainSplashGenerator::SRainSplash::SRainSplash()
-: mLines(SSplashLine()), mPosition(CVector3f::Zero()), x70_(0.f) {}
+: mLines(4, SSplashLine()), mPosition(CVector3f::Zero()), x70_(0.f) {}
 
 void CRainSplashGenerator::SRainSplash::Update(float dt, CStateManager& mgr) {
   for (rstl::reserved_vector< SSplashLine, 4 >::iterator it = mLines.begin();
