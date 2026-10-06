@@ -215,7 +215,7 @@ void CPlayer::BeginSidewaysDash(float strafeInput, CStateManager& mgr) {
   mDashTimer = 0.f;
   CVector3f velocity = GetVelocityWR();
   if (velocity.GetZ() > 0.f) {
-    velocity.SetZ(velocity.GetZ() * 0.1f);
+    velocity[kDZ] *= 0.1f;
     if (!mSlidingOnWall) {
       SetVelocityWR(velocity);
       mDashSfx =
@@ -226,10 +226,11 @@ void CPlayer::BeginSidewaysDash(float strafeInput, CStateManager& mgr) {
       mgr.RumbleManager(GetPlayerIndex())->Rumble(mgr, kRFX_PlayerBump, 0.24375f, kRP_One);
     }
   }
+  CPlayerBodyStateCmdMgr& cmdMgr = mBodyController->CommandMgr();
   if (CVector3f::Dot(GetTransform().GetRight(), velocity) > 0.f) {
-    mBodyController->CommandMgr().DeliverCmd(CPBCDashCmd(1));
+    cmdMgr.DeliverCmd(CPBCDashCmd(1));
   } else {
-    mBodyController->CommandMgr().DeliverCmd(CPBCDashCmd(0));
+    cmdMgr.DeliverCmd(CPBCDashCmd(0));
   }
 }
 
