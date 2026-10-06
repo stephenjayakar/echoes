@@ -10,11 +10,13 @@
 #include "MetroidPrime/CActor.hpp"
 #include "rstl/vector.hpp"
 
+class CFinalInput;
 class CScriptFrontEndDataNetwork;
+class CTexture;
 
 // Guessed name. One record per node of the network, owned by the root node.
 struct SDataNetworkNode {
-  SDataNetworkNode(TUniqueId id, int parent, int depth, bool flagA, bool flagB);
+  SDataNetworkNode(TUniqueId id, int index, int parent, bool isProxy, bool parentIsProxy);
 
   CScriptFrontEndDataNetwork* GetNetwork(CStateManager& mgr);
   const CScriptFrontEndDataNetwork* GetNetwork(const CStateManager& mgr) const;
@@ -22,36 +24,36 @@ struct SDataNetworkNode {
   void SetX64(float v);
   void SetX60(float v);
   void SetX5C(float v);
-  void SetX1C(int v);
-  int GetX1C() const;
-  void SetDepth(int v);
-  void SetX44(const CVector3f& v);
-  const CVector3f& GetX44() const;
+  void SetSelectedChild(int v);
+  int GetSelectedChild() const;
+  void SetParent(int v);
+  void SetVelocity(const CVector3f& v);
+  const CVector3f& GetVelocity() const;
   void SetX38(const CVector3f& v);
   const CVector3f& GetX38() const;
-  void SetX50(const CVector3f& v);
-  const CVector3f& GetX50() const;
-  void SetX2C(const CVector3f& v);
-  const CVector3f& GetX2C() const;
-  void SetX20(const CVector3f& v);
-  const CVector3f& GetX20() const;
+  void SetRenderPos(const CVector3f& v);
+  const CVector3f& GetRenderPos() const;
+  void SetPos(const CVector3f& v);
+  const CVector3f& GetPos() const;
+  void SetOffset(const CVector3f& v);
+  const CVector3f& GetOffset() const;
   void AddChild(int idx);
 
   TUniqueId mId;
+  int mIndex;
   int mParent;
-  int mDepth;
   rstl::vector< int > mChildren;
-  int x1c;
-  CVector3f x20;
-  CVector3f x2c;
+  int mSelectedChild;
+  CVector3f mOffset;
+  CVector3f mPos;
   CVector3f x38;
-  CVector3f x44;
-  CVector3f x50;
+  CVector3f mVelocity;
+  CVector3f mRenderPos;
   float x5c;
   float x60;
   float x64;
-  bool x68_24 : 1;
-  bool x68_25 : 1;
+  bool mIsProxy : 1;
+  bool mParentIsProxy : 1;
 };
 CHECK_SIZEOF(SDataNetworkNode, 0x6c)
 
@@ -81,33 +83,53 @@ public:
   void Render(const CStateManager&) const override;
   bool CanRenderUnsorted(const CStateManager&) const override;
 
-  TUniqueId GetX15A() const;
+  TUniqueId GetPlatformId() const;
   void SetRootId(TUniqueId id);
-  void ClearX2F8();
-  void AddX2F8(int v);
-  void ResetTransition();
-  void SetSelection(CStateManager& mgr, int index, bool immediate);
-  void UpdateTransition(CStateManager& mgr, float dt);
-
-  CVector3f GetAttraction(const SDataNetworkNode& node, const CVector3f& pos) const;
-  CVector3f GetFalloff(float radius, float strength, const CVector3f& a,
-                       const CVector3f& b) const;
 
 private:
+  void BuildNetwork(CStateManager& mgr);
+  int AddNode(CStateManager& mgr, TUniqueId id, int parent);
+  void LayoutChildren(int idx, CStateManager& mgr);
+  void ResetTransition();
+  void UpdateTransition(CStateManager& mgr, float dt);
+  void SimulateChildren(CStateManager& mgr, int idx, float dt);
+  void UpdateRenderPositions(CStateManager& mgr, int idx);
+  void SetLocked(bool locked, CStateManager& mgr);
+  void OpenNode(TUniqueId id, CStateManager& mgr);
+  void CloseNode(CStateManager& mgr);
+  void FaceNode(TUniqueId id, const CStateManager& mgr, bool onlyWhenInactive);
+  void AddController(int controller);
+  void ClearControllers();
+  void RenderNode(const CStateManager& mgr, const CTransform4f& xf, float alpha, int idx) const;
+  void DrawConnection(const CTransform4f& xf, const CVector3f& a, const CVector3f& b,
+                      const CColor& colorA, const CColor& colorB, float width) const;
+  void DrawBillboard(const CTransform4f& xf, const CVector3f& pos, float size,
+                     const CColor& color) const;
+  bool HandleRotation(const CFinalInput& input, CStateManager& mgr);
+  bool HandleButtons(const CFinalInput& input, CStateManager& mgr);
+  bool HandleStick(const CFinalInput& input, CStateManager& mgr);
+  void SetSelection(CStateManager& mgr, int index, bool immediate);
+  CVector3f GetFalloff(float radius, float strength, const CVector3f& a,
+                       const CVector3f& b) const;
+  CVector3f GetSeparation(const CStateManager& mgr, const SDataNetworkNode& node,
+                          int idx) const;
+  CVector3f GetCohesion(const CStateManager& mgr, const SDataNetworkNode& node, int idx) const;
+  CVector3f GetAttraction(const SDataNetworkNode& node, const CVector3f& pos) const;
+
   TUniqueId mRootId;
-  TUniqueId x15a;
+  TUniqueId mPlatformId;
   rstl::vector< SDataNetworkNode > mNodes;
   int mPrevIndex;
   int mCurIndex;
-  CVector2f x174;
-  CVector2f x17c;
-  CQuaternion x184;
+  CVector2f mSpin;
+  CVector2f mSpinAccel;
+  CQuaternion mOrientation;
   int mTransitionState;
-  int x198;
-  float x19c;
-  float x1a0;
-  int x1a4;
-  int x1a8;
+  int mTransitionForward;
+  float mTransitionT;
+  float mTransitionDuration;
+  float x1a4;
+  float x1a8;
   CMayaSpline mShrinkSpline;
   float mShrinkTime;
   CMayaSpline mMoveSpline;
@@ -132,10 +154,10 @@ private:
   CColor mUnselectedMinColor;
   CColor mUnselectedMaxColor;
   CColor mDisabledColor;
-  int x2f4;
-  rstl::vector< int > x2f8;
-  int x308;
-  CSfxHandle x30c;
+  int mController;
+  rstl::vector< int > mControllers;
+  int mActiveController;
+  CSfxHandle mRotationSfx;
   TSfxId mRotationSound;
   int mRotationSoundVolume;
 };

@@ -176,6 +176,19 @@ enum EScriptObjectState {
   kSS_InternalState05 = 0x49533035,
   kSS_InternalState06 = 0x49533036,
   kSS_ScanSource = 0x53434e53,
+  // Guessed names; front-end data network (FNWK) notifications.
+  kSS_Locked = 0x4c4f434b,
+  kSS_Unlocked = 0x554c434b,
+  kSS_Modify = 0x4d444659,
+  kSS_PressA = 0x50525341,
+  kSS_PressB = 0x50525342,
+  kSS_PressX = 0x50525358,
+  kSS_PressY = 0x50525359,
+  kSS_PressZ = 0x5052535a,
+  kSS_PressStart = 0x50525354,
+  kSS_Up = 0x55502020,
+  kSS_Down = 0x444f574e,
+  kSS_Approach = 0x41505243,
   kSS_InvalidState = 0xffffffff,
 };
 
@@ -209,6 +222,9 @@ enum EScriptObjectMessage {
   kSM_Kill = 0x4b494c4c,
   kSM_InternalMessage00 = 0x494d3030,
   kSM_InternalMessage01 = 0x494d3031,
+  kSM_InternalMessage02 = 0x494d3032, // Guessed name
+  kSM_InternalMessage03 = 0x494d3033, // Guessed name
+  kSM_Escape = 0x45534350, // Guessed name; FNWK clears its controller list.
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
