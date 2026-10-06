@@ -72,7 +72,22 @@ void bitwise_copy(void* dest, const void* src) {
   }
 }
 
-#define RSTL_DECLARE_BITWISE_CONSTRUCTION(T)   template <>   struct use_assignment_for_construction< T > {     enum { value = true };   };   template <>   struct construction_policy< T, true > {     static void construct(void* dest, const T& src) {       bitwise_copy< sizeof(T) / sizeof(double) >(dest, &src);     }   };
+// A trailing 4-byte remainder is copied inline after the double-word block.
+#define RSTL_DECLARE_BITWISE_CONSTRUCTION(T) \
+  template <> \
+  struct use_assignment_for_construction< T > { \
+    enum { value = true }; \
+  }; \
+  template <> \
+  struct construction_policy< T, true > { \
+    static void construct(void* dest, const T& src) { \
+      bitwise_copy< sizeof(T) / sizeof(double) >(dest, &src); \
+      if (sizeof(T) % sizeof(double) != 0) { \
+        static_cast< uint* >(dest)[sizeof(T) / sizeof(uint) - 1] = \
+            reinterpret_cast< const uint* >(&src)[sizeof(T) / sizeof(uint) - 1]; \
+      } \
+    } \
+  };
 
 RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(char)
 RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(signed char)
