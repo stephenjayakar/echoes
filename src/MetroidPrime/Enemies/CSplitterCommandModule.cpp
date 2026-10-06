@@ -420,7 +420,7 @@ CVector3f CSplitterCommandModule::GetBeamPosition() const {
   return xf.GetTranslation();
 }
 
-void CSplitterCommandModule::AutoDestruct(float time) {
+void CSplitterCommandModule::StartAutoDestruct(float time) {
   if (GetAlive() && !xf6a_29_) {
     xf6a_29_ = true;
     xef0_ = time;
@@ -1225,7 +1225,7 @@ void CSplitterCommandModule::UpdateStuckTimer(float dt, CStateManager& mgr) {
   if (xf6a_31_) {
     xef4_ += dt;
     if (xef4_ >= 5.f) {
-      AutoDestruct(0.f);
+      StartAutoDestruct(0.f);
     }
     xf6a_31_ = false;
   } else {

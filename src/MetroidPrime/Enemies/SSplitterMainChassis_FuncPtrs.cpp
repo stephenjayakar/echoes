@@ -1,4 +1,4 @@
-#include "MetroidPrime/Enemies/CSplitterMainChassis.hpp"
+#include "MetroidPrime/Enemies/CSplitterCommandModule.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 
 SSplitterMainChassis_FuncPtrs* gLoader_Splitter; // Guessed name.
@@ -15,6 +15,6 @@ CEntity* LoadSplitterCommandModule(CStateManager& mgr, CInputStream& input, CEnt
   return gLoader_Splitter->mLoadCommandModule(mgr, input, info);
 }
 
-void CSplitterMainChassis::AutoDestruct(float time) {
+void CSplitterCommandModule::AutoDestruct(float time) {
   (this->*gLoader_Splitter->mAutoDestruct)(time);
 }

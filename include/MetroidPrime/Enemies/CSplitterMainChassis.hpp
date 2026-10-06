@@ -11,22 +11,23 @@
 
 class CCollisionActorManager;
 
-// Runtime copy of the loader record with converted damage data (layout from the REL copy
-// constructor).
-struct CSplitterMainChassisData : public SLdrSplitterMainChassisData {
+// Runtime copy of the loader record with converted damage data (layout from the REL
+// conversion constructor).
+struct CSplitterMainChassisData {
   CSplitterMainChassisData(const SLdrSplitterMainChassisData& data);
 
   CDamageInfo mLegStabDamage;
   CDamageInfo mSpinAttackDamage;
   CDamageVulnerability mSpinAttackVulnerability;
+  SLdrSplitterMainChassisData mLdr;
 };
 CHECK_SIZEOF(CSplitterMainChassisData, 0x3BC)
 
-// Original class name from the Wii SEL exports (TypesMatch__20CSplitterMainChassisCFi,
-// AutoDestruct__20CSplitterMainChassisFf). Member names are guessed.
+// Original class name from the Wii SEL exports (TypesMatch__20CSplitterMainChassisCFi).
+// Member names are guessed.
 class CSplitterMainChassis : public CPatterned {
 public:
-  // The Wii export corroborates this interface, not the DOL facade's original spelling.
+  // Called directly by DigitalGuardian.rel (Wii export AutoDestruct__20CSplitterMainChassisFf).
   void AutoDestruct(float time);
 
   // Guessed names; used by the command module while docking.

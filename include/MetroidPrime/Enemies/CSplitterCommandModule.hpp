@@ -81,6 +81,12 @@ public:
   void SetupStateMachine(CStateManager& mgr) override;
   bool CanBeIngPossessed(CStateManager& mgr) const override;
 
+  // Real name is AutoDestruct (Wii export AutoDestruct__22CSplitterCommandModuleFf; it is the
+  // loader-table PTMF). Renamed because dtk rel make resolves cross-module references to the
+  // first module defining a name, so sharing the DOL facade name would make DigitalGuardian.rel
+  // call the facade instead of this function.
+  void StartAutoDestruct(float time);
+  // DOL facade: forwards through SSplitterMainChassis_FuncPtrs::mAutoDestruct.
   void AutoDestruct(float time);
 
   // Triggers

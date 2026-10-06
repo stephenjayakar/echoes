@@ -15,7 +15,7 @@ class CDamageInfo;
 class CFinalInput;
 class CSpacePirate;
 class CMetroid;
-class CSplitterMainChassis;
+class CSplitterCommandModule;
 class CEffect;
 class CGenDescription;
 class CPatterned;
@@ -118,7 +118,7 @@ struct SSplitterMainChassis_FuncPtrs {
   // Guessed member names.
   FScriptLoader mLoadMainChassis;
   FScriptLoader mLoadCommandModule;
-  void (CSplitterMainChassis::*mAutoDestruct)(float);
+  void (CSplitterCommandModule::*mAutoDestruct)(float);
 };
 CHECK_SIZEOF(SSplitterMainChassis_FuncPtrs, 0x14)
 void SetSSplitterMainChassis_FuncPtrs(SSplitterMainChassis_FuncPtrs* callbacks);
