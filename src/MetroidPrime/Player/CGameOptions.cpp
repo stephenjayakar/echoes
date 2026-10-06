@@ -1,5 +1,6 @@
 #include "MetroidPrime/Player/CGameOptions.hpp"
 
+#include "Kyoto/Audio/CSfxManager.hpp"
 #include "Kyoto/Audio/CStreamAudioManager.hpp"
 #include "Kyoto/Graphics/CGraphics.hpp"
 #include "Kyoto/Graphics/CMoviePlayer.hpp"
@@ -9,7 +10,6 @@
 
 #include "dolphin/os.h"
 
-extern "C" void fn_8029AF00(int, uchar);
 
 extern "C" bool lbl_804191E0;
 
@@ -254,7 +254,7 @@ void CGameOptions::SetSfxVolume(int value, bool apply) {
   sfxVol = CMath::ClampI(0, value, 0x69);
   if (apply) {
     if (fn_80161C84()) {
-      fn_8029AF00(0, sfxVol);
+      CSfxManager::SetAreaVolume(0, sfxVol);
     } else {
       CAudioSys::SysSetSfxVolume(sfxVol, 1, true, true);
       CStreamAudioManager::SetSfxVolume(sfxVol);
@@ -298,7 +298,7 @@ void CGameOptions::SetInvertYAxis(bool active) { invertY = active; }
 
 void CGameOptions::SetIsRumbleEnabled(bool active) { rumble = active; }
 
-void CGameOptions::ToggleControls(bool flag) {
+void CGameOptions::ToggleControls(const bool flag) {
   swapBeamsControls = flag;
   if (flag) {
     SetControls(1);
