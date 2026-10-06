@@ -285,8 +285,8 @@ int basic_string< _CharTp, Traits, Alloc >::find(const _CharTp* other, int pos, 
   int length = 0;
   const _CharTp* end = other;
   while ((count == -1 || length < count) && *end != Traits::eos()) {
-    ++length;
     ++end;
+    ++length;
   }
   const int found = internal_search(begin() + pos, this->end(), other, end);
   int result = found + pos;
