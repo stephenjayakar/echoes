@@ -1372,7 +1372,7 @@ void CPlayerGun::UpdateSeekerEffects(float dt) {
     mMissileAuxMuzzleGenerator->SetParticleEmission(mSeekerTargets.size() == mMaxSeekerTargets);
   }
   const int oldCount = mSeekerMuzzleGenerators.size() - 1;
-  if (oldCount < mSeekerTargets.size()) {
+  if (mSeekerTargets.size() > oldCount) {
     for (int i = 0; i < mSeekerMuzzleGenerators.size(); ++i) {
       if (mSeekerFadeRates[i] < 0.f) {
         mSeekerFadeRates[i] = 2.f * dt;
@@ -1394,12 +1394,7 @@ void CPlayerGun::UpdateSeekerEffects(float dt) {
   for (int i = mSeekerMuzzleGenerators.size() - 1; i >= 0; --i) {
     if (mSeekerFadeRates[i] != 0.f) {
       CColor color = mSeekerMuzzleGenerators[i]->GetModulationColor();
-      float alpha = color.GetAlpha() + mSeekerFadeRates[i];
-      if (alpha < 0.f) {
-        alpha = 0.f;
-      } else if (alpha > 1.f) {
-        alpha = 1.f;
-      }
+      float alpha = CMath::Clamp(0.f, color.GetAlpha() + mSeekerFadeRates[i], 1.f);
       color.SetAlpha(alpha);
       mSeekerMuzzleGenerators[i]->SetModulationColor(color);
       if (alpha == 0.f || alpha == 1.f) {
