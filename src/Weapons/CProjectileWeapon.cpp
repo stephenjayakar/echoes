@@ -127,7 +127,7 @@ CProjectileWeapon::CProjectileWeapon(const TToken< CWeaponDescription >& descrip
   mAS11 = mWeaponDesc->mAS11;
   mAS12 = mWeaponDesc->mAS12;
   mAS13 = mWeaponDesc->mAS13;
-  UpdateChildParticleSystems(GetTickTime(), false);
+  UpdateChildParticleSystems(1.f / 60.f, false);
   UpdateBillboardEffects();
 }
 
@@ -193,7 +193,7 @@ void CProjectileWeapon::UpdateParticleFX() {
     mAPS2Gen->Update(1.f / 60.f);
   }
   for (int i = 0; i < mChildSystemUpdateRate; ++i) {
-    UpdateChildParticleSystems(GetTickTime(), false);
+    UpdateChildParticleSystems(1.f / 60.f, false);
   }
 }
 
@@ -892,5 +892,5 @@ float CProjectileWeapon::GetTickTime() { return 1.f / 60.f; }
 void CProjectileWeapon::SetParticleTranslationOffset(const CVector3f& offset) {
   mUseParticleTranslationOffset = true;
   mParticleTranslationOffset = offset;
-  UpdateChildParticleSystems(GetTickTime(), true);
+  UpdateChildParticleSystems(1.f / 60.f, true);
 }
