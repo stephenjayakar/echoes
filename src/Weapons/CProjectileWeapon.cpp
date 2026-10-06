@@ -771,7 +771,7 @@ CProjectileWeapon::CollisionOccured(EWeaponCollisionResponseTypes type, bool def
     if (useTarget && toTarget.CanBeNormalized()) {
       SetWorldSpaceOrientation(CTransform4f::LookAt(CVector3f::Zero(), toTarget.AsNormalized()));
     } else {
-      const CVector3f forward = GetTransform().GetForward();
+      const CVector3f& forward = GetTransform().GetForward();
       const CTransform4f orientation = CTransform4f::LookAt(
           CVector3f::Zero(), forward - 2.f * CVector3f::Dot(normal, forward) * normal, normal);
       SetWorldSpaceOrientation(orientation);
