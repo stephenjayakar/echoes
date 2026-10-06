@@ -439,8 +439,9 @@ void CParticleSpawnSystem::BuildParticleSystemBounds() {
        ++it) {
     rstl::optional_object< CAABox > bounds = (*it)->GetBounds();
     if (bounds) {
-      mBounds.AccumulateBounds(bounds->GetMinPoint());
-      mBounds.AccumulateBounds(bounds->GetMaxPoint());
+      const CAABox& box = *bounds;
+      mBounds.AccumulateBounds(box.GetMinPoint());
+      mBounds.AccumulateBounds(box.GetMaxPoint());
     }
   }
 }
