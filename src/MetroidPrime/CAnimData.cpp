@@ -380,16 +380,19 @@ void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
 }
 
 void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVector3f& scale) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    const rstl::vector< CEffectComponent >& components = effects[i].second;
-    for (uint j = 0; j < components.size(); ++j) {
-      const CEffectComponent& component = components[j];
+  const uint effectCount = mCharInfo.GetEffects().size();
+  for (uint i = 0; i < effectCount; ++i) {
+    const rstl::pair< rstl::string, rstl::vector< CEffectComponent > > effect =
+        mCharInfo.GetEffects()[i];
+    const uint componentCount = effect.second.size();
+    for (uint j = 0; j < componentCount; ++j) {
+      const CEffectComponent& component = effect.second[j];
       mParticleDB.CacheParticleDesc(component.GetParticleTag());
-      const CParticleData data(0, component.GetParticleTag(), component.GetSegmentId(),
-                               component.GetScale(), component.GetParentedMode());
-      mParticleDB.AddParticleEffect(component.GetComponentNameHash(), component.GetFlags(), data,
-                                    scale, &mgr, areaId, true, mParticleLightIdx);
+      mParticleDB.AddParticleEffect(
+          component.GetComponentNameHash(), component.GetFlags(),
+          CParticleData(0, component.GetParticleTag(), component.GetSegmentId(),
+                        component.GetScale(), component.GetParentedMode()),
+          scale, &mgr, areaId, true, mParticleLightIdx);
       mParticleDB.SetParticleEffectState(component.GetComponentNameHash(), false, &mgr);
     }
   }
