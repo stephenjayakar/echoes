@@ -1229,7 +1229,7 @@ void CPlayer::SetOrbitState(EPlayerOrbitState state, const CStateManager& mgr) {
       mOrbitPointDistance = 0.f;
     }
     SetOrbitTargetId(kInvalidUniqueId, mgr);
-    mOrbitNextTargetId = kInvalidUniqueId;
+    SetOrbitNextTargetId(kInvalidUniqueId);
     break;
   }
   case kOS_NoOrbit:
