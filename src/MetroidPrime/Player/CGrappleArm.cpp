@@ -184,11 +184,11 @@ void CGrappleArm::Render(const CStateManager& mgr, const CVector3f& pos, const C
     return;
   }
   const CTransform4f xf = CTransform4f::Translate(pos) * mTransform * mAuxTransform;
-  const CModelFlags armFlags = flags.UseShaderSet(mgr.MaskUIdNumPlayers(mPlayerId));
+  const int shaderSet = mgr.MaskUIdNumPlayers(mPlayerId);
   if (mRainSplashGenerator.get() && mRainSplashGenerator->IsRaining()) {
     CSkinnedModel::SetPointGeneratorFunc(mRainSplashGenerator.get(), PointGenerator);
   }
-  mArmModel->Render(mgr, xf, lights, armFlags);
+  mArmModel->Render(mgr, xf, lights, flags.UseShaderSet(shaderSet));
   if (mRainSplashGenerator.get() && mRainSplashGenerator->IsRaining()) {
     CSkinnedModel::ClearPointGeneratorFunc();
     mRainSplashGenerator->Draw(xf);
@@ -624,10 +624,12 @@ void CGrappleArm::PointGenerator(const CSkinnedModel& model, const SSkinningWork
 }
 
 void CGrappleArm::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_Create) {
+  switch (msg.GetMessage()) {
+  case kSM_Create:
     UpdateGrappleModel(mgr, mCurrentSuit, mgr.IsMultiplayer());
     mSoundPan = GetPlayer(mgr)->GetSoundPan(CPlayer::kMSP_2);
-    mSoundSetIndex = mgr.IsMultiplayer();
+    mSoundSetIndex = mgr.IsMultiplayer() ? 1 : 0;
+    break;
   }
 }
 
