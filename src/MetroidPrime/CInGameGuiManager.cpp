@@ -44,6 +44,13 @@
 
 #include <limits.h>
 
+// Unused and dead-stripped in the target; only its pooled strings survive (right-aligned
+// memory-report labels at the start of the unit's string pool). The name is a guess.
+const char* sInGameGuiMemoryCategoryNames[] = {
+    "FaceplateDecoration", "     FaceReflection", "          Targeting", "        PlayerVisor",
+    "                Hud", "         AutoMapper", "        PauseScreen", "              Total",
+};
+
 static const char* const skInGameGuiDGRPs[] = {
     "InGameGui_DGRP", "grappleArm_DGRP", "Bomb_DGRP", "Common_DGRP", "Ice_DGRP", "Phazon_DGRP",
     "Plasma_DGRP", "Power_DGRP", "Wave_DGRP", "BallTransition_DGRP", "SamusFace_DGRP",
