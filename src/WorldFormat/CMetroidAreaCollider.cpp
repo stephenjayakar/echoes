@@ -1230,18 +1230,15 @@ void CMetroidAreaCollider::CacheNodes(const CAreaOctTree::Node& node, CCollision
 }
 
 void CCollisionCacheWriter::ReserveTriangles(int count) {
-  int required = mCache.mData.size() + count * (sizeof(SCachedCollisionSlot) / sizeof(ushort));
+  int required = mCache.mData.size();
+  required += count * (sizeof(SCachedCollisionSlot) / sizeof(ushort));
   if (mCache.mData.capacity() < required) {
     ushort* oldData = mCache.mData.data();
-    int leafCountOffset = mLeafCount - oldData;
-    int triangleCountOffset = mTriangleCount - oldData;
-    int leafBoundsOffset = reinterpret_cast< ushort* >(mLeafBounds) - oldData;
-    int capacity = mCache.mData.capacity() * 2;
-    mCache.mData.reserve(capacity > required ? capacity : required * 2);
-    ushort* newData = mCache.mData.data();
-    mLeafCount = newData + leafCountOffset;
-    mTriangleCount = newData + triangleCountOffset;
-    mLeafBounds = reinterpret_cast< CAABox* >(newData + leafBoundsOffset);
+    mCache.mData.reserve(mCache.mData.capacity() * 2 > required ? mCache.mData.capacity() * 2 : required * 2);
+    const int delta = mCache.mData.data() - oldData;
+    mLeafCount += delta;
+    mTriangleCount += delta;
+    mLeafBounds = reinterpret_cast< CAABox* >(reinterpret_cast< ushort* >(mLeafBounds) + delta);
   }
 }
 
