@@ -212,6 +212,8 @@ enum EScriptObjectState {
   kSS_AIS2 = 0x41495332,
   kSS_AIS3 = 0x41495333,
   kSS_DGNR = 0x44474e52, // Native save-screen failure tag; meaning unresolved.
+  kSS_Up = 0x55502020,
+  kSS_Approach = 0x41505243,
   kSS_InvalidState = 0xffffffff,
 };
 
