@@ -893,7 +893,7 @@ bool CElitePirate::NotReachedTarget(CStateManager& mgr, const CTriggerData& data
   if (mLastObstacleTime > 0.5f * (mShield.mStartTime + mTime)) {
     return true;
   }
-  return mLastObstacleTime < mShield.mStartTime;
+  return 15.f + mShield.mStartTime < mTime;
 }
 
 bool CElitePirate::ShieldKilled(CStateManager& mgr, const CTriggerData& data) const {
@@ -1070,7 +1070,7 @@ bool CElitePirate::TargetUnreachable(CStateManager& mgr, const CTriggerData& dat
   if (hint == CScriptAIHint::kHT_GrenadeLauncherRaisedAim || hint == 27) {
     return true;
   }
-  return mPathFindSearch.GetResult() != CPathFindSearch::kR_Success;
+  return mStuckTime > 1.f;
 }
 
 bool CElitePirate::PoweredDown(CStateManager& mgr, const CTriggerData& data) const {
@@ -1180,12 +1180,10 @@ void CElitePirate::Pursue(CStateManager& mgr, EStateMsg msg, float dt) {
 
 void CElitePirate::Taunt(CStateManager& mgr, EStateMsg msg, float dt) {
   TryCommand(msg, pas::kAS_Taunt, CBCTauntCmd(static_cast< pas::ETauntType >(mTauntType)));
-  switch (msg) {
-  case kStateMsg_Activate:
+  if (msg == kStateMsg_Activate) {
     mInvulnAlert = true;
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
-    break;
-  case kStateMsg_Deactivate: {
+  } else if (msg == kStateMsg_Deactivate) {
     const int cycle[4] = {0, 6, 1, 0};
     for (int i = 0; i < 3; ++i) {
       if (mTauntType == cycle[i]) {
@@ -1196,8 +1194,6 @@ void CElitePirate::Taunt(CStateManager& mgr, EStateMsg msg, float dt) {
     mAngryCount = mgr.Random()->Range(1, 3);
     mAngryAttackOver = false;
     mAngryChosen = false;
-    break;
-  }
   }
 }
 
@@ -1298,15 +1294,12 @@ void CElitePirate::Alert(CStateManager& mgr, EStateMsg msg, float dt) {
   SetCurrentAction(kA_Alert, msg);
   SetInvulnerable(mgr, msg);
   TryCommand(msg, pas::kAS_Taunt, CBCTauntCmd(static_cast< pas::ETauntType >(mAlertTauntType)));
-  switch (msg) {
-  case kStateMsg_Activate:
+  if (msg == kStateMsg_Activate) {
     mInvulnAlert = true;
     mPathDestination = GetTranslation();
-    break;
-  case kStateMsg_Deactivate:
+  } else if (msg == kStateMsg_Deactivate) {
     SetShotAt(false);
     ActivateGrenadeLauncher(mgr, true);
-    break;
   }
 }
 
@@ -1431,8 +1424,7 @@ void CElitePirate::MeleeAttack(CStateManager& mgr, EStateMsg msg, float dt) {
   SetCurrentAction(kA_MeleeAttack, msg);
   TryCommand(msg, pas::kAS_MeleeAttack,
              CBCMeleeAttackCmd(static_cast< pas::ESeverity >(mMeleeSeverity)));
-  switch (msg) {
-  case kStateMsg_Activate:
+  if (msg == kStateMsg_Activate) {
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
     mKnockBackController.EnableAnimReaction(CKnockBackMgr::kAR_Flinch, true);
     if (mgr.Random()->Float() < 0.7f) {
@@ -1442,15 +1434,13 @@ void CElitePirate::MeleeAttack(CStateManager& mgr, EStateMsg msg, float dt) {
         mNextMeleeSeverity = 1;
       }
     }
-    break;
-  case kStateMsg_Deactivate:
+  } else if (msg == kStateMsg_Deactivate) {
     mMeleeDamageOn = false;
     mMeleeKnockBack = false;
     mMeleeSeverity = mNextMeleeSeverity;
     mAngryCount = 0;
     ExtendTouchBounds(mgr, mCollisionRJointIds, CVector3f::Zero());
     ExtendTouchBounds(mgr, mCollisionLJointIds, CVector3f::Zero());
-    break;
   }
 }
 
@@ -1464,8 +1454,7 @@ void CElitePirate::SetCurrentAction(EAction action, EStateMsg msg) {
 }
 
 void CElitePirate::ShieldUp(CStateManager& mgr, EStateMsg msg, float dt) {
-  switch (msg) {
-  case kStateMsg_Activate: {
+  if (msg == kStateMsg_Activate) {
     BodyController()->SetLocomotionType(pas::kLT_Crouch);
     mShieldCollisionMgr->SetActive(mgr, true);
     mKnockBackController.EnableAnimReaction(CKnockBackMgr::kAR_Flinch, false);
@@ -1487,7 +1476,7 @@ void CElitePirate::ShieldUp(CStateManager& mgr, EStateMsg msg, float dt) {
       break;
     }
     CAssetId effect;
-    ushort sfx;
+    uint sfx;
     if (mShield.mType == kST_Light) {
       effect = mData.GetLightShield();
       sfx = mData.GetLightShieldSound();
@@ -1503,11 +1492,8 @@ void CElitePirate::ShieldUp(CStateManager& mgr, EStateMsg msg, float dt) {
     mShield.mSfx = CSfxManager::AddEmitter(sfx, GetTranslation(), GetCurrentAreaId().Value(),
                                            false, true);
     SetShieldActive(mgr, true);
-    break;
-  }
-  case kStateMsg_Update:
+  } else if (msg == kStateMsg_Update) {
     RotateToPoint(mgr.GetPlayer(0)->GetTranslation(), dt, 1.7453293f);
-    break;
   }
 }
 
