@@ -262,7 +262,6 @@ enum EScriptObjectMessage {
   kSM_InternalMessage13 = 0x494d3133, // Guessed name.
   kSM_InternalMessage14 = 0x494d3134, // Guessed name.
   kSM_Escape = 0x45534350,            // Guessed name; clears a GUI widget's controllers.
-  kSM_Alert = 0x414c5254,             // Guessed name; GUI widget relays it as kSS_Attack.
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
