@@ -110,9 +110,10 @@ bool CHintManager::ProcessAddedHints(CStateManager& mgr) {
 
       bool found = false;
       for (rstl::vector< SHint >::iterator it = mHints.begin(); it != mHints.end(); ++it) {
-        if (it->mState.GetHintId() == hint) {
-          it->mState.AddSender(request->second);
-          it->mState.SetForceRemoval(false);
+        CHintState& state = it->mState;
+        if (state.GetHintId() == hint) {
+          state.AddSender(request->second);
+          state.SetForceRemoval(false);
           found = true;
           break;
         }
