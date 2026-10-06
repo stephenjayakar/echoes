@@ -256,11 +256,11 @@ void CMapWorld::Draw(const CMapWorldDrawParms& parms, int curArea, int otherArea
     float lowDepth1 = CMath::CeilingF(depth1 - 1.f);
     float newDepth1 =
         lowDepth1 +
-        (depth1 == CMath::FloorF(depth1) ? 0.f : 1.f - static_cast< float >(fmod(depth1, 1.0)));
+        (depth1 == floorf(depth1) ? 0.f : 1.f - static_cast< float >(fmod(depth1, 1.0)));
     float lowDepth2 = CMath::CeilingF(depth2 - 1.f);
     float newDepth2 =
         lowDepth2 +
-        (depth2 == CMath::FloorF(depth2) ? 0.f : 1.f - static_cast< float >(fmod(depth2, 1.0)));
+        (depth2 == floorf(depth2) ? 0.f : 1.f - static_cast< float >(fmod(depth2, 1.0)));
     int otherDepth = CMath::CeilingF(rstl::max_val(newDepth1, newDepth2));
     if (wld.IGetAreaAlways(otherArea)->IIsActive()) {
       mTraversed[otherArea] = false;
@@ -350,9 +350,9 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
     float alphaSurfUnvisited = parms.GetAlphaSurfaceUnvisited();
     float alphaOutlineUnvisited = parms.GetAlphaOutlineUnvisited();
     const CTransform4f& cameraXf = parms.GetCameraTransform();
-    float surfaceFrac = surfaceDepth - CMath::FloorF(surfaceDepth);
+    float surfaceFrac = surfaceDepth - floorf(surfaceDepth);
     float surfaceAlpha = surfaceDepth >= 1.f ? 1.f : surfaceDepth >= 0.f ? surfaceFrac : 0.f;
-    float outlineFrac = outlineDepth - CMath::FloorF(outlineDepth);
+    float outlineFrac = outlineDepth - floorf(outlineDepth);
     float outlineAlpha = outlineDepth >= 1.f ? 1.f : outlineDepth >= 0.f ? outlineFrac : 0.f;
     bool visited = mwInfo.IsAreaVisited(areaIdx);
     float alphaSurf = visited ? alphaSurfVisited : alphaSurfUnvisited;
