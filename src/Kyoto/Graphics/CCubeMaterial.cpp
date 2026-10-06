@@ -321,11 +321,9 @@ static void ModulateKColor(const CModelFlags& flags) {
 }
 
 static bool TryModulateKColor(uint tevCount, uint& kColorCount, const CModelFlags& flags) {
-  const CModelFlags::ETrans blendMode = flags.GetTrans();
-  if (blendMode != CModelFlags::kT_Additive && blendMode != CModelFlags::kT_Blend) {
-    return false;
-  }
-  if (tevCount != 1) {
+  const char blendMode = flags.GetTrans();
+  if ((blendMode != CModelFlags::kT_Additive && blendMode != CModelFlags::kT_Blend) ||
+      tevCount != 1) {
     return false;
   }
   if (kColorCount == 1) {
