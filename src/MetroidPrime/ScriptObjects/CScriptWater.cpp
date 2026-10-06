@@ -168,23 +168,22 @@ void CScriptWater::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
             continue;
           }
           CStateManager::TIdListResult ids = mgr.GetIdListForScript(conn->objId);
-          if (ids.first == ids.second) {
-            continue;
-          }
-          const CScriptTrigger* trigger =
-              TCastToConstPtr< CScriptTrigger >(mgr.GetObjectById(ids.first->second));
-          if (trigger) {
-            const CAABox& morphBounds = trigger->GetTriggerBounds();
-            mPositionMorphed = trigger->GetTranslation();
-            mExtentMorphed =
-                CVector3f(morphBounds.GetWidth(), morphBounds.GetHeight(), morphBounds.GetDepth());
-            mDamageMorphed = trigger->GetDamageInfo().GetDamage();
-            const CAABox& originalBounds = GetTriggerBounds();
-            mPositionOrig = GetTranslation();
-            mExtentOrig = CVector3f(originalBounds.GetWidth(), originalBounds.GetHeight(),
-                                    originalBounds.GetDepth());
-            mDamageOrig = mDamageInfo.GetDamage();
-            break;
+          if (ids.first != ids.second) {
+            const CScriptTrigger* trigger =
+                TCastToConstPtr< CScriptTrigger >(mgr.GetObjectById(ids.first->second));
+            if (trigger) {
+              const CAABox& morphBounds = trigger->GetTriggerBounds();
+              mPositionMorphed = trigger->GetTranslation();
+              mExtentMorphed = CVector3f(morphBounds.GetWidth(), morphBounds.GetHeight(),
+                                         morphBounds.GetDepth());
+              mDamageMorphed = trigger->GetDamageInfo().GetDamage();
+              const CAABox& originalBounds = GetTriggerBounds();
+              mPositionOrig = GetTranslation();
+              mExtentOrig = CVector3f(originalBounds.GetWidth(), originalBounds.GetHeight(),
+                                      originalBounds.GetDepth());
+              mDamageOrig = mDamageInfo.GetDamage();
+              break;
+            }
           }
         }
       }
@@ -214,20 +213,27 @@ void CScriptWater::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Delete:
     ClearSplashInhabitants();
     break;
+  case kSM_Deactivate:
+    break;
   case kSM_AreaLoaded: {
     const TUniqueId id = FindConnectedObject(mgr, kSS_Connect, kSM_Reset);
     if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(id))) {
-      actor->SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
-          CMaterialList(kMT_Player, kMT_Debris), GetMaterialFilter().GetExcludeList()));
-      const CVector3f& min = mBounds.GetMinPoint();
-      const CVector3f& max = mBounds.GetMaxPoint();
-      actor->SetTranslation(
-          CVector3f(GetTranslation().GetX(), GetTranslation().GetY(),
-                    GetTranslation().GetZ() + (0.5f * (max.GetZ() - min.GetZ()) - 1.f)));
-      const CAABox box(CVector3f(min.GetX(), min.GetY(), -0.5f),
-                       CVector3f(max.GetX(), max.GetY(), 0.5f));
-      actor->SetCollisionPrimitive(
-          CCollidableAABox(box, actor->GetMaterialFilter().GetIncludeList()));
+      const CMaterialList exclude = GetMaterialFilter().GetExcludeList();
+      actor->SetMaterialFilter(
+          CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Player, kMT_Debris), exclude));
+      const CAABox bounds = mBounds;
+      const CVector3f translation(
+          GetTranslation().GetX(), GetTranslation().GetY(),
+          GetTranslation().GetZ() +
+              (0.5f * (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ()) - 1.f));
+      actor->SetTranslation(translation);
+      CVector3f min = bounds.GetMinPoint();
+      min.SetZ(-0.5f);
+      CVector3f max = bounds.GetMaxPoint();
+      max.SetZ(0.5f);
+      const CAABox box(min, max);
+      const CCollidableAABox collidable(box, actor->GetMaterialFilter().GetIncludeList());
+      actor->SetCollisionPrimitive(collidable);
       actor->SetBoundingBox(box);
     }
     break;
