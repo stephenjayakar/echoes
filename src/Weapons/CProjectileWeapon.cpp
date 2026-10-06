@@ -140,11 +140,15 @@ CProjectileWeapon::~CProjectileWeapon() {
   delete mSwoosh3;
 }
 
+// Guessed helper: the target multiplies the frame delta by an unfolded 1.0.
+static inline double GetTimeScale() { return 1.0; }
+
 bool CProjectileWeapon::Update(float dt) {
   CGlobalRandom random(mRandom);
   double actualTime = mCurFrame * (1.0 / 60.0);
   mChildSystemUpdateRate = 0;
   double useDt = close_enough(dt, 1.f / 60.f, 1.6666666851961054e-5f) ? 1.0 / 60.0 : dt;
+  useDt *= GetTimeScale();
   if (useDt < 0.0) {
     useDt = 0.0;
   }
@@ -226,7 +230,7 @@ void CProjectileWeapon::UpdatePSTranslationAndOrientation() {
   } else {
     mLocalOffset += mVelocity;
   }
-  mVelocity += mGravity / 60.f;
+  mVelocity += mGravity * (1.f / 60.f);
 
   if (mWeaponDesc->mPSOV) {
     CVector3f angles = CVector3f::Zero();
