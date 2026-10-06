@@ -385,16 +385,20 @@ void CScriptEffect::SetActive(const bool active) {
   SetDrawEnabled(true);
 }
 
+static inline CTransform4f StripTranslation(const CTransform4f& xf) {
+  CTransform4f result = xf;
+  result.SetTranslation(CVector3f::Zero());
+  return result;
+}
+
 void CScriptEffect::CreateSystem(const CVector3f& scale, const CColor& color) {
   const FourCC type = gpResourceFactory->GetResourceTypeById(mEffectId);
   const CVector3f position = GetTransform().GetTranslation();
-  CTransform4f orientation = GetTransform();
-  orientation.SetTranslation(CVector3f::Zero());
   mParticleSystem = CElementGen::ConstructChildParticleSystem(
-      *mDescription, type, 0, CElementGen::kOSF_One, !mEffectLights.null(), mEmitting,
-      mUseLocalTranslation ? position : CVector3f::Zero(), orientation,
+      *mDescription, type, 0, CElementGen::kOSF_One, mEffectLights.get() != nullptr, mEmitting,
+      mUseLocalTranslation ? position : CVector3f::Zero(), StripTranslation(GetTransform()),
       mUseLocalTranslation ? CVector3f::Zero() : position, CTransform4f::Identity(), scale, color,
-      CVector3f::One());
+      CVector3f(1.f, 1.f, 1.f));
   UpdateModelLighting();
 }
 
@@ -435,7 +439,10 @@ void CScriptEffect::SetGlobalScale(const CVector3f& scale) {
 }
 
 CVector3f CScriptEffect::GetGlobalScale() const {
-  return mParticleSystem.null() ? CVector3f::One() : mParticleSystem->GetGlobalScale();
+  if (!mParticleSystem.null()) {
+    return mParticleSystem->GetGlobalScale();
+  }
+  return CVector3f(1.f, 1.f, 1.f);
 }
 
 void CScriptEffect::SetGlobalTranslation(const CVector3f& translation) {
