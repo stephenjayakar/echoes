@@ -244,11 +244,14 @@ bool CGameCollision::DetectDynamicCollisionMoving(const CCollisionPrimitive& pri
                                                   const CVector3f& direction,
                                                   CCollisionInfo& collision, double& distance) {
   const CMaterialFilter& filter = CMaterialFilter::GetPassEverything();
-  return CCollisionPrimitive::CollideMoving(
-      CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
-      CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
-                                             actor.GetPrimitiveTransform()),
-      direction, distance, collision);
+  if (CCollisionPrimitive::CollideMoving(
+          CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
+          CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
+                                                 actor.GetPrimitiveTransform()),
+          direction, distance, collision)) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectDynamicCollisionMoving(
@@ -278,10 +281,13 @@ bool CGameCollision::DetectDynamicCollisionBoolean(const CCollisionPrimitive& pr
                                                    const CTransform4f& transform,
                                                    const CPhysicsActor& actor) {
   const CMaterialFilter& filter = CMaterialFilter::GetPassEverything();
-  return CCollisionPrimitive::CollideBoolean(
-      CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
-      CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
-                                             actor.GetPrimitiveTransform()));
+  if (CCollisionPrimitive::CollideBoolean(
+          CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
+          CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
+                                                 actor.GetPrimitiveTransform()))) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectDynamicCollisionBoolean(
@@ -302,11 +308,14 @@ bool CGameCollision::DetectDynamicCollision(const CCollisionPrimitive& primitive
                                             const CPhysicsActor& actor,
                                             CCollisionInfoList& collisions) {
   const CMaterialFilter& filter = CMaterialFilter::GetPassEverything();
-  return CCollisionPrimitive::Collide(
-      CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
-      CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
-                                             actor.GetPrimitiveTransform()),
-      collisions);
+  if (CCollisionPrimitive::Collide(
+          CInternalCollisionStructure::CPrimDesc(primitive, filter, transform),
+          CInternalCollisionStructure::CPrimDesc(*actor.GetCollisionPrimitive(), filter,
+                                                 actor.GetPrimitiveTransform()),
+          collisions)) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectDynamicCollision(
@@ -806,7 +815,11 @@ CVector3f CGameCollision::GetActorRelativeVelocities(const CPhysicsActor* actor,
   CVector3f velocity = actor->GetVelocityWR();
   if (other != nullptr) {
     const CScriptPlatform* platform = TCastToConstPtr< CScriptPlatform >(other);
-    if (platform == nullptr || !platform->IsRider(actor->GetUniqueId())) {
+    bool rider = false;
+    if (platform != nullptr) {
+      rider = platform->IsRider(actor->GetUniqueId());
+    }
+    if (!rider) {
       velocity -= other->GetVelocityWR();
     }
   }
