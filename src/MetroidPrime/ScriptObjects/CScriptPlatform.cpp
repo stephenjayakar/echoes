@@ -430,8 +430,9 @@ void CScriptPlatform::DragSlave(CStateManager& mgr, TMovedList& moved, const SRi
 }
 
 void CScriptPlatform::DragSlaves(CStateManager& mgr, TMovedList& moved) {
-  for (int i = 0; i < mStaticSlaves.size(); ++i) {
-    const SRiders& slave = mStaticSlaves[i];
+  for (rstl::vector< SRiders >::const_iterator it = mStaticSlaves.begin();
+       it != mStaticSlaves.end(); ++it) {
+    const SRiders& slave = *it;
     if ((mMotionFlags & 0x400) != 0) {
       if (CScriptPlatform* platform = TCastToPtr< CScriptPlatform >(mgr.ObjectById(slave.mUid))) {
         platform->TranslateMotion(mDragDelta);
