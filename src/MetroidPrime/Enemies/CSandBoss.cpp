@@ -468,7 +468,7 @@ void CSandBoss::SetCinematicStateChoking(CStateManager& mgr, float dt) { xdf4_ =
 
 int CSandBoss::GetStage() const { return mData.commandIndex; }
 
-static SSandBoss_FuncPtrs REL_loader_SandBoss;
+SSandBoss_FuncPtrs REL_loader_SandBoss;
 
 CEntity* REL_LoadSandBoss(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
   SLdrSandBoss sldrThis;
