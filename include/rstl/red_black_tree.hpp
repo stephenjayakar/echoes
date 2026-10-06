@@ -128,7 +128,7 @@ public:
   , mCmp(other.mCmp)
   , mAllocator(other.mAllocator)
   , mCount(other.mCount) {
-    node* root = copy_from(other.mHeader.get_root());
+    node* const root = copy_from(other.mHeader.get_root());
     mHeader.set_leftmost(leftmost(root));
     mHeader.set_rightmost(rightmost(root));
     mHeader.set_root(root);
