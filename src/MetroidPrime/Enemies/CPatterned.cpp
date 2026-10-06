@@ -220,9 +220,10 @@ void CPatterned::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 void CPatterned::SetDestPos(const CVector3f& position) { mDestPos = position; }
 
 CVector3f CPatterned::GetGunEyePos() const {
+  CVector3f translation = GetTranslation();
   const CAABox& bounds = GetBaseBoundingBox();
-  return GetTranslation() +
-         CVector3f(0.f, 0.f, 0.6f * (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ()));
+  translation[kDZ] += 0.6f * (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ());
+  return translation;
 }
 
 bool CPatterned::ApplyBoneTracking() const {
@@ -509,16 +510,16 @@ bool CPatterned::IsIngPossessed() const {
 void CPatterned::UpdateIngPossession(float dt) {
   if (mIngPossessionBlend < mIngPossessionTarget) {
     const float delta = mIngPossessionDuration > 0.f ? dt / mIngPossessionDuration : 1.f;
-    if (mIngPossessionDelay > 0.f) {
-      mIngPossessionDelay -= dt;
-    } else {
-      mIngPossessionBlend = CMath::Min(1.f, mIngPossessionBlend + delta);
+    if (mIngPossessionDelay <= 0.f) {
+      mIngPossessionBlend = rstl::min_val(mIngPossessionBlend + delta, 1.f);
       if (mIngPossessionBlend == 1.f && mIngModel) {
         AnimationData()->SetSkinnedModel(*mIngModel);
       }
+    } else {
+      mIngPossessionDelay -= dt;
     }
   } else if (mIngPossessionBlend > mIngPossessionTarget) {
-    mIngPossessionBlend = CMath::Max(0.f, mIngPossessionBlend - dt);
+    mIngPossessionBlend = rstl::max_val(0.f, mIngPossessionBlend - dt);
     if (mIngPossessionBlend == 0.f) {
       AnimationData()->SetSkinnedModel(mNormalModel);
     }
