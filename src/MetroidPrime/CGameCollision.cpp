@@ -642,11 +642,14 @@ bool CGameCollision::DetectStaticCollision_Cached_Moving(
     const CTransform4f& transform, const CMaterialFilter& filter, const CVector3f& direction,
     CCollisionInfo& collision, double& distance) {
   const CMaterialFilter staticFilter = filter.WithImplicitMaterials(skStaticGeometryMaterials);
-  if (staticFilter.GetType() == CMaterialFilter::kFT_Never || primitive.GetPrimType() == 'OBTG') {
+  if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return false;
   }
-  const CAABox bounds = primitive.CalculateAABox(transform);
+  if (primitive.GetPrimType() == 'OBTG') {
+    return false;
+  }
   const CVector3f displacement = float(distance) * direction;
+  const CAABox bounds = primitive.CalculateAABox(transform);
   CAABox sweptBounds(bounds);
   sweptBounds.AccumulateBounds(bounds.GetMinPoint() + displacement);
   sweptBounds.AccumulateBounds(bounds.GetMaxPoint() + displacement);
@@ -661,12 +664,13 @@ bool CGameCollision::DetectStaticCollision_Cached_Moving(
   }
 
   if (primitive.GetPrimType() == 'AABX') {
-    for (uint i = 0; i < cache.GetNumCaches(); ++i) {
+    for (int i = 0; i < static_cast< int >(cache.GetNumCaches()); ++i) {
       CCollisionInfo candidate;
       double candidateDistance = distance;
+      const float maxDistance = distance;
       if (CMetroidAreaCollider::MovingAABoxCollisionCheck_Cached(
               cache.GetOctreeLeafCache(i), bounds, staticFilter, CMaterialList(kMT_Unknown59),
-              direction, float(distance), candidate, candidateDistance) &&
+              direction, maxDistance, candidate, candidateDistance) &&
           candidateDistance < distance) {
         collision = candidate;
         distance = float(candidateDistance);
@@ -674,13 +678,14 @@ bool CGameCollision::DetectStaticCollision_Cached_Moving(
     }
   } else if (primitive.GetPrimType() == 'SPHR') {
     const CSphere& sphere = static_cast< const CCollidableSphere& >(primitive).GetSphere();
-    for (uint i = 0; i < cache.GetNumCaches(); ++i) {
+    for (int i = 0; i < static_cast< int >(cache.GetNumCaches()); ++i) {
       CCollisionInfo candidate;
       double candidateDistance = distance;
+      const float maxDistance = distance;
       if (CMetroidAreaCollider::MovingSphereCollisionCheck_Cached(
               cache.GetOctreeLeafCache(i), bounds,
               CSphere(transform * sphere.GetCenter(), sphere.GetRadius()), staticFilter,
-              CMaterialList(kMT_Unknown59), direction, float(distance), candidate,
+              CMaterialList(kMT_Unknown59), direction, maxDistance, candidate,
               candidateDistance) &&
           candidateDistance < distance) {
         collision = candidate;
