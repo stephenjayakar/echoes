@@ -21,6 +21,10 @@ public:
   const CVector3f& GetDestinationPosition() const { return mDestinationPosition; }
   // Guessed name; Patrol resumes from this waypoint.
   void SetLastDestination(TUniqueId id) { mLastDestination = id; }
+  void SetDestination(TUniqueId id) { mDestination = id; }   // Guessed name.
+  float GetMoveSpeed() const { return mMoveSpeed; }          // Guessed name.
+  void SetMoveSpeed(float speed) { mMoveSpeed = speed; }     // Guessed name.
+  bool IsMoving() const { return mPatrolState == kPS_Moving; } // Guessed name.
 
 private:
   void ApplyWobbleSteering(CVector3f& movement) const;

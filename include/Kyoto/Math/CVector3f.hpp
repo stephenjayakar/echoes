@@ -137,13 +137,13 @@ RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(CVector3f)
 // close_enough__FRC9CVector3fRC9CVector3ff in CloseEnough.cpp
 
 inline CVector3f CVector3f::Cross(const CVector3f& lhs, const CVector3f& rhs) {
-  const float lX = lhs.GetX();
-  const float lY = lhs.GetY();
-  const float lZ = lhs.GetZ();
-  const float rX = rhs.GetX();
-  const float rY = rhs.GetY();
-  const float rZ = rhs.GetZ();
-  return CVector3f(lY * rZ - rY * lZ, lZ * rX - rZ * lX, lX * rY - rX * lY);
+  const float lx = lhs.GetX();
+  const float ly = lhs.GetY();
+  const float lz = lhs.GetZ();
+  const float rx = rhs.GetX();
+  const float ry = rhs.GetY();
+  const float rz = rhs.GetZ();
+  return CVector3f(ly * rz - ry * lz, lz * rx - rz * lx, lx * ry - rx * ly);
 }
 
 inline bool operator==(const CVector3f& lhs, const CVector3f& rhs) {

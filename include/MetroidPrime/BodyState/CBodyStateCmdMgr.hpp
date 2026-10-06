@@ -485,6 +485,11 @@ public:
   void DeliverCmd(const CBCLocomotionCmd& cmd);
   void DeliverCmd(EBodyStateCmd cmd);
 
+  void DeliverCmd(const CBCGetupCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGetup = cmd;
+  }
+
   void DeliverCmd(const CBCStepCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mStep = cmd;
@@ -518,6 +523,11 @@ public:
   void DeliverCmd(const CBCMeleeAttackCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mMeleeAttack = cmd;
+  }
+
+  void DeliverCmd(const CBCLoopHitReactionCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopHitReaction = cmd;
   }
 
   void DeliverCmd(const CBCHurledCmd& cmd) {
@@ -560,6 +570,11 @@ public:
     mAdditiveWeight = cmd;
   }
 
+  void DeliverCmd(const CBCAdditiveAimCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveAim = cmd;
+  }
+
   void DeliverCmd(const CBCScriptedCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mScripted = cmd;
@@ -581,8 +596,10 @@ public:
 
   const CVector3f& GetTargetVector() const { return mTarget; }
   void SetTargetVector(const CVector3f& target) { mTarget = target; }
+  void SetSteeringBlendMode(ESteeringBlendMode mode) { mSteeringMode = mode; }
 
   const CVector3f& GetAdditiveTargetVector() const { return mAdditiveTarget; }
+  void DeliverAdditiveTargetVector(const CVector3f& target) { mAdditiveTarget = target; }
 
 private:
   CVector3f mMove;

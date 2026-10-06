@@ -126,6 +126,7 @@ public:
   void EnableExplodeDeath(bool enabled) { mEnableExplodeDeath = enabled; } // Guessed name.
 
   bool IsBurnEnabled() const { return mEnableBurn; } // Guessed name.
+  void SetLocomotionDuringElectrocution(bool enabled) { mLocomotionDuringElectrocution = enabled; }
 
   bool IsShockEnabled() const { return mEnableShock; } // Guessed name.
 
@@ -141,6 +142,7 @@ public:
 
   EAnimReaction GetAnimReaction() const { return mActiveParameters.mReaction; } // Guessed name.
 
+  EAnimReaction GetActiveReaction() const { return mActiveParameters.mReaction; } // Guessed name.
   EFollowUp GetFollowUp() const { return mActiveParameters.mFollowUp; }
 
   float GetFollowUpDuration() const { return mActiveParameters.mFollowUpDuration; }
