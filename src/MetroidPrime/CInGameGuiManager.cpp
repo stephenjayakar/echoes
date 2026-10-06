@@ -392,8 +392,8 @@ void CInGameGuiManager::Update(const CStateManager& mgr, float dt, CRandom16& ra
   if (cameraActive) {
     const float visorStaticAlpha = mgr.GetPlayer(mPlayerIndex)->GetVisorStaticAlpha();
     if (visorStaticAlpha != mVisorStaticAlpha) {
-      if (TCastToConstPtr< CFirstPersonCamera >(
-              *mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true))) {
+      if (CCameraManager::CastGameCameratoFirstPersonCamera(
+              mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true))) {
         if (CMath::AbsF(visorStaticAlpha - mVisorStaticAlpha) < 0.5f) {
           if (mVisorStaticAlpha == 0.f) {
             CSfxManager::SfxStart(0x274, 127, 64, CSfxManager::kAllAreas, false, false,
@@ -419,15 +419,17 @@ void CInGameGuiManager::Update(const CStateManager& mgr, float dt, CRandom16& ra
     mSamusHud->UpdateHudMemo(dt, mgr);
   }
   if (cameraActive) {
-    mFaceplateDecoration.Update(mgr);
+    mFaceplateDecoration.Update(dt, mgr);
   }
 
   if (mIsSinglePlayer) {
-    if (!TCastToConstPtr< CFirstPersonCamera >(
-            *mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true))) {
+    if (CCameraManager::CastGameCameratoFirstPersonCamera(
+            mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true))) {
+      if (mSamusReflection.null()) {
+        mSamusReflection = rs_new CSamusFaceReflection(mgr, mPlayerIndex);
+      }
+    } else {
       mSamusReflection = nullptr;
-    } else if (mSamusReflection.null()) {
-      mSamusReflection = rs_new CSamusFaceReflection(mgr, mPlayerIndex);
     }
   }
   if (!mSamusReflection.null() && cameraActive && !pendingDock) {
@@ -468,7 +470,8 @@ void CInGameGuiManager::Update(const CStateManager& mgr, float dt, CRandom16& ra
       BeginStateTransition(kIGGS_InGame, mgr);
     }
   } else if (!mMessageScreen.null()) {
-    if (!mMessageScreen->Update(dt, mPauseScreenBlur->GetBlurAmt())) {
+    const float blur = mPauseScreenBlur->GetBlurAmt();
+    if (!mMessageScreen->Update(dt, blur)) {
       BeginStateTransition(kIGGS_InGame, mgr);
     }
   }
@@ -478,12 +481,12 @@ void CInGameGuiManager::Update(const CStateManager& mgr, float dt, CRandom16& ra
       BeginStateTransition(kIGGS_InGame, mgr);
     }
   }
-  if (mPrevState != mNextState) {
+  if (mNextState != mPrevState) {
     if (InGameGuiStates::IsGameplayState(mNextState)) {
       TryReloadAreaTextures();
     }
     if (IsTransitionReady()) {
-      TryCompleteStateTransition();
+      TryCompleteStateTransition(queue);
     }
   }
 }
@@ -594,7 +597,7 @@ bool CInGameGuiManager::IsTransitionReady() const {
   return true;
 }
 
-void CInGameGuiManager::TryCompleteStateTransition() {
+void CInGameGuiManager::TryCompleteStateTransition(CArchitectureQueue& queue) {
   if (mNextState != kIGGS_PauseGame && mNextState != kIGGS_PauseLogBook) {
     mPauseScreen = nullptr;
   }

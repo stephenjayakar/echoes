@@ -72,7 +72,7 @@ private:
   bool IsTextureInPauseScreen(CAssetId id) const;
   void EnsureStates(const CStateManager& mgr);
   void DoStateTransition(const CStateManager& mgr);
-  void TryCompleteStateTransition();
+  void TryCompleteStateTransition(CArchitectureQueue& queue);
   bool IsTransitionReady() const; // Guessed name
   void UpdateAutoMapper(const CStateManager& mgr, float dt);
   void DrawDarkVisorMask() const; // Guessed name

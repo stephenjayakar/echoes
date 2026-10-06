@@ -10,7 +10,7 @@
 CFaceplateDecoration::CFaceplateDecoration(const CStateManager& mgr, int playerIndex)
 : mPlayerIndex(playerIndex), mTextureId(kInvalidAssetId) {}
 
-void CFaceplateDecoration::Update(const CStateManager& mgr) {
+void CFaceplateDecoration::Update(float dt, const CStateManager& mgr) {
   CAssetId textureId = mgr.GetPlayer(mPlayerIndex)->GetVisorSteam().GetTextureId();
   if (textureId == kInvalidAssetId && mTexture.valid()) {
     mTexture->Unlock();
