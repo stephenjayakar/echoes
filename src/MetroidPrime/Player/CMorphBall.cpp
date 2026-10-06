@@ -638,15 +638,17 @@ void CMorphBall::TouchModel(const CStateManager& mgr) const {
 }
 
 CModelData* CMorphBall::GetMorphBallModel(const rstl::string& name, float radius) {
-  if (name == rstl::string("")) {
+  if (name == "") {
     return nullptr;
   }
-  const SObjectTag* tag = gpResourceFactory->GetResourceIdByName(name.data());
-  const CVector3f scale(2.f * radius, 2.f * radius, 2.f * radius);
-  if (tag->type == 'CMDL') {
-    return rs_new CModelData(CStaticRes(tag->id, scale));
+  const SObjectTag tag = *gpResourceFactory->GetResourceIdByName(name.data());
+  if (tag.type == 'CMDL') {
+    return rs_new CModelData(
+        CStaticRes(tag.id, CVector3f(2.f * radius, 2.f * radius, 2.f * radius)));
   }
-  return rs_new CModelData(CAnimRes(tag->id, CAnimRes::kDefaultCharIdx, scale, 0, false));
+  return rs_new CModelData(CAnimRes(tag.id, CAnimRes::kDefaultCharIdx,
+                                    CVector3f(2.f * radius, 2.f * radius, 2.f * radius), 0,
+                                    false));
 }
 
 void CMorphBall::LoadMorphBallModel() {
@@ -724,7 +726,9 @@ void CMorphBall::FluidFXThink(CActor::EFluidState state, CScriptWater& water, CS
 bool CMorphBall::IsClimbable(const CCollisionInfo& collision) const {
   if (CMath::AbsF(collision.GetNormalLeft().GetZ()) < 0.7f) {
     const float height = GetBallPosition().GetZ() - collision.GetPoint().GetZ();
-    return height > 0.1f && height < GetBallRadius() - 0.05f;
+    if (height > 0.1f && height < GetBallRadius() - 0.05f) {
+      return true;
+    }
   }
   return false;
 }
@@ -744,8 +748,8 @@ float CMorphBall::ComputeMaxSpeed() const {
 }
 
 void CMorphBall::SpinToSpeed(float speed, const CVector3f& direction, float dt) {
-  const float angularSpeed = mPlayer.GetAngularVelocityWR().GetVector().Magnitude();
-  mPlayer.ApplyTorqueWR(dt * (speed - angularSpeed) * direction);
+  const CVector3f angularVelocity = mPlayer.GetAngularVelocityWR().GetVector();
+  mPlayer.ApplyTorqueWR(dt * (speed - angularVelocity.Magnitude()) * direction);
 }
 
 void CMorphBall::ApplyGravity() {
