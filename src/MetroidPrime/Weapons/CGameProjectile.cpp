@@ -120,13 +120,14 @@ rstl::optional_object< CAABox > CGameProjectile::GetTouchBounds() const {
 }
 
 CProjectileTouchResult CGameProjectile::CanCollideWithTrigger(CActor& actor, CStateManager& mgr) {
-  const bool isWater = TCastToPtr< CScriptWater >(&actor) != nullptr;
+  const bool isWater = TCastToPtr< CScriptWater >(actor) != nullptr;
   if (isWater) {
-    const bool enteredWater = GetFluidCount() == 0 && !mProjectile.GetWeaponDescription()->mEWTR;
+    const bool enteredWater =
+        isWater && GetFluidCount() == 0 && !mProjectile.GetWeaponDescription()->mEWTR;
     const bool leftWater =
         !isWater && GetFluidCount() != 0 && !mProjectile.GetWeaponDescription()->mLWTR;
-    return CProjectileTouchResult(enteredWater || leftWater ? actor.GetUniqueId()
-                                                            : kInvalidUniqueId,
+    const bool collide = enteredWater || leftWater;
+    return CProjectileTouchResult(collide ? actor.GetUniqueId() : kInvalidUniqueId,
                                   rstl::optional_object_null());
   }
   return CProjectileTouchResult(kInvalidUniqueId, rstl::optional_object_null());

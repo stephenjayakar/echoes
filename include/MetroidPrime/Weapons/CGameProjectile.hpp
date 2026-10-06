@@ -10,7 +10,8 @@ class CLight;
 
 class CProjectileTouchResult {
 public:
-  CProjectileTouchResult(TUniqueId actorId, const rstl::optional_object< CRayCastResult >& result)
+  CProjectileTouchResult(const TUniqueId& actorId,
+                         const rstl::optional_object< CRayCastResult >& result)
   : mActorId(actorId), mRayCastResult(result) {}
 
   TUniqueId GetActorId() const { return mActorId; }
