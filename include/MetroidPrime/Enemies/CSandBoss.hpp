@@ -258,7 +258,7 @@ private:
   TUniqueId xe90_;
   rstl::reserved_vector< SChargeBeam, 3 > mChargeBeams;
   TUniqueId xef8_;
-  rstl::reserved_vector< CSegId, 8 > mSpineSegIds; // Guessed name.
+  rstl::reserved_vector< CSegId, 8 > mArmorSegIds; // Guessed name.
   CSegId mHeadSegId;                               // Guessed name.
   CColor xf0c_;
   float xf10_;

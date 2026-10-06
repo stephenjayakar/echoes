@@ -77,7 +77,7 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , xe8e_(kInvalidUniqueId)
 , xe90_(kInvalidUniqueId)
 , xef8_(kInvalidUniqueId)
-, mSpineSegIds(CSegId())
+, mArmorSegIds(CSegId())
 , xf0c_(CColor::Black())
 , xf10_(0.f)
 , xf14_(0.f)
@@ -143,7 +143,7 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 
   const CAnimData* animData = GetModelData()->GetAnimationData();
   for (int i = 0; i < 8; ++i) {
-    mSpineSegIds[i] = animData->GetLocatorSegId(skSpineJoints[i]);
+    mArmorSegIds[i] = animData->GetLocatorSegId(skSpineJoints[i]);
   }
   mHeadSegId = animData->GetLocatorSegId(skHeadJoint);
 
@@ -178,7 +178,7 @@ void CSandBoss::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       }
       if (mRound == 0 && mData.commandIndex == 0) {
         if (CActor* ent = static_cast< CActor* >(mgr.ObjectById(xe86_))) {
-          mgr.SetBossParams(ent->GetUniqueId(), ent->GetHealthInfo()->GetHP(),
+          mgr.SetBossParams(ent->GetUniqueId(), ent->GetHealthInfo()->GetInitialHP(),
                             gpStringTable->GetStringIndex("BossSandBoss"));
         }
       }
@@ -246,7 +246,7 @@ void CSandBoss::AddToRenderer(const CStateManager& mgr) const {
 }
 
 void CSandBoss::Render(const CStateManager& mgr) const {
-  if (!x165d_26_) {
+  if (!x165d_29_) {
     uint mask = 0;
     uint target = 0;
     if (mDrawParticles) {
@@ -288,7 +288,7 @@ CVector3f CSandBoss::GetAimPosition(const CStateManager& mgr, float dt) const {
   if (dt > 0.f) {
     predicted = PredictMotion(dt).GetTranslation();
   }
-  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
   float z = predicted.GetZ() + xf.GetTranslation().GetZ();
   if (x165c_27_) {
     const float minZ = GetTranslation().GetZ();
@@ -531,8 +531,9 @@ bool CSandBoss::ShouldSnapJaws(CStateManager& mgr, const CTriggerData& data) con
   if (!x165e_24_) {
     const CVector3f diff = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
     const float distSq = diff.MagSquared();
-    if (distSq >= mMinAttackRange * mMinAttackRange &&
-        distSq <= mMaxAttackRange * mMaxAttackRange) {
+    const float minSq = mMinAttackRange * mMinAttackRange;
+    const float maxSq = mMaxAttackRange * mMaxAttackRange;
+    if (distSq >= minSq && distSq <= maxSq) {
       return CVector3f::GetAngleDiff(GetTransform().GetForward(), diff) < 0.5235988f;
     }
   }
@@ -548,9 +549,8 @@ bool CSandBoss::ShouldDestroySphere(CStateManager& mgr, const CTriggerData& data
 }
 
 bool CSandBoss::IsFacingPlayer(CStateManager& mgr, const CTriggerData& data) const {
-  return CVector3f::GetAngleDiff(GetTransform().GetForward(),
-                                 mgr.GetPlayer(0)->GetTranslation() - GetTranslation()) <=
-         0.34906584f;
+  const CVector3f diff = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
+  return CVector3f::GetAngleDiff(GetTransform().GetForward(), diff) <= 0.34906584f;
 }
 
 bool CSandBoss::IsBallInSuckRange(CStateManager& mgr, const CTriggerData& data) const {
@@ -623,7 +623,8 @@ void CSandBoss::UnderGround(CStateManager& mgr, EStateMsg msg, float dt) {
 }
 
 void CSandBoss::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
-  if (msg == kStateMsg_Activate) {
+  switch (msg) {
+  case kStateMsg_Activate:
     mAnimationState.SetState(CAnimationState::kAS_Ready);
     FaceDeathWaypoint(mgr);
     SendScriptMsgs(kSS_DeathRattle, mgr, GetUniqueId(), kSM_None);
@@ -632,14 +633,17 @@ void CSandBoss::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
     mgr.SetBossParams(kInvalidUniqueId, 0.f, 0);
     mgr.DeleteObjectRequest(GetUniqueId());
     x165d_29_ = true;
+    break;
   }
 }
 
 void CSandBoss::Deactivate(CStateManager& mgr, EStateMsg msg, float dt) {
-  if (msg == kStateMsg_Update) {
+  switch (msg) {
+  case kStateMsg_Update:
     if (mStateMachine->GetTime() > 3.f) {
       mgr.DeleteObjectRequest(GetUniqueId());
     }
+    break;
   }
 }
 
@@ -724,8 +728,9 @@ void CSandBoss::DestroySphere(CStateManager& mgr, EStateMsg msg, float dt) {
     } else if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
       BodyController()->SetLocomotionType(pas::kLT_Crouch);
     }
-    if (mStateMachine->GetTime() < 5.f) {
-      UpdateDamageFlash(mStateMachine->GetTime());
+    const float time = mStateMachine->GetTime();
+    if (time < 5.f) {
+      UpdateDamageFlash(time);
     }
     break;
   case kStateMsg_Deactivate:
@@ -757,8 +762,9 @@ void CSandBoss::JumpOffSphere(CStateManager& mgr, EStateMsg msg, float dt) {
     } else if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
       BodyController()->SetLocomotionType(pas::kLT_Crouch);
     }
-    if (mStateMachine->GetTime() < 5.f) {
-      UpdateDamageFlash(mStateMachine->GetTime());
+    const float time = mStateMachine->GetTime();
+    if (time < 5.f) {
+      UpdateDamageFlash(time);
     }
     break;
   case kStateMsg_Deactivate:
@@ -812,8 +818,7 @@ void CSandBoss::AttachToSphere(CStateManager& mgr, EStateMsg msg, float dt) {
     if (mStateMachine->GetTime() >= GetAttachDelay()) {
       if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
         BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Four, -1));
-      }
-      if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+      } else if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
         BodyController()->SetLocomotionType(pas::kLT_Relaxed);
       }
     }
@@ -843,7 +848,7 @@ void CSandBoss::SuckAir(CStateManager& mgr, EStateMsg msg, float dt) {
         CPlayer* player = mgr.GetPlayer(0);
         if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed &&
             IsInSuckRange(*player)) {
-          const CTransform4f xf = GetLctrTransform(mHeadSegId);
+          const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
           const CVector3f diff = player->GetTranslation() - xf.GetTranslation();
           const float mag = diff.Magnitude();
           if (!(fabs(mag - 0.f) < 0.00001f)) {
@@ -1204,7 +1209,7 @@ void CSandBoss::SelectSafeZoneTarget(CStateManager& mgr, float dt) {
   const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
   const CVector3f pos = GetTranslation();
   const CVector3f forward = GetTransform().GetForward();
-  float bestDistSq = FLT_MAX;
+  float bestDistSq = 3.4028235e38f;
   xe88_ = kInvalidUniqueId;
   for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
        it != GetConnectionList().end(); ++it) {
@@ -1261,8 +1266,9 @@ void CSandBoss::ResetAttackTimes(CStateManager& mgr, float dt) {
                      mgr.Random()->Range(0.f, mData.unknown_0x7619e561.doubleCharge
                                                   .darkBeamAttackTimeVariance);
     break;
+  case 1:
   default:
-    mChargeBeamTimer = FLT_MAX;
+    mChargeBeamTimer = 3.4028235e38f;
     mDarkBeamTimer =
         mData.minDarkBeamAttackTime + mgr.Random()->Range(0.f, mData.darkBeamAttackTimeVariance);
     break;
@@ -1380,7 +1386,7 @@ void CSandBoss::SetCollisionActorExtendedTouchBounds(CStateManager& mgr,
 }
 
 bool CSandBoss::IsInSuckRange(const CPlayer& player) const {
-  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
   const CVector3f diff = player.GetTranslation() - xf.GetTranslation();
   if (diff.MagSquared() < mData.suckMorphballRange * mData.suckMorphballRange) {
     return CVector3f::GetAngleDiff(GetTransform().GetForward(),
@@ -1460,12 +1466,11 @@ float CSandBoss::GetStampedeSpeed(const CStateManager& mgr) const {
       ++count;
     }
   }
-  switch (count) {
-  case 3:
+  if (count == 3) {
     return mData.stampedeProperties.unknown_0x5fb66017;
-  case 2:
+  } else if (count == 2) {
     return mData.stampedeProperties.unknown_0xc2b98161;
-  default:
+  } else {
     return mData.stampedeProperties.unknown_0xbed8a4ba;
   }
 }
@@ -1490,7 +1495,7 @@ void CSandBoss::UpdateDamageFlash(float time) {
 
 bool CSandBoss::PullPlayerToMouth(CPlayer& player, float dt) {
   if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
-    const CTransform4f xf = GetLctrTransform(mHeadSegId);
+    const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
     const CVector3f diff = xf.GetTranslation() - player.GetTranslation();
     const float step = 60.f * dt;
     if (diff.MagSquared() < step * step || !diff.IsMagnitudeSafe()) {
@@ -1504,10 +1509,10 @@ bool CSandBoss::PullPlayerToMouth(CPlayer& player, float dt) {
 }
 
 void CSandBoss::AttachPlayerToMouth(CPlayer& player) {
-  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
   player.SetTranslation(xf.GetTranslation());
   player.Stop();
-  x14a0_ = xf.GetRotation();
+  x14a0_ = player.GetTransform().GetRotation();
 }
 
 void CSandBoss::FaceDeathWaypoint(CStateManager& mgr) {
@@ -1692,6 +1697,8 @@ void CSandBoss::StopChargeBeams(CStateManager& mgr) {
   }
   ResetChargeBeams(mgr);
   switch (xdfc_) {
+  case 2:
+    break;
   case 0:
   case 1:
     xdfc_ = 2;
