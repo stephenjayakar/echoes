@@ -224,7 +224,50 @@ void CAnimData::SetInfraModel(const TLockedToken< CModel >& model,
 }
 
 void CAnimData::AdvanceAnim(CCharAnimTime& time, CVector3f& offset, CQuaternion& rotation) {
-  // TODO: Advance/simplify the root and apply the resulting position and rotation deltas.
+  const float seconds = time.GetSeconds();
+  SAdvancementResults results(CCharAnimTime(0.f),
+                              CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation()));
+  rstl::optional_object< rstl::ownership_transfer< IAnimReader > > simplified;
+  if (mAnimDir == kAD_Forward) {
+    results = mAnimRoot->VAdvanceView(time);
+    simplified = mAnimRoot->Simplified();
+  }
+  if (simplified.valid()) {
+    mAnimRoot = Cast(simplified.data());
+  }
+  const int count = mPassedIntCount;
+  if ((x2ac_28_ || x2ac_27_) && count > 0) {
+    for (int i = 0; i < count; ++i) {
+      const CInt32POINode& poi = mInt32POINodes[i];
+      if (poi.GetPoiType() == kPT_UserEvent) {
+        switch (poi.GetValue()) {
+        case kUE_AlignTargetPosStart:
+          mAligningPos = true;
+          break;
+        case kUE_AlignTargetPos:
+          mAlignPos = CVector3f::Zero();
+          x2ac_28_ = false;
+          mAligningPos = false;
+          break;
+        case kUE_AlignTargetRot:
+          mAlignRot = CQuaternion::NoRotation();
+          x2ac_27_ = false;
+          break;
+        default:
+          break;
+        }
+      }
+    }
+  }
+  const CAdvancementDeltas deltas = results.mDeltas;
+  offset += deltas.GetOffsetDelta();
+  if (mAligningPos) {
+    offset += seconds * mAlignPos;
+  }
+  const CQuaternion rot = deltas.GetOrientationDelta() * mAlignRot;
+  rotation = rotation * rot;
+  mAlignPos = rot.BuildInverted().Transform(mAlignPos);
+  time = results.mRemTime;
 }
 
 CAdvancementDeltas CAnimData::AdvanceIgnoreParticles(float dt, CRandom16& random,
