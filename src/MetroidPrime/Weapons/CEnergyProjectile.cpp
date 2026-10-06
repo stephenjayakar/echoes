@@ -122,10 +122,11 @@ void CEnergyProjectile::PreRenderAllViewports(CStateManager& mgr) {
 
 void CEnergyProjectile::PreRender(CStateManager& mgr) {
   if (mHasMuzzleOffset) {
-    if (mgr.MaskUIdNumPlayers(GetOwnerId()) != mgr.GetCurrentRenderPlayerIndex()) {
+    const bool remote = mgr.GetCurrentRenderPlayerIndex() != mgr.MaskUIdNumPlayers(GetOwnerId());
+    if (remote) {
       if (!mMuzzleOffsetApplied) {
-        mProjectile.SetParticleTranslationOffset((mMuzzleOffsetTime * mMuzzleOffset) /
-                                                 mMuzzleOffsetDuration);
+        const CVector3f scaled = mMuzzleOffsetTime * mMuzzleOffset;
+        mProjectile.SetParticleTranslationOffset((1.f / mMuzzleOffsetDuration) * scaled);
         mMuzzleOffsetApplied = true;
       }
     } else if (mMuzzleOffsetApplied) {
@@ -134,7 +135,7 @@ void CEnergyProjectile::PreRender(CStateManager& mgr) {
     }
   }
 
-  SetPreRenderClipped(!mgr.fn_800366e4(this));
+  SetPreRenderClipped(!mgr.IsActorVisible(*this));
   if (!GetPreRenderClipped()) {
     mLastVisibleFrame = mgr.GetRenderFrameIndex();
   }
@@ -152,9 +153,11 @@ void CEnergyProjectile::AddToRenderer(const CStateManager& mgr) const {
 
 void CEnergyProjectile::Render(const CStateManager& mgr) const {
   if (mProjectile.GetWeaponDescription()->mRWPE) {
-    const float warpTime = 1.f - float(mProjectile.GameTime());
-    if (mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Combat && warpTime > 0.f) {
-      mgr.DrawSpaceWarp(GetTranslation(), 0.75f * warpTime);
+    if (mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Combat) {
+      const float warpTime = 1.f - float(mProjectile.GameTime());
+      if (warpTime > 0.f) {
+        mgr.DrawSpaceWarp(GetTranslation(), 0.75f * warpTime);
+      }
     }
     mProjectile.RenderParticles();
   }
@@ -317,13 +320,15 @@ void CEnergyProjectile::PlayImpactSound(const CVector3f& position,
   if (!mPlayImpactSound) {
     return;
   }
-  const int sound = mProjectile.GetSoundIdForCollision(type);
+  const CProjectileWeapon& projectile = mProjectile;
+  const int sound = projectile.GetSoundIdForCollision(type);
   if (sound < 0) {
     return;
   }
+  const float range = projectile.GetAudibleRange();
+  const float fallOff = projectile.GetAudibleFallOff();
   CAudioSys::C3DEmitterParmData params(
-      mProjectile.GetAudibleRange(), mProjectile.GetAudibleFallOff(), 1,
-      mUseCombatVisorVolume ? mCombatVisorMaxVolume : mEchoVisorMaxVolume, 20);
+      range, fallOff, 1, mUseCombatVisorVolume ? mCombatVisorMaxVolume : mEchoVisorMaxVolume, 20);
   params.mPos = position;
   params.mSfxId = sound;
   const CSfxHandle handle = CSfxManager::AddEmitter(params, GetCurrentAreaId().Value(), true);
@@ -342,9 +347,11 @@ void CEnergyProjectile::InitializeMuzzleOffset(float duration, CStateManager& mg
     if (const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(GetOwnerId()))) {
       const CTransform4f muzzle = player->GetTransform() * player->GetScaledLocatorTransform(
                                                                player->GetGunParticleLocator());
+      const CVector3f offset = muzzle.GetTranslation() - GetTranslation();
       mHasMuzzleOffset = true;
-      mMuzzleOffset = muzzle.GetTranslation() - GetTranslation();
-      mMuzzleOffsetTime = mMuzzleOffsetDuration = duration;
+      mMuzzleOffset = offset;
+      mMuzzleOffsetDuration = duration;
+      mMuzzleOffsetTime = mMuzzleOffsetDuration;
     }
   }
 }

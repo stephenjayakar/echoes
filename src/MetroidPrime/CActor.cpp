@@ -288,7 +288,7 @@ void CActor::SetModelData(const CModelData& data, CStateManager& mgr) {
 }
 
 void CActor::PreRender(CStateManager& mgr) {
-  mOutOfFrustum = !mgr.fn_800366e4(this);
+  mOutOfFrustum = !mgr.IsActorVisible(*this);
 
   if (HasModelData()) {
     const bool moved = GetPreRenderHasMoved();
