@@ -128,7 +128,7 @@ void CGameCamera::SetActive(const bool active) {
 }
 
 CTransform4f CGameCamera::ValidateCameraTransform(const CTransform4f& newXf,
-                                                  const CTransform4f& oldXf) {
+                                                  const CTransform4f& oldXf, float dt) {
   // TODO: Recover orthonormalization and the Echoes-specific horizon/inversion corrections.
   return newXf;
 }

@@ -36,7 +36,7 @@ public:
   const CMatrix4f& GetPerspectiveMatrix() const;
   CVector3f ConvertToScreenSpace(const CVector3f& position) const;
   CVector3f ConvertToWorldSpace(const CVector3f& position) const;
-  CTransform4f ValidateCameraTransform(const CTransform4f& newXf, const CTransform4f& oldXf);
+  CTransform4f ValidateCameraTransform(const CTransform4f& newXf, const CTransform4f& oldXf, float dt);
 
   CPlayer& Player(CStateManager& mgr) const;
   const CPlayer& GetPlayer(const CStateManager& mgr) const;

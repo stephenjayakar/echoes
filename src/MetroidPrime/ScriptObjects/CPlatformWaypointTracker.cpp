@@ -151,7 +151,11 @@ bool CPlatformWaypointTracker::CWaypointTimes::HasCrossedTime(float oldTime, flo
                                                               bool forward) const {
   const float minTime = rstl::min_val(newTime, oldTime);
   const float maxTime = rstl::max_val(newTime, oldTime);
-  const TTimeList& times = forward ? mForwardTimes : mBackwardTimes;
+  const TTimeList* timesPtr = &mForwardTimes;
+  if (!forward) {
+    timesPtr = &mBackwardTimes;
+  }
+  const TTimeList& times = *timesPtr;
 
   if (!passedEnd && !passedStart) {
     for (int i = 0; i < times.size(); ++i) {
@@ -166,9 +170,8 @@ bool CPlatformWaypointTracker::CWaypointTimes::HasCrossedTime(float oldTime, flo
       }
     }
   } else {
-    const float closingTime = duration - minTime;
     for (int i = 0; i < times.size(); ++i) {
-      if (times[i] < maxTime || times[i] >= closingTime) {
+      if (times[i] < maxTime || times[i] >= duration - minTime) {
         return true;
       }
     }

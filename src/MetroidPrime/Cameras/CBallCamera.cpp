@@ -1978,7 +1978,7 @@ void CBallCamera::Think(float dt, CStateManager& mgr) {
     break;
   }
 
-  const CTransform4f nextTransform = ValidateCameraTransform(GetTransform(), oldTransform);
+  const CTransform4f nextTransform = ValidateCameraTransform(GetTransform(), oldTransform, dt);
   SetTransform(nextTransform);
   CActor::Think(dt, mgr);
 }

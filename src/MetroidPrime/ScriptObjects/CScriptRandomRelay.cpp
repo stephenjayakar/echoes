@@ -13,7 +13,7 @@
 
 CScriptRandomRelay::CScriptRandomRelay(TUniqueId uid, const rstl::string& name,
                                        const CEntityInfo& info, int sendSetSize,
-                                       int sendSetVariance, bool percentSize, bool randomChance)
+                                       int sendSetVariance, const bool percentSize, const bool randomChance)
 : CEntity(uid, info, name, 0)
 , mSendSetSize(sendSetSize)
 , mSendSetVariance(sendSetVariance)

@@ -285,7 +285,7 @@ void CInterpolationCamera::Think(float dt, CStateManager& mgr) {
     done = InterpolateSpline(dt, xf, position, mgr);
     break;
   }
-  xf = ValidateCameraTransform(xf, oldXf);
+  xf = ValidateCameraTransform(xf, oldXf, dt);
   SetTransform(xf);
   if (done) {
     EndInterpolation(kER_Completed, mgr);

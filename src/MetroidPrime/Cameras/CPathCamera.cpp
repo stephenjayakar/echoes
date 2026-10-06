@@ -310,7 +310,7 @@ void CPathCamera::Think(float dt, CStateManager& mgr) {
     keyframe->SetTime(time, mgr);
   }
 
-  xf = ValidateCameraTransform(GetTransform(), oldXf);
+  xf = ValidateCameraTransform(GetTransform(), oldXf, dt);
   SetTransform(xf);
   CActor::Think(dt, mgr);
 }

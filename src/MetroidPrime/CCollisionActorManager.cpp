@@ -225,7 +225,7 @@ void CCollisionActorManager::Update(float dt, CStateManager& mgr, EUpdateOptions
     return;
 
   const CAnimData* animData = owner->GetAnimationData();
-  const CTransform4f& worldXf = owner->GetTransform();
+  const CTransform4f worldXf = owner->GetTransform();
   const CTransform4f scaleXf = CTransform4f::Scale(owner->GetModelData()->GetScale());
   for (int i = 0; i < mJointDescriptions.size(); ++i) {
     const CJointCollisionDescription& desc = mJointDescriptions[i];
@@ -245,7 +245,7 @@ void CCollisionActorManager::Update(float dt, CStateManager& mgr, EUpdateOptions
         const CTransform4f nextXf =
             GetWRLocatorTransform(*animData, desc.GetNextId(), worldXf, scaleXf);
         actor->SetRotation(CQuaternion::FromMatrix(
-            CTransform4f::LookAt(origin, nextXf.GetTranslation(), pivotXf.GetColumn(kDZ))));
+            CTransform4f::LookAt(pivotXf.GetTranslation(), nextXf.GetTranslation(), pivotXf.GetColumn(kDZ))));
       }
     } else if (desc.GetType() == CJointCollisionDescription::kCT_SphereSubdivide) {
       if (desc.GetOrientationType() == CJointCollisionDescription::kOT_Pivot) {
@@ -254,7 +254,7 @@ void CCollisionActorManager::Update(float dt, CStateManager& mgr, EUpdateOptions
         const CTransform4f nextXf =
             GetWRLocatorTransform(*animData, desc.GetNextId(), worldXf, scaleXf);
         origin += desc.GetMaxSeparation() *
-                  CTransform4f::LookAt(origin, nextXf.GetTranslation(), pivotXf.GetColumn(kDZ))
+                  CTransform4f::LookAt(pivotXf.GetTranslation(), nextXf.GetTranslation(), pivotXf.GetColumn(kDZ))
                       .GetColumn(kDY);
       }
     }
@@ -344,8 +344,8 @@ void CCollisionActorManager::SetPhysicsActive(CStateManager& mgr, bool active) {
     CCollisionActor* actor =
         TCastToPtr< CCollisionActor >(mgr.ObjectById(mJointDescriptions[i].GetCollisionActorId()));
     if (actor != nullptr) {
-      actor->SetMovable(active);
-      actor->SetUseInSortedLists(active);
+      actor->SetMovable(mPhysicsActive);
+      actor->SetUseInSortedLists(mPhysicsActive);
     }
   }
 }

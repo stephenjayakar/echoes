@@ -394,7 +394,7 @@ void CFirstPersonCamera::Think(float dt, CStateManager& mgr) {
   const CTransform4f previous = GetTransform();
   UpdateElevation(mgr);
   UpdateTransform(mgr, dt);
-  SetTransform(ValidateCameraTransform(GetTransform(), previous));
+  SetTransform(ValidateCameraTransform(GetTransform(), previous, dt));
   if (mCloseInTimer > 0.f) {
     mCloseInTimer -= dt;
   }

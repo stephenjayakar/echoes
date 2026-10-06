@@ -17,7 +17,7 @@
 static int sPortalTraversalDepth;
 
 CPortalArea::SActorPool::SActorPool() : mNodes(SActorNode()) {
-  for (int i = 0; i < mNodes.size() - 1; ++i) {
+  for (int i = 0; i < mNodes.capacity() - 1; ++i) {
     mNodes[i].mNext = &mNodes[i + 1];
   }
   mFree = mNodes.data();

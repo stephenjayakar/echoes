@@ -246,8 +246,9 @@ float CPatterned::GetAnimationDistance(const CPASAnimParmData& parms) const {
   const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
   if (best.first > FLT_EPSILON) {
     const CAnimData* animData = GetAnimationData();
-    distance = animData->GetAnimationDuration(best.second);
-    distance *= animData->GetAverageVelocity(best.second);
+    const float dur = animData->GetAnimationDuration(best.second);
+    const float vel = animData->GetAverageVelocity(best.second);
+    distance = vel * dur;
   }
   return distance;
 }
@@ -361,21 +362,26 @@ void CPatterned::InitializeStateMachine(CStateManager& mgr) {
   if (mStateMachine->HasState()) {
     return;
   }
-  if (mStateMachine->GetType() == 1) {
-    CGenericFSM2* machine = GetStateMachine2();
-    if (!machine) {
-      return;
-    }
-    static_cast< CGenericFSM2State< CPatterned >* >(mStateMachine.get())->Setup(*machine);
-  } else {
+  switch (mStateMachine->GetType()) {
+  case 0: {
     CStateMachine* machine = GetStateMachine();
-    if (!machine) {
-      return;
+    if (machine) {
+      static_cast< TStateMachineState< CPatterned >* >(mStateMachine.get())->Setup(machine);
+      SetupStateMachine(mgr);
+      mStateMachine->SetState(mgr, *this, rstl::string_l("Start"));
     }
-    static_cast< TStateMachineState< CPatterned >* >(mStateMachine.get())->Setup(machine);
+    break;
   }
-  SetupStateMachine(mgr);
-  mStateMachine->SetState(mgr, *this, rstl::string("Start"));
+  case 1: {
+    CGenericFSM2* machine = GetStateMachine2();
+    if (machine) {
+      static_cast< CGenericFSM2State< CPatterned >* >(mStateMachine.get())->Setup(*machine);
+      SetupStateMachine(mgr);
+      mStateMachine->SetState(mgr, *this, rstl::string_l("Start"));
+    }
+    break;
+  }
+  }
 }
 
 void CPatterned::Touch(CActor& actor, CStateManager& mgr) {
