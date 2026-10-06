@@ -374,6 +374,7 @@ int CScriptFrontEndDataNetwork::AddNode(CStateManager& mgr, TUniqueId id, int pa
 }
 
 void CScriptFrontEndDataNetwork::LayoutChildren(int idx, CStateManager& mgr) {
+  const SDataNetworkNode& root = mNodes[0];
   SDataNetworkNode& node = mNodes[idx];
   const CScriptFrontEndDataNetwork* net = node.GetConstNetwork(mgr);
   for (rstl::vector< int >::iterator it = node.mChildren.begin(); it != node.mChildren.end();
@@ -384,9 +385,9 @@ void CScriptFrontEndDataNetwork::LayoutChildren(int idx, CStateManager& mgr) {
     child.SetOffset(offset);
     CVector3f dir = offset;
     if (dir.CanBeNormalized()) {
-      dir = net->GetConnectionRadius() * dir.AsNormalized();
+      dir = dir.AsNormalized() * net->GetConnectionRadius();
     }
-    child.SetPos((node.GetPos() + dir) - mNodes[0].GetPos());
+    child.SetPos((node.GetPos() + dir) - root.GetPos());
     child.SetRenderPos(child.GetPos());
     LayoutChildren(childIdx, mgr);
   }
@@ -589,7 +590,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
       pos -= parent.GetPos();
       radius = parent.GetConstNetwork(mgr)->GetConnectionRadius();
     }
-    const CVector3f local = xf.TransposeMultiply(pos);
+    const CVector3f local = xf.TransposeRotate(pos - xf.GetTranslation());
     float facing = (-1.f * local).GetY() / radius;
     if (-1.f > facing) {
       facing = -1.f;
@@ -635,7 +636,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
                                   mOrientation.BuildTransform4f());
         CTransform4f platformXf(GetTransform());
         const CVector3f& renderPos = it->GetRenderPos();
-        const CVector3f offset = nodeXf.TransposeMultiply(renderPos);
+        const CVector3f offset = nodeXf.TransposeRotate(renderPos - nodeXf.GetTranslation());
         platformXf.SetTranslation(GetTransform().GetTranslation() + offset);
         platform->SetTransformIfNoPositionSpline(platformXf);
         CColor color = CColor::Lerp(mUnselectedMinColor, mUnselectedMaxColor, it->x5c);
@@ -1054,17 +1055,15 @@ uchar CScriptFrontEndDataNetwork::HandleRotation(const CFinalInput& input, CStat
   if (CMath::AbsF(y) < 0.01f) {
     y = 0.f;
   }
-  if (close_enough(x, 0.f) && close_enough(y, 0.f)) {
-    if (mRotationSfx) {
-      CSfxManager::SfxStop(mRotationSfx);
-      mRotationSfx = CSfxHandle();
-    }
-  } else {
+  if (!close_enough(x, 0.f) || !close_enough(y, 0.f)) {
     handled = true;
     if (!mRotationSfx) {
       mRotationSfx = CSfxManager::SfxStart(mRotationSound, mRotationSoundVolume, 0x3f,
                                            mgr.GetNextAreaId().Value(), true, true);
     }
+  } else if (mRotationSfx) {
+    CSfxManager::SfxStop(mRotationSfx);
+    mRotationSfx = CSfxHandle();
   }
   if (!net->x2ce) {
     x = y = 0.f;
@@ -1141,16 +1140,16 @@ uchar CScriptFrontEndDataNetwork::HandleStick(const CFinalInput& input, CStateMa
     } else {
       CVector3f dir(x, 0.f, y);
       handled = true;
-      dir = net->GetConnectionRadius() * dir.AsNormalized();
+      dir = dir.AsNormalized() * net->GetConnectionRadius();
       dir = mOrientation.Transform(dir);
       const CVector3f& pos = node.GetPos();
-      float best = FLT_MAX;
+      float best = 3.4028235e38f;
       int bestIdx = 0;
       for (int i = 0; i < node.mChildren.size(); ++i) {
         SDataNetworkNode& child = mNodes[node.mChildren[i]];
         if (!child.GetConstNetwork(mgr)->mIsLocked) {
-          const CVector3f delta = (child.GetPos() - pos) - dir;
-          const float distSq = delta.MagSquared();
+          const CVector3f rel = child.GetPos() - pos;
+          const float distSq = (rel - dir).MagSquared();
           if (distSq < best) {
             bestIdx = i;
             best = distSq;
