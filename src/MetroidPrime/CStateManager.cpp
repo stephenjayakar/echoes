@@ -24,6 +24,7 @@
 #include "MetroidPrime/CMain.hpp"
 #include "MetroidPrime/CMapWorld.hpp"
 #include "MetroidPrime/CMapWorldInfo.hpp"
+#include "MetroidPrime/CMemoryCard.hpp"
 #include "MetroidPrime/CPhysicsActor.hpp"
 #include "MetroidPrime/CPortalArea.hpp"
 #include "MetroidPrime/CPortalTransition.hpp"
@@ -39,9 +40,11 @@
 #include "MetroidPrime/CWorldLayerState.hpp"
 #include "MetroidPrime/Cameras/CCinematicCamera.hpp"
 #include "MetroidPrime/Cameras/CGameCamera.hpp"
+#include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
 #include "MetroidPrime/Enemies/CPatterned.hpp"
 #include "MetroidPrime/Enemies/CSwarmBasics.hpp"
 #include "MetroidPrime/GameObjectLists.hpp"
+#include "MetroidPrime/HUD/CHUDMemoParms.hpp"
 #include "MetroidPrime/HUD/CSamusHud.hpp"
 #include "MetroidPrime/Player/CGameMode.hpp"
 #include "MetroidPrime/Player/CGameState.hpp"
@@ -61,10 +64,14 @@
 #include "MetroidPrime/ScriptObjects/CScriptForgottenObject.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPlatform.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptSpecialFunction.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptSpawnPoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/Tweaks/CTweakGui.hpp"
+#include "MetroidPrime/Tweaks/CTweakGame.hpp"
 #include "MetroidPrime/Tweaks/CTweakPlayer.hpp"
+#include "MetroidPrime/Tweaks/CTweakPlayerGun.hpp"
+#include "MetroidPrime/Tweaks/CTweakPlayerRes.hpp"
 #include "MetroidPrime/Weapons/CWeapon.hpp"
 
 #include "Kyoto/Audio/CAudioGroupSet.hpp"
@@ -76,18 +83,23 @@
 #include "Kyoto/CARAMToken.hpp"
 #include "Kyoto/CDependencyGroup.hpp"
 #include "Kyoto/CFrameDelayedKiller.hpp"
+#include "Kyoto/CResFactory.hpp"
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/CTimeProvider.hpp"
 #include "Kyoto/Graphics/CGraphics.hpp"
+#include "Kyoto/Graphics/CCubeModel.hpp"
 #include "Kyoto/Graphics/CGraphicsPalette.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
 #include "Kyoto/Graphics/CTexture.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
+#include "Kyoto/Math/CQuaternion.hpp"
+#include "Kyoto/Math/CloseEnough.hpp"
 #include "Kyoto/PVS/CPVSVisSet.hpp"
 #include "Kyoto/Particles/CElementGen.hpp"
 #include "Kyoto/Particles/CParticleElectric.hpp"
 #include "Kyoto/Particles/CParticleSpawnSystem.hpp"
 #include "Kyoto/Particles/CSortedParticleSystem.hpp"
+#include "Kyoto/Text/CStringTable.hpp"
 #include "MetaRender/AmbientLightScale.hpp"
 #include "MetaRender/CCubeRenderer.hpp"
 #include "MetroidPrime/CSimpleShadow.hpp"
@@ -116,8 +128,22 @@ public:
 
 static s64 sPreRenderStepTime;
 
+// Prime-correlated lazy initialization; Echoes schedules rumble rather than camera shakes.
+static float sNextEscapeRumble;
+static char sEscapeRumbleInitialized;
+
 // Prime-correlated name; native underwater ranges for the two bomb attributes.
 static const float skBombUnderwaterRanges[2] = {2.f, 4.f};
+
+static const char* const skAudioGroupDependencies[3] = {
+    "audio_groups_single_player_DGRP", "audio_groups_front_end_DGRP",
+    "audio_groups_multi_player_DGRP"};
+static const char* const skSinglePlayerAnimController = "SinglePlayerAnimCtrl";
+static const char* const skMultiplayerAnimController = "PlayerAnimCtrl";
+static const char* const skUnusedViewportTexture = "TXTR_Metroid2LogoSm";
+
+// Guessed name. The original immutable flag is false; its defining TU is unresolved.
+static const bool skDisablePlayerTargeting = false;
 
 // Both retained release hooks contain only a return instruction. Their sole known
 // callers pass this manager; no exported name or body establishes a semantic name.
@@ -1038,6 +1064,51 @@ void CStateManager::RenderEchoEmitters(const CEchoEmitter* emitters) const {
   CEchoEmitter::RenderEmitters(*this, emitters);
 }
 
+void CStateManager::SetupViewForDraw(const CViewport& viewport) {
+  const CPlayer* player = mCurrentRenderPlayer;
+  const CGameCamera* camera = mCameraManager->GetCurrentCamera(*this, true);
+  const CTransform4f cameraTransform = mCameraManager->GetCurrentCameraTransform(*this, true);
+  gpRender->SetWorldViewpoint(cameraTransform);
+  CCubeModel::SetNewPlayerPositionAndTime(player->GetTranslation(), CStopwatch::GetGlobalTimerObj());
+
+  float widthScale = player->GetViewportScaleX();
+  float heightScale = player->GetViewportScaleY();
+  for (int i = 0; i < 11; ++i) {
+    const CCameraFilterPass& filter = mCameraFilterPasses[mCurrentRenderPlayerIndex][i];
+    const float filterWidth = filter.GetWidthScale();
+    if (filterWidth < widthScale) {
+      widthScale = filterWidth;
+    }
+    const float filterHeight = filter.GetHeightScale();
+    if (filterHeight < heightScale) {
+      heightScale = filterHeight;
+    }
+  }
+
+  const float scaledWidth = widthScale * static_cast< float >(viewport.mWidth);
+  const float scaledHeight = heightScale * static_cast< float >(viewport.mHeight);
+  const int width = static_cast< int >(scaledWidth);
+  const int height = (static_cast< int >(scaledHeight) / 2) * 2;
+  const int left = viewport.mLeft + (viewport.mWidth - width) / 2;
+  const bool splitScreen = IsMultiplayer() && !mCameraManagers[0]->IsInFullScreenCinematic();
+  const float topScale = splitScreen ? 0.25f : 0.5f;
+  const int top = viewport.mTop + static_cast< int >(topScale * (viewport.mHeight - height));
+  const float aspect = (widthScale * camera->GetAspectRatio()) / heightScale;
+  const float tangent = static_cast< float >(tan(CMath::Deg2Rad(0.5f * camera->GetFov())));
+  const float fieldOfView = 2.f * static_cast< float >(atan(tangent * heightScale));
+
+  gpRender->SetViewport(left, top, width, height);
+  CGraphics::SetDepthRange(0.125f, 1.f);
+  gpRender->SetPerspective(360.f * CMath::Rad2Rev(fieldOfView), scaledWidth, scaledHeight,
+                           camera->GetNearClipDistance(), camera->GetFarClipDistance());
+  mPlanes = CFrustumPlanes(cameraTransform, fieldOfView, aspect,
+                           camera->GetNearClipDistance(), false, 100.f);
+  gpRender->PrimColor(CColor::White());
+  gpRender->SetModelMatrix(CTransform4f::Identity());
+  mFluidPlaneManager->StartFrame(false);
+  gpRender->SetDebugOption(IRenderer::kDO_PVSState, 1);
+}
+
 void CStateManager::DrawWorld(const CInGameGuiManagerSet& gui) {
   CScopedProfiler profile(rstl::string_l("*TotalDrawWorld"), true);
   SetRendererWorkspace(alloca(GetRendererWorkspaceSize()));
@@ -1378,6 +1449,71 @@ void CStateManager::ResetEscapeSequenceTimer(float time) {
 
 float CStateManager::GetEscapeSequenceTimer() const { return gpGameState->GetEscapeTime(); }
 
+void CStateManager::UpdateEscapeSequenceTimer(float dt) {
+  if (close_enough(mEscapeTotalTime, 0.f)) {
+    mEscapeTotalTime = gpGameState->GetEscapeTime();
+  }
+  const float totalTime = mEscapeTotalTime;
+  if (gpGameState->GetEscapeTime() > 0.f) {
+    gpGameState->SetEscapeTime(rstl::max_val(FLT_EPSILON, gpGameState->GetEscapeTime() - dt));
+    if (gpGameState->GetEscapeTime() <= FLT_EPSILON && mPlayerStates[0]->IsPlayerAlive()) {
+      KillPlayer(0.f, mPlayers[0]->GetUniqueId(), kInvalidUniqueId);
+    }
+
+    if (!sEscapeRumbleInitialized) {
+      sEscapeRumbleInitialized = true;
+      sNextEscapeRumble = 0.f;
+    }
+    sNextEscapeRumble -= dt;
+    if (sNextEscapeRumble < 0.f) {
+      const float factor = 1.f - gpGameState->GetEscapeTime() / totalTime;
+      mRumbleManagers[0]->Rumble(*this, kRFX_PlayerBump, 0.75f, kRP_One);
+      sNextEscapeRumble = -12.f * (factor * factor) + 15.f;
+    }
+  }
+}
+
+void CStateManager::UpdateHintState(float dt) {
+  CHintOptions& hintOptions = gpGameState->HintOptions();
+  hintOptions.Update(dt, *this);
+
+  int nextHintIdx = -1;
+  int hintPeriods = -1;
+  const CHintOptions::SHintState* currentHint = hintOptions.GetCurrentDisplayedHint();
+  if (currentHint != nullptr) {
+    const CGameHintInfo::CGameHint& nextHint =
+        gpMemoryCard->GetHints()[hintOptions.GetNextHintIdx()];
+    const rstl::vector< CGameHintInfo::SHintLocation >& locations = nextHint.GetLocations();
+    for (int i = 0; i < static_cast< int >(locations.size()); ++i) {
+      const CGameHintInfo::SHintLocation& location = locations[i];
+      const int areaId = location.mAreaId.Value();
+      const CAssetId worldId = location.mMlvlId;
+      CWorldState& worldState = gpGameState->StateForWorld(worldId);
+      rstl::rc_ptr< CMapWorldInfo > mapWorldInfo = worldState.MapWorldInfo();
+      mapWorldInfo->SetIsMapped(TAreaId(areaId), true);
+    }
+
+    if (currentHint->mTime < nextHint.GetTextTime()) {
+      nextHintIdx = hintOptions.GetNextHintIdx();
+      hintPeriods = static_cast< int >(currentHint->mTime / CGameHintInfo::skHintTextTime);
+    }
+  }
+
+  if (nextHintIdx != mHintIdx || hintPeriods != static_cast< int >(mHintPeriods)) {
+    if (nextHintIdx == -1) {
+      CSamusHud::DisplayHudMemo(rstl::wstring_l(L""),
+                               CHUDMemoParms(0.f, true, true, true, 15, true));
+    } else {
+      const CAssetId stringId = gpMemoryCard->GetHints()[nextHintIdx].GetStringId();
+      CSamusHud::DeferHintMemo(stringId, hintPeriods,
+                             CHUDMemoParms(0.f, true, false, true, 15, true));
+    }
+
+    mHintIdx = nextHintIdx;
+    mHintPeriods = hintPeriods;
+  }
+}
+
 void CStateManager::AddWeaponId(TUniqueId owner, EWeaponType type) {
   mWeaponMgr->IncrCount(owner, type);
 }
@@ -1424,8 +1560,8 @@ int CStateManager::SpecialSkipCinematic() {
     if (entity == nullptr) {
       SetSkipCinematicSpecialFunction(kInvalidUniqueId);
     } else if (CScriptSpecialFunction* special = TCastToPtr< CScriptSpecialFunction >(entity)) {
-      const bool wasSkipping = IsSkippingCinematic();
-      mSkippingCinematic = true;
+      const bool randomWasAvailable = IsRandomAvailable();
+      mRandomAvailable = true;
 
       if (special->GetFunction() == CScriptSpecialFunction::kSF_CinematicSkip) {
         mCameraManagers[0]->StopCinematics(*this);
@@ -1434,7 +1570,7 @@ int CStateManager::SpecialSkipCinematic() {
         result = 2;
       }
       special->SkipCinematic(*this);
-      mSkippingCinematic = wasSkipping;
+      mRandomAvailable = randomWasAvailable;
     }
   }
   return result;
@@ -1677,7 +1813,7 @@ CStateManager::CStateManager(
 , mUnknown0x16b4(0)
 , mShadowTex(gpSimplePool->GetObj("DefaultShadow"))
 , mRandom(0)
-, mSkippingCinematic(false)
+, mRandomAvailable(false)
 , mGameState(kGS_Running)
 , mInitPhase(kIP_LoadAudioGroups)
 , mCameraFilterPasses(4, rstl::reserved_vector< CCameraFilterPass, 11 >(11, CCameraFilterPass()))
@@ -1777,7 +1913,7 @@ CStateManager::~CStateManager() {
     mRumbleManagers[i]->HardStopAll();
   }
   mEnvFxManager->Cleanup();
-  mSkippingCinematic = true;
+  mRandomAvailable = true;
 
   CObjectList& objects = *mObjectLists[kOL_All];
   ClearGraveyard();
@@ -1912,6 +2048,302 @@ TUniqueId CStateManager::AllocateUniqueId() {
   mAllocatedObjectIndices[ourIndex] = true;
 
   return TUniqueId(mObjectIndexArray[ourIndex], ourIndex);
+}
+
+void CStateManager::CreateStandardGameObjects() {
+  mNumPlayers = gpGameState->GetGameMode().GetNumPlayers();
+  CTweakPlayerGun* playerGunTweak = gpTweakPlayerGunSingle.get();
+  if (mNumPlayers > 1u) {
+    playerGunTweak = gpTweakPlayerGunMulti.get();
+  }
+  gpTweakPlayerGun = playerGunTweak;
+
+  mCameraManagers[0] = &mStateManagerContainer->mCameraManager0;
+  mCameraManagers[1] = &mStateManagerContainer->mCameraManager1;
+  mCameraManagers[2] = &mStateManagerContainer->mCameraManager2;
+  mCameraManagers[3] = &mStateManagerContainer->mCameraManager3;
+  for (uint i = 0; i < mNumPlayers; ++i) {
+    const TUniqueId uid = AllocateUniqueId();
+    const CVector3f position(5.f * (i & 1), 0.f, 5.f * (i & 2));
+    const CRelAngle angle = CRelAngle::FromDegrees(129.6f);
+    const CMatrix3f matrix =
+        CQuaternion::AxisAngle(CUnitVector3f(0.f, 0.f, 1.f, CUnitVector3f::kN_Yes), angle)
+            .BuildTransform();
+    const CTransform4f transform = CTransform4f::FromColumns(
+        matrix.GetColumn(kDX), matrix.GetColumn(kDY), matrix.GetColumn(kDZ), position);
+
+    CTweakPlayer* tweak = gpTweakPlayerA.get();
+    const int controlScheme = mPlayerStateOwners[i]->GetControlScheme();
+    if (controlScheme == 1) {
+      tweak = gpTweakPlayerB.get();
+    }
+    const float stepUp = tweak->GetStepUpHeight();
+    const float stepDown = tweak->GetStepDownHeight();
+    const float height = tweak->GetPlayerHeight();
+    const float radius = tweak->GetPlayerRadius();
+    const float ballRadius = tweak->GetBallRadius();
+    const CAABox bounds(CVector3f(-radius, -radius, 0.f), CVector3f(radius, radius, height));
+
+    const SObjectTag* animationController = gpResourceFactory->GetResourceIdByName(
+        IsMultiplayer() ? skMultiplayerAnimController : skSinglePlayerAnimController);
+    const CAssetId stateMachine = animationController ? animationController->id : kInvalidAssetId;
+    mPlayerStates[i] = mPlayerStateOwners[i].GetPtr();
+    int characterIndex = 3;
+    if (IsMultiplayer()) {
+      characterIndex = 0;
+    }
+    mPlayers[i] = rs_new CPlayer(
+        uid, transform, bounds, gpTweakPlayerRes->GetBallTransitionANCSId(), stateMachine,
+        200.f, stepUp, stepDown, ballRadius,
+        CMaterialList(kMT_Player, kMT_Unknown59, kMT_GroundCollider, kMT_Target, kMT_NoPlayerCollision),
+        mPlayerStates[i], mCameraManagers[i], mNumPlayers > 1u, i,
+        mPlayerStateOwners[i]->GetControlScheme(), characterIndex);
+  }
+
+  for (uint i = 0; i < mNumPlayers; ++i) {
+    AddObject(*mPlayers[i]);
+    if (!skDisablePlayerTargeting) {
+      mPlayers[i]->AddMaterial(kMT_Orbit, kMT_Scannable, *this);
+    }
+  }
+
+  float fieldOfView = gpTweakGame->GetFieldOfView();
+  if (mNumPlayers == 2u) {
+    fieldOfView = gpTweakGame->GetTwoPlayerFieldOfView();
+  }
+  for (uint i = 0; i < mNumPlayers; ++i) {
+    mCameraManagers[i]->SetFirstPersonFOV(fieldOfView);
+    mCameraManagers[i]->CreateCameras(*this);
+  }
+  mEnvFxManager->AsyncLoadResources(*this);
+}
+
+void CStateManager::SpawnPlayer(CScriptSpawnPoint& spawnPoint, uint playerIndex) {
+  CPlayer& player = *mPlayers[playerIndex];
+  CPlayerState& state = *player.GetPlayerState();
+  const CVector3f position = spawnPoint.GetTransform().GetTranslation();
+  CVector3f forward = spawnPoint.GetTransform().GetForward();
+  forward.SetZ(0.f);
+  if (forward.CanBeNormalized()) {
+    player.Teleport(CTransform4f::LookAt(position, position + forward, CVector3f::Up()),
+                    *this, true);
+    player.SetSpawnedMorphBallState(
+        spawnPoint.IsMorphed() ? CPlayer::kMS_Morphed : CPlayer::kMS_Unmorphed, *this);
+    player.ResetPlayerState(*this, 1);
+  }
+
+  if (gpGameState->GetGameMode().IsMultiplayer() || gpGameState->GetInitPowerupsAtFirstSpawn()) {
+    gpGameState->SetDeferPowerupInit(false);
+    for (int i = CPlayerState::kIT_PowerBeam; i < CPlayerState::kIT_Max; ++i) {
+      const CPlayerState::EItemType item = static_cast< CPlayerState::EItemType >(i);
+      if (state.GetItemCapacity2(item) < spawnPoint.GetItemCapacity(item)) {
+        state.AddPowerUp(item, spawnPoint.GetItemCapacity(item) - state.GetItemCapacity2(item));
+      }
+      if (state.GetItemAmount(item, true) < spawnPoint.GetItemAmount(item)) {
+        state.IncrPickUp(item, spawnPoint.GetItemAmount(item) - state.GetItemAmount(item, true));
+      }
+    }
+  }
+
+  const uint spawnedPlayerIndex = player.GetPlayerIndex();
+  const CGameState& gameState = *gpGameState;
+  gameState.GetGameMode().OnPlayerSpawned(*this, spawnedPlayerIndex);
+  spawnPoint.SendSpawnMessage(*this, player);
+  player.AsyncLoadSuit(*this);
+}
+
+void CStateManager::InitializeState(CAssetId worldId, TAreaId areaId, CAssetId mreaId) {
+  const bool randomWasAvailable = IsRandomAvailable();
+  mRandomAvailable = true;
+  if (mInitPhase == kIP_LoadAudioGroups) {
+    if (!IsMultiplayer()) {
+      CAudioGrpSetLoc::sInSinglePlayer = true;
+    }
+    if (gpGameState->AudioGroups().empty()) {
+      const int gameMode = gpGameState->GetGameMode().GetGameModeType();
+      int dependencyIndex = 2;
+      if (gameMode == 'SNGL') {
+        dependencyIndex = 0;
+      }
+      if (gameMode == 'FRND') {
+        dependencyIndex = 1;
+      }
+      mAudioGroupDependencies =
+          TToken< CDependencyGroup >(gpSimplePool->GetObj(skAudioGroupDependencies[dependencyIndex]));
+      mAudioGroupDependencies.Lock();
+    }
+    mInitPhase = kIP_LoadWorld;
+  }
+
+  if (mInitPhase == kIP_LoadWorld) {
+    if (gpGameState->AudioGroups().empty()) {
+      if (!mAudioGroupDependencies.IsLoaded()) {
+        return;
+      }
+      CDependencyGroup& dependencies = **mAudioGroupDependencies;
+      rstl::vector< TCachedToken< CAudioGrpSetLoc > >& audioGroups = gpGameState->AudioGroups();
+      const rstl::vector< SObjectTag >& tags = dependencies.GetObjectTagVector();
+      audioGroups.reserve(tags.size());
+      for (rstl::vector< SObjectTag >::const_iterator it = tags.begin(); it != tags.end(); ++it) {
+        if (it->type == 'AGSC') {
+          audioGroups.push_back_unsafe(TCachedToken< CAudioGrpSetLoc >(gpSimplePool->GetObj(*it)));
+        }
+      }
+      mAudioGroupDependencies.Unlock();
+      for (rstl::vector< TCachedToken< CAudioGrpSetLoc > >::iterator it = audioGroups.begin();
+           it != audioGroups.end(); ++it) {
+        it->Lock();
+      }
+    }
+    CreateStandardGameObjects();
+    mWorld = rs_new CWorld(*gpSimplePool, *gpResourceFactory, worldId);
+    mInitPhase = kIP_LoadFirstArea;
+  }
+
+  if (mInitPhase == kIP_LoadFirstArea) {
+    if (!mShadowTex.IsLoaded()) {
+      return;
+    }
+    if (mNumPlayers == 3u && mUnusedViewportTexture.null()) {
+      mUnusedViewportTexture =
+          rs_new TCachedToken< CTexture >(gpSimplePool->GetObj(skUnusedViewportTexture));
+      mUnusedViewportTexture->Lock();
+      return;
+    }
+    if (!mUnusedViewportTexture.null() && !mUnusedViewportTexture->IsLoaded()) {
+      return;
+    }
+    if (!mWorld->CheckWorldComplete(this, areaId, mreaId)) {
+      return;
+    }
+    mNextAreaId = mWorld->GetCurrentAreaId();
+    CGameArea* area = mWorld->Area(GetNextAreaId());
+    if (mWorld->ScheduleAreaToLoad(area, *this)) {
+      area->StartStreamIn(*this);
+      return;
+    }
+    mInitPhase = kIP_Done;
+  }
+
+  SetCurrentAreaId(mNextAreaId);
+  gpGameState->CurrentWorldState().SetAreaId(mNextAreaId);
+  mWorld->TravelToArea(mNextAreaId, *this, CWorld::kATT_SkipAdjacent);
+  CObjectList* allObjects = mObjectLists[kOL_All].get();
+  for (int i = allObjects->GetFirstObjectIndex(); i != -1; i = allObjects->GetNextObjectIndex(i)) {
+    DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, (*allObjects)[i]->GetUniqueId(), kSM_WorldLoaded,
+                               kInvalidUniqueId, kSS_InvalidState));
+  }
+
+  if (mPendingDockArea != kInvalidAreaId) {
+    CObjectList* objects = mObjectLists[kOL_All].get();
+    for (int i = objects->GetFirstObjectIndex(); i != -1; i = objects->GetNextObjectIndex(i)) {
+      CActor& actor = *static_cast< CActor* >((*objects)[i]);
+      const TAreaId actorArea = actor.GetCurrentAreaId();
+      SetActorAreaId(actor, kInvalidAreaId);
+      SetActorAreaId(actor, actorArea);
+    }
+  }
+
+  int nextSpawn = 0;
+  if (mPendingDockArea != kInvalidAreaId) {
+    CScriptDock* dock = nullptr;
+    CObjectList* objects = mObjectLists[kOL_All].get();
+    for (int i = objects->GetFirstObjectIndex(); i != -1; i = objects->GetNextObjectIndex(i)) {
+      if (CScriptDock* candidate = TCastToPtr< CScriptDock >((*objects)[i])) {
+        if (candidate->GetDockId() == mPendingDock) {
+          dock = candidate;
+          break;
+        }
+      }
+    }
+    CScriptSpawnPoint* spawn = nullptr;
+    if (dock != nullptr) {
+      spawn = TCastToPtr< CScriptSpawnPoint >(
+          ObjectById(dock->FindConnectedObject(*this, kSS_MaxReached, kSM_Activate)));
+    }
+    if (spawn != nullptr) {
+      SpawnPlayer(*spawn, 0);
+      nextSpawn = 1;
+    }
+  }
+
+  if (!IsMultiplayer()) {
+    if (nextSpawn == 0) {
+      CObjectList* objects = mObjectLists[kOL_All].get();
+      for (int i = objects->GetFirstObjectIndex(); i != -1; i = objects->GetNextObjectIndex(i)) {
+        if (CScriptSpawnPoint* spawn = TCastToPtr< CScriptSpawnPoint >((*objects)[i])) {
+          if (spawn->GetActive() && spawn->IsFirstSpawn()) {
+            SpawnPlayer(*spawn, nextSpawn);
+            break;
+          }
+        }
+      }
+    }
+  } else {
+    rstl::vector< TUniqueId > spawnPoints;
+    spawnPoints.reserve(mNumPlayers);
+    CObjectList* objects = mObjectLists[kOL_All].get();
+    for (int i = objects->GetFirstObjectIndex(); i != -1; i = objects->GetNextObjectIndex(i)) {
+      if (CScriptSpawnPoint* spawn = TCastToPtr< CScriptSpawnPoint >((*objects)[i])) {
+        if (spawn->GetActive() && spawn->IsFirstSpawn()) {
+          spawnPoints.reserve(spawnPoints.size() + 1);
+          spawnPoints.push_back_unsafe(spawn->GetUniqueId());
+        }
+      }
+    }
+    while (!spawnPoints.empty() && spawnPoints.size() < spawnPoints.capacity()) {
+      spawnPoints.push_back_unsafe(spawnPoints.front());
+    }
+    CRandom16 random(CStopwatch::GetGlobalMicros());
+    rstl::random_shuffle(spawnPoints.begin(), spawnPoints.end(), random);
+    for (uint i = 0; i < mNumPlayers; ++i) {
+      const int startingSpawn = nextSpawn;
+      do {
+        if (CScriptSpawnPoint* spawn = TCastToPtr< CScriptSpawnPoint >(ObjectById(spawnPoints[nextSpawn]))) {
+          SpawnPlayer(*spawn, i);
+          nextSpawn = (nextSpawn + 1) % spawnPoints.size();
+          break;
+        }
+        nextSpawn = (nextSpawn + 1) % spawnPoints.size();
+      } while (nextSpawn != startingSpawn);
+    }
+  }
+  mRandomAvailable = randomWasAvailable;
+}
+
+bool CStateManager::PrepareAreaTransition(TAreaId areaId) {
+  TAreaId areaToKeep = areaId;
+  if (!mWorld->UnloadAllAreasExcept(*this, areaToKeep)) {
+    return false;
+  }
+  for (uint i = 0; i < mNumPlayers; ++i) {
+    mRumbleManagers[i]->HardStopAll();
+  }
+  mPendingDockArea = areaId;
+  mInitPhase = kIP_LoadFirstArea;
+
+  CObjectList* objects = mObjectLists[kOL_All].get();
+  for (int i = objects->GetFirstObjectIndex(); i != -1; i = objects->GetNextObjectIndex(i)) {
+    CEntity& entity = *(*objects)[i];
+    if (entity.GetCurrentAreaId() != kInvalidAreaId) {
+      entity.SetCurrentAreaId(areaId);
+    }
+    if (TCastToPtr< CWeapon >(&entity) != nullptr) {
+      DeleteObjectRequest(entity.GetUniqueId());
+    }
+  }
+
+  const bool randomWasAvailable = IsRandomAvailable();
+  mRandomAvailable = true;
+  mPlayers[0]->GetPlayerGun()->Reset(*this);
+  mRandomAvailable = randomWasAvailable;
+  mPlayers[0]->StopSounds();
+  SetIsDarkWorld(!mIsDarkWorld);
+  mUnknown0x2908 = CTransform4f::Identity();
+  mDarkWorldCloudScale = CVector3f::Zero();
+  mDarkWorldCloudTime = 0.f;
+  mDarkWorldCloudColor = CColor::Black();
+  return true;
 }
 
 const CEntity* CStateManager::GetObjectById(TUniqueId uid) const {
@@ -2814,6 +3246,50 @@ void CStateManager::MoveActors(float dt) {
   }
 }
 
+void CStateManager::CrossTouchActors() {
+  CObjectList* actorList = mObjectLists[kOL_Actor].get();
+  bool visits[kMaxObjects];
+  memset(visits, 0, sizeof(visits));
+
+  for (int i = actorList->GetFirstObjectIndex(); i != -1; i = actorList->GetNextObjectIndex(i)) {
+    CActor* actor = static_cast< CActor* >((*actorList)[i]);
+    if (actor != nullptr && actor->GetActive() && actor->GetCallTouch()) {
+      const rstl::optional_object< CAABox > touchBounds = actor->GetTouchBounds();
+      if (!touchBounds) {
+        continue;
+      }
+      if (!actor->GetUpdateDuringCinematicSkip() && gpMain->IsMaxSpeed()) {
+        continue;
+      }
+
+      rstl::reserved_vector< TUniqueId, kMaxObjects > nearList;
+      const CMaterialFilter filter = actor->GetMaterialList().HasMaterial(kMT_Trigger) &&
+                                             TCastToPtr< CMetroidAlpha >(actor) == nullptr
+                                         ? CMaterialFilter::MakeExclude(CMaterialList(kMT_Trigger))
+                                         : CMaterialFilter::GetPassEverything();
+      BuildNearList(nearList, *touchBounds, filter, actor);
+
+      for (const TUniqueId* uid = nearList.begin(); uid != nearList.end(); ++uid) {
+        CActor* other = static_cast< CActor* >(ObjectById(*uid));
+        if (other != nullptr) {
+          const rstl::optional_object< CAABox > otherBounds = other->GetTouchBounds();
+          if (!other->GetActive() || !otherBounds) {
+            continue;
+          }
+
+          if (!visits[other->GetUniqueId().Value()]) {
+            if (touchBounds->DoBoundsOverlap(*otherBounds)) {
+              actor->Touch(*other, *this);
+              other->Touch(*actor, *this);
+            }
+            visits[actor->GetUniqueId().Value()] = true;
+          }
+        }
+      }
+    }
+  }
+}
+
 void CStateManager::ThinkEntity(float dt, CEntity& entity) { entity.Think(dt, *this); }
 
 bool CStateManager::ShouldUpdatePatterned(const CPatterned& actor) {
@@ -3070,4 +3546,45 @@ void CStateManager::UpdateAreaSounds() {
     }
   }
   CSfxManager::SetActiveAreas(areaIds, mNextAreaId.Value());
+}
+
+void CStateManager::DisplayAlertAboutOutOfAmmo(const CPlayer& player,
+                                            CPlayerState::EItemType type) {
+  CObjectList* allList = mObjectLists[kOL_All].get();
+  for (int i = allList->GetFirstObjectIndex(); i != -1; i = allList->GetNextObjectIndex(i)) {
+    CScriptSpecialFunction* const special = TCastToPtr< CScriptSpecialFunction >((*allList)[i]);
+    if (special != nullptr && special->GetFunction() == CScriptSpecialFunction::kSF_ItemDepletion) {
+      special->OnItemDepleted(*this, player.GetPlayerIndex(), type);
+    }
+  }
+
+  if (mPlayerStates[player.GetPlayerIndex()]->GetItemAmount(type, true) != 0) {
+    return;
+  }
+  const uint playerIndex = MaskUIdNumPlayers(player.GetUniqueId());
+  CHUDMemoParms memoInfo(3.f, true, false, false, 1 << playerIndex, true);
+  switch (type) {
+  case CPlayerState::kIT_LightAmmo:
+    if (mDarkAmmoDepletedPlayers & (1 << player.GetPlayerIndex())) {
+      CSamusHud::DisplayHudMemo(rstl::wstring(gpStringTable->GetString("BothAmmoDepleted")),
+                               memoInfo);
+    } else {
+      CSamusHud::DisplayHudMemo(rstl::wstring(gpStringTable->GetString("LightAmmoDepleted")),
+                               memoInfo);
+    }
+    mLightAmmoDepletedPlayers |= 1 << player.GetPlayerIndex();
+    break;
+  case CPlayerState::kIT_DarkAmmo:
+    if (mLightAmmoDepletedPlayers & (1 << player.GetPlayerIndex())) {
+      CSamusHud::DisplayHudMemo(rstl::wstring(gpStringTable->GetString("BothAmmoDepleted")),
+                               memoInfo);
+    } else {
+      CSamusHud::DisplayHudMemo(rstl::wstring(gpStringTable->GetString("DarkAmmoDepleted")),
+                               memoInfo);
+    }
+    mDarkAmmoDepletedPlayers |= 1 << player.GetPlayerIndex();
+    break;
+  default:
+    break;
+  }
 }

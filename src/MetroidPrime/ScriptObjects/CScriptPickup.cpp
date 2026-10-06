@@ -4,6 +4,9 @@
 #include "MetroidPrime/CAnimPlaybackParms.hpp"
 // #include "MetroidPrime/CArtifactDoll.hpp"
 #include "MetroidPrime/CExplosion.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
+#include "MetroidPrime/CEchoEmitter.hpp"
+#include "MetroidPrime/Cameras/CFirstPersonCamera.hpp"
 #include "Kyoto/Graphics/CColor.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CEntityInfo.hpp"
@@ -34,10 +37,12 @@
 #include "Kyoto/Text/CStringTable.hpp"
 
 #include "rstl/math.hpp"
+#include <float.h>
 
 static float skDrawInDistance = 30.f;
-static bool sPickupSfxOwnerInit;                     // Guessed name.
-static TUniqueId sPickupSfxOwner = kInvalidUniqueId; // Guessed name.
+static float skMultiplayerDrawInDistance = 12.f;
+static bool skHomingPickupIdInit;                     // Guessed name.
+static TUniqueId skHomingPickupId = kInvalidUniqueId; // Guessed name.
 
 CScriptPickup::CScriptPickup(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                              const CTransform4f& xf, const CModelData& modelData,
@@ -55,7 +60,7 @@ CScriptPickup::CScriptPickup(TUniqueId uid, const rstl::string& name, const CEnt
 , mPercentageIncrease(itemPercentageIncrease)
 , mLifeTime(lifeTime)
 , mRespawnTime(respawnTime)
-, x170(0.f)
+, mRespawnTimer(0.f)
 , mFadeTime(fadeTime)
 , mCurTime(0.0f)
 , mPickupEffectLifetime(pickupEffectLifetime)
@@ -66,21 +71,21 @@ CScriptPickup::CScriptPickup(TUniqueId uid, const rstl::string& name, const CEnt
 , mTransformZ(xf.GetTranslation().GetZ())
 , mPickupParticleDesc()
 , mTouchBounds(aabb)
-, x1bc(0)
-, x1c0(0)
+, mFramesSinceLastSeen(0)
+, mHomingPlayerIndex(0)
 , mOrbitOffset(orbitOffset)
-, mUnknownProp(unknown)
-, mGenerated(false)
+, mCanHomeByDefault(unknown)
 , mInTractor(false)
-, mAbsoluteValue(absoluteValue)
 , mEnableTractorTest(false)
+, mAbsoluteValue(absoluteValue)
+, mSuppressDeathScriptMsgs(false)
 , mAutoSpin(autoSpin)
-, mUnk2(true)
-, mUnk3(false)
+, mRenderedThisFrame(true)
+, mSuppressBobbing(false)
 , mBlinkOut(blinkOut) {
-  if (!sPickupSfxOwnerInit) {
-    sPickupSfxOwnerInit = true;
-    sPickupSfxOwner = kInvalidUniqueId;
+  if (!skHomingPickupIdInit) {
+    skHomingPickupIdInit = true;
+    skHomingPickupId = kInvalidUniqueId;
   }
 
   if (pickupEffect != kInvalidAssetId) {
@@ -104,18 +109,18 @@ CScriptPickup::~CScriptPickup() {}
 
 void CScriptPickup::PreRenderAllViewports(CStateManager& mgr) {
   CActor::PreRenderAllViewports(mgr);
-  if (mUnk2) {
-    mUnk2 = false;
-    x1bc = 0;
+  if (mRenderedThisFrame) {
+    mRenderedThisFrame = false;
+    mFramesSinceLastSeen = 0;
   } else {
-    x1bc += 1;
+    mFramesSinceLastSeen += 1;
   }
 }
 
 void CScriptPickup::PreRender(CStateManager& mgr) {
   CActor::PreRender(mgr);
   if (!GetPreRenderClipped()) {
-    mUnk2 = true;
+    mRenderedThisFrame = true;
   }
 }
 
@@ -123,7 +128,7 @@ bool CScriptPickup::IsVisible() const {
   if (mActivateDelay >= 0.0f) {
     return false;
   }
-  return !(x170 > 0.0f);
+  return !(mRespawnTimer > 0.0f);
 }
 
 void CScriptPickup::Think(float dt, CStateManager& mgr) {
@@ -132,78 +137,190 @@ void CScriptPickup::Think(float dt, CStateManager& mgr) {
     return;
   }
 
-  // if (mDelayTimer >= 0.f) {
-  //   // CActor::Stop();
-  //   mDelayTimer -= dt;
-  //   return;
-  // }
+  if (EchoEmitter() && HasModelData()) {
+    EchoEmitter()->SetBounds(GetModelData()->GetBounds(GetTransform()));
+  }
+  if (mActivateDelay >= 0.f) {
+    mActivateDelay -= dt;
+    return;
+  }
+  if (mRespawnTimer >= 0.f) {
+    mRespawnTimer -= dt;
+    return;
+  }
+  if (mDelayUntilHome >= 0.f) {
+    mDelayUntilHome -= dt;
+  }
 
-  // x270_curTime += dt;
-  // if (x28c_25_inTractor && (x26c_lifeTime - x270_curTime) < 2.f) {
-  //   x270_curTime = rstl::max_val(x26c_lifeTime - 2.f - FLT_EPSILON, x270_curTime - 2.f * dt);
-  // }
+  bool cinematic = false;
+  if (!mgr.IsMultiplayer() && mgr.CameraManager(0)->IsInCinematicCamera()) {
+    cinematic = true;
+  }
+  if (!cinematic || mCurTime < mFadeTime) {
+    mCurTime += dt;
+  }
+  if (mInTractor && mEnableTractorTest && mLifeTime - mCurTime < 2.f) {
+    mCurTime = rstl::max_val(mLifeTime - 2.f - FLT_EPSILON, mCurTime - 2.f * dt);
+  }
 
-  // CModelFlags drawFlags = CModelFlags::Normal();
+  CModelFlags drawFlags = CModelFlags::Normal();
+  if (mFadeTime) {
+    if (mCurTime < mFadeTime) {
+      drawFlags = CModelFlags::AlphaBlended(mCurTime / mFadeTime).DepthCompareUpdate(true, false);
+    } else {
+      mFadeTime = 0.f;
+    }
+  } else if (mLifeTime) {
+    const float elapsed = rstl::min_val(mLifeTime, mCurTime);
+    float alpha = 1.f;
+    if (mLifeTime < 2.f) {
+      alpha = 1.f - mLifeTime / elapsed;
+    } else if (mLifeTime - elapsed < 2.f) {
+      alpha = (mLifeTime - elapsed) / 2.f;
+    }
+    if (mBlinkOut && uint(mgr.GetUpdateFrameIdx()) % 6 > 2) {
+      alpha = 1.f;
+    }
+    drawFlags = CModelFlags::AlphaBlended(alpha).DepthCompareUpdate(true, false);
+  }
+  SetModelFlags(drawFlags);
 
-  // if (x268_fadeInTime) {
-  //   if (x270_curTime < x268_fadeInTime) {
-  //     drawFlags =
-  //         CModelFlags::AlphaBlended(x270_curTime / x268_fadeInTime).DepthCompareUpdate(true,
-  //         false);
-  //   } else {
-  //     x268_fadeInTime = 0.f;
-  //   }
-  // } else if (x26c_lifeTime) {
-  //   float alpha = 1.f;
-  //   if (x26c_lifeTime < 2.f) {
-  //     alpha = 1.f - (x26c_lifeTime / x270_curTime);
-  //   } else if ((x26c_lifeTime - x270_curTime) < 2.f) {
-  //     alpha = (x26c_lifeTime - x270_curTime) / 2.f;
-  //   }
+  if (mFramesSinceLastSeen < 5) {
+    if (HasAnimation()) {
+      CAdvancementDeltas deltas = UpdateAnimation(dt, mgr, true);
+      CVector3f position =
+          GetTransform().GetTranslation() + GetTransform().Rotate(deltas.GetOffsetDelta());
+      CTransform4f xf =
+          GetTransform().MultiplyIgnoreTranslation(deltas.GetOrientationDelta().BuildTransform4f());
+      xf.SetTranslation(position);
+      SetTransform(xf);
+    }
+    if (mAutoSpin && !mInTractor) {
+      const bool renderBoundsDirty = GetRenderBoundsDirty();
+      CTransform4f xf = CTransform4f::RotateZ(
+          CRelAngle::FromDegrees(CMath::FastFmod(mCurTime, 2.f) / 2.f * 360.f));
+      xf.SetTranslation(GetTranslation());
+      if (!mSuppressBobbing) {
+        const float z =
+            mTransformZ +
+            (0.25f * CMath::FastSinR(M_PIF * (CMath::FastFmod(mCurTime, 4.f) / 4.f)) - 0.125f);
+        xf.SetTranslation(CVector3f(GetTranslation().GetX(), GetTranslation().GetY(), z));
+      }
+      SetTransform(xf);
+      if (!renderBoundsDirty) {
+        SetRenderBoundsDirty(false);
+      }
+    }
+  } else if (HasAnimation()) {
+    UpdateSfxEmitters(mgr);
+  }
 
-  //   drawFlags = CModelFlags::AlphaBlended(alpha).DepthCompareUpdate(true, false);
-  // }
+  if (mInTractor && !cinematic) {
+    CPlayer* player = mgr.GetPlayer(mHomingPlayerIndex);
+    CPlayerState* playerState = player->GetPlayerState();
+    const CVector3f delta = GetTranslation() - player->GetTranslation();
+    if (GetCurrentAreaId() != mgr.GetNextAreaId() || !playerState->IsPlayerAlive() ||
+        (!mEnableTractorTest && CVector3f::Dot(delta, delta) > mAutoHomeRange * mAutoHomeRange)) {
+      mInTractor = false;
+    } else {
+      CVector3f offset = CVector3f::Up() * 2.f;
+      if (player->GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+        offset = CVector3f::Up() * 1.f;
+      }
+      CVector3f velocity = player->GetTranslation() + offset - GetTranslation();
+      mTractorTime += dt;
+      const float halfTractorTime = rstl::min_val(mTractorTime, 2.f) * 0.5f;
+      velocity = velocity.AsNormalized() * (mHomingSpeed * halfTractorTime);
+      if (!mEnableTractorTest && !close_enough(velocity.GetZ(), 0.f)) {
+        velocity += CVector3f(0.f, 0.f, velocity.GetZ() * 0.5f);
+      }
+      if (mEnableTractorTest &&
+          playerState->GetChargeBeamFactor() < playerState->GetChargeAnimStart()) {
+        mEnableTractorTest = false;
+        mInTractor = false;
+        velocity = CVector3f::Zero();
+      }
+      SetTranslation(GetTranslation() + dt * velocity);
+    }
+  }
+  if (mLifeTime && mCurTime > mLifeTime) {
+    mgr.DeleteObjectRequest(GetUniqueId());
+    return;
+  }
 
-  // SetModelFlags(drawFlags);
+  if (skHomingPickupId == GetUniqueId()) {
+    skHomingPickupId = kInvalidUniqueId;
+    return;
+  }
+  if (skHomingPickupId != kInvalidUniqueId) {
+    return;
+  }
+  skHomingPickupId = GetUniqueId();
 
-  // if (HasAnimation()) {
-  //   CAdvancementDeltas deltas = UpdateAnimation(dt, m_gr, true);
-  //   MoveToOR(deltas.GetOffsetDelta(), dt);
-  //   RotateToOR(deltas.GetOrientationDelta(), dt);
-  // }
+  if (mgr.IsMultiplayer() && mCanHomeByDefault && mAutoHomeRange > 0.f && mDelayUntilHome <= 0.f) {
+    float closestDistance = FLT_MAX;
+    int closestPlayer = 0;
+    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+      CPlayer* player = mgr.GetPlayer(i);
+      const CVector3f delta = GetTranslation() - player->GetTranslation();
+      const float distance = CVector3f::Dot(delta, delta);
+      if (distance < closestDistance && player->GetPlayerState()->IsPlayerAlive()) {
+        closestDistance = distance;
+        closestPlayer = i;
+      }
+    }
+    if (closestDistance < mAutoHomeRange * mAutoHomeRange) {
+      mHomingPlayerIndex = closestPlayer;
+      if (!mInTractor) {
+        mInTractor = true;
+        SendScriptMsgs(kSS_MaxReached, mgr, GetUniqueId(), kSM_None);
+        mTractorTime = 0.f;
+      }
+    } else {
+      mInTractor = false;
+    }
+  }
 
-  // if (x28c_25_inTractor) {
-  //   CVector3f velocity =
-  //       mgr.GetPlayer()->GetTranslation() + (CVector3f::Up() * 2.f) - GetTranslation();
-  //   x274_tractorTime += dt;
-  //   float halfTractorTime = rstl::min_val(x274_tractorTime, 2.f) * 0.5f;
-  //   velocity = velocity.AsNormalized() * (halfTractorTime * 20.f);
-  //   if (x28c_26_enableTractorTest && mgr.GetPlayer()->GetPlayerGun()->GetChargeBeamFactor() <
-  //                                        CPlayerGun::GetTractorBeamFactor()) {
-  //     x28c_26_enableTractorTest = false;
-  //     x28c_25_inTractor = false;
-  //     velocity = CVector3f::Zero();
-  //   }
-  //   SetVelocityWR(velocity);
-  // } else if (x28c_24_generated) {
-  //   if (mgr.GetPlayer()->GetPlayerGun()->GetChargeBeamFactor() >
-  //       CPlayerGun::GetTractorBeamFactor()) {
-  //     const CFirstPersonCamera* camera = mgr.CameraManager()->FirstPersonCamera();
-  //     CVector3f posDelta = GetTranslation() - camera->GetTranslation();
-  //     CVector3f cameraFront = camera->GetTransform().GetColumn(kDY);
-  //     float dot = CVector3f::Dot(cameraFront, posDelta.AsNormalized());
-  //     float fovCos = cosine(CAbsAngle::FromDegrees(gpTweakGame->GetFirstPersonFOV()));
-  //     if (dot > fovCos && posDelta.MagSquared() < skDrawInDistance * skDrawInDistance) {
-  //       x28c_25_inTractor = true;
-  //       x28c_26_enableTractorTest = true;
-  //       x274_tractorTime = 0.f;
-  //     }
-  //   }
-  // }
+  if (mInTractor || !mCanHomeByDefault || !(mDelayUntilHome <= 0.f) ||
+      GetCurrentAreaId() != mgr.GetNextAreaId()) {
+    return;
+  }
+  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    const CVector3f delta = GetTranslation() - mgr.GetPlayer(i)->GetTranslation();
+    if (CVector3f::Dot(delta, delta) < mAutoHomeRange * mAutoHomeRange) {
+      mInTractor = true;
+      mHomingPlayerIndex = i;
+    }
+  }
 
-  // if (x26c_lifeTime && x270_curTime > x26c_lifeTime) {
-  //   mgr.FreeScriptObject(GetUniqueId());
-  // }
+  if (!mInTractor) {
+    float closestDistance = FLT_MAX;
+    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+      const float drawInDistance =
+          mgr.IsMultiplayer() ? skMultiplayerDrawInDistance : skDrawInDistance;
+      const float drawInDistanceSquared = drawInDistance * drawInDistance;
+      CPlayer* player = mgr.GetPlayer(i);
+      const CPlayerState* playerState = player->GetPlayerState();
+      if (playerState->GetChargeBeamFactor() > playerState->GetChargeAnimStart()) {
+        const CFirstPersonCamera* camera = player->GetCameraManager()->GetFirstPersonCamera();
+        const CVector3f posDelta = GetTranslation() - camera->GetTransform().GetTranslation();
+        const CVector3f cameraFront = camera->GetTransform().GetForward();
+        const float dot = CVector3f::Dot(cameraFront, posDelta.AsNormalized());
+        const float fovCos = cosine(CAbsAngle::FromDegrees(camera->GetFov()));
+        if (dot > fovCos && posDelta.MagSquared() < drawInDistanceSquared &&
+            posDelta.MagSquared() < closestDistance) {
+          mEnableTractorTest = true;
+          mInTractor = true;
+          mHomingPlayerIndex = i;
+          closestDistance = posDelta.MagSquared();
+        }
+      }
+    }
+  }
+  if (mInTractor) {
+    SendScriptMsgs(kSS_MaxReached, mgr, GetUniqueId(), kSM_None);
+    mTractorTime = 0.f;
+  }
 }
 
 void CScriptPickup::Touch(CActor& act, CStateManager& mgr) {
@@ -243,11 +360,11 @@ void CScriptPickup::Touch(CActor& act, CStateManager& mgr) {
     playerState->SetTimeLeft(itemType, mPickupEffectLifetime);
     SendScriptMsgs(kSS_Arrived, mgr, playerId, kSM_None);
     if (mRespawnTime == 0.0f) {
-      mEnableTractorTest = true;
+      mSuppressDeathScriptMsgs = true;
       mgr.DeleteObjectRequest(GetUniqueId());
     } else {
       SetModelFlags(CModelFlags::AlphaBlended(0.f).DepthCompareUpdate(true, false));
-      x170 = mRespawnTime;
+      mRespawnTimer = mRespawnTime;
       mCurTime = 0.f;
       mFadeTime = 0.25f;
     }
@@ -309,14 +426,14 @@ void CScriptPickup::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   case kSM_Create:
     if (mgr.GetScriptObjectLoaderHelper().IsGeneratingObject()) {
-      mUnk3 = true;
+      mSuppressBobbing = true;
     }
     break;
   case kSM_Delete:
-    if (!mEnableTractorTest) {
+    if (!mSuppressDeathScriptMsgs) {
       SendScriptMsgs(kSS_Dead, mgr, kSM_None);
     }
-    sPickupSfxOwner = kInvalidUniqueId;
+    skHomingPickupId = kInvalidUniqueId;
     break;
   default:
     break;
@@ -332,11 +449,11 @@ void CScriptPickup::AddToRenderer(const CStateManager& mgr) const {
 
 CPlayerState::EItemType CScriptPickup::GetItem() const { return mItemType; }
 
-void CScriptPickup::SetSpawned(CStateManager& mgr) {
+void CScriptPickup::SetWasGenerated(CStateManager& mgr) {
   if (!mgr.IsMultiplayer()) {
-    mUnknownProp = true;
+    mCanHomeByDefault = true;
   }
-  mUnk3 = true;
+  mSuppressBobbing = true;
 }
 
 CVector3f CScriptPickup::GetOrbitPosition(const CStateManager&) const {

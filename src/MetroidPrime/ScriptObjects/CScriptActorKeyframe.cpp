@@ -79,7 +79,7 @@ void CScriptActorKeyframe::UpdateEntity(TUniqueId uid, CStateManager& mgr) {
       } else {
         const CAnimPlaybackParms parms(mAnimationId, -1, 1.f, true);
         const rstl::rc_ptr< IMetaTrans > transition(
-            actor->AnimationData()->BuildTransitionTree(parms));
+            actor->AnimationData()->BuildMetaTransition(parms));
         uchar noTrans = false;
         if (transition.GetPtr() && transition->GetType() == kMTT_Snap) {
           noTrans = true;

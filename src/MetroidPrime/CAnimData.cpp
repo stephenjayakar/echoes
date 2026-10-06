@@ -12,6 +12,9 @@
 #include "Kyoto/Animation/CSkinRules.hpp"
 #include "Kyoto/Animation/CSkinnedModel.hpp"
 #include "Kyoto/Animation/CTransitionManager.hpp"
+#include "Kyoto/Animation/IMetaAnim.hpp"
+#include "Kyoto/Animation/IMetaTrans.hpp"
+#include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
 #include "Kyoto/Math/CloseEnough.hpp"
@@ -66,17 +69,17 @@ CAnimData::CAnimData(
 , mPassedParticleCount(0)
 , mPassedSoundCount(0)
 , mParticleLightIdx(0)
-, x2a8_(8)
+, mAnimationTreeLimit(8)
 , mAnimating(false)
 , mLoop(loop)
 , mAligningPos(false)
-, x2ac_27_(false)
-, x2ac_28_(false)
+, mAligningRot(false)
+, mAlignPosPrimed(false)
 , mAnimationJustStarted(false)
 , mPoseBuilt(false)
 , mAnimatedScale(animatedScale)
 , mUniformScale(false)
-, x2ad_25_(true)
+, mUseFastSlerp(true)
 , mPose(layoutData->GetBodyPartSegIds().GetCount(), animatedScale ? 1 : 0, 0)
 , mPoseBuilder(CLayoutDescription(layoutData), animatedScale)
 , mJointData()
@@ -100,7 +103,8 @@ CAnimData::CAnimData(
 
   mAabb = mModelData->GetModel()->GetAABB();
   mParticleDB.CacheParticleDesc(charInfo.GetParticleResData());
-  // TODO: Build mAnimRoot from the character-mapped defaultAnim with no special orders.
+  mAnimRoot = mAnimMgr->GetAnimationTree(mCharInfo.GetAnimationIndexList()[defaultAnim],
+                                         CMetaAnimTreeBuildOrders::NoSpecialOrders());
 }
 
 CAnimData::~CAnimData() {
@@ -299,49 +303,57 @@ void CAnimData::SetInfraModel(const TLockedToken< CModel >& model,
 }
 
 void CAnimData::AdvanceAnim(CCharAnimTime& time, CVector3f& offset, CQuaternion& rotation) {
-  const float seconds = time.GetSeconds();
+  const float dt = time.GetSeconds();
   SAdvancementResults results(CCharAnimTime(0.f),
                               CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation()));
   rstl::optional_object< rstl::ownership_transfer< IAnimReader > > simplified;
+
   if (mAnimDir == kAD_Forward) {
     results = mAnimRoot->VAdvanceView(time);
     simplified = mAnimRoot->Simplified();
   }
+
   if (simplified.valid()) {
     mAnimRoot = Cast(simplified.data());
   }
-  const int count = mPassedIntCount;
-  if ((x2ac_28_ || x2ac_27_) && count > 0) {
-    for (int i = 0; i < count; ++i) {
-      const CInt32POINode& poi = mInt32POINodes[i];
-      if (poi.GetPoiType() == kPT_UserEvent) {
-        switch (poi.GetValue()) {
-        case kUE_AlignTargetPosStart:
-          mAligningPos = true;
-          break;
-        case kUE_AlignTargetPos:
-          mAlignPos = CVector3f::Zero();
-          x2ac_28_ = false;
-          mAligningPos = false;
-          break;
-        case kUE_AlignTargetRot:
-          mAlignRot = CQuaternion::NoRotation();
-          x2ac_27_ = false;
-          break;
-        default:
-          break;
+
+  if (mAlignPosPrimed || mAligningRot) {
+    const int count = mPassedIntCount;
+    const CInt32POINode* node = mInt32POINodes.data();
+    if (count > 0) {
+      for (int i = 0; i < count; ++i, ++node) {
+        if (node->GetPoiType() == kPT_UserEvent) {
+          switch (node->GetValue()) {
+          case kUE_AlignTargetPosStart:
+            mAligningPos = true;
+            break;
+          case kUE_AlignTargetPos:
+            mAlignPos = CVector3f::Zero();
+            mAlignPosPrimed = false;
+            mAligningPos = false;
+            break;
+          case kUE_AlignTargetRot:
+            mAlignRot = CQuaternion::NoRotation();
+            mAligningRot = false;
+            break;
+          }
         }
       }
     }
   }
   const CAdvancementDeltas deltas = results.mDeltas;
-  offset += deltas.GetOffsetDelta();
+  const CVector3f& deltaPos = deltas.GetOffsetDelta();
+  const CQuaternion& deltaRot = deltas.GetOrientationDelta();
+
+  offset += deltaPos;
   if (mAligningPos) {
-    offset += seconds * mAlignPos;
+    offset += mAlignPos * dt;
   }
-  const CQuaternion rot = deltas.GetOrientationDelta() * mAlignRot;
-  rotation = rotation * rot;
-  mAlignPos = rot.BuildInverted().Transform(mAlignPos);
+
+  CQuaternion alignRot = deltaRot * mAlignRot;
+  rotation *= alignRot;
+  mAlignPos = alignRot.BuildInverted().Transform(mAlignPos);
+
   time = results.mRemTime;
 }
 
@@ -351,94 +363,112 @@ CAdvancementDeltas CAnimData::AdvanceIgnoreParticles(float dt, CRandom16& random
   return DoAdvance(dt, suspendEffects, random, advanceTree);
 }
 
-CAdvancementDeltas CAnimData::Advance(float dt, float minParticleWeight, const CVector3f& scale,
+CAdvancementDeltas CAnimData::Advance(float dt, float particleDistance, const CVector3f& scale,
                                       CStateManager* mgr, CRandom16& random, TAreaId areaId,
                                       bool advanceTree) {
   bool suspendParticles;
-  const CAdvancementDeltas deltas = DoAdvance(dt, suspendParticles, random, advanceTree);
+  CAdvancementDeltas deltas = DoAdvance(dt, suspendParticles, random, advanceTree);
   if (suspendParticles) {
     mParticleDB.SuspendAllActiveEffects(mgr);
   }
+
   const int count = mPassedParticleCount;
   for (int i = 0; i < count; ++i) {
     const CParticlePOINode& node = mParticlePOINodes[i];
-    if (node.GetCharacterIndex() == -1 || mCharIdx == node.GetCharacterIndex()) {
-      if (node.GetMaximumDistance() > minParticleWeight ||
+    const int charIdx = node.GetCharacterIndex();
+    if (charIdx == -1 || charIdx == mCharIdx) {
+      if (node.GetMaximumDistance() > particleDistance ||
           (mgr != nullptr && !mgr->IsMultiplayer() &&
            mgr->GetCameraManager(0)->IsInCinematicCamera())) {
-        mParticleDB.AddParticleEffect(node.GetNameHash(), node.GetFlags(),
-                                      node.GetParticleData(), scale, mgr, areaId, false,
-                                      mParticleLightIdx);
+        mParticleDB.AddParticleEffect(node.GetNameHash(), node.GetFlags(), node.GetParticleData(),
+                                      scale, mgr, areaId, false, mParticleLightIdx);
       }
     }
   }
   return deltas;
 }
 
-CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendEffects, CRandom16& random,
+CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendParticles, CRandom16& random,
                                         bool advanceTree) {
-  suspendEffects = false;
-  CVector3f offsetPre(0.f, 0.f, 0.f);
-  CVector3f offsetPost(0.f, 0.f, 0.f);
-  CQuaternion quatPre = CQuaternion::NoRotation();
+  suspendParticles = false;
+
+  CVector3f offset(0.f, 0.f, 0.f);
+  CQuaternion rotation(CQuaternion::NoRotation());
+
   const float scaledDt = dt * mSpeedScale;
-  CQuaternion quatPost = CQuaternion::NoRotation();
+  CVector3f additiveOffset(0.f, 0.f, 0.f);
+  CQuaternion additiveRotation(CQuaternion::NoRotation());
+
   ResetPOILists();
+
   if (mAdditiveAnims.size() > 0) {
-    const CAdvancementDeltas deltas = UpdateAdditiveAnims(scaledDt);
-    offsetPost = deltas.GetOffsetDelta();
-    quatPost = deltas.GetOrientationDelta();
+    const CAdvancementDeltas additiveDeltas = UpdateAdditiveAnims(scaledDt);
+    additiveOffset = additiveDeltas.GetOffsetDelta();
+    additiveRotation = additiveDeltas.GetOrientationDelta();
+    mPoseBuilt = false;
   }
-  mPoseBuilt = false;
-  if (mAnimating != 1) {
-    suspendEffects = true;
-    return CAdvancementDeltas(offsetPre, quatPre);
+
+  const bool animating = IsAnimating() == true;
+  if (!animating) {
+    suspendParticles = true;
+    return CAdvancementDeltas(offset, rotation);
   }
+
   if (mAnimationJustStarted) {
     mAnimationJustStarted = false;
-    suspendEffects = true;
+    suspendParticles = true;
   }
+
   if (advanceTree) {
     SetRandomPlaybackRate(random);
+
     CCharAnimTime time(scaledDt);
+
     if (mLoop) {
       while (time.GreaterThanZero() && !close_enough(time.GetSeconds(), 0.f)) {
-        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
-                                                      mPassedIntCount, 0);
+        mPassedIntCount +=
+            mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
         mPassedBoolCount +=
             mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
         mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
                                                               mPassedParticleCount, 0);
         mPassedSoundCount +=
             mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
-        AdvanceAnim(time, offsetPre, quatPre);
+
+        AdvanceAnim(time, offset, rotation);
       }
     } else {
-      CCharAnimTime remaining = mAnimRoot->VGetTimeRemaining();
-      while (!close_enough(remaining.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
-        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
-                                                      mPassedIntCount, 0);
+      CCharAnimTime remTime = mAnimRoot->VGetTimeRemaining();
+
+      while (!close_enough(remTime.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount +=
+            mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
         mPassedBoolCount +=
             mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
         mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
                                                               mPassedParticleCount, 0);
         mPassedSoundCount +=
             mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
-        AdvanceAnim(time, offsetPre, quatPre);
-        remaining = mAnimRoot->VGetTimeRemaining();
+
+        AdvanceAnim(time, offset, rotation);
+
+        remTime = mAnimRoot->VGetTimeRemaining();
         time = CCharAnimTime(
-            rstl::max_val(0.f, rstl::min_val(time.GetSeconds(), remaining.GetSeconds())));
-        if (close_enough(remaining.GetSeconds(), 0.f)) {
+            rstl::max_val(0.f, rstl::min_val(time.GetSeconds(), remTime.GetSeconds())));
+
+        if (close_enough(remTime.GetSeconds(), 0.f)) {
           mAnimating = false;
           mAlignPos = CVector3f::Zero();
-          x2ac_28_ = false;
+          mAlignPosPrimed = false;
           mAligningPos = false;
         }
       }
     }
+
     mPoseBuilt = false;
   }
-  return CAdvancementDeltas(offsetPre + offsetPost, quatPre * quatPost);
+
+  return CAdvancementDeltas(offset + additiveOffset, rotation * additiveRotation);
 }
 
 // Guessed name.
@@ -446,7 +476,7 @@ rstl::ncrc_ptr< CAnimTreeNode >
 CAnimData::BuildAnimationTree(const CAnimPlaybackParms& parms) const {
   const int animB = parms.GetSecondAnimationId();
   const uint animA = mCharInfo.GetAnimationIndexList()[parms.GetAnimationId()];
-  const float blendWeight = parms.GetBlendWeight();
+  const float blendWeight = parms.GetBlendFactor();
   if (animB != -1) {
     const uint animBIdx = mCharInfo.GetAnimationIndexList()[animB];
     const rstl::ncrc_ptr< CAnimTreeNode > treeA =
@@ -461,9 +491,9 @@ CAnimData::BuildAnimationTree(const CAnimPlaybackParms& parms) const {
 }
 
 // Guessed name.
-rstl::rc_ptr< IMetaTrans > CAnimData::BuildTransitionTree(const CAnimPlaybackParms& parms) const {
-  // TODO: Look up the transition from the current animation to the requested one.
-  return rstl::rc_ptr< IMetaTrans >();
+rstl::rc_ptr< IMetaTrans > CAnimData::BuildMetaTransition(const CAnimPlaybackParms& parms) const {
+  const rstl::ncrc_ptr< CAnimTreeNode > tree(BuildAnimationTree(parms));
+  return mTransMgr->GetMetaTrans(mAnimRoot, tree);
 }
 
 void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
@@ -471,22 +501,22 @@ void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
   if (parms.GetAnimationId() == mPlaybackParms.GetAnimationId() ||
       (parms.GetSecondAnimationId() == mPlaybackParms.GetSecondAnimationId() &&
        parms.GetSecondAnimationId() != -1) ||
-      (parms.GetBlendWeight() == mPlaybackParms.GetBlendWeight() &&
-       parms.GetBlendWeight() != 1.f)) {
+      (parms.GetBlendFactor() == mPlaybackParms.GetBlendFactor() &&
+       parms.GetBlendFactor() != 1.f)) {
     if (mAnimationJustStarted) {
       return;
     }
   }
-  if (numChildren >= x2a8_) {
+  if (numChildren >= mAnimationTreeLimit) {
     return;
   }
   ResetPOILists();
   mSpeedScale = 1.f;
   mPlaybackParms.SetAnimationId(parms.GetAnimationId());
   mPlaybackParms.SetSecondAnimationId(parms.GetSecondAnimationId());
-  mPlaybackParms.SetBlendWeight(parms.GetBlendWeight());
+  mPlaybackParms.SetBlendFactor(parms.GetBlendFactor());
   mCurrentAnim = parms.GetAnimationId();
-  const bool animating = parms.GetAnimating();
+  const bool animating = parms.GetIsPlayAnimation();
   const rstl::ncrc_ptr< CAnimTreeNode > tree = BuildAnimationTree(parms);
   if (!noTrans) {
     mAnimRoot = mTransMgr->GetTransitionTree(mAnimRoot, tree);
@@ -533,7 +563,7 @@ void CAnimData::RenderAuxiliary(const CFrustumPlanes& planes) const {
 }
 
 void CAnimData::RecalcPoseBuilder(const CCharAnimTime* time) const {
-  CAnimMathUtils::sUseFastSlerp = x2ad_25_;
+  CAnimMathUtils::sUseFastSlerp = mUseFastSlerp;
   const CCharLayoutInfo& layout = **mLayoutData;
   rstl::optional_object< CJointData_LinearStorage > localStorage;
   CJointData_LinearStorage* storage = mJointData.get();
@@ -615,9 +645,221 @@ CTransform4f CAnimData::GetLocatorTransform(CSegId id, const CCharAnimTime* time
   return CTransform4f::Identity();
 }
 
+CMatrix3f CMatrix3f::Inverse() const {
+  const float detScale = 1.f / Determinant();
+  return CMatrix3f((m11 * m22 - m12 * m21) * detScale, (-(m01 * m22 - m02 * m21)) * detScale,
+                   (m01 * m12 - m02 * m11) * detScale, (-(m10 * m22 - m12 * m20)) * detScale,
+                   (m00 * m22 - m02 * m20) * detScale, (-(m00 * m12 - m02 * m10)) * detScale,
+                   (m10 * m21 - m11 * m20) * detScale, (-(m00 * m21 - m01 * m20)) * detScale,
+                   (m00 * m11 - m01 * m10) * detScale);
+}
+
 void CAnimData::CalcPlaybackAlignmentParms(const CAnimPlaybackParms& parms,
-                                           const rstl::ncrc_ptr< CAnimTreeNode >& tree) {
-  // TODO: Recover alignment events and the locator-relative position/rotation adjustments.
+                                           const rstl::ncrc_ptr< CAnimTreeNode >& node) {
+  const CQuaternion* deltaOrient = parms.GetDeltaOrient();
+  const CTransform4f* objectXf = parms.GetObjectXform();
+
+  CQuaternion alignRot = CQuaternion::NoRotation();
+  mAlignRot = alignRot;
+  mAligningRot = false;
+
+  if (deltaOrient != nullptr && objectXf != nullptr) {
+    ResetPOILists();
+    mPassedIntCount += node->GetInt32POIList(CCharAnimTime::Infinity(), mInt32POINodes.data(), 16,
+                                             mPassedIntCount, 64);
+
+    const int count = mPassedIntCount;
+    if (count > 0) {
+      for (int i = 0; i < count; ++i) {
+        const CInt32POINode* poi = &mInt32POINodes[i];
+        if (poi->GetPoiType() == kPT_UserEvent && poi->GetValue() == kUE_AlignTargetRot) {
+          const CCharAnimTime& poiTime = poi->GetTime();
+          const SAdvancementResults adv =
+              node->VGetAdvancementResults(poiTime, CCharAnimTime::ZeroFlat());
+          const CMatrix3f invObjRot = objectXf->BuildMatrix3f().Inverse();
+          const CQuaternion targetRot = (*deltaOrient) * CQuaternion::FromMatrix(invObjRot);
+          const CQuaternion fullRot = targetRot * adv.mDeltas.GetOrientationDelta().BuildInverted();
+
+          alignRot = CQuaternion::Slerp(CQuaternion::NoRotation(), fullRot,
+                                        1.f / (60.f * poiTime.GetSeconds()));
+          mAlignRot = alignRot;
+          mAligningRot = true;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!mAligningRot) {
+    const CVector3f* targetPos = parms.GetTargetPos();
+    bool foundStart = false;
+    bool foundAlign = false;
+    CVector3f startPos = CVector3f::Zero();
+    CVector3f alignPos = CVector3f::Zero();
+    CCharAnimTime startTime = CCharAnimTime::ZeroPlus();
+    CCharAnimTime alignTime = CCharAnimTime::ZeroPlus();
+
+    if (targetPos != nullptr && objectXf != nullptr) {
+      ResetPOILists();
+      mPassedIntCount += node->GetInt32POIList(CCharAnimTime::Infinity(), mInt32POINodes.data(), 16,
+                                               mPassedIntCount, 64);
+
+      const int count = mPassedIntCount;
+      if (count > 0) {
+        for (int i = 0; i < count; ++i) {
+          const CInt32POINode* poi = &mInt32POINodes[i];
+          if (poi->GetPoiType() == kPT_UserEvent) {
+            const rstl::string& locator = poi->GetLocatorName();
+            if (poi->GetValue() == kUE_AlignTargetPosStart) {
+              startTime = poi->GetTime();
+              foundStart = true;
+
+              const SAdvancementResults adv =
+                  node->VGetAdvancementResults(startTime, CCharAnimTime::ZeroFlat());
+              startPos = adv.mDeltas.GetOffsetDelta();
+
+              if (parms.GetIsUseLocator()) {
+                const CTransform4f xf = GetLocatorTransform(locator, &startTime);
+                startPos += xf.GetTranslation();
+              }
+
+              if (foundAlign) {
+                break;
+              }
+            } else if (poi->GetValue() == kUE_AlignTargetPos) {
+              alignTime = poi->GetTime();
+              foundAlign = true;
+
+              const SAdvancementResults adv =
+                  node->VGetAdvancementResults(alignTime, CCharAnimTime::ZeroFlat());
+              alignPos = adv.mDeltas.GetOffsetDelta();
+
+              if (parms.GetIsUseLocator()) {
+                const CTransform4f xf = GetLocatorTransform(locator, &alignTime);
+                alignPos += xf.GetTranslation();
+              }
+
+              if (foundStart) {
+                break;
+              }
+            }
+          }
+        }
+
+        if (foundStart && foundAlign) {
+          const CVector3f* const objectScale = parms.GetObjectScale();
+
+          const CVector3f scaleStart = CVector3f::ByElementMultiply(*objectScale, startPos);
+          const CVector3f scaleAlign = CVector3f::ByElementMultiply(*objectScale, alignPos);
+          const CVector3f delta =
+              objectXf->GetInverse() * (*targetPos) - scaleStart - (scaleAlign - scaleStart);
+          CVector3f normalized = delta;
+          normalized[kDX] /= (*objectScale)[kDX];
+          normalized[kDY] /= (*objectScale)[kDY];
+          normalized[kDZ] /= (*objectScale)[kDZ];
+
+          const float timeScale = 1.f / (alignTime.GetSeconds() - startTime.GetSeconds());
+          normalized *= timeScale;
+          mAlignPos = normalized;
+          mAlignPosPrimed = true;
+          mAligningPos = false;
+        } else {
+          mAlignPos = CVector3f::Zero();
+          mAlignPosPrimed = false;
+          mAligningPos = false;
+        }
+      }
+    } else {
+      mAlignPos = CVector3f::Zero();
+      mAlignPosPrimed = false;
+      mAligningPos = false;
+    }
+  } else {
+    const CVector3f* targetPos = parms.GetTargetPos();
+    bool foundStart = false;
+    bool foundAlign = false;
+    CVector3f startPos = CVector3f::Zero();
+    CCharAnimTime startTime = CCharAnimTime::ZeroPlus();
+    CCharAnimTime alignTime = CCharAnimTime::ZeroPlus();
+
+    if (targetPos != nullptr && objectXf != nullptr) {
+      ResetPOILists();
+      mPassedIntCount += node->GetInt32POIList(CCharAnimTime::Infinity(), mInt32POINodes.data(), 16,
+                                               mPassedIntCount, 64);
+
+      const int count = mPassedIntCount;
+      if (count > 0) {
+        for (int i = 0; i < count; ++i) {
+          const CInt32POINode* poi = &mInt32POINodes[i];
+          if (poi->GetPoiType() == kPT_UserEvent) {
+            if (poi->GetValue() == kUE_AlignTargetPosStart) {
+              startTime = poi->GetTime();
+              foundStart = true;
+              if (foundAlign) {
+                break;
+              }
+            } else if (poi->GetValue() == kUE_AlignTargetPos) {
+              alignTime = poi->GetTime();
+              foundAlign = true;
+              if (foundStart) {
+                break;
+              }
+            }
+          }
+        }
+
+        if (foundStart && foundAlign) {
+          alignRot = CQuaternion::NoRotation();
+          mAlignRot = alignRot;
+          mAligningRot = true;
+
+          foundStart = false;
+          CCharAnimTime time = CCharAnimTime::ZeroFlat();
+          CVector3f alignPos = CVector3f::Zero();
+          const CCharAnimTime frameDt(1.f / 60.f);
+          CQuaternion curRot = CQuaternion::NoRotation();
+
+          while (time < alignTime) {
+            const SAdvancementResults adv = node->VGetAdvancementResults(frameDt, time);
+            alignPos += curRot.BuildTransform() * adv.mDeltas.GetOffsetDelta();
+            curRot *= adv.mDeltas.GetOrientationDelta() * alignRot;
+
+            if (!foundStart && time >= startTime) {
+              foundStart = true;
+              startPos = alignPos;
+            }
+
+            time += frameDt;
+          }
+
+          const CVector3f* const objectScale = parms.GetObjectScale();
+
+          const CVector3f scaleStart = CVector3f::ByElementMultiply(*objectScale, startPos);
+          const CVector3f scaleAlign = CVector3f::ByElementMultiply(*objectScale, alignPos);
+          const CVector3f delta =
+              objectXf->GetInverse() * (*targetPos) - scaleStart - (scaleAlign - scaleStart);
+          CVector3f normalized = delta;
+          normalized[kDX] /= (*objectScale)[kDX];
+          normalized[kDY] /= (*objectScale)[kDY];
+          normalized[kDZ] /= (*objectScale)[kDZ];
+
+          const float timeScale = 1.f / (alignTime.GetSeconds() - startTime.GetSeconds());
+          normalized *= timeScale;
+          mAlignPos = normalized;
+          mAlignPosPrimed = true;
+          mAligningPos = false;
+        } else {
+          mAlignPos = CVector3f::Zero();
+          mAlignPosPrimed = false;
+          mAligningPos = false;
+        }
+      }
+    } else {
+      mAlignPos = CVector3f::Zero();
+      mAlignPosPrimed = false;
+      mAligningPos = false;
+    }
+  }
 }
 
 void CAnimData::SetRandomPlaybackRate(CRandom16& random) {
@@ -777,7 +1019,7 @@ void CAnimData::SetKeepJSPose(bool keep) {
 }
 
 // Guessed name.
-void CAnimData::SetAnimationTreeLimit(int limit) { x2a8_ = limit; }
+void CAnimData::SetAnimationTreeLimit(int limit) { mAnimationTreeLimit = limit; }
 
 rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() { return mAnimMgr; }
 

@@ -61,7 +61,7 @@ public:
   bool HasScales() const { return mHasScales; }
 
   bool UsesZeroOffsets() const { return mUseZeroOffsets; }
-  void SetUseZeroOffsets(bool value) { mUseZeroOffsets = value; } // Guessed name.
+  void SetUseZeroOffsets(bool value) { mUseZeroOffsets = value; }
 
   void SetHasOffsets(bool value) { mHasOffsets = value; }
 

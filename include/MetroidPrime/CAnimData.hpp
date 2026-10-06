@@ -43,6 +43,7 @@ class CSkinnedModel;
 class CTransitionManager;
 class CModelFlags;
 class CPrimitive;
+class IMetaTrans;
 class CSpatialPrimitive; // Guessed name: CSPP resource, inherited Ghidra annotation.
 
 class CAnimData {
@@ -52,15 +53,15 @@ public:
     kAD_Backward,
   };
 
-  CAnimData(
-      CAssetId selfId, const CCharacterInfo& charInfo, int defaultAnim, int charIdx, bool loop,
-      const TLockedToken< CCharLayoutInfo >& layoutData, const TToken< CSkinnedModel >& modelData,
-      const rstl::optional_object< TLockedToken< CSkinnedModel > >& iceModelData,
-      const rstl::optional_object< TLockedToken< CSpatialPrimitive > >& spatialPrimitive,
-      const rstl::ncrc_ptr< CAnimSysContext >& animCtx,
-      const rstl::rc_ptr< CAnimationManager >& animMgr,
-      const rstl::rc_ptr< CTransitionManager >& transMgr,
-      const TLockedToken< CCharacterFactory >& charFactory, bool animatedScale);
+  CAnimData(CAssetId selfId, const CCharacterInfo& charInfo, int defaultAnim, int charIdx,
+            bool loop, const TLockedToken< CCharLayoutInfo >& layoutData,
+            const TToken< CSkinnedModel >& modelData,
+            const rstl::optional_object< TLockedToken< CSkinnedModel > >& iceModelData,
+            const rstl::optional_object< TLockedToken< CSpatialPrimitive > >& spatialPrimitive,
+            const rstl::ncrc_ptr< CAnimSysContext >& animCtx,
+            const rstl::rc_ptr< CAnimationManager >& animMgr,
+            const rstl::rc_ptr< CTransitionManager >& transMgr,
+            const TLockedToken< CCharacterFactory >& charFactory, bool animatedScale);
   ~CAnimData();
 
   CAABox GetBoundingBox() const;
@@ -81,8 +82,7 @@ public:
   void CollectAnimationTokens(rstl::vector< CToken >& tokensOut, bool lock) const;
   void CollectAnimationResources(rstl::vector< SObjectTag >& tagsOut) const;
 
-  // The two floating arguments are dt and a particle-POI weight threshold.
-  CAdvancementDeltas Advance(float dt, float minParticleWeight, const CVector3f& scale,
+  CAdvancementDeltas Advance(float dt, float particleDistance, const CVector3f& scale,
                              CStateManager* mgr, CRandom16& random, TAreaId areaId,
                              bool advanceTree);
   CAdvancementDeltas AdvanceIgnoreParticles(float dt, CRandom16& random, bool advanceTree);
@@ -93,9 +93,9 @@ public:
                               rstl::set< CPrimitive >& primsOut) const;
 
   const CCharLayoutInfo* GetCharLayoutInfo() const { return *mLayoutData; }
-  CPoseAsTransforms_Linear& Pose() { return mPose; } // Guessed name.
+  CPoseAsTransforms_Linear& Pose() { return mPose; }             // Guessed name.
   const CPoseAsTransforms_Linear& Pose() const { return mPose; } // Guessed name.
-  void SetPoseBuilt(bool built) { mPoseBuilt = built; } // Guessed name.
+  void SetPoseBuilt(bool built) { mPoseBuilt = built; }          // Guessed name.
   CHierarchyPoseBuilder& PoseBuilder() const { return mPoseBuilder; }
   const CHierarchyPoseBuilder& GetPoseBuilder() const { return mPoseBuilder; }
 
@@ -198,7 +198,7 @@ public:
   static void FreeCache();
 
   // Guessed name. Returns the transition that would be used to start the requested animation.
-  rstl::rc_ptr< IMetaTrans > BuildTransitionTree(const CAnimPlaybackParms& parms) const;
+  rstl::rc_ptr< IMetaTrans > BuildMetaTransition(const CAnimPlaybackParms& parms) const;
 
 private:
   // Guessed names.
@@ -231,17 +231,17 @@ private:
   int mPassedParticleCount;
   int mPassedSoundCount;
   int mParticleLightIdx;
-  int x2a8_;
+  int mAnimationTreeLimit;
   uchar mAnimating : 1;
   uchar mLoop : 1;
   uchar mAligningPos : 1;
-  uchar x2ac_27_ : 1;
-  uchar x2ac_28_ : 1;
+  uchar mAligningRot : 1;
+  uchar mAlignPosPrimed : 1;
   uchar mAnimationJustStarted : 1;
   mutable uchar mPoseBuilt : 1;
   uchar mAnimatedScale : 1;
   bool mUniformScale : 1;
-  bool x2ad_25_ : 1;
+  bool mUseFastSlerp : 1;
   mutable CPoseAsTransforms_Linear mPose;
   mutable CHierarchyPoseBuilder mPoseBuilder;
   mutable rstl::auto_ptr< CJointData_LinearStorage > mJointData;
