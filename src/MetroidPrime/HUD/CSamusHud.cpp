@@ -1538,11 +1538,11 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
   if (!close_enough(environmentThreat, 0.f) || threatDistance <= range ||
       !close_enough(amount, 0.f)) {
     if (!close_enough(environmentThreat, 0.f) || threatDistance <= range) {
-      mThreatAnimationTime += 2.f * dt;
+      mThreatAnimationTime += 3.f * dt;
     }
     const float animAlpha = rstl::min_val(1.f, mThreatAnimationTime);
     const float pulse =
-        amount < 1.f ? 0.f : (1.f - CMath::FastCosR(2.f * mThreatAnimationTime)) / 2.f;
+        amount < 1.f ? 0.f : (1.f - CMath::FastCosR(3.f * mThreatAnimationTime)) / 2.f;
     const CColor warning =
         CColor::Lerp(iconColor, gpTweakGuiColors->GetThreatWarningColor(), pulse);
     const float alpha =
@@ -1562,9 +1562,9 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
     }
   } else {
     if (mNextState == kHS_Scan) {
-      mThreatAnimationTime = CMath::Clamp(0.f, mThreatAnimationTime - 2.f * dt, 1.f);
+      mThreatAnimationTime = CMath::Clamp(0.f, mThreatAnimationTime - 3.f * dt, 1.f);
     } else {
-      mThreatAnimationTime += 2.f * dt;
+      mThreatAnimationTime += 3.f * dt;
     }
     const float alpha = rstl::min_val(1.f, mThreatAnimationTime);
     if (mThreatRoot != nullptr) {
@@ -2801,14 +2801,14 @@ void CSamusHud::UpdateBossLockOnWarning(float dt, const CStateManager& mgr) {
   }
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
   if (player.GetEnemyLockOnCount() == 0) {
-    if (mBossLockOnFrameLoader.get() != nullptr) {
-      mBossLockOnFrameLoader = nullptr;
+    if (!mBossLockOnFrameLoader.null()) {
+      mBossLockOnFrameLoader = rstl::auto_ptr< CGuiFrameLoader >();
     }
-    if (mBossLockOnFrame.get() != nullptr) {
-      mBossLockOnFrame = nullptr;
+    if (!mBossLockOnFrame.null()) {
+      mBossLockOnFrame = rstl::auto_ptr< CGuiFrame >();
     }
     if (mLockedOnIndicator) {
-      mLockedOnIndicator = rstl::optional_object_null();
+      mLockedOnIndicator.clear();
     }
     return;
   }
@@ -2829,17 +2829,17 @@ void CSamusHud::UpdateBossLockOnWarning(float dt, const CStateManager& mgr) {
           static_cast< CGuiTextPane* >(mBossLockOnFrame->FindWidget("textpane_warning"));
       if (warning != nullptr) {
         warning->TextSupport().SetText(
-            rstl::wstring_l(gpStringTable->GetString("EnemyLockedOnWarning")), false);
+            rstl::wstring(gpStringTable->GetString("EnemyLockedOnWarning")), false);
         warning->TextSupport().SetFontColor(gpTweakGui->GetLockOnIndicatorColor());
       }
     }
   }
   if (mBossLockOnFrame.get() != nullptr) {
     mBossLockOnFrame->Update(dt);
-    const int ringCount = rstl::min_val(int(player.GetEnemyLockOnCount()), 3);
+    const int ringCount = rstl::min_val(3, int(player.GetEnemyLockOnCount()));
     for (int i = 0; i < 3; ++i) {
       if (CGuiWidget* ring = mBossLockOnFrame->FindWidget(sBossLockOnRings[i])) {
-        const float intensity = 1.f - float(i) / 2.f;
+        const float intensity = 1.f - float(i) / 3.f;
         ring->SetColor(CColor::Modulate(gpTweakGui->GetLockOnIndicatorColor(),
                                         CColor(intensity, intensity, intensity, 1.f)));
         ring->SetVisibility(i < ringCount, kTM_Children);
