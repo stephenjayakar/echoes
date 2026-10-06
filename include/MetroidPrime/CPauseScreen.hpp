@@ -113,7 +113,7 @@ private:
   void DrawModelView(const CTransform4f& xf, float alpha) const;
   void UpdateHistoryText();
   void UpdateHistoryColors();
-  static CVector3f GetDefaultModelPosition();
+  CVector3f GetDefaultModelPosition() const;
   CVector3f GetModelPosition() const;
 
   rstl::reserved_vector< CToken, 9 > mLeftStickIcons;
