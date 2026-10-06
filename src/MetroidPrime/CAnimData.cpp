@@ -366,27 +366,24 @@ CParticleGenInfo* CAnimData::GetFirstParticleEffect(const rstl::string& name) {
 }
 
 void CAnimData::SetEffectState(const rstl::string& name, bool active, CStateManager& mgr) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      for (uint j = 0; j < components.size(); ++j) {
-        mParticleDB.SetParticleEffectState(components[j].GetComponentNameHash(), active, &mgr);
-      }
-      return;
+  const CCharacterInfo::TEffectList effects = mCharInfo.GetEffects();
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end()) {
+    rstl::vector< CEffectComponent >::const_iterator end = it->second.end();
+    rstl::vector< CEffectComponent >::const_iterator comp = it->second.begin();
+    for (; comp != end; ++comp) {
+      mParticleDB.SetParticleEffectState(comp->GetComponentNameHash(), active, &mgr);
     }
   }
 }
 
 void CAnimData::SetEffectComponentExternalParam(const rstl::string& name, int index, float value) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      if (!components.empty()) {
-        mParticleDB.SetParticleExternalParam(components[0].GetComponentNameHash(), index, value);
-      }
-      return;
+  const CCharacterInfo::TEffectList effects = mCharInfo.GetEffects();
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end()) {
+    rstl::vector< CEffectComponent >::const_iterator comp = it->second.begin();
+    if (comp != it->second.end()) {
+      mParticleDB.SetParticleExternalParam(comp->GetComponentNameHash(), index, value);
     }
   }
 }
