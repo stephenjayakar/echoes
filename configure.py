@@ -1533,6 +1533,14 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "SpacePirate",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSpacePirate.cpp"),
+        ],
+        # Float constants are addressed one by one, not through a pooled base register.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),

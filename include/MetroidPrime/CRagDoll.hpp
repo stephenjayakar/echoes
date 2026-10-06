@@ -39,6 +39,8 @@ public:
   void SetContinueSmallMovements(bool value) { mContinueSmallMovements = value; }
   void SetNoOverTimer(bool value) { mNoOverTimer = value; }
   uint GetImpactCount() const { return mImpactCount; }
+  bool IsRenderBoundsValid() const { return mRenderBoundsValid; } // Guessed name.
+  const CAABox& GetCachedRenderBounds() const { return mRenderBounds; } // Guessed name.
 
 protected:
   class CRagDollParticle {
