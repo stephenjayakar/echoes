@@ -47,6 +47,7 @@ public:
   , mAnimating(true) {}
 
   int GetAnimationId() const { return mAnimA; }
+  int GetSecondAnimationId() const { return mAnimB; } // Guessed name.
 };
 CHECK_SIZEOF(CAnimPlaybackParms, 0x24)
 

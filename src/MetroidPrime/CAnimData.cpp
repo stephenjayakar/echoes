@@ -137,7 +137,19 @@ void CAnimData::CollectAnimationResources(rstl::vector< SObjectTag >& tagsOut) c
 
 // Guessed name.
 void CAnimData::CollectAnimationTokens(rstl::vector< CToken >& tokensOut, bool lock) const {
-  // TODO: Fetch the collected animation resources from the simple pool and optionally lock.
+  rstl::vector< SObjectTag > tags;
+  CollectAnimationResources(tags);
+  if (tags.size() == 0) {
+    return;
+  }
+  tokensOut.reserve(tags.size() + tokensOut.size());
+  for (int i = 0; i < tags.size(); ++i) {
+    CToken token = gpSimplePool->GetObj(tags[i]);
+    if (lock) {
+      token.Lock();
+    }
+    tokensOut.push_back_unsafe(token);
+  }
 }
 
 void CAnimData::AdvanceParticles(const CTransform4f& xf, float dt, const CVector3f& scale,
@@ -221,7 +233,13 @@ void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
 
 void CAnimData::GetAnimationPrimitives(const CAnimPlaybackParms& parms,
                                        rstl::set< CPrimitive >& primsOut) const {
-  // TODO: Collect unique primitives from the requested animation(s).
+  const uint animA = mCharInfo.GetAnimationIndexList()[parms.GetAnimationId()];
+  const int animB = parms.GetSecondAnimationId();
+  GetAnimationManager()->GetMetaAnimation(animA)->GetUniquePrimitives(primsOut);
+  if (animB != -1) {
+    const uint animBIdx = mCharInfo.GetAnimationIndexList()[animB];
+    GetAnimationManager()->GetMetaAnimation(animBIdx)->GetUniquePrimitives(primsOut);
+  }
 }
 
 void CAnimData::BuildPoseIfNecessary() const {
