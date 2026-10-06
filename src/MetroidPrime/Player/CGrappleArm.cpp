@@ -21,6 +21,7 @@
 #include "MetroidPrime/Tweaks/CTweakPlayer.hpp"
 #include "MetroidPrime/Weapons/GunController/CGunController.hpp"
 #include "MetroidPrime/Weapons/WeaponCommon.hpp"
+#include "MetroidPrime/Weapons/WeaponSound.hpp"
 
 static const char* const kBeamLocators[] = {"LGBeam", "LGBeam", "LGBeamLight"};
 static const char* const kGrappleGear[] = {"GrappleGear", "GrappleGear", ""};
@@ -183,11 +184,11 @@ void CGrappleArm::Render(const CStateManager& mgr, const CVector3f& pos, const C
     return;
   }
   const CTransform4f xf = CTransform4f::Translate(pos) * mTransform * mAuxTransform;
-  const CModelFlags armFlags = flags.UseShaderSet(mgr.MaskUIdNumPlayers(mPlayerId));
+  const int shaderSet = mgr.MaskUIdNumPlayers(mPlayerId);
   if (mRainSplashGenerator.get() && mRainSplashGenerator->IsRaining()) {
     CSkinnedModel::SetPointGeneratorFunc(mRainSplashGenerator.get(), PointGenerator);
   }
-  mArmModel->Render(mgr, xf, lights, armFlags);
+  mArmModel->Render(mgr, xf, lights, flags.UseShaderSet(shaderSet));
   if (mRainSplashGenerator.get() && mRainSplashGenerator->IsRaining()) {
     CSkinnedModel::ClearPointGeneratorFunc();
     mRainSplashGenerator->Draw(xf);
@@ -332,15 +333,16 @@ void CGrappleArm::UpdateSwingAction(float dt, CStateManager& mgr) {
   const bool connected = UpdateGrappleBeam(dt, beamLocator, mgr);
   if ((mSwingT > 0.175f && mSwingT < 0.3f) || (mSwingT > 0.7f && mSwingT < 0.9f)) {
     if (!CSfxManager::IsPlaying(mSwooshSfx)) {
-      mSwooshSfx = GetPlayer(mgr)->PlaySfxForPlayer(kSwooshSfx[mSoundSetIndex], mSoundPan,
-                                                    mgr.GetNextAreaId(), false, 0);
+      mSwooshSfx = PlaySfxForPlayer(GetPlayer(mgr), kSwooshSfx[mSoundSetIndex], mSoundPan,
+                                    mgr.GetNextAreaId().Value(), false, false);
       if (mRumbleHandle != -1) {
         GetRumbleManager(mgr)->StopRumble(mRumbleHandle);
       }
       mRumbleHandle = GetRumbleManager(mgr)->Rumble(mgr, kRFX_PlayerGrappleSwoosh, 1.f, kRP_Three);
     }
   }
-  if (!mArmModel->GetAnimationData()->IsAnimTimeRemaining(dt, rstl::string_l("Whole Body"))) {
+  const CAnimData* animData = mArmModel->GetAnimationData();
+  if (!animData->IsAnimTimeRemaining(dt, rstl::string_l("Whole Body"))) {
     switch (mAnimationState) {
     case kAS_IntoGrapple:
       SetAnimState(kAS_IntoGrappleIdle);
@@ -508,6 +510,8 @@ void CGrappleArm::SetAnimState(EArmState state) {
     PlayGrappleAnimation(animData, 2);
     break;
   case kAS_ConnectGrapple:
+    PlayGrappleAnimation(animData, 3);
+    break;
   case kAS_Connected:
     PlayGrappleAnimation(animData, 3);
     break;
@@ -526,8 +530,8 @@ void CGrappleArm::SetAnimState(EArmState state) {
 
 void CGrappleArm::GrappleBeamConnected(CStateManager& mgr) {
   if (!mGrappleLoopSfx) {
-    mGrappleLoopSfx = GetPlayer(mgr)->PlaySfxForPlayer(kLoopSfx[mSoundSetIndex], mSoundPan,
-                                                       mgr.GetNextAreaId(), false, 1);
+    mGrappleLoopSfx = PlaySfxForPlayer(GetPlayer(mgr), kLoopSfx[mSoundSetIndex], mSoundPan,
+                                       mgr.GetNextAreaId().Value(), false, true);
   }
 }
 
@@ -607,8 +611,8 @@ void CGrappleArm::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
   mHitGenerator->SetParticleEmission(false);
   mClawGenerator->SetParticleEmission(true);
   mMuzzleGenerator->SetParticleEmission(true);
-  GetPlayer(mgr)->PlaySfxForPlayer(kFireSfx[mSoundSetIndex], mSoundPan, mgr.GetNextAreaId(), false,
-                                   0);
+  PlaySfxForPlayer(GetPlayer(mgr), kFireSfx[mSoundSetIndex], mSoundPan,
+                   mgr.GetNextAreaId().Value(), false, false);
   GetRumbleManager(mgr)->Rumble(mgr, kRFX_PlayerGrappleFire, 1.f, kRP_Three);
 }
 
@@ -620,10 +624,12 @@ void CGrappleArm::PointGenerator(const CSkinnedModel& model, const SSkinningWork
 }
 
 void CGrappleArm::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_Create) {
+  switch (msg.GetMessage()) {
+  case kSM_Create:
     UpdateGrappleModel(mgr, mCurrentSuit, mgr.IsMultiplayer());
     mSoundPan = GetPlayer(mgr)->GetSoundPan(CPlayer::kMSP_2);
-    mSoundSetIndex = mgr.IsMultiplayer();
+    mSoundSetIndex = mgr.IsMultiplayer() ? 1 : 0;
+    break;
   }
 }
 
@@ -716,8 +722,13 @@ bool CGrappleArm::GrappleActive(CStateManager& mgr, const float& arg) {
 void CGrappleArm::Start(CStateManager& mgr, int msg, float dt) {}
 
 void CGrappleArm::DownAtSide(CStateManager& mgr, int msg, float dt) {
-  if (msg == kStateMsg_Activate || msg == kStateMsg_Update) {
-    mStateFlags &= ~kSF_Default;
+  switch (msg) {
+  case kStateMsg_Activate:
+  case kStateMsg_Update:
+    if ((mStateFlags & kSF_Default) == kSF_Default) {
+      mStateFlags &= ~kSF_Default;
+    }
+    break;
   }
 }
 

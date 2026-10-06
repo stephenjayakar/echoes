@@ -71,10 +71,9 @@ void CPatterned::PathFind(CStateManager& mgr, EStateMsg msg, float) {
 }
 
 void CPatterned::fn_801524fc(CStateManager& mgr) {
-  CPathFindSearch* search = GetSearchPath();
-  if (search->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
+  if (GetSearchPath()->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
     mReflectedDestPos = GetTranslation();
-    SetDestPos(search->GetPoint());
+    SetDestPos(GetSearchPath()->GetPoint());
     mInPosition = false;
     ApproachDest(mgr);
   }
@@ -83,12 +82,15 @@ void CPatterned::fn_801524fc(CStateManager& mgr) {
 bool CPatterned::OffLine(CStateManager&, const CTriggerData& data) const {
   const CVector3f fromStart = GetTranslation() - mReflectedDestPos;
   CVector3f segment = mDestPos - mReflectedDestPos;
-  float distanceSquared = fromStart.MagSquared();
-  if (CVector3f::Dot(segment, fromStart) > 0.f) {
+  float distanceSquared;
+  if (CVector3f::Dot(segment, fromStart) <= 0.f) {
+    distanceSquared = fromStart.MagSquared();
+  } else {
     segment.Normalize();
     const CVector3f fromEnd = GetTranslation() - mDestPos;
     const float along = CVector3f::Dot(segment, fromStart);
-    distanceSquared = (fromStart - along * segment).MagSquared();
+    const CVector3f perp = fromStart - along * segment;
+    distanceSquared = perp.MagSquared();
     if (CVector3f::Dot(segment, fromEnd) > 0.f) {
       distanceSquared = fromEnd.MagSquared();
     }
@@ -97,8 +99,9 @@ bool CPatterned::OffLine(CStateManager&, const CTriggerData& data) const {
 }
 
 bool CPatterned::InRange(CStateManager& mgr, const CTriggerData&) const {
+  const float magSq = (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared();
   const float range = 0.5f * (mMinAttackRange + mMaxAttackRange);
-  return (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared() < range * range;
+  return magSq < range * range;
 }
 
 bool CPatterned::TooClose(CStateManager& mgr, const CTriggerData&) const {
@@ -131,8 +134,12 @@ bool CPatterned::InDetectionRange(CStateManager& mgr, const CTriggerData&) const
 }
 
 bool CPatterned::Leash(CStateManager&, const CTriggerData&) const {
-  return mCurPlayerLeashTime > mPlayerLeashTime &&
-         (mLatestLeashPosition - GetTranslation()).MagSquared() > mLeashRadius * mLeashRadius;
+  bool leash = mCurPlayerLeashTime > mPlayerLeashTime;
+  if (leash) {
+    const float magSq = (mLatestLeashPosition - GetTranslation()).MagSquared();
+    leash = leash && magSq > mLeashRadius * mLeashRadius;
+  }
+  return leash;
 }
 
 bool CPatterned::SpotPlayer(CStateManager& mgr, const CTriggerData&) const {
@@ -222,6 +229,10 @@ bool CPatterned::HasPatrolPath(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CPatterned::InPosition(CStateManager&, const CTriggerData&) const { return mInPosition; }
+
+bool CPatterned::GetAnimOver(CStateManager&, const CTriggerData&) const {
+  return mAnimationState.IsOver();
+}
 
 bool CPatterned::AnimOver(CStateManager& mgr, const CTriggerData& data) const {
   return GetAnimOver(mgr, data);
@@ -317,7 +328,7 @@ TUniqueId CPatterned::GetConnectedObject(CStateManager& mgr, EScriptObjectState 
       const CEntity* entity = mgr.GetObjectById(id);
       if (entity && entity->GetActive()) {
         ids.push_back(id);
-        if (ids.size() == ids.capacity()) {
+        if (ids.capacity() - ids.size() <= 0) {
           break;
         }
       }

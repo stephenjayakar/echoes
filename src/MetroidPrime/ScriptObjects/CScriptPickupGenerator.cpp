@@ -221,7 +221,7 @@ int CPickupGeneratorRuleEvaluator::GetRandomAmount(CStateManager& mgr, int ruleS
 
 CScriptPickupGenerator::CScriptPickupGenerator(TUniqueId uid, const rstl::string& name,
                                                const CEntityInfo& info, const CVector3f& offset,
-                                               CAssetId rules, bool offsetIsLocalSpace)
+                                               CAssetId rules, const bool offsetIsLocalSpace)
 : CEntity(uid, info, name, 0)
 , mOffset(offset)
 , mRuleEvaluator(rules)

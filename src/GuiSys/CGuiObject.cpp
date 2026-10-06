@@ -46,7 +46,8 @@ CVector3f CGuiObject::RotateW2O(const CVector3f& vec) const {
 
 CVector3f CGuiObject::RotateTranslateW2O(const CVector3f& vec) const {
   const CTransform4f& world = GetWorldTransform();
-  const CVector3f result = world.TransposeRotate(vec - world.GetTranslation());
+  const CVector3f result = world.TransposeRotate(CVector3f(
+      vec.GetX() - world.Get03(), vec.GetY() - world.Get13(), vec.GetZ() - world.Get23()));
   return result;
 }
 

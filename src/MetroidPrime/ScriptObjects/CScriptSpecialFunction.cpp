@@ -1413,7 +1413,7 @@ void CScriptSpecialFunction::ThinkPlayerFollowLocator(float dt, CStateManager& m
 void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr,
                                                     ESpinnerControllerMode mode) {
   const ushort sfx1 = mSfx1;
-  const ushort sfx3 = mSfx3;
+  ushort sfx3 = mSfx3;
   const float value1 = mValue1;
   const float value2 = mValue2;
   const float value4 = mValue4;

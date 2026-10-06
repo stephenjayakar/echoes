@@ -1,15 +1,25 @@
 #include "MetroidPrime/CAnimData.hpp"
 
+#include "Kyoto/Animation/CAllFormatsAnimSource.hpp"
+#include "Kyoto/Animation/CAnimMathUtils.hpp"
 #include "Kyoto/Animation/CAnimSysContext.hpp"
+#include "Kyoto/Animation/CAnimTreeBlend.hpp"
 #include "Kyoto/Animation/CAnimTreeNode.hpp"
 #include "Kyoto/Animation/CAnimationManager.hpp"
 #include "Kyoto/Animation/CCharLayoutInfo.hpp"
 #include "Kyoto/Animation/CJointData_LinearStorage.hpp"
+#include "Kyoto/Animation/CPrimitive.hpp"
+#include "Kyoto/Animation/CSkinRules.hpp"
+#include "Kyoto/Animation/CSkinnedModel.hpp"
 #include "Kyoto/Animation/CTransitionManager.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
 #include "Kyoto/Math/CloseEnough.hpp"
+#include "rstl/algorithm.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/CModelData.hpp"
+#include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Factories/CCharacterFactory.hpp"
 
 typedef rstl::reserved_vector< rstl::pair< uint, CAdditiveAnimPlayback >, 8 > TAdditiveAnims;
 
@@ -103,7 +113,21 @@ CAnimData::~CAnimData() {
 }
 
 CAABox CAnimData::GetBoundingBox() const {
-  // TODO: Select the uint-keyed bounds using the best unblended animation child.
+  const rstl::vector< rstl::pair< uint, CAABox > >& bounds = mCharInfo.GetAnimBoundsById();
+  if (bounds.size() > 0) {
+    const CAnimTreeEffectiveContribution contrib = mAnimRoot->GetContributionOfHighestInfluence();
+    const uint animId = contrib.GetAnimDatabaseIndex();
+    if (animId != mCachedBoundsAnimId) {
+      rstl::vector< rstl::pair< uint, CAABox > >::const_iterator it =
+          rstl::find_by_key(bounds, contrib.GetAnimDatabaseIndex());
+      if (it == bounds.end()) {
+        mCachedAnimBounds = mAabb;
+      } else {
+        mCachedAnimBounds = it->second;
+      }
+    }
+    return mCachedAnimBounds;
+  }
   return mAabb;
 }
 
@@ -112,8 +136,36 @@ CAABox CAnimData::GetBoundingBox(const CTransform4f& xf) const {
 }
 
 CAABox CAnimData::CalcBoundingBoxFromModelVerts() const {
-  // TODO: Accumulate the model vertices after applying the reference pose.
-  return mAabb;
+  BuildPoseIfNecessary();
+  float minX = 1000000.f;
+  float maxX = -1000000.f;
+  float minY = minX;
+  float maxY = maxX;
+  float minZ = minX;
+  float maxZ = maxX;
+  CSkinnedModelState state(mModelData->MakeDefaultStorage());
+  const CSkinnedModel* model = *mModelData;
+  model->StoreCalculation(state, &mPose);
+  const int count = model->GetSkinRules()->GetNumPoints();
+  for (int i = 0; i < count; ++i) {
+    const CVector3f pos = mModelData->GetSkinnedPosition(state.GetWorkspace(), i);
+    if (pos.GetX() > maxX) {
+      maxX = pos.GetX();
+    } else if (pos.GetX() < minX) {
+      minX = pos.GetX();
+    }
+    if (pos.GetY() > maxY) {
+      maxY = pos.GetY();
+    } else if (pos.GetY() < minY) {
+      minY = pos.GetY();
+    }
+    if (pos.GetZ() > maxZ) {
+      maxZ = pos.GetZ();
+    } else if (pos.GetZ() < minZ) {
+      minZ = pos.GetZ();
+    }
+  }
+  return CAABox(minX, minY, minZ, maxX, maxY, maxZ);
 }
 
 void CAnimData::ResetPOILists() {
@@ -123,19 +175,89 @@ void CAnimData::ResetPOILists() {
   mPassedSoundCount = 0;
 }
 
+static inline CCharAnimTime GetSourceDuration(const CAllFormatsAnimSource& source) {
+  switch (source.GetType()) {
+  case 0:
+    return source.AsCAnimSource().GetAnimationDuration();
+  case 2:
+    return source.AsCFBStreamedCompression().GetAnimationDuration();
+  default:
+    return source.AsCAnimSource().GetAnimationDuration();
+  }
+}
+
+static inline float GetSourceAverageVelocity(const CAllFormatsAnimSource& source) {
+  switch (source.GetType()) {
+  case 0:
+    return source.AsCAnimSource().GetAverageVelocity();
+  case 2:
+    return source.AsCFBStreamedCompression().GetAverageVelocity();
+  default:
+    return source.AsCAnimSource().GetAverageVelocity();
+  }
+}
+
 float CAnimData::GetAverageVelocity(int anim) const {
-  // TODO: Weight primitive velocities by their animation durations.
-  return 0.f;
+  const rstl::rc_ptr< IMetaAnim > metaAnim =
+      mAnimMgr->GetMetaAnimation(mCharInfo.GetAnimationIndexList()[anim]);
+  rstl::set< CPrimitive > primitives;
+  metaAnim->GetUniquePrimitives(primitives);
+  float durationAccum = 0.f;
+  float velocityAccum = 0.f;
+  rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+  rstl::set< CPrimitive >::const_iterator end = primitives.end();
+  rstl::set< CPrimitive >::const_iterator it = begin;
+  while (it != end) {
+    const SObjectTag tag('ANIM', it->GetAnimResId());
+    const TLockedToken< CAllFormatsAnimSource > source =
+        mAnimCtx->GetSimplePool().GetObj(tag);
+    const CAllFormatsAnimSource* animSource = *source;
+    velocityAccum +=
+        GetSourceAverageVelocity(*animSource) * GetSourceDuration(*animSource).GetSeconds();
+    durationAccum += GetSourceDuration(**source).GetSeconds();
+    ++it;
+  }
+  float result = 0.f;
+  if (durationAccum > 0.f) {
+    result = velocityAccum / durationAccum;
+  }
+  return result;
 }
 
 // Guessed name.
 void CAnimData::CollectAnimationResources(rstl::vector< SObjectTag >& tagsOut) const {
-  // TODO: Collect unique ANIM resource tags from every character animation's primitives.
+  rstl::set< SObjectTag > tags;
+  rstl::vector< uint >::const_iterator it = mCharInfo.GetAnimationIndexList().begin();
+  for (; it != mCharInfo.GetAnimationIndexList().end(); ++it) {
+    const rstl::rc_ptr< IMetaAnim > anim = mAnimMgr->GetMetaAnimation(*it);
+    rstl::set< CPrimitive > primitives;
+    anim->GetUniquePrimitives(primitives);
+    rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+    rstl::set< CPrimitive >::const_iterator end = primitives.end();
+    rstl::set< CPrimitive >::const_iterator prim = begin;
+    for (; prim != primitives.end(); ++prim) {
+      tags.insert(SObjectTag('ANIM', prim->GetAnimResId()));
+    }
+  }
+  tagsOut.reserve(tagsOut.size() + tags.size());
+  tagsOut.insert(tagsOut.end(), tags.begin(), tags.end());
 }
 
 // Guessed name.
 void CAnimData::CollectAnimationTokens(rstl::vector< CToken >& tokensOut, bool lock) const {
-  // TODO: Fetch the collected animation resources from the simple pool and optionally lock.
+  rstl::vector< SObjectTag > tags;
+  CollectAnimationResources(tags);
+  if (tags.size() == 0) {
+    return;
+  }
+  tokensOut.reserve(tags.size() + tokensOut.size());
+  for (int i = 0; i < tags.size(); ++i) {
+    CToken token = gpSimplePool->GetObj(tags[i]);
+    if (lock) {
+      token.Lock();
+    }
+    tokensOut.push_back_unsafe(token);
+  }
 }
 
 void CAnimData::AdvanceParticles(const CTransform4f& xf, float dt, const CVector3f& scale,
@@ -177,33 +299,165 @@ void CAnimData::SetInfraModel(const TLockedToken< CModel >& model,
 }
 
 void CAnimData::AdvanceAnim(CCharAnimTime& time, CVector3f& offset, CQuaternion& rotation) {
-  // TODO: Advance/simplify the root and apply the resulting position and rotation deltas.
+  const float seconds = time.GetSeconds();
+  SAdvancementResults results(CCharAnimTime(0.f),
+                              CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation()));
+  rstl::optional_object< rstl::ownership_transfer< IAnimReader > > simplified;
+  if (mAnimDir == kAD_Forward) {
+    results = mAnimRoot->VAdvanceView(time);
+    simplified = mAnimRoot->Simplified();
+  }
+  if (simplified.valid()) {
+    mAnimRoot = Cast(simplified.data());
+  }
+  const int count = mPassedIntCount;
+  if ((x2ac_28_ || x2ac_27_) && count > 0) {
+    for (int i = 0; i < count; ++i) {
+      const CInt32POINode& poi = mInt32POINodes[i];
+      if (poi.GetPoiType() == kPT_UserEvent) {
+        switch (poi.GetValue()) {
+        case kUE_AlignTargetPosStart:
+          mAligningPos = true;
+          break;
+        case kUE_AlignTargetPos:
+          mAlignPos = CVector3f::Zero();
+          x2ac_28_ = false;
+          mAligningPos = false;
+          break;
+        case kUE_AlignTargetRot:
+          mAlignRot = CQuaternion::NoRotation();
+          x2ac_27_ = false;
+          break;
+        default:
+          break;
+        }
+      }
+    }
+  }
+  const CAdvancementDeltas deltas = results.mDeltas;
+  offset += deltas.GetOffsetDelta();
+  if (mAligningPos) {
+    offset += seconds * mAlignPos;
+  }
+  const CQuaternion rot = deltas.GetOrientationDelta() * mAlignRot;
+  rotation = rotation * rot;
+  mAlignPos = rot.BuildInverted().Transform(mAlignPos);
+  time = results.mRemTime;
 }
 
 CAdvancementDeltas CAnimData::AdvanceIgnoreParticles(float dt, CRandom16& random,
                                                      bool advanceTree) {
-  bool suspendEffects = false;
+  bool suspendEffects;
   return DoAdvance(dt, suspendEffects, random, advanceTree);
 }
 
 CAdvancementDeltas CAnimData::Advance(float dt, float minParticleWeight, const CVector3f& scale,
                                       CStateManager* mgr, CRandom16& random, TAreaId areaId,
                                       bool advanceTree) {
-  // TODO: Advance, suspend effects when requested, and emit eligible particle POIs.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  bool suspendParticles;
+  const CAdvancementDeltas deltas = DoAdvance(dt, suspendParticles, random, advanceTree);
+  if (suspendParticles) {
+    mParticleDB.SuspendAllActiveEffects(mgr);
+  }
+  const int count = mPassedParticleCount;
+  for (int i = 0; i < count; ++i) {
+    const CParticlePOINode& node = mParticlePOINodes[i];
+    if (node.GetCharacterIndex() == -1 || mCharIdx == node.GetCharacterIndex()) {
+      if (node.GetMaximumDistance() > minParticleWeight ||
+          (mgr != nullptr && !mgr->IsMultiplayer() &&
+           mgr->GetCameraManager(0)->IsInCinematicCamera())) {
+        mParticleDB.AddParticleEffect(node.GetNameHash(), node.GetFlags(),
+                                      node.GetParticleData(), scale, mgr, areaId, false,
+                                      mParticleLightIdx);
+      }
+    }
+  }
+  return deltas;
 }
 
 CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendEffects, CRandom16& random,
                                         bool advanceTree) {
-  // TODO: Advance the animation tree, process POIs and combine additive deltas.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  suspendEffects = false;
+  CVector3f offsetPre(0.f, 0.f, 0.f);
+  CVector3f offsetPost(0.f, 0.f, 0.f);
+  CQuaternion quatPre = CQuaternion::NoRotation();
+  const float scaledDt = dt * mSpeedScale;
+  CQuaternion quatPost = CQuaternion::NoRotation();
+  ResetPOILists();
+  if (mAdditiveAnims.size() > 0) {
+    const CAdvancementDeltas deltas = UpdateAdditiveAnims(scaledDt);
+    offsetPost = deltas.GetOffsetDelta();
+    quatPost = deltas.GetOrientationDelta();
+  }
+  mPoseBuilt = false;
+  if (mAnimating != 1) {
+    suspendEffects = true;
+    return CAdvancementDeltas(offsetPre, quatPre);
+  }
+  if (mAnimationJustStarted) {
+    mAnimationJustStarted = false;
+    suspendEffects = true;
+  }
+  if (advanceTree) {
+    SetRandomPlaybackRate(random);
+    CCharAnimTime time(scaledDt);
+    if (mLoop) {
+      while (time.GreaterThanZero() && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
+                                                      mPassedIntCount, 0);
+        mPassedBoolCount +=
+            mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
+                                                              mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        AdvanceAnim(time, offsetPre, quatPre);
+      }
+    } else {
+      CCharAnimTime remaining = mAnimRoot->VGetTimeRemaining();
+      while (!close_enough(remaining.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount += mAnimRoot->GetInt32POIList(time, mInt32POINodes.data(), 16,
+                                                      mPassedIntCount, 0);
+        mPassedBoolCount +=
+            mAnimRoot->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount += mAnimRoot->GetParticlePOIList(time, mParticlePOINodes.data(), 64,
+                                                              mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            mAnimRoot->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        AdvanceAnim(time, offsetPre, quatPre);
+        remaining = mAnimRoot->VGetTimeRemaining();
+        time = CCharAnimTime(
+            rstl::max_val(0.f, rstl::min_val(time.GetSeconds(), remaining.GetSeconds())));
+        if (close_enough(remaining.GetSeconds(), 0.f)) {
+          mAnimating = false;
+          mAlignPos = CVector3f::Zero();
+          x2ac_28_ = false;
+          mAligningPos = false;
+        }
+      }
+    }
+    mPoseBuilt = false;
+  }
+  return CAdvancementDeltas(offsetPre + offsetPost, quatPre * quatPost);
 }
 
 // Guessed name.
 rstl::ncrc_ptr< CAnimTreeNode >
 CAnimData::BuildAnimationTree(const CAnimPlaybackParms& parms) const {
-  // TODO: Build the requested animation or a blend of the two requested animations.
-  return rstl::ncrc_ptr< CAnimTreeNode >();
+  const int animB = parms.GetSecondAnimationId();
+  const uint animA = mCharInfo.GetAnimationIndexList()[parms.GetAnimationId()];
+  const float blendWeight = parms.GetBlendWeight();
+  if (animB != -1) {
+    const uint animBIdx = mCharInfo.GetAnimationIndexList()[animB];
+    const rstl::ncrc_ptr< CAnimTreeNode > treeA =
+        GetAnimationManager()->GetAnimationTree(animA, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    const rstl::ncrc_ptr< CAnimTreeNode > treeB = GetAnimationManager()->GetAnimationTree(
+        animBIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    return rstl::ncrc_ptr< CAnimTreeNode >(
+        rs_new CAnimTreeBlend(false, treeA, treeB, blendWeight,
+                              CAnimTreeBlend::CreatePrimitiveName(treeA, treeB, blendWeight)));
+  }
+  return GetAnimationManager()->GetAnimationTree(animA, CMetaAnimTreeBuildOrders::NoSpecialOrders());
 }
 
 // Guessed name.
@@ -213,12 +467,47 @@ rstl::rc_ptr< IMetaTrans > CAnimData::BuildTransitionTree(const CAnimPlaybackPar
 }
 
 void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
-  // TODO: Construct the new tree/transition, reset POIs and set playback alignment.
+  const uint numChildren = mAnimRoot->VGetNumChildren();
+  if (parms.GetAnimationId() == mPlaybackParms.GetAnimationId() ||
+      (parms.GetSecondAnimationId() == mPlaybackParms.GetSecondAnimationId() &&
+       parms.GetSecondAnimationId() != -1) ||
+      (parms.GetBlendWeight() == mPlaybackParms.GetBlendWeight() &&
+       parms.GetBlendWeight() != 1.f)) {
+    if (mAnimationJustStarted) {
+      return;
+    }
+  }
+  if (numChildren >= x2a8_) {
+    return;
+  }
+  ResetPOILists();
+  mSpeedScale = 1.f;
+  mPlaybackParms.SetAnimationId(parms.GetAnimationId());
+  mPlaybackParms.SetSecondAnimationId(parms.GetSecondAnimationId());
+  mPlaybackParms.SetBlendWeight(parms.GetBlendWeight());
+  mCurrentAnim = parms.GetAnimationId();
+  const bool animating = parms.GetAnimating();
+  const rstl::ncrc_ptr< CAnimTreeNode > tree = BuildAnimationTree(parms);
+  if (!noTrans) {
+    mAnimRoot = mTransMgr->GetTransitionTree(mAnimRoot, tree);
+  } else {
+    mAnimRoot = tree;
+  }
+  mAnimating = animating;
+  CalcPlaybackAlignmentParms(parms, tree);
+  ResetPOILists();
+  mAnimationJustStarted = true;
 }
 
 void CAnimData::GetAnimationPrimitives(const CAnimPlaybackParms& parms,
                                        rstl::set< CPrimitive >& primsOut) const {
-  // TODO: Collect unique primitives from the requested animation(s).
+  const uint animA = mCharInfo.GetAnimationIndexList()[parms.GetAnimationId()];
+  const int animB = parms.GetSecondAnimationId();
+  GetAnimationManager()->GetMetaAnimation(animA)->GetUniquePrimitives(primsOut);
+  if (animB != -1) {
+    const uint animBIdx = mCharInfo.GetAnimationIndexList()[animB];
+    GetAnimationManager()->GetMetaAnimation(animBIdx)->GetUniquePrimitives(primsOut);
+  }
 }
 
 void CAnimData::BuildPoseIfNecessary() const {
@@ -244,41 +533,86 @@ void CAnimData::RenderAuxiliary(const CFrustumPlanes& planes) const {
 }
 
 void CAnimData::RecalcPoseBuilder(const CCharAnimTime* time) const {
-  // TODO: Sample the root into joint storage, add additive segments and build the linear pose.
-  // The inherited IAnimReader virtual interface must be recovered before dispatching here.
+  CAnimMathUtils::sUseFastSlerp = x2ad_25_;
+  const CCharLayoutInfo& layout = **mLayoutData;
+  rstl::optional_object< CJointData_LinearStorage > localStorage;
+  CJointData_LinearStorage* storage = mJointData.get();
+  if (storage == nullptr) {
+    storage = new (localStorage.prepare_emplace()) CJointData_LinearStorage(
+        layout.GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Pool);
+  } else {
+    storage->ResetFlags();
+  }
+  if (mAnimatedScale) {
+    storage->SetHasScales(true);
+  }
+  if (time == nullptr) {
+    mAnimRoot->VGetSegData(layout, *storage);
+  } else {
+    mAnimRoot->VGetSegData(layout, *storage, *time);
+  }
+  AddAdditiveSegData(*storage);
+  mPose.BuildPose(layout, *storage);
 }
 
 rstl::ncrc_ptr< CAnimSysContext > CAnimData::GetAnimSysContext() const { return mAnimCtx; }
 
 float CAnimData::GetAnimationDuration(int anim) const {
-  // TODO: Query the selected animation tree's steady-state duration.
-  return 0.f;
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::rc_ptr< IMetaAnim > metaAnim = GetAnimationManager()->GetMetaAnimation(animIdx);
+  rstl::set< CPrimitive > primitives;
+  metaAnim->GetUniquePrimitives(primitives);
+  float duration = 0.f;
+  rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+  rstl::set< CPrimitive >::const_iterator end = primitives.end();
+  rstl::set< CPrimitive >::const_iterator it = begin;
+  while (it != end) {
+    const SObjectTag tag('ANIM', it->GetAnimResId());
+    const TLockedToken< CAllFormatsAnimSource > source =
+        GetAnimSysContext()->GetSimplePool().GetObj(tag);
+    duration += GetSourceDuration(**source).GetSeconds();
+    ++it;
+  }
+  if (metaAnim->GetType() == kMAT_Random) {
+    duration /= primitives.size();
+  }
+  return duration;
 }
 
 float CAnimData::GetAnimTimeRemaining(const rstl::string& name) const {
-  // TODO: Query the root's remaining time using the recovered animation-tree interface.
-  return 0.f;
+  float remaining = mAnimRoot->VGetTimeRemaining().GetSeconds();
+  if (mSpeedScale > 0.f) {
+    remaining /= mSpeedScale;
+  }
+  return remaining;
 }
 
 bool CAnimData::IsAnimTimeRemaining(float tolerance, const rstl::string& name) const {
-  // TODO: Recover the zero-time and tolerance tests against the root's remaining time.
+  if (mAnimRoot.GetPtr() != nullptr) {
+    return !close_enough(mAnimRoot->VGetTimeRemaining().GetSeconds(), 0.f, tolerance);
+  }
   return false;
+}
+
+CSegId CAnimData::GetLocatorSegId(const rstl::string& name) const {
+  return mLayoutData->GetSegIdFromString(name);
 }
 
 CTransform4f CAnimData::GetLocatorTransform(const rstl::string& name,
                                             const CCharAnimTime* time) const {
-  return GetLocatorTransform(mLayoutData->GetSegIdFromString(name), time);
+  CSegId id = mLayoutData->GetSegIdFromString(name);
+  return GetLocatorTransform(id, time);
 }
 
 CTransform4f CAnimData::GetLocatorTransform(CSegId id, const CCharAnimTime* time) const {
-  if (id == CSegId::Invalid()) {
-    return CTransform4f::Identity();
+  if (id != CSegId::Invalid()) {
+    if (time != nullptr || !mPoseBuilt) {
+      RecalcPoseBuilder(time);
+      mPoseBuilt = time == nullptr;
+    }
+    return CTransform4f(mPose.GetRotation(id), mPose.GetOffset(id));
   }
-  if (time != nullptr || !mPoseBuilt) {
-    RecalcPoseBuilder(time);
-    mPoseBuilt = time == nullptr;
-  }
-  return CTransform4f(mPose.GetRotation(id), mPose.GetOffset(id));
+  return CTransform4f::Identity();
 }
 
 void CAnimData::CalcPlaybackAlignmentParms(const CAnimPlaybackParms& parms,
@@ -287,7 +621,19 @@ void CAnimData::CalcPlaybackAlignmentParms(const CAnimPlaybackParms& parms,
 }
 
 void CAnimData::SetRandomPlaybackRate(CRandom16& random) {
-  // TODO: Read the random-rate POI and choose the signed playback-rate variation.
+  for (int i = 0; i < mPassedIntCount; ++i) {
+    const CInt32POINode& poi = mInt32POINodes[i];
+    if (poi.GetPoiType() == kPT_RandRate) {
+      const int range = poi.GetValue();
+      const float rate = (random.Next() % range) / 100.f;
+      if ((random.Next() % 100) < 50) {
+        mSpeedScale = 1.f + rate;
+      } else {
+        mSpeedScale = 1.f - rate;
+      }
+      break;
+    }
+  }
 }
 
 void CAnimData::SetPlaybackRate(float rate) { mSpeedScale = rate; }
@@ -295,8 +641,10 @@ void CAnimData::SetPlaybackRate(float rate) { mSpeedScale = rate; }
 void CAnimData::MultiplyPlaybackRate(float scale) { mSpeedScale *= scale; }
 
 CCharAnimTime CAnimData::GetTimeOfUserEventForAnimation(int anim, EUserEventType type) const {
-  // TODO: Build the selected animation tree and query its user-event time.
-  return CCharAnimTime::Infinity();
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::ncrc_ptr< CAnimTreeNode > tree =
+      GetAnimationManager()->GetAnimationTree(animIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+  return GetTimeOfUserEvent(type, CCharAnimTime(GetAnimationDuration(anim)), tree);
 }
 
 CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnimTime& time) const {
@@ -305,23 +653,48 @@ CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnim
 
 CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnimTime& time,
                                             const rstl::ncrc_ptr< CAnimTreeNode >& tree) const {
-  // TODO: Search the supplied tree's int POIs and reset the transient cache afterward.
+  const int count = tree->GetInt32POIList(time, sInt32TransientCacheData, 16, 0, 64);
+  for (int i = 0; i < count; ++i) {
+    const CInt32POINode& node = sInt32TransientCacheData[i];
+    if (node.GetPoiType() == kPT_UserEvent && node.GetValue() == type) {
+      const CCharAnimTime result = node.GetTime();
+      for (; i < count; ++i) {
+        sInt32TransientCacheData[i] =
+            CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f), -1, false, 1.f, -1, 0, 0,
+                          rstl::string_l("root"));
+      }
+      return result;
+    }
+    sInt32TransientCacheData[i] = CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f),
+                                                -1, false, 1.f, -1, 0, 0, rstl::string_l("root"));
+  }
   return CCharAnimTime::Infinity();
 }
 
 // Guessed name.
 int CAnimData::CountUserEvents(EUserEventType type, const CCharAnimTime& time,
                                const rstl::ncrc_ptr< CAnimTreeNode >& tree) const {
-  // TODO: Count matching int POIs and reset the transient cache afterward.
-  return 0;
+  const int count = tree->GetInt32POIList(time, sInt32TransientCacheData, 16, 0, 64);
+  int result = 0;
+  for (int i = 0; i < count; ++i) {
+    if (sInt32TransientCacheData[i].GetPoiType() == kPT_UserEvent &&
+        type == sInt32TransientCacheData[i].GetValue()) {
+      ++result;
+    }
+    sInt32TransientCacheData[i] = CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f), -1, false, 1.f, -1, 0, 0,
+                         rstl::string_l("root"));
+  }
+  return result;
 }
 
 rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() const { return mAnimMgr; }
 
 // Guessed name.
 int CAnimData::CountUserEventsForAnimation(int anim, EUserEventType type) const {
-  // TODO: Build the selected animation and count events over its duration.
-  return 0;
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::ncrc_ptr< CAnimTreeNode > tree =
+      GetAnimationManager()->GetAnimationTree(animIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+  return CountUserEvents(type, CCharAnimTime(GetAnimationDuration(anim)), tree);
 }
 
 void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
@@ -329,16 +702,19 @@ void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
 }
 
 void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVector3f& scale) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    const rstl::vector< CEffectComponent >& components = effects[i].second;
-    for (uint j = 0; j < components.size(); ++j) {
-      const CEffectComponent& component = components[j];
+  const uint effectCount = mCharInfo.GetEffects().size();
+  for (uint i = 0; i < effectCount; ++i) {
+    const rstl::pair< rstl::string, rstl::vector< CEffectComponent > > effect =
+        mCharInfo.GetEffects()[i];
+    const uint componentCount = effect.second.size();
+    for (uint j = 0; j < componentCount; ++j) {
+      const CEffectComponent& component = effect.second[j];
       mParticleDB.CacheParticleDesc(component.GetParticleTag());
-      const CParticleData data(0, component.GetParticleTag(), component.GetSegmentId(),
-                               component.GetScale(), component.GetParentedMode());
-      mParticleDB.AddParticleEffect(component.GetComponentNameHash(), component.GetFlags(), data,
-                                    scale, &mgr, areaId, true, mParticleLightIdx);
+      mParticleDB.AddParticleEffect(
+          component.GetComponentNameHash(), component.GetFlags(),
+          CParticleData(0, component.GetParticleTag(), component.GetSegmentId(),
+                        component.GetScale(), component.GetParentedMode()),
+          scale, &mgr, areaId, true, mParticleLightIdx);
       mParticleDB.SetParticleEffectState(component.GetComponentNameHash(), false, &mgr);
     }
   }
@@ -346,56 +722,49 @@ void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVec
 
 CParticleGenInfo* CAnimData::GetFirstParticleEffect(const rstl::string& name) {
   const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      return components.empty()
-                 ? nullptr
-                 : mParticleDB.GetParticleEffect(components[0].GetComponentNameHash());
-    }
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end() && !it->second.empty()) {
+    return mParticleDB.GetParticleEffect(it->second[0].GetComponentNameHash());
   }
   return nullptr;
 }
 
 void CAnimData::SetEffectState(const rstl::string& name, bool active, CStateManager& mgr) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      for (uint j = 0; j < components.size(); ++j) {
-        mParticleDB.SetParticleEffectState(components[j].GetComponentNameHash(), active, &mgr);
-      }
-      return;
+  const CCharacterInfo::TEffectList effects = mCharInfo.GetEffects();
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end()) {
+    rstl::vector< CEffectComponent >::const_iterator end = it->second.end();
+    rstl::vector< CEffectComponent >::const_iterator comp = it->second.begin();
+    for (; comp != end; ++comp) {
+      mParticleDB.SetParticleEffectState(comp->GetComponentNameHash(), active, &mgr);
     }
   }
 }
 
 void CAnimData::SetEffectComponentExternalParam(const rstl::string& name, int index, float value) {
-  const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      if (!components.empty()) {
-        mParticleDB.SetParticleExternalParam(components[0].GetComponentNameHash(), index, value);
-      }
-      return;
+  const CCharacterInfo::TEffectList effects = mCharInfo.GetEffects();
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end()) {
+    rstl::vector< CEffectComponent >::const_iterator comp = it->second.begin();
+    if (comp != it->second.end()) {
+      mParticleDB.SetParticleExternalParam(comp->GetComponentNameHash(), index, value);
     }
   }
 }
 
-void CAnimData::SetPhase(float phase) {
-  // TODO: Forward the phase to the root's virtual interface once its slots are recovered.
-}
+void CAnimData::SetPhase(float phase) { mAnimRoot->VSetPhase(phase); }
 
 void CAnimData::SetKeepJSPose(bool keep) {
-  if (!keep) {
+  if (keep) {
+    if (mJointData.null()) {
+      mJointData = rstl::auto_ptr< CJointData_LinearStorage >(rs_new CJointData_LinearStorage(
+          mLayoutData->GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Heap));
+      mJointData->SetZeroRotation();
+      mJointData->ResetScales();
+      mJointData->SetReferenceOffsets(**mLayoutData);
+    }
+  } else {
     mJointData = rstl::auto_ptr< CJointData_LinearStorage >();
-  } else if (mJointData.null()) {
-    mJointData = rstl::auto_ptr< CJointData_LinearStorage >(rs_new CJointData_LinearStorage(
-        mLayoutData->GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Heap));
-    mJointData->SetZeroRotation();
-    mJointData->ResetScales();
-    mJointData->SetReferenceOffsets(**mLayoutData);
   }
 }
 
@@ -405,19 +774,48 @@ void CAnimData::SetAnimationTreeLimit(int limit) { x2a8_ = limit; }
 rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() { return mAnimMgr; }
 
 void CAnimData::AddAdditiveAnimation(uint idx, float weight, bool active, bool fadeOut) {
-  // TODO: Create or update the character-mapped additive animation and its fade parameters.
+  const uint anim = mCharInfo.GetAnimationIndexList()[idx];
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
+    }
+  }
+  if (it != mAdditiveAnims.end()) {
+    it->second.SetLoop(active);
+    CAdditiveAnimPlayback& playback = it->second;
+    playback.SetWeight(weight);
+    playback.SetFadeOutWhenAnimOver(!playback.IsLoop() && fadeOut);
+  } else {
+    const rstl::ncrc_ptr< CAnimTreeNode > node =
+        GetAnimationManager()->GetAnimationTree(anim, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    const rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >& infos =
+        mCharFactory->GetAdditiveAnimInfoList();
+    rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >::const_iterator infoIt =
+        rstl::binary_find(infos.begin(), infos.end(), anim,
+                          rstl::pair_sorter_finder< rstl::pair< uint, CAdditiveAnimationInfo >,
+                                                    rstl::less< uint > >(rstl::less< uint >()));
+    const CAdditiveAnimationInfo info =
+        infoIt != infos.end() ? infoIt->second : mCharFactory->GetDefaultAdditiveAnimInfo();
+    const CAdditiveAnimPlayback playback(node, weight, active, info, fadeOut);
+    mAdditiveAnims.push_back(rstl::pair< uint, CAdditiveAnimPlayback >(anim, playback));
+  }
 }
 
 void CAnimData::DelAdditiveAnimation(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
-  for (TAdditiveAnims::iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end(); ++it) {
-    if (it->first == anim) {
-      const CAdditiveAnimPlayback::EPlaybackPhase phase = it->second.GetFadingMode();
-      if (phase != CAdditiveAnimPlayback::kPP_FadingOut &&
-          phase != CAdditiveAnimPlayback::kPP_FadedOut) {
-        it->second.FadeOut();
-      }
-      return;
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
+    }
+  }
+  if (it != mAdditiveAnims.end()) {
+    CAdditiveAnimPlayback& playback = it->second;
+    const CAdditiveAnimPlayback::EPlaybackPhase phase = playback.GetFadingMode();
+    if (phase != CAdditiveAnimPlayback::kPP_FadingOut &&
+        phase != CAdditiveAnimPlayback::kPP_FadedOut) {
+      playback.FadeOut();
     }
   }
 }
@@ -425,7 +823,7 @@ void CAnimData::DelAdditiveAnimation(uint idx) {
 void CAnimData::DelAdditiveAnimationImmediately(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end(); ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       mAdditiveAnims.erase(it);
       return;
     }
@@ -436,7 +834,7 @@ float CAnimData::GetAdditiveAnimationWeight(uint idx) {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
        ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       return it->second.GetWeight();
     }
   }
@@ -447,7 +845,7 @@ bool CAnimData::IsAdditiveAnimationActive(uint idx) const {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
   for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
        ++it) {
-    if (it->first == anim) {
+    if (anim == it->first) {
       return true;
     }
   }
@@ -456,44 +854,129 @@ bool CAnimData::IsAdditiveAnimationActive(uint idx) const {
 
 rstl::rc_ptr< CAnimTreeNode > CAnimData::GetAdditiveAnimationTree(uint idx) const {
   const uint anim = mCharInfo.GetAnimationIndexList()[idx];
-  for (TAdditiveAnims::const_iterator it = mAdditiveAnims.begin(); it != mAdditiveAnims.end();
-       ++it) {
-    if (it->first == anim) {
-      return it->second.GetAnimationTree();
+  TAdditiveAnims::const_iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
     }
   }
-  return rstl::rc_ptr< CAnimTreeNode >(nullptr);
+  if (it == mAdditiveAnims.end()) {
+    return rstl::rc_ptr< CAnimTreeNode >(nullptr);
+  }
+  return it->second.GetAnimationTree();
 }
 
 const rstl::ncrc_ptr< CAnimTreeNode >& CAnimData::GetAnimationTree() const { return mAnimRoot; }
 
 bool CAnimData::IsAdditiveAnimation(uint idx) const {
-  // TODO: Search the animation database's additive-animation information.
-  return false;
+  const uint anim = mCharInfo.GetAnimationIndexList()[idx];
+  const rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >& infos =
+      mCharFactory->GetAdditiveAnimInfoList();
+  rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >::const_iterator it =
+      rstl::binary_find(infos.begin(), infos.end(), anim,
+                        rstl::pair_sorter_finder< rstl::pair< uint, CAdditiveAnimationInfo >,
+                                                  rstl::less< uint > >(rstl::less< uint >()));
+  return it != infos.end();
 }
 
 SAdvancementResults CAnimData::AdvanceAdditiveAnim(rstl::rc_ptr< CAnimTreeNode >& tree,
                                                    CCharAnimTime time) {
-  // TODO: Advance and simplify the additive tree, preserving its unconsumed time.
-  SAdvancementResults result;
-  result.mRemTime = time;
-  result.mDeltas.mPosDelta = CVector3f::Zero();
-  result.mDeltas.mRotDelta = CQuaternion::NoRotation();
-  return result;
+  const SAdvancementResults results = tree->VAdvanceView(time);
+  const rstl::optional_object< rstl::ownership_transfer< IAnimReader > > simplified =
+      tree->Simplified();
+  if (simplified.valid()) {
+    tree = Cast(simplified.data());
+  }
+  return results;
 }
 
 CAdvancementDeltas CAnimData::UpdateAdditiveAnims(float dt) {
-  // TODO: Update fades, remove finished entries and combine their weighted deltas.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  while (it != mAdditiveAnims.end()) {
+    CAdditiveAnimPlayback& playback = it->second;
+    playback.Update(dt);
+    const CCharAnimTime remaining = playback.GetAnimationTree()->VGetTimeRemaining();
+    const CAdditiveAnimPlayback::EPlaybackPhase phase = playback.GetFadingMode();
+    if (close_enough(remaining.GetSeconds(), 0.f) && playback.IsFadeOutWhenAnimOver() &&
+        phase != CAdditiveAnimPlayback::kPP_FadedOut &&
+        phase != CAdditiveAnimPlayback::kPP_FadingOut) {
+      playback.FadeOut();
+    }
+    if (phase == CAdditiveAnimPlayback::kPP_FadedOut) {
+      it = mAdditiveAnims.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  return AdvanceAdditiveAnims(dt);
 }
 
 CAdvancementDeltas CAnimData::AdvanceAdditiveAnims(float dt) {
-  // TODO: Advance active additive trees and accumulate their motion.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  CVector3f posDelta(0.f, 0.f, 0.f);
+  CQuaternion rotDelta = CQuaternion::NoRotation();
+  const uint count = mAdditiveAnims.size();
+  for (uint i = 0; i < count; ++i) {
+    CAdditiveAnimPlayback& playback = mAdditiveAnims[i].second;
+    rstl::ncrc_ptr< CAnimTreeNode >& anim = playback.AnimationTree();
+    CCharAnimTime time(dt);
+    if (playback.IsLoop()) {
+      while (time.GreaterThanZero() && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount +=
+            anim->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
+        mPassedBoolCount +=
+            anim->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount +=
+            anim->GetParticlePOIList(time, mParticlePOINodes.data(), 64, mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            anim->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        const SAdvancementResults results = AdvanceAdditiveAnim(anim, time);
+        const CAdvancementDeltas deltas = results.mDeltas;
+        posDelta += deltas.GetOffsetDelta();
+        const CQuaternion rot = deltas.GetOrientationDelta();
+        rotDelta = rotDelta * rot;
+        time = results.mRemTime;
+      }
+    } else {
+      CCharAnimTime remaining = anim->VGetTimeRemaining();
+      while (!close_enough(remaining.GetSeconds(), 0.f) && !close_enough(time.GetSeconds(), 0.f)) {
+        mPassedIntCount +=
+            anim->GetInt32POIList(time, mInt32POINodes.data(), 16, mPassedIntCount, 0);
+        mPassedBoolCount +=
+            anim->GetBoolPOIList(time, mBoolPOINodes.data(), 8, mPassedBoolCount, 0);
+        mPassedParticleCount +=
+            anim->GetParticlePOIList(time, mParticlePOINodes.data(), 64, mPassedParticleCount, 0);
+        mPassedSoundCount +=
+            anim->GetSoundPOIList(time, mSoundPOINodes.data(), 48, mPassedSoundCount, 0);
+        const SAdvancementResults results = AdvanceAdditiveAnim(anim, time);
+        const CAdvancementDeltas deltas = results.mDeltas;
+        posDelta += deltas.GetOffsetDelta();
+        const CQuaternion rot = deltas.GetOrientationDelta();
+        rotDelta = rotDelta * rot;
+        time = results.mRemTime;
+        remaining = anim->VGetTimeRemaining();
+        time = CCharAnimTime(rstl::min_val(time.GetSeconds(), remaining.GetSeconds()));
+      }
+    }
+  }
+  return CAdvancementDeltas(posDelta, rotDelta);
 }
 
 void CAnimData::AddAdditiveSegData(CJointData_LinearStorage& data) const {
-  // TODO: Accumulate weighted additive rotations, translations and scales into joint storage.
+  const uint count = mAdditiveAnims.size();
+  const CCharLayoutInfo& layout = **mLayoutData;
+  for (uint i = 0; i < count; ++i) {
+    const CAdditiveAnimPlayback& playback = mAdditiveAnims[i].second;
+    const float weight = playback.GetWeight();
+    if (!close_enough(weight, 0.f)) {
+      CJointData_LinearStorage additive(layout.GetNumSegments(), CJointData_LinearStorage::kAF_Pool);
+      additive.SetUseZeroOffsets(true);
+      if (data.HasScales()) {
+        additive.SetHasScales(true);
+      }
+      playback.GetAnimationTree()->VGetSegData(layout, additive);
+      data.Add(additive, weight);
+    }
+  }
 }
 
 // Guessed name.
