@@ -3,12 +3,15 @@
 #include "Kyoto/Animation/CCharAnimTime.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/CActorModelParticles.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CSimpleShadow.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
+#include "MetroidPrime/Weapons/CGameProjectile.hpp"
 #include "rstl/math.hpp"
 #include "MetroidPrime/CGenericFSM2State.hpp"
 
@@ -375,8 +378,15 @@ void CPatterned::InitializeStateMachine(CStateManager& mgr) {
   mStateMachine->SetState(mgr, *this, rstl::string("Start"));
 }
 
-void CPatterned::Touch(CActor&, CStateManager&) {
-  // TODO: Apply contact damage with the configured cooldown and actor material filter.
+void CPatterned::Touch(CActor& actor, CStateManager& mgr) {
+  if (!mAlive) {
+    return;
+  }
+  if (CGameProjectile* projectile = TCastToPtr< CGameProjectile >(actor)) {
+    if (TCastToPtr< CPlayer >(const_cast< CEntity* >(mgr.GetObjectById(projectile->GetOwnerId())))) {
+      mHitByPlayerProjectile = true;
+    }
+  }
 }
 
 void CPatterned::CollidedWith(const TUniqueId&, const CCollisionInfoList&, CStateManager&) {
@@ -410,7 +420,16 @@ float CPatterned::GetDeathTimeScale() const {
 }
 
 void CPatterned::DeathDelete(CStateManager& mgr) {
-  // TODO: Restore the special cases that retain or deactivate dead actors.
+  mSuppressKnockBack = true;
+  if (!mStateMachine->HasState()) {
+    InitializeStateMachine(mgr);
+  }
+  SendScriptMsgs(kSS_Dead, mgr, GetUniqueId(), kSM_None);
+  if (GetBodyController()->IsElectrocuting()) {
+    mPendingShockDamage = 0.f;
+    BodyController()->DouseElectrocuting();
+    mgr.ActorModelParticles()->StopElectric(*this);
+  }
   mgr.DeleteObjectRequest(GetUniqueId());
 }
 
