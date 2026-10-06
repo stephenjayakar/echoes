@@ -1628,6 +1628,7 @@ MetroidPrime/ScriptObjects/CScriptSurfaceCamera.cpp:
 	.text       start:0x801E979C end:0x801EA9AC
 	.rodata     start:0x803AB1A8 end:0x803AB1B0
 	.data       start:0x803B7798 end:0x803B7818
+	.sdata      start:0x80418720 end:0x80418728
 	.sdata2     start:0x8041D4D8 end:0x8041D4E0
 
 MetroidPrime/CSafeZoneManager.cpp:
