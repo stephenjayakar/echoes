@@ -1,5 +1,6 @@
 #include "MetroidPrime/Player/CGameState.hpp"
 
+#include "Kyoto/CResFactory.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Streams/CBitStreamReader.hpp"
 #include "Kyoto/Streams/CBitStreamWriter.hpp"
@@ -22,6 +23,7 @@
 #include "rstl/algorithm.hpp"
 #include "rstl/math.hpp"
 
+#include <stdio.h>
 #include <string.h>
 
 // Guessed names. Layer-name prefixes select which game mode owns each layer.
@@ -387,6 +389,35 @@ void CGameState::InitializeMemoryStates() {
   mPersistentOptions.InitializeMemoryState();
   InitializeMemoryWorlds();
   WriteBackupBuf();
+}
+
+void fn_80143E88() {
+  CMain::EnsureWorldPaksReady();
+  gpGameState->AudioGroups().clear();
+  const SObjectTag* initialWorld = gpResourceFactory->GetResourceIdByName("InitialWorld");
+  if (initialWorld != nullptr) {
+    gpGameState->SetCurrentWorldId(initialWorld->id);
+    gpGameState->SetGameMode(rs_new CGMSinglePlayer());
+  } else {
+    gpGameState->SetCurrentWorldId(gpResourceFactory->GetResourceIdByName("FrontEnd")->id);
+    gpGameState->SetGameMode(rs_new CFrontEndGameMode());
+    rstl::rc_ptr< CWorldLayerState > layers = gpGameState->CurrentWorldState().GetLayerState();
+    layers->GetAreaLayerCount(TAreaId(0));
+    const CGameState::SPreviousGameResults& results = gpGameState->PreviousGameResults();
+    const uint mode = results.mGameMode;
+    const int playerCount = results.mPlayerCount;
+    const char* const prefix = "Results";
+    const char* const coin = "Coin";
+    const char* const deathmatch = "Deathmatch";
+    char name[64] = "";
+    if (results.mShowResults && playerCount > 1) {
+      if (mode == 'DTHM') {
+        sprintf(name, "%s%s%d", prefix, deathmatch, playerCount);
+      } else if (mode == 'COIN') {
+        sprintf(name, "%s%s%d", prefix, coin, playerCount);
+      }
+    }
+  }
 }
 
 void ConfigureGameModeLayers() {
