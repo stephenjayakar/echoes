@@ -598,7 +598,21 @@ CAdvancementDeltas CAnimData::AdvanceAdditiveAnims(float dt) {
 }
 
 void CAnimData::AddAdditiveSegData(CJointData_LinearStorage& data) const {
-  // TODO: Accumulate weighted additive rotations, translations and scales into joint storage.
+  const uint count = mAdditiveAnims.size();
+  const CCharLayoutInfo& layout = **mLayoutData;
+  for (uint i = 0; i < count; ++i) {
+    const CAdditiveAnimPlayback& playback = mAdditiveAnims[i].second;
+    const float weight = playback.GetWeight();
+    if (!close_enough(weight, 0.f)) {
+      CJointData_LinearStorage additive(layout.GetNumSegments(), CJointData_LinearStorage::kAF_Pool);
+      additive.SetUseZeroOffsets(true);
+      if (data.HasScales()) {
+        additive.SetHasScales(true);
+      }
+      playback.GetAnimationTree()->VGetSegData(layout, additive);
+      data.Add(additive, weight);
+    }
+  }
 }
 
 // Guessed name.
