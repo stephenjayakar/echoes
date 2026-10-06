@@ -199,6 +199,8 @@ public:
   void AddMotionState(const CMotionState& state);
   bool GetMovable() const { return mMovable; }
   void SetMovable(bool v) { mMovable = v; }
+  bool GetAngularEnabled() const { return mAngularEnabled; }
+  void SetAngularEnabled(bool v) { mAngularEnabled = v; }
 
   void MoveToWR(const CVector3f&, float);
   void MoveToInOneFrameWR(const CVector3f&, float);

@@ -1699,7 +1699,7 @@ void CPlayerGun::StopChargeSound(CStateManager& mgr, bool start) {
   if (start) {
     static const ushort sounds[2][4] = {{0xc2, 0x1fc6, 0x1fe0, 0x1fdb},
                                         {0x259a, 0x25a5, 0x25c3, 0x25b9}};
-    ushort sound = sounds[mSoundSetIndex][mCurrentBeamId];
+    int sound = sounds[mSoundSetIndex][mCurrentBeamId];
     if (!mgr.IsMultiplayer() && mSeekerChargeState != kSCS_NotCharging) {
       sound = 0x184;
     }
@@ -3031,9 +3031,4 @@ CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
   }
 }
 
-CPlayerGun::~CPlayerGun() {
-  for (rstl::vector< CToken >::iterator it = mCommonDependencies.begin();
-       it != mCommonDependencies.end(); ++it) {
-    it->Unlock();
-  }
-}
+CPlayerGun::~CPlayerGun() { NWeaponTypes::unlock_tokens(mCommonDependencies); }

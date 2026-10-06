@@ -160,7 +160,10 @@ void CScanTreeNode::LockResources() { mNameStringTable->Lock(); }
 
 void CScanTreeNode::UnlockResources() { mNameStringTable->Unlock(); }
 
-bool CScanTreeNode::AreResourcesLoaded() { return mNameStringTable->IsLoaded(); }
+bool CScanTreeNode::AreResourcesLoaded() {
+  return static_cast< const TCachedToken< CStringTable >& >(*mNameStringTable).IsLoaded() &&
+         mNameStringTable->IsLoaded();
+}
 
 const CVector3f& CScanTreeNode::GetDisplayPosition() const { return mDisplayPosition; }
 
@@ -292,7 +295,9 @@ void CScanTreeMenu::UnlockResources() {
 }
 
 bool CScanTreeMenu::AreResourcesLoaded() {
-  return CScanTreeNode::AreResourcesLoaded() && mOptionStringTable->IsLoaded();
+  return CScanTreeNode::AreResourcesLoaded() &&
+         static_cast< const TCachedToken< CStringTable >& >(*mOptionStringTable).IsLoaded() &&
+         mOptionStringTable->IsLoaded();
 }
 
 void CScanTreeMenu::RefreshSelectedOption() { mSelectedOption = GetCurrentOptionIndex(); }
@@ -301,7 +306,45 @@ int CScanTreeMenu::GetSelectedOption() const { return mSelectedOption; }
 
 void CScanTreeMenu::ApplySelectedOption() { ApplyOption(mSelectedOption); }
 
-int CScanTreeMenu::GetCurrentOptionIndex() const {}
+int CScanTreeMenu::GetCurrentOptionIndex() const {
+  const CGameOptions& options = gpGameState->GameOptions();
+  int value = 0;
+  switch (mSetting) {
+  case kS_SurroundMode:
+    value = options.soundMode;
+    break;
+  case kS_HudLag:
+    value = options.hudLag;
+    break;
+  case kS_HintSystem:
+    value = options.hintSystem;
+    break;
+  case kS_Unknown3:
+    value = options.hudEnglish;
+    break;
+  case kS_InvertYAxis:
+    value = options.invertY;
+    break;
+  case kS_SwapBeamControls:
+    value = options.swapBeamsControls;
+    break;
+  case kS_Rumble:
+    value = options.rumble;
+    break;
+  case kS_Unknown8:
+  case kS_Unknown9:
+  case kS_Unknown10:
+  case kS_Unknown11:
+    value = mOptionValue;
+    break;
+  }
+  for (int i = 0; i < mOptions.size(); ++i) {
+    if (mOptions[i].second == value) {
+      return i;
+    }
+  }
+  return 0;
+}
 
 void CScanTreeMenu::ApplyOption(int index) {
   CGameOptions& options = gpGameState->GameOptions();
@@ -401,7 +444,29 @@ int CScanTreeSlider::GetMaxOptionValue() const {
   }
 }
 
-int CScanTreeSlider::GetOptionValue() const {}
+int CScanTreeSlider::GetOptionValue() const {
+  const CGameOptions& options = gpGameState->GameOptions();
+  switch (mSetting) {
+  case kS_ScreenBrightness:
+    return options.screenBrightness;
+  case kS_ScreenPositionX:
+    return options.screenXOffset;
+  case kS_ScreenPositionY:
+    return options.screenYOffset;
+  case kS_ScreenStretch:
+    return options.screenStretch;
+  case kS_SfxVolume:
+    return options.sfxVol;
+  case kS_MusicVolume:
+    return options.musicVol;
+  case kS_HudAlpha:
+    return options.GetHudAlphaRaw();
+  case kS_HelmetAlpha:
+    return options.GetHelmetAlphaRaw();
+  default:
+    return 0;
+  }
+}
 
 int CScanTreeSlider::GetDefaultOptionValue() const {
   switch (mSetting) {

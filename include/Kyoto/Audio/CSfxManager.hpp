@@ -92,7 +92,7 @@ public:
                        CSfxHandle handle, bool useAcoustics, int area);
 
     // CBaseSfxWrapper
-    ~CSfxEmitterWrapper();
+    ~CSfxEmitterWrapper() {}
     bool IsPlaying() const override;
     bool IsEmitter() const override;
     void Play() override;
@@ -127,7 +127,7 @@ public:
                 CSfxHandle handle, bool useAcoustics, int area);
 
     // CBaseSfxWrapper
-    ~CSfxWrapper();
+    ~CSfxWrapper() {}
     bool IsPlaying() const override;
     bool IsEmitter() const override;
     void Play() override;
@@ -246,7 +246,7 @@ public:
   static void SetActiveAreas(const rstl::reserved_vector< int, 10 >& areas, int currentArea);
   static ushort TranslateSFXID(ushort id);
   static bool LoadTranslationTable(CSimplePool* pool, const SObjectTag* tag);
-  static CSfxHandle LocateHandle();
+  static CSfxHandle LocateHandle(int priority);
   static int GetRank(CBaseSfxWrapper* sound);
   static CSfxWrapper* AllocateCSfxWrapper(const CSfxWrapper& sound);
   static CSfxEmitterWrapper* AllocateCSfxEmitterWrapper(const CSfxEmitterWrapper& sound);

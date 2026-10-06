@@ -13,8 +13,8 @@
 #include "float.h"
 
 CScriptSoundModifier::CScriptSoundModifier(TUniqueId uid, const rstl::string& name,
-                                           const CEntityInfo& info, float duration, bool autoReset,
-                                           bool autoStart, const CMayaSpline& volume,
+                                           const CEntityInfo& info, float duration, const bool autoReset,
+                                           const bool autoStart, const CMayaSpline& volume,
                                            const CMayaSpline& pan, const CMayaSpline& surroundPan,
                                            const CMayaSpline& pitch)
 : CEntity(uid, info, name, 0)
@@ -26,7 +26,7 @@ CScriptSoundModifier::CScriptSoundModifier(TUniqueId uid, const rstl::string& na
 , mDuration(duration)
 , mAutoReset(autoReset)
 , mAutoStart(autoStart)
-, mRunning(mAutoStart) {}
+, mRunning(autoStart) {}
 
 CScriptSoundModifier::~CScriptSoundModifier() {}
 

@@ -6,7 +6,7 @@
 
 CScriptAdvancedCounter::CScriptAdvancedCounter(TUniqueId uid, const rstl::string& name,
                                                const CEntityInfo& info, int initial, int max,
-                                               bool autoReset,
+                                               const bool autoReset,
                                                const rstl::reserved_vector< int, 10 >& conditions)
 : CEntity(uid, info, name, 0)
 , mInitial(initial)

@@ -136,44 +136,53 @@ void CScriptDynamicLight::FindTarget(CStateManager& mgr) {
   }
 }
 
+// Guessed helpers for the looping spline timers and the color clamp.
+static inline float UpdateSplineTimer(const CMayaSpline& spline, float& time, float dt,
+                                      float duration, bool loops) {
+  time += dt;
+  if (time >= duration) {
+    time = loops ? 0.f : duration;
+  }
+  return spline.EvaluateAt(time);
+}
+
+static inline float ClampToOne(float value) { return value < 1.f ? value : 1.f; }
+
 void CScriptDynamicLight::UpdateLight(float dt) {
   if (!GetActive()) {
     return;
   }
-  mIntensityTime += dt;
-  if (mIntensityTime >= mDescription.mIntensityDuration) {
-    mIntensityTime = mDescription.mIntensityLoops ? 0.f : mDescription.mIntensityDuration;
+  CLight& light = Light();
+  const ELightKind kind = mDescription.mKind;
+  mIntensity = UpdateSplineTimer(mDescription.mIntensitySpline, mIntensityTime, dt,
+                                 mDescription.mIntensityDuration, mDescription.mIntensityLoops);
+  if (kind == kLK_LocalAmbient || kind == kLK_Directional || kind == kLK_Spot) {
+    const float red = ClampToOne(mIntensity * mDescription.mColor.GetRed());
+    const float green = ClampToOne(mIntensity * mDescription.mColor.GetGreen());
+    const float blue = ClampToOne(mIntensity * mDescription.mColor.GetBlue());
+    const float alpha = ClampToOne(mIntensity * mDescription.mColor.GetAlpha());
+    const CColor color(red, green, blue, alpha);
+    light.SetColor(color);
   }
-  mIntensity = mDescription.mIntensitySpline.EvaluateAt(mIntensityTime);
-  if (mDescription.mKind == kLK_LocalAmbient || mDescription.mKind == kLK_Directional ||
-      mDescription.mKind == kLK_Spot) {
-    const float red = mIntensity * mDescription.mColor.GetRed();
-    const float green = mIntensity * mDescription.mColor.GetGreen();
-    const float blue = mIntensity * mDescription.mColor.GetBlue();
-    const float alpha = mIntensity * mDescription.mColor.GetAlpha();
-    // The target's upper-only limit returns one for unordered input as well.
-    Light().SetColor(CColor(CMath::Min(red, 1.f), CMath::Min(green, 1.f), CMath::Min(blue, 1.f),
-                            CMath::Min(alpha, 1.f)));
+  if (kind == kLK_Point || kind == kLK_Spot) {
+    const float falloff =
+        UpdateSplineTimer(mDescription.mFalloffSpline, mFalloffTime, dt,
+                          mDescription.mFalloffDuration, mDescription.mFalloffLoops);
+    const EFalloffType falloffType = mDescription.mFalloffType;
+    switch (kind) {
+    case kLK_Point:
+      light.SetAngleAttenuation(mIntensity, 0.f, 0.f);
+    case kLK_Spot:
+      light.SetAttenuation(falloffType == kFT_Constant ? 1.f : 0.f,
+                           falloffType == kFT_Linear ? falloff : 0.f,
+                           falloffType == kFT_Quadratic ? falloff : 0.f);
+      break;
+    }
   }
-  if (mDescription.mKind == kLK_Point || mDescription.mKind == kLK_Spot) {
-    mFalloffTime += dt;
-    if (mFalloffTime >= mDescription.mFalloffDuration) {
-      mFalloffTime = mDescription.mFalloffLoops ? 0.f : mDescription.mFalloffDuration;
-    }
-    const float falloff = mDescription.mFalloffSpline.EvaluateAt(mFalloffTime);
-    if (mDescription.mKind == kLK_Point) {
-      Light().SetAngleAttenuation(mIntensity, 0.f, 0.f);
-    }
-    Light().SetAttenuation(mDescription.mFalloffType == kFT_Constant ? 1.f : 0.f,
-                           mDescription.mFalloffType == kFT_Linear ? falloff : 0.f,
-                           mDescription.mFalloffType == kFT_Quadratic ? falloff : 0.f);
-  }
-  if (mDescription.mKind == kLK_Spot) {
-    mSpotlightTime += dt;
-    if (mSpotlightTime >= mDescription.mSpotlightDuration) {
-      mSpotlightTime = mDescription.mSpotlightLoops ? 0.f : mDescription.mSpotlightDuration;
-    }
-    Light().SetSpotCutoff(mDescription.mSpotlightSpline.EvaluateAt(mSpotlightTime));
+  if (kind == kLK_Spot) {
+    light.SetSpotCutoff(UpdateSplineTimer(mDescription.mSpotlightSpline, mSpotlightTime, dt,
+                                          mDescription.mSpotlightDuration,
+                                          mDescription.mSpotlightLoops));
   }
 }
 
