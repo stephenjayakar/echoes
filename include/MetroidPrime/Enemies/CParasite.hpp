@@ -6,7 +6,7 @@
 #include "MetroidPrime/CDamageInfo.hpp"
 #include "MetroidPrime/CDamageVulnerability.hpp"
 #include "MetroidPrime/CLineOfSightTracker.hpp"
-#include "MetroidPrime/Enemies/CWallWalker.hpp"
+#include "MetroidPrime/Enemies/CWallCrawler.hpp"
 
 #include "Kyoto/Math/CVector3f.hpp"
 #include "Kyoto/TToken.hpp"
@@ -18,8 +18,20 @@ class CCollisionActorManager;
 class CHealthInfo;
 class CSkinnedModel;
 
-class CParasite : public CWallWalker {
+// Parasite REL. Prime's CParasite derives from CWallWalker; in Echoes the base is the WallCrawler REL
+// class, and the same class drives the Parasite, Brizgee (ice zoomer path) and Crystallite loaders.
+class CParasite : public CWallCrawler {
 public:
+  // Guessed names. Values of CWallCrawler::EType handled by this class; Prime's CWallWalker::EType
+  // has the first four.
+  enum EParasiteType {
+    kPT_Parasite = 0,
+    kPT_Oculus = 1,
+    kPT_Geemer = 2,
+    kPT_IceZoomer = 3,
+    kPT_Crystallite = 10,
+  };
+
   class CRepulsor {
   public:
     CRepulsor(CVector3f pos, float radius) : mPos(pos), mRadius(radius) {}
@@ -32,7 +44,7 @@ public:
     float mRadius;
   };
 
-  CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor, const CEntityInfo& info,
+  CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor, CEntityInfo& info,
             const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,
             EBodyType bodyType, float maxTelegraphReactDist, float advanceWpRadius, float f3,
             float alignAngVel, float f5, float stuckTimeThreshold, float collisionCloseMargin,
@@ -40,7 +52,7 @@ public:
             float parasiteSeparationWeight, float parasiteAlignmentWeight,
             float parasiteCohesionWeight, float destinationSeekWeight, float forwardMoveWeight,
             float playerSeparationDist, float playerSeparationWeight,
-            float playerObstructionMinDist, float haltDelay, bool disableMove, EType wType,
+            float playerObstructionMinDist, float haltDelay, bool disableMove, EParasiteType type,
             const CDamageVulnerability& dVuln, const CDamageInfo& dInfo, ushort haltSfx,
             ushort getUpSfx, ushort crouchSfx, CAssetId modelRes, CAssetId skinRes,
             float iceZoomerJointHP, float wallWalkerF6, const CDamageInfo& dInfo2,
@@ -123,6 +135,10 @@ private:
   void DestroyActorManager(CStateManager& mgr);
   void UpdateJumpVelocity();
   void UpdateShell(CStateManager& mgr, int state);
+
+  // WallCrawler REL static (fn_83_1EB8, Prime CWallWalker::ProjectVectorToPlane). Declared here only
+  // until CWallCrawler.hpp declares it; then this line goes and the calls resolve to the base.
+  static CVector3f ProjectVectorToPlane(const CVector3f& vec, const CVector3f& planeDir);
 
   static float skAttackTime;
   static float skAttackVelocity;

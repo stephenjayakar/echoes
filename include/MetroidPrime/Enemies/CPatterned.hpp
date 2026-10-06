@@ -34,8 +34,10 @@ class CCharAnimTime;
 
 enum EPatternedAI {
   kPAI_DarkSamus = 7,
+  kPAI_EyeBall = 0x10, // Guessed name; EyeBall REL constructor.
   kPAI_Metroid = 0x21, // Guessed name; Metroid REL constructor.
   kPAI_Ripper = 0x30,  // Guessed name; Ripper REL constructor.
+  kPAI_WallWalker = 0x4d, // Guessed name; WallWalker REL constructor.
 };
 
 template <>
@@ -253,6 +255,10 @@ public:
   bool HasBlockingCollision() const { return mBlockingCollision; }
 
   CBodyController* BodyController() { return mBodyController.get(); }
+
+  TStateMachineState< CPatterned >& StateMachineState() {
+    return static_cast< TStateMachineState< CPatterned >& >(*mStateMachine);
+  }
 
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 

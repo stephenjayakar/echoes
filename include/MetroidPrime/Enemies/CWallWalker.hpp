@@ -3,88 +3,122 @@
 
 #include "types.h"
 
-#include "Collision/CCollidableSphere.hpp"
-#include "MetroidPrime/Enemies/CPatterned.hpp"
-#include "WorldFormat/CCollisionSurface.hpp"
+#include "MetroidPrime/CDamageInfo.hpp"
+#include "MetroidPrime/CDamageVulnerability.hpp"
+#include "MetroidPrime/Cameras/CCameraShakerData.hpp"
+#include "MetroidPrime/Enemies/CBouncyGrenade.hpp"
+#include "MetroidPrime/Enemies/CWallCrawler.hpp"
 
-// Echoes keeps CWallWalker in its own REL (WallCrawler); Parasite, WallWalker and others link
-// against it. Layout recovered from the WallCrawler constructor; names follow Prime where the
-// usage lines up.
-class CWallWalker : public CPatterned {
+#include "Kyoto/TToken.hpp"
+#include "rstl/single_ptr.hpp"
+
+class CCollisionActorManager;
+class CGenDescription;
+class CWeaponDescription;
+
+// Guessed name. Loader-built bundle of the WallWalker properties.
+class CWallWalkerData {
 public:
-  enum EType {
-    kWT_Parasite = 0,
-    kWT_Oculus = 1,
-    kWT_Geemer = 2,
-    kWT_IceZoomer = 3,
-    kWT_Seedling = 4,
-  };
+  CWallWalkerData(float stickyReach, float floorTurnSpeed, float waypointApproachDistance,
+                  float visibleDistance, float projectileInterval,
+                  float projectileStopHomingRange, const CDamageVulnerability& legVulnerability,
+                  const TLockedToken< CWeaponDescription >& projectile,
+                  const TLockedToken< CGenDescription >& projectileVisorParticle,
+                  const CDamageInfo& projectileDamage, const CCameraShakerData& projectileShakeData,
+                  const CBouncyGrenadeData& grenadeData)
+  : mStickyReach(stickyReach)
+  , mFloorTurnSpeed(floorTurnSpeed)
+  , mWaypointApproachDistance(waypointApproachDistance)
+  , mVisibleDistance(visibleDistance)
+  , mProjectileInterval(projectileInterval)
+  , mProjectileStopHomingRange(projectileStopHomingRange)
+  , mLegVulnerability(legVulnerability)
+  , mProjectile(projectile)
+  , mProjectileVisorParticle(projectileVisorParticle)
+  , mProjectileDamage(projectileDamage)
+  , mProjectileShakeData(projectileShakeData)
+  , mGrenadeData(grenadeData) {}
 
-  CWallWalker(EPatternedAI character, TUniqueId uid, const rstl::string& name,
-              EFlavorType flavor, const CEntityInfo& info, const CTransform4f& xf,
-              const CModelData& modelData, const CPatternedInfo& patternedInfo,
-              EMovementType movement, EColliderType collider, EBodyType body,
-              const CActorParameters& params, float sphereRadius, float collisionCloseMargin,
-              float alignAngVel, float advanceWpRadius, float playerObstructionMinDist, float f6,
-              float f7, float f8, EType walkerType, bool disableMove, float f9, float f10,
-              float f11);
+  float mStickyReach;
+  float mFloorTurnSpeed;
+  float mWaypointApproachDistance;
+  float mVisibleDistance;
+  float mProjectileInterval;
+  float mProjectileStopHomingRange;
+  CDamageVulnerability mLegVulnerability;
+  TLockedToken< CWeaponDescription > mProjectile;
+  TLockedToken< CGenDescription > mProjectileVisorParticle;
+  CDamageInfo mProjectileDamage;
+  CCameraShakerData mProjectileShakeData;
+  CBouncyGrenadeData mGrenadeData;
+};
+CHECK_SIZEOF(CWallWalkerData, 0x1c0)
+
+// Wii SEL class name (TypesMatch__11CWallWalkerCFi). The legged, grenade-dropping wall walker.
+class CWallWalker : public CWallCrawler {
+public:
+  enum EPatrolState { kPS_Patrol, kPS_StartGenerate, kPS_Generate }; // Guessed names.
+
+  CWallWalker(TUniqueId uid, const rstl::string& name, CEntityInfo& info, const CTransform4f& xf,
+              const CModelData& mData, const CActorParameters& actParms,
+              const CPatternedInfo& pInfo, const CWallWalkerData& data);
 
   // CEntity
   ~CWallWalker() override;
   CEntity* TypesMatch(int typeId) const override;
-  void PreThink(float dt, CStateManager& mgr) override;
   void Think(float dt, CStateManager& mgr) override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
 
   // CActor
-  void Render(const CStateManager& mgr) const override;
-  rstl::optional_object< CAABox > GetTouchBounds() const override;
+  void DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node, EUserEventType type,
+                       float dt) override;
 
-  // CPhysicsActor
-  const CCollisionPrimitive* GetCollisionPrimitive() const override;
+  // CAi
+  void Death(CStateManager& mgr, const CVector3f& direction, EScriptObjectState state) override;
+
+  // CPatterned
+  void SetupStateMachine(CStateManager& mgr) override;
 
   // CWallWalker
-  // Unidentified virtual added in Echoes (WallCrawler fn_83_D8); it forwards a struct-returning
-  // call to another object. Name and signature are placeholders.
-  virtual void UnknownWallWalkerVirtual();
+  virtual void Dead(CStateManager& mgr, EStateMsg msg, float dt);
 
-  static CVector3f ProjectVectorToPlane(const CVector3f& vec, const CVector3f& planeDir);
+  void Patrol(CStateManager& mgr, EStateMsg msg, float dt);
+  void LeftLegHitReaction(CStateManager& mgr, EStateMsg msg, float dt);
+  void RightLegHitReaction(CStateManager& mgr, EStateMsg msg, float dt);
+  void ShootProjectile(CStateManager& mgr, EStateMsg msg, float dt);
 
-protected:
-  void OrientToSurfaceNormal(const CVector3f& normal, float clampAngle);
-  void AlignToFloor(CStateManager& mgr, float radius, const CVector3f& newPos, float dt);
-  void GotoNextWaypoint(CStateManager& mgr);
+  bool IsLeftLegHit(CStateManager& mgr, const CTriggerData& data) const;
+  bool IsRightLegHit(CStateManager& mgr, const CTriggerData& data) const;
+  bool AreBothLegsHit(CStateManager& mgr, const CTriggerData& data) const;
+  bool ShouldShootProjectile(CStateManager& mgr, const CTriggerData& data) const;
 
-  CCollisionSurface mAlignNormal;
-  CCollidableSphere mColSphere;
-  float mCollisionCloseMargin;
-  float mAlignAngVel;
-  float mTumbleAngle;
-  float mPatrolPauseRemTime;
-  float mAdvanceWpRadius;
-  float mPlayerObstructionMinDist;
-  float mBendingHackWeight;
-  EType mWalkerType;
-  short mThinkCounter;
-  int x834_;
-  CVector3f x838_;
-  float x844_;
-  float x848_;
-  float x84c_;
-  float x850_;
-  float x854_;
-  float x858_;
-  float x85c_;
-  bool mAlignToFloor : 1;
-  bool mHasAlignSurface : 1;
-  bool mPlayerObstructed : 1;
-  bool mDisableMove : 1;
-  bool mAddBendingWeight : 1;
-  bool mApplyBendingHack : 1;
-  bool x860_30_ : 1;
-  bool x860_31_ : 1;
-  bool x861_24_ : 1;
+  void SetNumberShots(CStateManager& mgr, float arg);
+
+private:
+  void LaunchProjectiles(const CTransform4f& xf, CStateManager& mgr);
+  void SetupCollisionManager(CStateManager& mgr);
+  void DestroyCollisionManager(CStateManager& mgr);
+  void UpdateCollisionManager(float dt, CStateManager& mgr);
+
+  rstl::single_ptr< CCollisionActorManager > mCollisionActorManager;
+  EPatrolState mPatrolState;
+  CDamageVulnerability mLegVulnerability;
+  CBouncyGrenadeData mGrenadeData;
+  bool mLeftLegHit : 1;
+  bool mRightLegHit : 1;
+  bool mExploded : 1;
+  bool mLegHitByMissile : 1;
+  TLockedToken< CWeaponDescription > mProjectile;
+  TLockedToken< CGenDescription > mProjectileVisorParticle;
+  CDamageInfo mProjectileDamage;
+  CCameraShakerData mProjectileShakeData;
+  int mNumShots;
+  float mProjectileTimer;
+  float mProjectileInterval;
+  float mProjectileStopHomingRange;
+  float mDeathTime;
+  TUniqueId mGrenadeId;
 };
-CHECK_SIZEOF(CWallWalker, 0x868)
+CHECK_SIZEOF(CWallWalker, 0xa38)
 
 #endif // _CWALLWALKER

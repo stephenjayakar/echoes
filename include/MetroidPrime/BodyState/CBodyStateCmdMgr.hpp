@@ -185,6 +185,16 @@ public:
   , mOverrideAnim(animId != -1)
   , mInterruptKnockBack(false) {}
 
+  CBCGenerateCmd(pas::EGenerateType type, const CVector3f& targetPos, bool targetTransform = false,
+                 bool overrideAnim = false)
+  : CBodyStateCmd(kBSC_Generate)
+  , mType(type)
+  , mTargetPos(targetPos)
+  , mAnimId(-1)
+  , mTargetTransform(targetTransform)
+  , mOverrideAnim(overrideAnim)
+  , mInterruptKnockBack(false) {}
+
   pas::EGenerateType GetGenerateType() const { return mType; }
   bool UseSpecialAnimId() const { return mOverrideAnim; }
   int GetSpecialAnimId() const { return mAnimId; }
@@ -488,6 +498,16 @@ public:
     mKnockBack = cmd;
   }
 
+  void DeliverCmd(const CBCLoopAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopAttack = cmd;
+  }
+
+  void DeliverCmd(const CBCProjectileAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mProjectileAttack = cmd;
+  }
+
   void DeliverCmd(const CBCGenerateCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mGenerate = cmd;
@@ -513,19 +533,24 @@ public:
     mLoopReaction = cmd;
   }
 
+  void DeliverCmd(const CBCTauntCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mTaunt = cmd;
+  }
+
   void DeliverCmd(const CBCJumpCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mJump = cmd;
   }
 
-  void DeliverCmd(const CBCAdditiveReactionCmd& cmd) {
-    DeliverCmd(cmd.GetCommandId());
-    mAdditiveReaction = cmd;
-  }
-
   void DeliverCmd(const CBCAdditiveFlinchCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mAdditiveFlinch = cmd;
+  }
+
+  void DeliverCmd(const CBCAdditiveReactionCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveReaction = cmd;
   }
 
   void DeliverCmd(const CBCScriptedCmd& cmd) {

@@ -176,6 +176,9 @@ public:
   const CCharacterInfo& GetCharacterInfo() const { return mCharInfo; }
   const CPASDatabase& GetPASDatabase() const { return mCharInfo.GetPASDatabase(); }
   CParticleDatabase& GetParticleDB() { return mParticleDB; }
+  // Guessed names; gun turrets drive a joint rotation directly and rebuild the pose.
+  CJointData_LinearStorage& JointData() const { return *mJointData; }
+  void BuildPose(const CJointData_LinearStorage& data) const { mPose.BuildPose(**mLayoutData, data); }
   const CParticleDatabase& GetParticleDB() const { return mParticleDB; }
   const CBoolPOINode* GetBoolPOIList(int& count) const {
     count = mPassedBoolCount;

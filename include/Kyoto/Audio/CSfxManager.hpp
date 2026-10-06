@@ -215,7 +215,7 @@ public:
                                bool useAcoustics, bool looped, short priority);
   static CSfxHandle AddEmitter(CAudioSys::C3DEmitterParmData& params, int area = kAllAreas,
                                bool useAcoustics = false, bool looped = false,
-                               short priority = kMedPriority);
+                               const short priority = kMedPriority);
   static void RemoveEmitter(CSfxHandle handle);
   static void UpdateEmitter(CSfxHandle handle, const CVector3f& position,
                             const CVector3f& direction, uchar maxVolume);

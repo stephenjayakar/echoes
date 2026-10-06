@@ -84,7 +84,7 @@ static CPatterned::StateMachine::SStateFunction skStates[] = {
 static TUniqueId lastParasite = TUniqueId(0, 0);
 
 CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor,
-                     const CEntityInfo& info, const CTransform4f& xf, const CModelData& mData,
+                     CEntityInfo& info, const CTransform4f& xf, const CModelData& mData,
                      const CPatternedInfo& pInfo, EBodyType bodyType, float maxTelegraphReactDist,
                      float advanceWpRadius, float f3, float alignAngVel, float f5,
                      float stuckTimeThreshold, float collisionCloseMargin,
@@ -93,14 +93,14 @@ CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor
                      float parasiteCohesionWeight, float destinationSeekWeight,
                      float forwardMoveWeight, float playerSeparationDist,
                      float playerSeparationWeight, float playerObstructionMinDist, float haltDelay,
-                     bool disableMove, EType wType, const CDamageVulnerability& dVuln,
+                     bool disableMove, EParasiteType type, const CDamageVulnerability& dVuln,
                      const CDamageInfo& dInfo, ushort haltSfx, ushort getUpSfx, ushort crouchSfx,
                      CAssetId modelRes, CAssetId skinRes, float iceZoomerJointHP,
                      float wallWalkerF6, const CDamageInfo& dInfo2, const CActorParameters& aParams)
-: CWallWalker(static_cast< EPatternedAI >(39), uid, name, flavor, info, xf, mData, pInfo, kMT_Flyer,
-              kCT_Zero, bodyType, aParams, pInfo.GetHalfExtent(), collisionCloseMargin,
-              alignAngVel, advanceWpRadius, playerObstructionMinDist, wallWalkerF6, 0.167f, 0.6f,
-              wType, disableMove, 1.5f, 0.6f, 1.5f)
+: CWallCrawler(static_cast< EPatternedAI >(39), uid, name, flavor, info, xf, mData, pInfo,
+               kMT_Flyer, kCT_Zero, bodyType, aParams, pInfo.GetHalfExtent(), collisionCloseMargin,
+               alignAngVel, advanceWpRadius, playerObstructionMinDist, static_cast< EType >(type),
+               disableMove, wallWalkerF6, 0.167f, 0.6f, 1.5f, 0.6f, 1.5f)
 , mStateProgress(-1)
 , x87c_(CVector3f::Zero())
 , mTargetPos(CVector3f::Zero())
@@ -157,13 +157,13 @@ CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor
 , mInJump(false)
 , mLineOfSight(GetUniqueId(), CSegId(0xff), 0.2f, 0.05f) {
   SetCallTouch(false);
-  switch (mWalkerType) {
-  case kWT_Geemer:
-    mKnockBackController.SetEnableFreeze(false);
-  case kWT_Oculus:
+  switch (mType) {
+  case kPT_Geemer:
+    mKnockBackController.EnableFreeze(false);
+  case kPT_Oculus:
     mKnockBackController.EnableKnockBackPhysics(false);
     break;
-  case kWT_IceZoomer:
+  case kPT_IceZoomer:
     mExtraModel = rs_new TLockedToken< CSkinnedModel >(
         rs_new CSkinnedModel(gpSimplePool->GetObj(SObjectTag('CMDL', modelRes)),
                              gpSimplePool->GetObj(SObjectTag('CSKR', skinRes)),
@@ -172,10 +172,10 @@ CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor
   default:
     break;
   }
-  if (mWalkerType == kWT_Oculus) {
+  if (mType == kPT_Oculus) {
     mKnockBackController.EnableShock(false);
-    mKnockBackController.SetEnableBurn(false);
-    mKnockBackController.SetEnableBurnDeath(false);
+    mKnockBackController.EnableBurn(false);
+    mKnockBackController.EnableBurnDeath(false);
     mKnockBackController.EnableExplodeDeath(false);
   }
 }
@@ -185,7 +185,7 @@ CParasite::~CParasite() {}
 void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   const TUniqueId uid = msg.GetSenderId();
   const EScriptObjectMessage message = msg.GetMessage();
-  CWallWalker::AcceptScriptMsg(mgr, msg);
+  CWallCrawler::AcceptScriptMsg(mgr, msg);
 
   switch (message) {
   case kSM_Create: {
@@ -197,7 +197,7 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     SetBoundingBox(CAABox(-extent, extent));
     lastParasite = GetUniqueId();
     AddDoorRepulsors(mgr);
-    if (mWalkerType == kWT_IceZoomer) {
+    if (mType == kPT_IceZoomer) {
       SetupIceZoomerCollision(mgr);
       const CHealthInfo hInfo(mIceZoomerJointHP, GetHealthInfo()->GetKnockBackResistance());
       SetupIceZoomerVulnerability(mgr, mOculusHaltDVuln, hInfo);
@@ -205,18 +205,18 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   }
   case kSM_Delete:
-    switch (mWalkerType) {
-    case kWT_IceZoomer:
+    switch (mType) {
+    case kPT_IceZoomer:
       DestroyActorManager(mgr);
       break;
-    case 10:
+    case kPT_Crystallite:
       mgr.DeleteObjectRequest(x9ba_);
       mgr.DeleteObjectRequest(x9bc_);
       break;
     }
     break;
   case kSM_AreaLoaded:
-    if (mWalkerType == 10) {
+    if (mType == kPT_Crystallite) {
       for (const SConnection* it = GetConnectionList().data();
            it != GetConnectionList().data() + GetConnectionList().size(); ++it) {
         if (it->state == kSS_GRNT && it->msg == kSM_Activate) {
@@ -244,23 +244,23 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   case kSM_Activate:
     mDisableMove = false;
-    switch (mWalkerType) {
-    case kWT_Parasite:
+    switch (mType) {
+    case kPT_Parasite:
       mBodyController->SetLocomotionType(pas::kLT_Lurk);
       break;
-    case 10:
+    case kPT_Crystallite:
       UpdateShell(mgr, 0);
       break;
     }
     break;
   case kSM_Deactivate:
-    if (mWalkerType == 10) {
+    if (mType == kPT_Crystallite) {
       UpdateShell(mgr, 1);
     }
     break;
   case kSM_ResistedDamage:
-    switch (mWalkerType) {
-    case kWT_Oculus:
+    switch (mType) {
+    case kPT_Oculus:
       if (const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(uid))) {
         const float distSq = (act->GetTranslation() - GetTranslation()).MagSquared();
         const float maxComp = rstl::max_val(
@@ -272,7 +272,7 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
         }
       }
       break;
-    case 10: {
+    case kPT_Crystallite: {
       int type = -1;
       if (const CWeapon* weapon = TCastToConstPtr< CWeapon >(mgr.GetObjectById(uid))) {
         type = weapon->GetType();
@@ -289,7 +289,7 @@ void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     }
     }
   case kSM_XXDG:
-    if (mWalkerType == kWT_IceZoomer) {
+    if (mType == kPT_IceZoomer) {
       mBodyController->CommandMgr().DeliverCmd(CBCAdditiveFlinchCmd(1.f));
     }
     break;
@@ -324,7 +324,7 @@ void CParasite::AddDoorRepulsors(CStateManager& mgr) {
   }
 }
 
-void CParasite::PreThink(float dt, CStateManager& mgr) { CWallWalker::PreThink(dt, mgr); }
+void CParasite::PreThink(float dt, CStateManager& mgr) { CWallCrawler::PreThink(dt, mgr); }
 
 void CParasite::Think(float dt, CStateManager& mgr) {
   if (!GetActive()) {
@@ -332,11 +332,11 @@ void CParasite::Think(float dt, CStateManager& mgr) {
   }
 
   ++mThinkCounter;
-  switch (mWalkerType) {
-  case kWT_IceZoomer:
+  switch (mType) {
+  case kPT_IceZoomer:
     UpdateCollisionActors(dt, mgr);
     break;
-  case 10:
+  case kPT_Crystallite:
     if (CActor* act = TCastToPtr< CActor >(mgr.ObjectById(x9ba_))) {
       act->SetTransform(GetTransform());
     }
@@ -409,17 +409,18 @@ void CParasite::Think(float dt, CStateManager& mgr) {
                         CMaterialFilter::MakeIncludeExclude(CMaterialList(skContactMaterial),
                                                             CMaterialList()),
                         CVector3f::Zero());
-        if (mWalkerType == kWT_IceZoomer && mVulnerable) {
+        if (mType == kPT_IceZoomer && mVulnerable) {
           CSfxManager::AddEmitter(mCrouchSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
                                   false);
           CSfxManager::SfxStart(mGetUpSfx, 100, 64);
           x944_ = 2.f;
-          mgr.CameraBlurPass(0, 0).SetBlur(CCameraBlurPass::kBT_LoBlur, 4.f, 0.f, false);
-          mgr.CameraBlurPass(0, 0).DisableBlur(2.f);
-          mgr.CameraFilterPass(0, 0).SetFilter(CCameraFilterPass::kFT_Blend,
-                                                CCameraFilterPass::kFS_Fullscreen, 0.f,
-                                                CColor(140, 255, 109, 63.75f), -1);
-          mgr.CameraFilterPass(0, 0).DisableFilter(2.f);
+          CCameraBlurPass& blur = mgr.CameraBlurPass(0, 3);
+          blur.SetBlur(CCameraBlurPass::kBT_LoBlur, 4.f, 0.f, false);
+          blur.DisableBlur(2.f);
+          CCameraFilterPass& filter = mgr.CameraFilterPass(0, 3);
+          filter.SetFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen, 0.f,
+                           CColor(static_cast< uchar >(140), 255, 109).WithAlphaOf(0.25f), -1);
+          filter.DisableFilter(2.f);
         }
         mCurDamageRemTime = mDamageWaitTime;
       }
@@ -434,7 +435,7 @@ void CParasite::Think(float dt, CStateManager& mgr) {
     }
   }
 
-  CWallWalker::Think(dt, mgr);
+  CWallCrawler::Think(dt, mgr);
 
   if (mDisableMove) {
     return;
@@ -512,9 +513,9 @@ bool CParasite::Stuck(CStateManager&, const CTriggerData&) const {
 bool CParasite::AttackOver(CStateManager&, const CTriggerData&) const { return mAttackOver; }
 
 bool CParasite::ShotAt(CStateManager&, const CTriggerData&) const {
-  switch (mWalkerType) {
-  case 10:
-  case kWT_Oculus:
+  switch (mType) {
+  case kPT_Crystallite:
+  case kPT_Oculus:
     return mOculusShotAt;
   default:
     return mHitByPlayerProjectile;
@@ -550,8 +551,7 @@ void CParasite::CollidedWith(const TUniqueId& id, const CCollisionInfoList& list
     for (const CCollisionInfo* it = list.Begin(); it < list.End(); ++it) {
       const CCollisionInfo& info = *it;
       if (!mAlignToFloor && !testList.SharesMaterials(info.GetMaterialLeft())) {
-        const CVector3f normal = info.GetNormalLeft();
-        OrientToSurfaceNormal(normal, 360.f);
+        AlignToPlane(CUnitVector3f(info.GetNormalLeft(), CUnitVector3f::kN_No), 360.f);
         CPhysicsActor::Stop();
         SetVelocityWR(CVector3f::Zero());
         mLanded = true;
@@ -671,7 +671,7 @@ void CParasite::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     x9c8_26_ = true;
     mAlignToFloor = true;
-    if (mWalkerType == kWT_Parasite) {
+    if (mType == kPT_Parasite) {
       mBodyController->SetLocomotionType(pas::kLT_Lurk);
     }
     SetMomentumWR(CVector3f::Zero());
@@ -734,7 +734,7 @@ void CParasite::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     x9c8_26_ = true;
     mAlignToFloor = true;
-    if (!mDisableMove && mWalkerType == kWT_Parasite) {
+    if (!mDisableMove && mType == kPT_Parasite) {
       mBodyController->SetLocomotionType(pas::kLT_Lurk);
     }
     SetMomentumWR(CVector3f::Zero());
@@ -746,13 +746,13 @@ void CParasite::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
     if (pause > 0.f) {
       mPatrolPauseRemTime -= dt;
       if (mPatrolPauseRemTime <= 0.f) {
-        if (mWalkerType == kWT_Parasite) {
+        if (mType == kPT_Parasite) {
           mBodyController->SetLocomotionType(pas::kLT_Lurk);
         }
         mPatrolPauseRemTime = 0.f;
       }
     }
-    GotoNextWaypoint(mgr);
+    UpdateWPDestination(mgr);
     if (mPatrolPauseRemTime <= 0.f && !mDisableMove) {
       DoFlockingBehavior(mgr);
     }
@@ -903,7 +903,7 @@ void CParasite::Halt(CStateManager& mgr, EStateMsg msg, float) {
     mAnimationState.SetState(CAnimationState::kAS_Ready);
     mHalted = true;
     mAlignToFloor = true;
-    if (mWalkerType == kWT_Geemer) {
+    if (mType == kPT_Geemer) {
       CSfxManager::AddEmitter(mHaltSfx, GetTranslation(), GetCurrentAreaId().Value(), true, false);
     }
     break;
@@ -926,20 +926,20 @@ void CParasite::Halt(CStateManager& mgr, EStateMsg msg, float) {
 void CParasite::Crouch(CStateManager& mgr, EStateMsg msg, float) {
   switch (msg) {
   case kStateMsg_Activate:
-    switch (mWalkerType) {
-    case 10:
+    switch (mType) {
+    case kPT_Crystallite:
       mBodyController->SetLocomotionType(x9c0_ == 2 ? pas::kLT_Crouch : pas::kLT_Internal9);
       break;
     default:
       mBodyController->SetLocomotionType(pas::kLT_Crouch);
       break;
     }
-    switch (mWalkerType) {
-    case kWT_Geemer:
+    switch (mType) {
+    case kPT_Geemer:
       CSfxManager::AddEmitter(mCrouchSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
                               false);
       break;
-    case 10:
+    case kPT_Crystallite:
       mStateMachine->SetDelay(mHaltDelay);
       mOculusShotAt = false;
       break;
@@ -956,12 +956,12 @@ void CParasite::GetUp(CStateManager& mgr, EStateMsg msg, float) {
   switch (msg) {
   case kStateMsg_Activate:
     mBodyController->SetLocomotionType(pas::kLT_Relaxed);
-    switch (mWalkerType) {
-    case kWT_Geemer:
+    switch (mType) {
+    case kPT_Geemer:
       CSfxManager::AddEmitter(mGetUpSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
                               false);
       break;
-    case 10:
+    case kPT_Crystallite:
       UpdateShell(mgr, 0);
       break;
     }
@@ -1065,26 +1065,26 @@ void CParasite::DoFlockingBehavior(CStateManager& mgr) {
 
 void CParasite::PreRender(CStateManager& mgr) {
   CPatterned::PreRender(mgr);
-  if (mWalkerType == 10) {
+  if (mType == kPT_Crystallite) {
     SetModelFlags(GetModelFlags().UseShaderSet(x9c4_));
   }
 }
 
-void CParasite::Render(const CStateManager& mgr) const { CWallWalker::Render(mgr); }
+void CParasite::Render(const CStateManager& mgr) const { CWallCrawler::Render(mgr); }
 
 const CDamageVulnerability* CParasite::GetDamageVulnerability() const {
-  switch (mWalkerType) {
-  case kWT_Oculus:
+  switch (mType) {
+  case kPT_Oculus:
     if (mHalted) {
       return &mOculusHaltDVuln;
     }
     break;
-  case kWT_IceZoomer:
+  case kPT_IceZoomer:
     if (!mVulnerable) {
       return &CDamageVulnerability::ImmuneVulnerabilty();
     }
     break;
-  case 10:
+  case kPT_Crystallite:
     if (x9c0_ == 1) {
       return &mOculusHaltDVuln;
     }
@@ -1097,8 +1097,8 @@ EWeaponCollisionResponseTypes CParasite::GetCollisionResponseType(const CVector3
                                                                   const CVector3f& direction,
                                                                   const CWeaponMode& mode,
                                                                   int attributes) const {
-  switch (mWalkerType) {
-  case 10:
+  switch (mType) {
+  case kPT_Crystallite:
     if (GetDamageVulnerability()->GetEffect(mode) == 1) {
       return static_cast< EWeaponCollisionResponseTypes >(15);
     }
@@ -1108,13 +1108,13 @@ EWeaponCollisionResponseTypes CParasite::GetCollisionResponseType(const CVector3
 }
 
 CDamageInfo CParasite::GetContactDamage() const {
-  switch (mWalkerType) {
-  case kWT_Oculus:
+  switch (mType) {
+  case kPT_Oculus:
     if (mHalted) {
       return mOculusHaltDInfo;
     }
     return CPatterned::GetContactDamage();
-  case kWT_IceZoomer:
+  case kPT_IceZoomer:
     if (!mVulnerable) {
       return mOculusHaltDInfo;
     }
@@ -1172,7 +1172,7 @@ void CParasite::UpdateCollisionActors(float dt, CStateManager& mgr) {
       RemoveMaterial(kMT_NoPlatformCollision, mgr);
       DestroyActorManager(mgr);
       ModelData()->AnimationData()->SetSkinnedModel(*mExtraModel);
-      if (mWalkerType == kWT_IceZoomer) {
+      if (mType == kPT_IceZoomer) {
         CSfxManager::AddEmitter(mHaltSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
                                 false);
         mBodyController->SetLocomotionType(pas::kLT_Internal8);
@@ -1240,7 +1240,7 @@ CEntity* LoadParasite(CStateManager& mgr, CInputStream& input, CEntityInfo& info
       sldrThis.alignmentPriority, sldrThis.cohesionPriority, sldrThis.pathFollowingPriority,
       sldrThis.forwardMovingPriority, sldrThis.playerAvoidanceDistance,
       sldrThis.playerAvoidancePriority, sldrThis.parasiteVisibleDistance, 0.f,
-      sldrThis.initiallyPaused, CWallWalker::kWT_Parasite, CDamageVulnerability::NormalVulnerabilty(),
+      sldrThis.initiallyPaused, CParasite::kPT_Parasite, CDamageVulnerability::NormalVulnerabilty(),
       CDamageInfo(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, false, false),
       CSfxManager::kInternalInvalidSfxId, CSfxManager::kInternalInvalidSfxId,
       CSfxManager::kInternalInvalidSfxId, kInvalidAssetId, kInvalidAssetId, 0.f, 1.f, CDamageInfo(),
@@ -1265,7 +1265,7 @@ CEntity* LoadBrizgee(CStateManager& mgr, CInputStream& input, CEntityInfo& info)
       sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed, sldrThis.floorTurnSpeed,
       sldrThis.downTurnSpeed, 0.2f, 0.4f, 6.f, 2.6f, 1.f, 0.8f, 0.7f, 0.9f,
       sldrThis.forwardMovingPriority, 1.3f, 0.2f, sldrThis.visibleDistance,
-      sldrThis.shellOffSpeedMultiplier, false, CWallWalker::kWT_IceZoomer,
+      sldrThis.shellOffSpeedMultiplier, false, CParasite::kPT_IceZoomer,
       LdrToDamageVulnerability(sldrThis.shellVulnerability),
       LdrToDamageInfo(sldrThis.shellContactDamage), sldrThis.shellBreakSound,
       sldrThis.playerPoisonSound, sldrThis.poisonHitSound, sldrThis.noShellModel,
@@ -1296,7 +1296,7 @@ CEntity* LoadCrystallite(CStateManager& mgr, CInputStream& input, CEntityInfo& i
       sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed, sldrThis.floorTurnSpeed,
       sldrThis.downTurnSpeed, 0.2f, 0.4f, 6.f, 2.6f, 1.f, 0.8f, 0.7f, 0.9f,
       sldrThis.forwardMovingPriority, 1.3f, 0.2f, sldrThis.visibleDistance, sldrThis.stunTime,
-      false, static_cast< CWallWalker::EType >(10), vulnerability, contactDamage,
+      false, CParasite::kPT_Crystallite, vulnerability, contactDamage,
       CSfxManager::kInternalInvalidSfxId, CSfxManager::kInternalInvalidSfxId,
       CSfxManager::kInternalInvalidSfxId, kInvalidAssetId, kInvalidAssetId, 0.f, 1.f,
       contactDamage, LdrToActorParameters(sldrThis.actorInformation));

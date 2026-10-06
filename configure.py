@@ -1484,11 +1484,25 @@ config.libs = [
         ],
     },
     Rel(
+        "ChozoGhost",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CChozoGhost.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "DestructibleBarrier",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),
         ],
         # Float constants are addressed one by one, not through a pooled base register.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "EyeBall",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CEyeBall.cpp"),
+        ],
         extra_cflags=["-pool off"],
     ),
     Rel(
@@ -1503,6 +1517,13 @@ config.libs = [
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptForgottenObject.cpp"),
         ],
+    ),
+    Rel(
+        "Metaree",
+        [
+            Object(Matching, "MetroidPrime/Enemies/CMetaree.cpp"),
+        ],
+        extra_cflags=["-pool off"],
     ),
     Rel(
         "Parasite",
@@ -1562,6 +1583,15 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "GunTurret",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CGunTurretBase.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CGunTurretTop.cpp"),
+        ],
+        # The loaders address each float constant separately.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),
@@ -1588,6 +1618,13 @@ config.libs = [
         "Tryclops",
         [
             Object(NonMatching, "MetroidPrime/Enemies/CTryclops.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "WallWalker",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CWallWalker.cpp"),
         ],
         extra_cflags=["-pool off"],
     ),
