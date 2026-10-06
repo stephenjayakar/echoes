@@ -544,7 +544,7 @@ void CScriptPlatform::SetMotionTime(float time, CStateManager& mgr) {
 
 void CScriptPlatform::TeleportToWaypoint(TUniqueId id, CStateManager& mgr) {
   if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id)) && mWaypointTracker.get()) {
-    const float time = mWaypointTracker->GetWaypointTime(id);
+    const float time = mWaypointTracker->GetWaypointTime(id, mgr);
     if (time >= 0.f) {
       SetMotionTime(time, mgr);
     }

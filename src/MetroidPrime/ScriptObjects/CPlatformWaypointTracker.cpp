@@ -86,7 +86,7 @@ void CPlatformWaypointTracker::SendArrivals(float time, bool passedEnd, bool pas
 
 void CPlatformWaypointTracker::SetTime(float time) { mLastTime = time; }
 
-float CPlatformWaypointTracker::GetWaypointTime(TUniqueId waypoint) const {
+float CPlatformWaypointTracker::GetWaypointTime(TUniqueId waypoint, const CStateManager& mgr) const {
   for (int i = 0; i < mWaypoints.size(); ++i) {
     if (mWaypoints[i].GetWaypointId() == waypoint) {
       return mWaypoints[i].GetFirstTime();

@@ -42,7 +42,7 @@ public:
   void SendArrivals(float time, bool passedEnd, bool passedStart, bool forward,
                     CMayaSpline& control, CStateManager& mgr);       // Guessed name
   void SetTime(float time);                                          // Guessed name
-  float GetWaypointTime(TUniqueId waypoint) const;                   // Guessed name
+  float GetWaypointTime(TUniqueId waypoint, const CStateManager& mgr) const;                   // Guessed name
   float FindNextWaypointTime(float time, TUniqueId& waypoint) const; // Guessed name
 
 private:

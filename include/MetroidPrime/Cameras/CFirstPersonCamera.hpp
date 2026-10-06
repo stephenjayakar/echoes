@@ -24,7 +24,7 @@ public:
   void ProcessInput(const CFinalInput& input, CStateManager& mgr) override;
   void Reset(const CTransform4f& xf, CStateManager& mgr) override;
   void UnkVtable84() override;
-  void UnkVtable88(TUniqueId fluidId) override;
+  void UnkVtable88(TUniqueId fluidId, CStateManager& mgr) override;
 
   void UpdateElevation(CStateManager& mgr);
   void UpdateTransform(CStateManager& mgr, float dt);

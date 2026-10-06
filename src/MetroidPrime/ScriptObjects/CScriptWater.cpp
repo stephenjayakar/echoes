@@ -510,8 +510,8 @@ CVector2f CScriptWater::GetFluidUVExtent(const CAABox& bounds) const {
 }
 
 int CScriptWater::GetSplashIndex(float scale) const {
-  int index = static_cast< int >(scale * 3.f);
-  if (index > 2) {
+  int index = static_cast< int >(scale * mSplashSounds.capacity());
+  if (index >= 3) {
     --index;
   }
   return index;
@@ -522,7 +522,7 @@ CScriptWater::GetSplashEffect(float scale) const {
   return mSplashEffects[GetSplashIndex(scale)];
 }
 
-TSfxId CScriptWater::GetSplashSound(float scale) const {
+int CScriptWater::GetSplashSound(float scale) const {
   return mSplashSounds[GetSplashIndex(scale)];
 }
 
@@ -532,7 +532,7 @@ float CScriptWater::GetSplashEffectScale(float scale) const {
   }
   const int index = GetSplashIndex(scale);
   scale *= 3.f;
-  scale -= CMath::FloorF(scale);
+  scale -= static_cast< float >(floor(scale));
   return (1.f - scale) * kSplashScales[index * 2] + scale * kSplashScales[index * 2 + 1];
 }
 
@@ -702,7 +702,7 @@ void CScriptWater::InhabitantExited(CActor& actor, CStateManager& mgr) {
   if (actor.GetFluidCount() == 0 && ShouldSendScriptMsgs(actor, mgr)) {
     mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XEXF, kInvalidUniqueId);
     if (CGameCamera* camera = TCastToPtr< CGameCamera >(actor)) {
-      camera->UnkVtable88(GetUniqueId());
+      camera->UnkVtable88(GetUniqueId(), mgr);
     }
   }
 }

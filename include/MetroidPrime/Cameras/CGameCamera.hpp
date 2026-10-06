@@ -30,7 +30,7 @@ public:
   virtual void Reset(const CTransform4f& xf, CStateManager& mgr) = 0;
   // Empty base implementations; names and unused parameters remain unresolved.
   virtual void UnkVtable84();
-  virtual void UnkVtable88(TUniqueId fluidId);
+  virtual void UnkVtable88(TUniqueId fluidId, CStateManager& mgr);
 
   void SetAspectRatio(float aspect);
   const CMatrix4f& GetPerspectiveMatrix() const;
