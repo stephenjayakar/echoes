@@ -612,27 +612,28 @@ void CBallCamera::UpdateObjectTooCloseId(CStateManager& mgr) {
   mTooCloseActorDist = 1000000.f;
   mTooCloseActorId = kInvalidUniqueId;
 
-  const CPlayer& player = GetPlayer(mgr);
+  const CPlayer& player = Player(mgr);
   const CVector3f ballPosition = player.GetBallPosition();
+  const CVector3f cameraPosition = GetTranslation();
   const rstl::list< CEntity* >& doors = mgr.GetDoorList();
   for (rstl::list< CEntity* >::const_iterator it = doors.begin(); it != doors.end(); ++it) {
-    const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(*it);
-    if (door == nullptr || door->GetCurrentAreaId() != player.GetCurrentAreaId() ||
+    const CScriptDoor* door = static_cast< const CScriptDoor* >(*it);
+    if (door == nullptr || door->GetCurrentAreaId() != Player(mgr).GetCurrentAreaId() ||
         door->IsHorizontal()) {
       continue;
     }
 
     const CVector3f& doorPosition = door->GetTranslation();
-    const float cameraDist = (doorPosition - GetTranslation()).MagSquared();
-    const float playerDist = (doorPosition - ballPosition).MagSquared();
-    const float distance = CMath::Min(cameraDist, playerDist);
+    const float cameraDist = CVector3f(doorPosition - cameraPosition).MagSquared();
+    const float playerDist = CVector3f(doorPosition - ballPosition).MagSquared();
+    const float distance = rstl::min_val(playerDist, cameraDist);
     if (distance < 900.f && distance < mTooCloseActorDist) {
       mTooCloseActorId = door->GetUniqueId();
       mTooCloseActorDist = distance;
     }
   }
   if (mTooCloseActorId != kInvalidUniqueId) {
-    mTooCloseActorDist = CMath::SqrtF(mTooCloseActorDist);
+    mTooCloseActorDist = msl_sqrtf(mTooCloseActorDist);
   }
 }
 
@@ -1779,16 +1780,19 @@ void CBallCamera::UpdateLookAtPosition(float dt, CStateManager& mgr, bool telepo
 }
 
 CVector3f CBallCamera::GetScanObjectIndicatorPosition(const CStateManager& mgr) const {
-  const CPlayer& player = GetPlayer(mgr);
-  if (player.GetCameraState() == CPlayer::kCS_MorphBallTransition) {
-    const CVector3f firstPersonPos =
-        GetCameraManager(mgr).GetFirstPersonCamera()->GetScanObjectIndicatorPosition(mgr);
-    float factor = 1.f - player.GetMorphBallTransitionFactor();
+  if (Player(const_cast< CStateManager& >(mgr)).GetCameraState() ==
+      CPlayer::kCS_MorphBallTransition) {
+    const CVector3f delta = CameraManager(const_cast< CStateManager& >(mgr))
+                                .GetFirstPersonCamera()
+                                ->GetScanObjectIndicatorPosition(mgr) -
+                            mLookPos;
+    float factor =
+        1.f - Player(const_cast< CStateManager& >(mgr)).GetMorphBallTransitionFactor();
     factor = CMath::Clamp(0.f, factor, 1.f);
     if (mState == kBCS_FromBall) {
       factor = 1.f - factor;
     }
-    return mLookPos + factor * (firstPersonPos - mLookPos);
+    return mLookPos + factor * delta;
   }
   return mLookPos;
 }

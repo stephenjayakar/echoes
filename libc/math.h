@@ -258,6 +258,8 @@ double nextafter(double, double);
 
 // MSL C++ float overload; the retail binary calls it out of line.
 float sqrt(float x);
+// Out-of-line MSL helper behind the float overload; a few retail call sites call it directly.
+float msl_sqrtf(float x);
 #endif
 
 #endif
