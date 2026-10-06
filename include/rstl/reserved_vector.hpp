@@ -101,6 +101,7 @@ private:
       return;
     }
     T* ptr = data();
+    RSTL_PRECONDITION(mCount <= N);
     for (int i = 0; i < mCount; ++i) {
       destroy(&ptr[i]);
     }
