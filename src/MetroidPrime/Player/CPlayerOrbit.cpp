@@ -826,16 +826,17 @@ void CPlayer::UpdateOrbitableObjects(CStateManager& mgr) {
 }
 
 TUniqueId CPlayer::FindOrbitTargetId(CStateManager& mgr) {
-  const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(mOrbitNextTargetId));
+  const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(GetOrbitNextTargetId()));
   if (act) {
     const CVector3f eyePosition = GetEyePosition();
-    const float halfWidth = CCast::LtoF(CGraphics::GetViewport().mWidth / 2);
-    const float halfHeight = CCast::LtoF(CGraphics::GetViewport().mHeight / 2);
-    const float idealX =
-        (CCast::LtoF(GetTweakPlayer()->GetOrbitZoneIdealX(mOrbitZoneMode)) - halfWidth) / halfWidth;
-    const float idealY =
-        (CCast::LtoF(GetTweakPlayer()->GetOrbitZoneIdealY(mOrbitZoneMode)) - halfHeight) /
-        halfHeight;
+    const int width = CGraphics::GetViewport().mWidth;
+    const float idealX = (float(GetTweakPlayer()->GetOrbitZoneIdealX(mOrbitZoneMode)) -
+                          float(width / 2)) /
+                         float(CGraphics::GetViewport().mWidth / 2);
+    const int height = CGraphics::GetViewport().mHeight;
+    const float idealY = (float(GetTweakPlayer()->GetOrbitZoneIdealY(mOrbitZoneMode)) -
+                          float(height / 2)) /
+                         float(CGraphics::GetViewport().mHeight / 2);
     const CVector3f orbitPosition = act->GetOrbitPosition(mgr);
     const CVector3f screenPosition =
         mCameraManager->GetFirstPersonCamera()->ConvertToScreenSpace(orbitPosition);
@@ -844,7 +845,7 @@ TUniqueId CPlayer::FindOrbitTargetId(CStateManager& mgr) {
                        CCast::LtoF(CGraphics::GetViewport().mWidth) / 2.f);
     positionInBox.SetY(screenPosition.GetY() * CCast::LtoF(CGraphics::GetViewport().mHeight) / 2.f +
                        CCast::LtoF(CGraphics::GetViewport().mHeight) / 2.f);
-    if (ValidateOrbitTargetId(mOrbitNextTargetId, mgr) != kOVR_OK ||
+    if (ValidateOrbitTargetId(GetOrbitNextTargetId(), mgr) != kOVR_OK ||
         !WithinOrbitScreenBox(positionInBox, mOrbitZoneMode, mOrbitZoneType)) {
       mOrbitTargetDistance = 10000.f;
       mOrbitTargetScreenDistance = 10000.f;
