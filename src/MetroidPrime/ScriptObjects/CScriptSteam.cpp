@@ -86,8 +86,9 @@ CEntity* LoadSteam(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
   SLdrSteam sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrSteam.inc"
 
-  const CVector3f halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
-  const CAABox bounds = CAABox(-halfExtent, halfExtent);
+  const CVector3f& halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
+  const CVector3f negHalfExtent = -(sldrThis.editorProperties.transform.scale * 0.5f);
+  const CAABox bounds = CAABox(negHalfExtent, halfExtent);
   return rs_new CScriptSteam(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
                              LdrToEntityInfo(info, sldrThis.editorProperties),
                              sldrThis.editorProperties.transform.position, bounds,
