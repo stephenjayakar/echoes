@@ -622,17 +622,15 @@ bool CPlayer::WithinOrbitScreenEllipse(const CVector3f& screenPosition,
 
 bool CPlayer::WithinOrbitScreenBox(const CVector3f& screenPosition, EPlayerZoneInfo zone,
                                    EPlayerZoneType type) const {
-  if (!(screenPosition.GetZ() < 1.f)) {
+  if (screenPosition.GetZ() >= 1.f) {
     return false;
   }
   switch (type) {
   case kZT_Box:
-    if (CMath::AbsF(screenPosition.GetX() -
-                    CCast::LtoF(GetTweakPlayer()->GetOrbitZoneCentreX(zone))) <=
-            CCast::LtoF(GetTweakPlayer()->GetOrbitZoneWidth(zone)) &&
-        CMath::AbsF(screenPosition.GetY() -
-                    CCast::LtoF(GetTweakPlayer()->GetOrbitZoneCentreY(zone))) <=
-            CCast::LtoF(GetTweakPlayer()->GetOrbitZoneHeight(zone)) &&
+    if (CMath::AbsF(screenPosition.GetX() - float(GetTweakPlayer()->GetOrbitZoneCentreX(zone))) <=
+            float(GetTweakPlayer()->GetOrbitZoneWidth(zone)) &&
+        CMath::AbsF(screenPosition.GetY() - float(GetTweakPlayer()->GetOrbitZoneCentreY(zone))) <=
+            float(GetTweakPlayer()->GetOrbitZoneHeight(zone)) &&
         screenPosition.GetZ() < 1.f) {
       return true;
     }
