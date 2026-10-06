@@ -60,8 +60,7 @@ void CBoneTracking::PreRender(const CStateManager& mgr, CAnimData& animData, con
       mHasTrackedRotation = true;
       const CVector3f targetPosition = target ? target->GetAimPosition(mgr, 0.f) : *mTargetPosition;
       const CVector3f delta = targetPosition - xf.GetTranslation();
-      if (delta.GetX() * delta.GetX() + delta.GetY() * delta.GetY() + delta.GetZ() * delta.GetZ() <=
-          mDisableTrackingDistanceSquared) {
+      if (delta.MagSquared() <= mDisableTrackingDistanceSquared) {
         UpdateTracking(xf, scale, targetPosition, layout, pose);
       } else {
         UpdateInactive(layout, pose);
