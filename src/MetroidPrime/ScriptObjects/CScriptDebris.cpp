@@ -500,7 +500,7 @@ void CScriptDebris::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 void CScriptDebris::PreRenderAllViewports(CStateManager& mgr) {
   CActor::PreRenderAllViewports(mgr);
 
-  const float time = CMath::Min(mCurTime, mDuration);
+  const float time = rstl::min_val(mCurTime, mDuration);
   const float relativeTime = time / mDuration;
   float fade = 0.f;
   if (relativeTime < mColorInT) {
@@ -508,9 +508,12 @@ void CScriptDebris::PreRenderAllViewports(CStateManager& mgr) {
       fade = 1.f - time / (mDuration * mColorInT);
     }
   } else if (relativeTime > mColorOutT) {
-    fade = (time - mDuration * mColorOutT) / (mDuration * (1.f - mColorOutT));
-    if (mFlickerOnFadeOut && mUpdateFrameIndex % 6 > 2) {
+    const bool flicker =
+        mFlickerOnFadeOut ? static_cast< uint >(mUpdateFrameIndex) % 6 > 2 : false;
+    if (flicker) {
       fade = 1.f;
+    } else {
+      fade = (time - mDuration * mColorOutT) / (mDuration * (1.f - mColorOutT));
     }
   }
 
@@ -554,11 +557,12 @@ void CScriptDebris::CollidedWith(const TUniqueId& id, const CCollisionInfoList& 
   mCollisionNormal = list[0].GetNormalLeft();
   if (GetVelocityWR().Magnitude() > mBounceSoundSpeedThreshold &&
       mBounceSound != CSfxManager::kInternalInvalidSfxId && mBounceSoundCount < mMaxBounceSounds) {
-    CSfxManager::AddEmitter(mBounceSound, GetTranslation(), mBounceSoundVolume,
+    const CVector3f translation = GetTranslation();
+    CSfxManager::AddEmitter(mBounceSound, translation, mBounceSoundVolume,
                             GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
     ++mBounceSoundCount;
-    mBounceSoundVolume =
-        static_cast< uchar >(CMath::Max(0.f, mBounceSoundVolumeDecay * mBounceSoundVolume));
+    mBounceSoundVolume = CCast::ToUint8(
+        rstl::max_val(0.f, mBounceSoundVolumeDecay * CCast::ToReal32(mBounceSoundVolume)));
   }
 }
 
