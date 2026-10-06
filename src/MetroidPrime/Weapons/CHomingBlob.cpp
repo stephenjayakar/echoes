@@ -67,8 +67,8 @@ void CHomingBlob::PreRenderAllViewports(CStateManager& mgr) {
     SetOtherBounds(*bounds);
     SetRenderBounds(*bounds);
   } else {
-    mHasRenderBounds = false;
     const CVector3f pos = GetTranslation();
+    mHasRenderBounds = false;
     const CAABox pointBounds(pos, pos);
     SetOtherBounds(pointBounds);
     SetRenderBounds(pointBounds);
