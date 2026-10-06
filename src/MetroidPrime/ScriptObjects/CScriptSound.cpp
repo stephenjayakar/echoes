@@ -25,7 +25,7 @@
 bool CScriptSound::sFirstInFrame;
 
 static int ScaleByMusicVolume(int volume) {
-  const float musicVolume = float(int(gpGameState->GameOptions().GetMusicVolume()));
+  const float musicVolume = CCast::LtoF(gpGameState->GameOptions().GetMusicVolume());
   CMayaSpline& volumeCurve = gpTweakGame->GetMusicVolumeSpline();
   const float musicScale = volumeCurve.EvaluateAt(musicVolume);
   return CCast::FtoS(float(volume * musicScale) / 127.f);
@@ -91,7 +91,8 @@ CScriptSound::CScriptSound(TUniqueId uid, const rstl::string& name, const CEntit
                            short unknown1a2, bool looped, bool nonEmitter, bool playerRelativePan,
                            bool autoStart, bool occlusionTest, bool acoustics, bool worldSfx,
                            bool allowDuplicates, bool allAreas, bool scaleByMusicVolume, int pitch)
-: CActor(uid, name, info, 0, xf, CModelData(), CMaterialList(kMT_Trigger), CActorParameters::None(),
+: CActor(uid, name, info, 0, xf, CModelData::CModelDataNull(), CMaterialList(kMT_Trigger),
+         CActorParameters::None(),
          kInvalidUniqueId)
 , mOcclusionUpdateTimer(0.f)
 , mSfxHandle()

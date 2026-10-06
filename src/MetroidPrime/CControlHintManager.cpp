@@ -105,14 +105,16 @@ TUniqueId CControlHintManager::CreateHint(CStateManager& mgr, const rstl::string
   return kInvalidUniqueId;
 }
 
-bool CControlHintManager::HasDisableFlags(uint flags, const CStateManager& mgr) const {
+uchar CControlHintManager::HasDisableFlags(uint flags, const CStateManager& mgr) const {
+  bool ret = false;
   for (rstl::vector< SHint >::const_iterator it = GetHints().begin(); it != GetHints().end();
        ++it) {
     const CScriptControlHint* hint =
         TCastToConstPtr< CScriptControlHint >(mgr.GetObjectById(it->mState.GetHintId()));
     if (hint && (hint->GetDisableFlags() & flags)) {
-      return true;
+      ret = true;
+      break;
     }
   }
-  return false;
+  return ret;
 }

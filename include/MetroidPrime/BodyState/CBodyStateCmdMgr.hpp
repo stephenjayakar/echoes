@@ -508,6 +508,11 @@ public:
     mAdditiveReaction = cmd;
   }
 
+  void DeliverCmd(const CBCScriptedCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mScripted = cmd;
+  }
+
   void BlendSteeringCmds();
   void ClearLocomotionCmds();
   void SetSteeringSpeedRange(float minimum, float maximum);

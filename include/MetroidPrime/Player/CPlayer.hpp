@@ -241,6 +241,8 @@ public:
   }
   TUniqueId GetScanningObject() const { return mScanningObject; }
   TUniqueId GetOrbitNextTargetId() const { return mOrbitNextTargetId; }
+  void SetOrbitNextTargetId(TUniqueId id) { mOrbitNextTargetId = id; } // Guessed name
+  TUniqueId GetAimTarget() const { return mAimTarget; }
   CMorphBall* GetMorphBall() { return mMorphBall.get(); }
   const CMorphBall* GetMorphBall() const { return mMorphBall.get(); }
   CPlayerState* GetPlayerState() { return mPlayerState; }
@@ -559,7 +561,7 @@ public:
   void UpdateOrbitSelection(const CFinalInput& input, CStateManager& mgr);
   void UpdateOrbitOrientation(CStateManager& mgr);
   void UpdateOrbitTarget(CStateManager& mgr);
-  float GetOrbitMaxLockDistance() const;
+  float GetOrbitMaxLockDistance(CStateManager& mgr) const;
   float GetOrbitMaxTargetDistance() const;
   int ValidateOrbitTargetId(TUniqueId target, CStateManager& mgr) const;
   void StopRezbitState(CStateManager& mgr);

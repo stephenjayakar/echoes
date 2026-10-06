@@ -114,53 +114,53 @@ bool CMemoryCard::InitializePump() {
   for (rstl::vector< CSaveWorldIntermediate >::iterator it = worlds.begin(); it != worlds.end();
        ++it) {
     CSaveWorldIntermediate& world = *it;
-    if (!world.InitializePump()) {
-      done = false;
-      continue;
-    }
-    if (world.mSaveWorld.null()) {
-      continue;
-    }
-
-    CSaveWorldMemory& memory = const_cast< CSaveWorldMemory& >(GetSaveWorldMemory(world.mMlvlId));
-    if (memory.mSaveWorldId == kInvalidAssetId) {
-      memory.mSaveWorldId = world.mSaveWorldId;
-    }
-    if (memory.mWorldNameId == kInvalidAssetId) {
-      memory.mWorldNameId = world.mWorldNameId;
-    }
-    if (memory.mDarkWorldNameId == kInvalidAssetId) {
-      memory.mDarkWorldNameId = world.mDarkWorldNameId;
-    }
-    memory.mAreaIds = world.mAreaIds;
-    memory.mDefaultLayerStates = world.mDefaultLayerStates;
-    memory.mLayerNames = world.mLayerNames;
-    memory.mAreaLayerNameOffsets = world.mAreaLayerNameOffsets;
-
-    const CWorldSaveGameInfo& saveInfo = *world.mSaveWorld->GetObject();
-    memory.mAreaCount = saveInfo.GetAreaCount();
-    mScanStates.reserve(mScanStates.size() + saveInfo.GetScans().size());
-    for (rstl::vector< ScanState >::const_iterator scan = saveInfo.GetScans().begin();
-         scan != saveInfo.GetScans().end(); ++scan) {
-      if (rstl::find(mScanStates.begin(), mScanStates.end(), *scan) == mScanStates.end()) {
-        mScanStates.push_back(*scan);
+    if (world.InitializePump()) {
+      if (world.mSaveWorld.null()) {
+        continue;
       }
-    }
-    MergeEnvironmentVariables(saveInfo.GetSystemVariables(), mSystemVariables);
-    MergeEnvironmentVariables(saveInfo.GetGameVariables(), mGameVariables);
 
-    memory.mSaveWorld = *world.mSaveWorld;
-    world.mSaveWorld = nullptr;
+      CSaveWorldMemory& memory = const_cast< CSaveWorldMemory& >(GetSaveWorldMemory(world.mMlvlId));
+      if (memory.mSaveWorldId == kInvalidAssetId) {
+        memory.mSaveWorldId = world.mSaveWorldId;
+      }
+      if (memory.mWorldNameId == kInvalidAssetId) {
+        memory.mWorldNameId = world.mWorldNameId;
+      }
+      if (memory.mDarkWorldNameId == kInvalidAssetId) {
+        memory.mDarkWorldNameId = world.mDarkWorldNameId;
+      }
+      memory.mAreaIds = world.mAreaIds;
+      memory.mDefaultLayerStates = world.mDefaultLayerStates;
+      memory.mLayerNames = world.mLayerNames;
+      memory.mAreaLayerNameOffsets = world.mAreaLayerNameOffsets;
 
-    const SObjectTag worldName('STRG', memory.mWorldNameId);
-    if (gpResourceFactory->CanBuild(worldName)) {
-      memory.mWorldName = TCachedToken< CStringTable >(gpSimplePool->GetObj(worldName));
-      memory.mWorldName->Lock();
-    }
-    const SObjectTag darkWorldName('STRG', memory.mDarkWorldNameId);
-    if (gpResourceFactory->CanBuild(darkWorldName)) {
-      memory.mDarkWorldName = TCachedToken< CStringTable >(gpSimplePool->GetObj(darkWorldName));
-      memory.mDarkWorldName->Lock();
+      const CWorldSaveGameInfo& saveInfo = *world.mSaveWorld->GetObject();
+      memory.mAreaCount = saveInfo.GetAreaCount();
+      mScanStates.reserve(mScanStates.size() + saveInfo.GetScans().size());
+      for (rstl::vector< ScanState >::const_iterator scan = saveInfo.GetScans().begin();
+           scan != saveInfo.GetScans().end(); ++scan) {
+        if (rstl::find(mScanStates.begin(), mScanStates.end(), *scan) == mScanStates.end()) {
+          mScanStates.push_back_unsafe(*scan);
+        }
+      }
+      MergeEnvironmentVariables(saveInfo.GetSystemVariables(), mSystemVariables);
+      MergeEnvironmentVariables(saveInfo.GetGameVariables(), mGameVariables);
+
+      memory.mSaveWorld = *world.mSaveWorld;
+      world.mSaveWorld = nullptr;
+
+      const SObjectTag worldName('STRG', memory.mWorldNameId);
+      if (gpResourceFactory->CanBuild(worldName)) {
+        memory.mWorldName = TCachedToken< CStringTable >(gpSimplePool->GetObj(worldName));
+        memory.mWorldName->Lock();
+      }
+      const SObjectTag darkWorldName('STRG', memory.mDarkWorldNameId);
+      if (gpResourceFactory->CanBuild(darkWorldName)) {
+        memory.mDarkWorldName = TCachedToken< CStringTable >(gpSimplePool->GetObj(darkWorldName));
+        memory.mDarkWorldName->Lock();
+      }
+    } else {
+      done = false;
     }
   }
 
@@ -208,7 +208,8 @@ rstl::pair< CAssetId, TAreaId > CMemoryCard::GetAreaAndWorldIdForSaveId(uint sav
     const rstl::vector< uint >& areas = it->second.mAreaIds;
     rstl::vector< uint >::const_iterator area = rstl::find(areas.begin(), areas.end(), saveId);
     if (area != areas.end()) {
-      return rstl::pair< CAssetId, TAreaId >(it->first, TAreaId(area - areas.begin()));
+      return rstl::pair< CAssetId, TAreaId >(it->first,
+                                             TAreaId(rstl::distance(areas.begin(), area)));
     }
   }
   return rstl::pair< CAssetId, TAreaId >(kInvalidAssetId, kInvalidAreaId);
@@ -219,8 +220,10 @@ void CMemoryCard::MergeEnvironmentVariables(const rstl::vector< EnvironmentVaria
   destination.reserve(destination.size() + source.size());
   for (rstl::vector< EnvironmentVariable >::const_iterator it = source.begin(); it != source.end();
        ++it) {
-    if (rstl::find(destination.begin(), destination.end(), *it) == destination.end()) {
-      destination.push_back(*it);
+    rstl::vector< EnvironmentVariable >::iterator found =
+        rstl::find(destination.begin(), destination.end(), *it);
+    if (found == destination.end()) {
+      destination.push_back_unsafe(*it);
     }
   }
 }

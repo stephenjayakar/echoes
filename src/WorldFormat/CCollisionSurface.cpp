@@ -15,9 +15,10 @@ CPlane CCollisionSurface::GetPlane() const {
 CPlane CCollisionSurface::GetEdgePlane(int edge) const {
   const CUnitVector3f normal(GetNormal());
   const int nextVertex[] = {1, 2, 0};
-  const CVector3f edgeDirection = mVertices[nextVertex[edge]] - mVertices[edge];
+  const CVector3f& vertex = mVertices[edge];
+  const CVector3f edgeDirection = mVertices[nextVertex[edge]] - vertex;
   const CUnitVector3f edgeNormal(CVector3f::Cross(normal, edgeDirection));
-  return CPlane(CVector3f::Dot(edgeNormal, mVertices[edge]), edgeNormal);
+  return CPlane(CVector3f::Dot(edgeNormal, vertex), edgeNormal);
 }
 
 // Guessed name
