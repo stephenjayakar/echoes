@@ -21,6 +21,7 @@
 
 #include "Collision/CMaterialFilter.hpp"
 #include "Collision/CRayCastResult.hpp"
+#include "Kyoto/Animation/CPOINode.hpp"
 #include "Kyoto/Animation/CJointData_LinearStorage.hpp"
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
@@ -67,7 +68,7 @@ CGunTurretBase::CGunTurretBase(
 , mGunRespawns(gunRespawns)
 , mTargetPos(CVector3f::Zero())
 , mOriginalFront(xf.GetColumn(kDY))
-, x80c_(-1)
+, mTeamIndex(-1)
 , mGunAimTurnSpeed(CRelAngle::FromDegrees(gunAimTurnSpeed).AsRadians())
 , mGunLockOnTurnSpeed(CRelAngle::FromDegrees(gunLockOnTurnSpeed).AsRadians())
 , mGunRotation(CQuaternion::NoRotation())
@@ -346,7 +347,7 @@ bool CGunTurretBase::PlayerInRange(CStateManager& mgr, float range) const {
   const float rangeSq = range * range;
   if (TCastToConstPtr< CGunTurretTop >(mgr.GetObjectById(mTopId))) {
     for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
-      if (x80c_ == -1 || x80c_ != mgr.GetPlayer(i)->GetPlayerIndex()) {
+      if (mTeamIndex == -1 || mTeamIndex != mgr.GetPlayerState(i)->GetTeamIndex()) {
         const CPlayer* player = mgr.GetPlayer(i);
         const CVector3f delta = player->GetTranslation() - pos;
         if (delta.MagSquared() < rangeSq &&
@@ -780,6 +781,205 @@ void CGunTurretBase::UpdateGunPose(CStateManager& mgr, float dt) {
   if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
     top->SetTransform(GetTransform() * GetScaledLocatorTransform(seg));
   }
+}
+
+void CGunTurretBase::UpdateGunOrientation(CStateManager& mgr, const CSegId& seg, bool aim,
+                                          float dt) {
+  CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId));
+  if (!top) {
+    return;
+  }
+
+  if (!top->GetBodyController()->IsFrozen()) {
+    const CTransform4f xf = GetTransform();
+    const CTransform4f gunXf = xf * GetScaledLocatorTransform(seg);
+    const CTransform4f invXf = xf.GetQuickInverse();
+    const CVector3f localTarget =
+        invXf.BuildMatrix3f() * (mTargetPos - xf.GetTranslation()) + xf.GetTranslation();
+    const CVector3f localGun =
+        invXf.BuildMatrix3f() * (gunXf.GetTranslation() - xf.GetTranslation()) +
+        xf.GetTranslation();
+
+    float speed;
+    if (mFirstShot) {
+      speed = mGunLockOnTurnSpeed * dt;
+    } else {
+      speed = mGunAimTurnSpeed * dt;
+    }
+
+    const CTransform4f lookXf = aim ? CTransform4f::LookAt(localGun, localTarget, CVector3f::Up())
+                                    : CTransform4f::Identity();
+    const float horizontal =
+        CMath::SqrtF(lookXf.Get11() * lookXf.Get11() + lookXf.Get01() * lookXf.Get01());
+    float pitch = aim ? -static_cast< float >(atan2(-lookXf.Get21(), horizontal)) : 0.f;
+    if (pitch > 0.f) {
+      pitch = mMaxPitchAngleUp < pitch ? mMaxPitchAngleUp : pitch;
+    } else {
+      pitch = pitch < mMaxPitchAngleDown ? mMaxPitchAngleDown : pitch;
+    }
+    const float pitchDelta = pitch - x8ac_;
+    const float pitchStep = pitchDelta > 0.f ? speed : -speed;
+    if (!(static_cast< float >(fabs(pitchDelta)) <= speed)) {
+      pitch = x8ac_ + pitchStep;
+    }
+    x8ac_ = pitch;
+
+    float yaw = aim ? -static_cast< float >(atan2(lookXf.Get01(), lookXf.Get11())) : 0.f;
+    const float yawDelta = yaw - x8b0_;
+    if (!(yawDelta > 0.f)) {
+      speed = -speed;
+    }
+    if (!(static_cast< float >(fabs(yawDelta)) <= static_cast< float >(fabs(speed)))) {
+      yaw = x8b0_ + speed;
+    }
+    x8b0_ = yaw;
+
+    bool firing = false;
+    if (aim) {
+      bool aimed = false;
+      if (static_cast< float >(fabs(yawDelta)) <= xfc03_ &&
+          static_cast< float >(fabs(pitchDelta)) <= xfc03_) {
+        aimed = true;
+      }
+      if (aimed) {
+        firing = true;
+      }
+    }
+    mFiring = firing;
+    mGunRotation = CQuaternion::YXZRotation(CRelAngle::FromRadians(0.f),
+                                            CRelAngle::FromRadians(x8ac_),
+                                            CRelAngle::FromRadians(x8b0_));
+  }
+
+  CJointData_LinearStorage& jointData = AnimationData()->JointData();
+  jointData.Rotation(seg.val()) = mGunRotation;
+  AnimationData()->BuildPose(jointData);
+}
+
+CActor* CGunTurretBase::FindTarget(CStateManager& mgr) {
+  float bestScore = 3.4028235e38f;
+  CActor* target = nullptr;
+  if (mAlert && !mOccluded) {
+    if (TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
+      const CVector3f front = GetTransform().GetColumn(kDY);
+      const float angleWeight = (mDetectionRange * mDetectionRange) / M_PIF;
+      for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+        if (mTeamIndex == -1 || mTeamIndex != mgr.GetPlayerState(i)->GetTeamIndex()) {
+          CPlayer* player = mgr.Player(i);
+          if ((InRange(*player, mMaxAttackRange) && !InRange(*player, mMinAttackRange)) ||
+              mGunHit) {
+            const CVector3f delta = player->GetTranslation() - GetTranslation();
+            const float score =
+                CVector3f::GetAngleDiff(delta, front) * angleWeight + delta.MagSquared();
+            if (score < bestScore) {
+              bestScore = score;
+              mTargetIsNonPlayer = false;
+              target = player;
+            }
+          }
+        }
+      }
+
+      if (x8be_ && !mGunHit) {
+        static CMaterialFilter filter =
+            CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Character),
+                                                CMaterialList(kMT_NoPlatformCollision, kMT_Player));
+        rstl::reserved_vector< TUniqueId, 1024 > nearList;
+        const float r = mMaxAttackRange;
+        const CVector3f pos = GetTranslation();
+        mgr.BuildNearList(nearList, CAABox(pos - CVector3f(r, r, r), pos + CVector3f(r, r, r)),
+                          filter, this);
+        for (rstl::reserved_vector< TUniqueId, 1024 >::iterator it = nearList.begin();
+             it != nearList.end(); ++it) {
+          CPatterned* patterned =
+              const_cast< CPatterned* >(TCastToConstPtr< CPatterned >(mgr.GetObjectById(*it)));
+          if (patterned && patterned->GetUniqueId() != mTopId && patterned->GetAlive()) {
+            const CGunTurretBase* base = TCastToConstPtr< CGunTurretBase >(patterned);
+            const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(patterned);
+            if (!base && !top) {
+              const CVector3f delta = patterned->GetTranslation() - pos;
+              const float score =
+                  CVector3f::GetAngleDiff(delta, front) * angleWeight + delta.MagSquared();
+              if (score < bestScore) {
+                bestScore = score;
+                mTargetIsNonPlayer = true;
+                target = patterned;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return target;
+}
+
+void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
+  if (mAttackTimer >= mTimeBetweenAttacks && (mFiring || mInBurst) && !mGunDestroyed &&
+      !mCharging) {
+    if (mShotTimer >= mTimeBetweenShots) {
+      mInBurst = true;
+      mShotTimer = 0.f;
+      mTimeBetweenShots = mMinTimeBetweenShots +
+                          (mMaxTimeBetweenShots - mMinTimeBetweenShots) * mgr.Random()->Float();
+      ++mShotCount;
+      if (mShotCount >= mShotsInBurst) {
+        mAttackTimer = 0.f;
+        mTimeBetweenAttacks =
+            mMinTimeBetweenAttacks +
+            (mMaxTimeBetweenAttacks - mMinTimeBetweenAttacks) * mgr.Random()->Float();
+        mShotCount = 0;
+        mShotsInBurst = mMinShotsInABurst +
+                        static_cast< uchar >((mMaxShotsInABurst - mMinShotsInABurst) *
+                                             mgr.Random()->Float());
+        mInBurst = false;
+        mCanCharge = true;
+        mChargeTime = 0.f;
+      }
+
+      const CVector3f firePos = GetGunFirePosition(mgr);
+      if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
+        PlaySfx(mIsPirateTurret ? mPirateFireShotSfx : mGFFireShotSfx, mgr);
+        const CTransform4f& topXf = top->GetTransform();
+        const CAssetId effect = top->GetChargeEffect(mIsPirateTurret);
+        char name[256];
+        sprintf(name, "GUN_TURRET_TOP_EFFECT%d-%d", effect, mEffectIndex++);
+        top->AddParticleEffect(mgr, CTransform4f(topXf.BuildMatrix3f(), firePos), 1.f, effect,
+                               CPOINode::GetHashForString(name), 0x40);
+        if (mIsPirateTurret) {
+          LaunchProjectile(mgr);
+        } else {
+          rstl::reserved_vector< TUniqueId, 1024 > nearList;
+          TUniqueId hitId = kInvalidUniqueId;
+          static CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
+              CMaterialList(kMT_Unknown59), CMaterialList(kMT_NoPlatformCollision));
+          mgr.BuildNearList(nearList, firePos, topXf.GetColumn(kDY), 100.f, filter, this);
+          const float signX = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
+          const float signZ = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
+          const float angleX = signX * (mShotAngleVariance * mgr.Random()->Float());
+          const float angleZ = signZ * (mShotAngleVariance * mgr.Random()->Float());
+          const CTransform4f spread = CTransform4f::RotateX(CRelAngle::FromDegrees(angleX)) *
+                                      CTransform4f::RotateZ(CRelAngle::FromDegrees(angleZ));
+          const CVector3f dir = topXf.Rotate(spread.GetColumn(kDY));
+          const CRayCastResult result =
+              mgr.RayWorldIntersection(hitId, firePos, dir, 100.f, filter, nearList);
+          if (result.IsValid()) {
+            mgr.DoCollisionResponse(**mCrsc, result, hitId, mAttackDamage, false);
+            if (hitId == mHitTarget) {
+              mHitTargetValid = true;
+              mLastHitTarget = hitId;
+            }
+          }
+        }
+        SendScriptMsgs(kSS_Attack, mgr);
+      }
+    }
+  }
+
+  mAttackTimer += dt;
+  mShotTimer += dt;
+  mAttackTimer = 10000.f < mAttackTimer ? 10000.f : mAttackTimer;
+  mShotTimer = 10000.f < mShotTimer ? 10000.f : mShotTimer;
 }
 
 void CGunTurretBase::ResetAttack(CStateManager& mgr) {

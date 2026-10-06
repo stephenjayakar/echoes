@@ -144,7 +144,7 @@ private:
   bool mGunRespawns;
   CVector3f mTargetPos;
   CVector3f mOriginalFront;
-  int x80c_;
+  int mTeamIndex;
   float mGunAimTurnSpeed;
   float mGunLockOnTurnSpeed;
   CQuaternion mGunRotation;
