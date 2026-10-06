@@ -35,7 +35,6 @@ public:
     const TUniqueId& GetSource() const { return mSource; }
     bool operator<(const CModifierSource& other) const;
 
-  private:
     TUniqueId mSource;
     float mRadius;
     float mPriority;

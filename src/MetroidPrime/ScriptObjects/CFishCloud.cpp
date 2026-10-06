@@ -509,7 +509,7 @@ void CFishCloud::Think(float dt, CStateManager& mgr) {
           if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mod->GetSource()))) {
             if (mod->IsSwirl()) {
               ApplyRotation(*it, mod->GetAffectPriority(), actor->GetTranslation(),
-                            mod->GetAffectRadius(), mod->IsRepulsor());
+                            mod->GetAffectRadius(), mod->mIsRepulsor);
             } else if (mod->IsRepulsor()) {
               ApplyRepulsion(*it, actor->GetTranslation(), mod->GetAffectRadius(),
                              mod->GetAffectPriority());
