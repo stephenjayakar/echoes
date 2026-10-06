@@ -853,8 +853,10 @@ bool CWorldTransManager::WaitForModelsAndTextures() {
         if (pass == 0) {
           texture->MakeSwappable();
           texture->LoadToARAM();
-          while (texture->IsARAMTransferInProgress()) {
-            CARAMToken::UpdateAllDMAs();
+          if (texture->IsARAMTransferInProgress()) {
+            while (texture->IsARAMTransferInProgress()) {
+              CARAMToken::UpdateAllDMAs();
+            }
           }
         } else {
           texture->LoadToMRAM();
@@ -864,7 +866,8 @@ bool CWorldTransManager::WaitForModelsAndTextures() {
         CModel* model = *modelToken;
         if (pass == 0) {
           rstl::auto_ptr< uchar > data = model->GetData();
-          CARAMToken token(data.release(), OSRoundUp32B(model->GetDataSize()), 1);
+          const uint size = OSRoundUp32B(model->GetDataSize());
+          CARAMToken token(data.release(), size, 1);
           token.LoadToARAM();
           token.ForceSyncARAM();
           modelData.push_back(token);
