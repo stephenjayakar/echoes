@@ -6,7 +6,7 @@
 
 namespace SL {
 static inline float GetPointForSL(ESortedLists list, const CAABox& box) {
-  return list < kSL_MaxX ? box.GetMinPoint()[int(list)] : box.GetMaxPoint()[int(list) - kSL_MaxX];
+  return reinterpret_cast< const float* >(&box)[list];
 }
 
 SNode::SNode() : mActor(nullptr), mBox(CAABox::Identity()), mNext(-1), mPopulated(false) {}
@@ -38,14 +38,15 @@ bool CSortedListManager::ActorInLists(const CActor* actor) const {
 
 short CSortedListManager::FindInListLower(ESortedLists list, float value) const {
   const SSortedList& sorted = mSortedLists[list];
-  int first = 0;
   int count = sorted.mSize;
+  int half;
+  int first = 0;
   while (count > 0) {
-    const int half = count / 2;
+    half = count / 2;
     const int middle = first + half;
     if (GetPointForSL(list, mNodes[sorted.mIds[middle]].mBox) < value) {
       first = middle + 1;
-      count -= half + 1;
+      count = count - half - 1;
     } else {
       count = half;
     }
@@ -55,16 +56,17 @@ short CSortedListManager::FindInListLower(ESortedLists list, float value) const 
 
 short CSortedListManager::FindInListUpper(ESortedLists list, float value) const {
   const SSortedList& sorted = mSortedLists[list];
-  int first = 0;
   int count = sorted.mSize;
+  int half;
+  int first = 0;
   while (count > 0) {
-    const int half = count / 2;
+    half = count / 2;
     const int middle = first + half;
-    if (GetPointForSL(list, mNodes[sorted.mIds[middle]].mBox) <= value) {
-      first = middle + 1;
-      count -= half + 1;
-    } else {
+    if (value < GetPointForSL(list, mNodes[sorted.mIds[middle]].mBox)) {
       count = half;
+    } else {
+      first = middle + 1;
+      count = count - half - 1;
     }
   }
   return first;
@@ -100,16 +102,15 @@ void CSortedListManager::MoveInList(ESortedLists list, short index) {
       mNodes[sorted.mIds[index]].mSelfIdxs[list] = index - 1;
       rstl::swap(sorted.mIds[index - 1], sorted.mIds[index]);
       --index;
-    } else {
-      if (index >= int(sorted.mSize) - 1 ||
-          !(GetPointForSL(list, mNodes[sorted.mIds[index + 1]].mBox) <
-            GetPointForSL(list, mNodes[sorted.mIds[index]].mBox))) {
-        return;
-      }
+    } else if (index < int(sorted.mSize) - 1 &&
+               GetPointForSL(list, mNodes[sorted.mIds[index + 1]].mBox) <
+                   GetPointForSL(list, mNodes[sorted.mIds[index]].mBox)) {
       mNodes[sorted.mIds[index + 1]].mSelfIdxs[list] = index;
       mNodes[sorted.mIds[index]].mSelfIdxs[list] = index + 1;
       rstl::swap(sorted.mIds[index + 1], sorted.mIds[index]);
       ++index;
+    } else {
+      return;
     }
   }
 }
