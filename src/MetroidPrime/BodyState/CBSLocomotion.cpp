@@ -113,7 +113,7 @@ float CBSLocomotion::ComputeWeightPercentage(const rstl::pair< int, float >& a,
                                              const rstl::pair< int, float >& b,
                                              float velocity) const {
   const float range = b.second - a.second;
-  return range > FLT_EPSILON ? CMath::Clamp(0.f, (velocity - a.second) / range, 1.f) : 0.f;
+  return range > FLT_EPSILON ? rstl::max_val(rstl::min_val((velocity - a.second) / range, 1.f), 0.f) : 0.f;
 }
 
 pas::EAnimationState CBSLocomotion::GetBodyStateTransition(float dt, CBodyController& bc) {

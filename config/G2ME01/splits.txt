@@ -652,7 +652,8 @@ MetroidPrime/BodyState/CBSLieOnGround.cpp:
 MetroidPrime/BodyState/CBSLocomotion.cpp:
 	.text       start:0x800F2BC4 end:0x800F5004
 	.ctors      start:0x803A5514 end:0x803A5518
-	.data       start:0x803B3F10 end:0x803B41C8
+	.data       start:0x803B3EE0 end:0x803B41C8
+	.sdata2     start:0x8041B8D0 end:0x8041B900
 
 MetroidPrime/BodyState/CBSStep.cpp:
 	.text       start:0x800F5004 end:0x800F5430
