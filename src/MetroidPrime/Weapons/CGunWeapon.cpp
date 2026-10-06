@@ -150,8 +150,13 @@ void CGunWeapon::EnterComboFire(CStateManager& mgr) {
 }
 
 bool CGunWeapon::IsChargeAnimOver() const {
-  return !mEnableCharge || !mSolidModelData->GetAnimationData()->IsAnimTimeRemaining(
-                               0.001f, rstl::string_l("Whole Body"));
+  if (mEnableCharge) {
+    if (mSolidModelData->GetAnimationData()->IsAnimTimeRemaining(0.001f,
+                                                                rstl::string_l("Whole Body"))) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void CGunWeapon::PlayAnim(NWeaponTypes::EGunAnimType type, bool loop) {
@@ -471,20 +476,21 @@ CDamageInfo CGunWeapon::GetDamageInfo(CStateManager& mgr, CPlayerState::EChargeS
 }
 
 CAABox CGunWeapon::GetBounds() const {
-  if (!mSolidModelData) {
-    return CAABox::Identity();
-  }
-
-  if (!mBounds) {
-    mBounds = CAABox::MakeMaxInvertedBox();
-    const rstl::vector< rstl::pair< rstl::string, CAABox > >& boxes =
-        mSolidModelData->GetAnimationData()->GetCharacterInfo().GetAnimBBoxList();
-    for (int i = 0; i < boxes.size(); ++i) {
-      mBounds->AccumulateBounds(boxes[i].second.GetMinPoint());
-      mBounds->AccumulateBounds(boxes[i].second.GetMaxPoint());
+  if (mSolidModelData) {
+    if (!mBounds) {
+      mBounds = CAABox::MakeMaxInvertedBox();
+      CAABox& bounds = *mBounds;
+      const rstl::vector< rstl::pair< rstl::string, CAABox > >& boxes =
+          mSolidModelData->GetAnimationData()->GetCharacterInfo().GetAnimBBoxList();
+      for (int i = 0; i < boxes.size(); ++i) {
+        const CAABox& box = boxes[i].second;
+        bounds.AccumulateBounds(box.GetMinPoint());
+        bounds.AccumulateBounds(box.GetMaxPoint());
+      }
     }
+    return *mBounds;
   }
-  return *mBounds;
+  return CAABox::Identity();
 }
 
 CAABox CGunWeapon::GetBounds(const CTransform4f& xf) const {
@@ -626,13 +632,18 @@ void CGunWeapon::LoadAnimations() {
   BuildAnimationIdList(animData);
   const CPASAnimState* state = animData.GetPASDatabase().GetAnimState(pas::kAS_LoopReaction);
   rstl::vector< int > animIds;
-  animIds.reserve(state->GetNumAnims());
-  for (int i = 0; i < state->GetNumAnims(); ++i) {
+  const int numAnims = state->GetNumAnims();
+  animIds.reserve(numAnims);
+  for (int i = 0; i < numAnims; ++i) {
     animIds.push_back_unsafe(state->GetAnimInfoByIndex(i)->GetAnimId());
   }
   NWeaponTypes::get_token_vector(animData, animIds, mAnims, true);
-  const int defaultAnim = mSubtypeBasePose ? 0 : 10;
-  animData.SetAnimation(CAnimPlaybackParms(mAnimIds[defaultAnim], -1, 1.f, true), true);
+  int defaultAnim = 10;
+  if (mSubtypeBasePose) {
+    defaultAnim = 0;
+  }
+  mSolidModelData->AnimationData()->SetAnimation(CAnimPlaybackParms(mAnimIds[defaultAnim], -1, 1.f, true),
+                                                 true);
 }
 
 bool CGunWeapon::IsAnimsLoaded() const {
@@ -744,9 +755,19 @@ void CGunWeapon::PointGenerator(const CSkinnedModel& model, const SSkinningWorks
 }
 
 void CGunWeapon::EnableFrozenEffect(EFrozenFxType type) {
-  if ((type == kFFT_Frozen || type == kFFT_Thawed) && mFrozenEffect != type) {
-    mFrozenGenerator = rs_new CElementGen(mFrozenEffects[type - 1]);
-    mFrozenGenerator->SetGlobalScale(mScale);
+  switch (type) {
+  case kFFT_Thawed:
+    if (mFrozenEffect != kFFT_Thawed) {
+      mFrozenGenerator = rs_new CElementGen(mFrozenEffects[1]);
+      mFrozenGenerator->SetGlobalScale(mScale);
+    }
+    break;
+  case kFFT_Frozen:
+    if (mFrozenEffect != kFFT_Frozen) {
+      mFrozenGenerator = rs_new CElementGen(mFrozenEffects[0]);
+      mFrozenGenerator->SetGlobalScale(mScale);
+    }
+    break;
   }
   mFrozenEffect = type;
 }
