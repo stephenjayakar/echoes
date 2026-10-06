@@ -715,9 +715,11 @@ void CScriptPlatform::AddSlave(TUniqueId id, CStateManager& mgr,
 
 void CScriptPlatform::UpdateSlaveTransforms(CStateManager& mgr) {
   const CTransform4f inverse = GetTransform().GetQuickInverse();
-  for (int i = 0; i < mDynamicSlaves.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mDynamicSlaves[i].mUid))) {
-      mDynamicSlaves[i].mTransform = inverse * actor->GetTransform();
+  for (rstl::vector< SRiders >::iterator it = mDynamicSlaves.begin(); it != mDynamicSlaves.end();
+       ++it) {
+    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(it->mUid))) {
+      const CTransform4f xf = inverse * actor->GetTransform();
+      it->mTransform = xf;
       if (CScriptPlatform* platform = TCastToPtr< CScriptPlatform >(actor)) {
         platform->UpdateSlaveTransforms(mgr);
       }
@@ -747,14 +749,12 @@ SRiders::SRiders(TUniqueId uid, const CTransform4f& xf,
 : mUid(uid), mDecayTimer(decayTimer), mTransform(xf) {}
 
 bool CScriptPlatform::IsSlave(TUniqueId id) const {
-  if (rstl::find(mStaticSlaves.begin(), mStaticSlaves.end(),
-                 SRiders(id, CTransform4f::Identity(), rstl::optional_object< float >())) !=
-      mStaticSlaves.end()) {
-    return true;
-  }
-  return rstl::find(mDynamicSlaves.begin(), mDynamicSlaves.end(),
+  return rstl::find(mStaticSlaves.begin(), mStaticSlaves.end(),
                     SRiders(id, CTransform4f::Identity(), rstl::optional_object< float >())) !=
-         mDynamicSlaves.end();
+             mStaticSlaves.end() ||
+         rstl::find(mDynamicSlaves.begin(), mDynamicSlaves.end(),
+                    SRiders(id, CTransform4f::Identity(), rstl::optional_object< float >())) !=
+             mDynamicSlaves.end();
 }
 
 CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
