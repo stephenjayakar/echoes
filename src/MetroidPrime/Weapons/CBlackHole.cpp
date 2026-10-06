@@ -31,7 +31,7 @@ CBlackHole::CBlackHole(const rstl::optional_object< TToken< CGenDescription > >&
 , mParticleGen(particle ? rs_new CElementGen(*particle, CElementGen::kMOT_Normal,
                                             CElementGen::kOSF_One)
                         : nullptr)
-, mSourceId(particle ? particle->GetTag().GetId() : kInvalidAssetId)
+, mSourceId(particle ? CToken(*particle).GetTag().GetId() : kInvalidAssetId)
 , mLightId(kInvalidUniqueId)
 , mRadius(radius)
 , mDuration(duration)
