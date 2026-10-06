@@ -1274,7 +1274,7 @@ bool CPlayer::InGrappleJumpCooldown() const {
 }
 
 void CPlayer::SetOrbitRequestForOtherPlayers(EPlayerOrbitRequest request, CStateManager& mgr) {
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < static_cast< uint >(mgr.GetNumPlayers()); ++i) {
     CPlayer& player = *mgr.Player(i);
     if (player.GetUniqueId() != GetUniqueId() && player.GetOrbitTargetId() == GetUniqueId()) {
       player.SetOrbitRequestForTarget(GetUniqueId(), request, mgr);
