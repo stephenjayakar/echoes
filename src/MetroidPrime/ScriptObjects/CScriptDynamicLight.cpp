@@ -299,9 +299,13 @@ CEntity* LoadDynamicLight(CStateManager& mgr, CInputStream& input, CEntityInfo& 
                                 0.f, 0.f, 0.f, 0.f, 0.f);
     break;
   }
-  if (!light || description.mFalloffType < kFT_Constant ||
-      description.mFalloffType > kFT_Quadratic ||
-      description.mLightSet < CScriptDynamicLight::kLS_LayerOne ||
+  if (!light) {
+    return nullptr;
+  }
+  if (description.mFalloffType < kFT_Constant || description.mFalloffType > kFT_Quadratic) {
+    return nullptr;
+  }
+  if (description.mLightSet < CScriptDynamicLight::kLS_LayerOne ||
       description.mLightSet > CScriptDynamicLight::kLS_All) {
     return nullptr;
   }
