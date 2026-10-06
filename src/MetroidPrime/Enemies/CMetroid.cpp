@@ -14,6 +14,7 @@
 #include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
 #include "Collision/CRayCastResult.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
+#include "Kyoto/Math/CUnitVector3f.hpp"
 #include "MetroidPrime/CSafeZoneManager.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Enemies/CSpacePirate.hpp"
@@ -28,6 +29,8 @@
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "REL/REL_Setup.h"
+
+static EMaterialTypes skSolidMaterial = kMT_Unknown59;
 
 static const char* skJointNameList[] = {
     "Head_1",  "L_ankle", "L_elbow",       "L_hip",   "L_knee",  "L_shoulder",
@@ -1277,6 +1280,135 @@ void CMetroid::Generate(CStateManager& mgr, EStateMsg msg, float dt) {
       ModelData()->SetScale(mScale1);
     }
     break;
+  }
+}
+
+void CMetroid::SetupExitFaceHugDirection(CActor* actor, CStateManager& mgr,
+                                         const CVector3f& direction, const CTransform4f& xf) {
+  if (actor == nullptr) {
+    return;
+  }
+  if (mAttackState == 3) {
+    return;
+  }
+  const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
+      CMaterialList(kMT_Unknown59, kMT_AIBlock), CMaterialList(kMT_Character, kMT_Player));
+  const float length = mLoopAttackDistance * GetModelData()->GetScale().GetY();
+  CVector3f bestDirection = -GetTransform().GetForward();
+  float bestDistance = 0.f;
+  static const float angles[] = {90.f, 135.f, 45.f, 180.f, 0.f, 225.f, 315.f, 270.f};
+  for (uint i = 0; i < 8; ++i) {
+    const float angle = (M_PIF / 180.f) * angles[i];
+    const CVector3f localDirection(CMath::FastCosR(angle), CMath::FastSinR(angle), 0.f);
+    const CVector3f rayDirection = xf.Rotate(localDirection).AsNormalized();
+    CVector3f start = actor->GetTranslation();
+    start.SetZ(GetTranslation().GetZ());
+    TUniqueId hitId = kInvalidUniqueId;
+    rstl::reserved_vector< TUniqueId, 1024 > nearList;
+    mgr.BuildNearList(nearList, start, rayDirection, length, filter, this);
+    const CRayCastResult result =
+        mgr.RayWorldIntersection(hitId, start, rayDirection, length, filter, nearList);
+    if (!result.IsValid()) {
+      bestDirection = rayDirection;
+      bestDistance = length;
+      CTransform4f testXf = GetTransform();
+      testXf.AddTranslation(length * rayDirection);
+      if (!CGameCollision::DetectStaticCollisionBoolean(mgr, mCollisionPrimitive, testXf, filter)) {
+        break;
+      }
+    } else if (result.GetTime() > bestDistance) {
+      bestDirection = rayDirection;
+      bestDistance = result.GetTime();
+    }
+  }
+  const CRelAngle maxAngle = CRelAngle::FromDegrees(360.f);
+  const CQuaternion rot = CQuaternion::LookAt(
+      CUnitVector3f(direction, CUnitVector3f::kN_No),
+      CUnitVector3f(bestDirection.GetX(), bestDirection.GetY(), bestDirection.GetZ()), maxAngle);
+  SetRotation(GetRotation() * rot);
+}
+
+void CMetroid::SuckEnergyFromTarget(float dt, CStateManager& mgr) {
+  mIsEnergyDrainVulnerable = false;
+  if (mAttackTarget == kInvalidUniqueId) {
+    return;
+  }
+  switch (mAttackState) {
+  case 0:
+    break;
+  case 1: {
+    InterpolateToPosRot(mgr, 0.4f);
+    if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+      mIsMakingBigStrike = true;
+      mDamageDuration = 0.2f;
+      mgr.SendScriptMsg(player, GetUniqueId(), kSM_Damage, kInvalidUniqueId);
+    }
+    x9c0_ = 0.f;
+    break;
+  }
+  case 2: {
+    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mAttackTarget))) {
+      if (actor->GetHealthInfo() != nullptr) {
+        const float drainPerSecond = mMetroidData.mEnergyDrainPerSecond;
+        const float damage = dt * drainPerSecond * GetDamageMultiplier();
+        mEnergyDrained += damage;
+        if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+          const CDamageInfo info(CWeaponMode(kWT_PoisonWater1), damage, 0.f, 0.f, true);
+          player->SetNoDamageLoopSfx(true);
+          mgr.ApplyDamage(
+              GetUniqueId(), mAttackTarget, GetUniqueId(), info,
+              CMaterialFilter::MakeIncludeExclude(CMaterialList(skSolidMaterial), CMaterialList()),
+              CVector3f::Zero());
+          player->SetNoDamageLoopSfx(false);
+          mIsEnergyDrainVulnerable =
+              (player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
+                   ? player->GetMorphballTransitionState()
+                   : CPlayer::kMS_Unmorphed) == CPlayer::kMS_Morphed;
+        } else {
+          mIsEnergyDrainVulnerable = true;
+          if (actor->GetHealthInfo()->GetHP() > 0.f) {
+            const CDamageInfo info(CWeaponMode(kWT_Power), damage, 0.f, 0.f, true);
+            mgr.ApplyDamage(
+                GetUniqueId(), mAttackTarget, GetUniqueId(), info,
+                CMaterialFilter::MakeIncludeExclude(CMaterialList(skSolidMaterial), CMaterialList()),
+                CVector3f::Zero());
+          }
+        }
+        if (GetGrowthStage() < 2.f) {
+          ApplyGrowth(damage, mgr);
+        } else {
+          TakeDamage(CVector3f::Zero(), 0.f);
+        }
+      }
+    }
+    float blend = 0.95f;
+    if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mAttackTarget))) {
+      const CPlayer::EPlayerMorphBallState morphState = player->GetMorphballTransitionState();
+      if (morphState != CPlayer::kMS_Unmorphed && morphState != CPlayer::kMS_Morphed) {
+        blend = 0.4f;
+      }
+      if (morphState == CPlayer::kMS_Unmorphed) {
+        const float magnitude =
+            CMath::Clamp(0.f, CMath::AbsF(CMath::FastSinR((M_PIF / 2.f) * x9c0_)), 1.f);
+        CPlayerState* playerState = mgr.PlayerState(mgr.MaskUIdNumPlayers(player->GetUniqueId()));
+        playerState->StaticInterference().AddSource(GetUniqueId(), magnitude, 0.2f);
+        if (player->GetStaticTimer() < 0.2f) {
+          player->SetHudDisable(0.2f);
+        }
+      }
+      mIsMakingBigStrike = true;
+      mDamageDuration = 0.2f;
+    }
+    InterpolateToPosRot(mgr, blend);
+    x9c0_ += dt;
+    break;
+  }
+  case 3: {
+    const CQuaternion zRot = CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw()));
+    const CQuaternion rot = CQuaternion::SlerpLocal(GetRotation(), zRot, 0.95f);
+    SetRotation(rot.BuildNormalized());
+    break;
+  }
   }
 }
 

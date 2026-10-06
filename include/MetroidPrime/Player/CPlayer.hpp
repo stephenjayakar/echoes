@@ -333,6 +333,7 @@ public:
   void SetHudDisable(float staticTimer, float fadeOutSpeed = skDefaultHudFadeOutSpeed,
                      float fadeInSpeed = skDefaultHudFadeInSpeed);
   float GetStaticTimer() const { return mStaticTimer; }
+  void SetNoDamageLoopSfx(bool noSfx) { mNoDamageLoopSfx = noSfx; }
   bool WasDamaged() const;
   float GetDamageAmount() const;
   float GetPrevDamageAmount() const;
