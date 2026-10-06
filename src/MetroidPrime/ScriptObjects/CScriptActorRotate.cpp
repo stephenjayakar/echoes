@@ -12,13 +12,7 @@ void CScriptActorRotate::StopRotation() { mPlaying = false; }
 void CScriptActorRotate::StartRotation() { mPlaying = true; }
 
 void CScriptActorRotate::SetCurrentTime(float time, CStateManager&) {
-  if (time < 0.f) {
-    mCurrentTime = 0.f;
-  } else if (time > mDuration) {
-    mCurrentTime = mDuration;
-  } else {
-    mCurrentTime = time;
-  }
+  mCurrentTime = CMath::Clamp(0.f, time, mDuration);
 }
 
 void CScriptActorRotate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
@@ -100,8 +94,7 @@ void CScriptActorRotate::Think(float dt, CStateManager& mgr) {
     mCurrentTime += dt;
   }
 
-  CEntity* target = mgr.GetObjectByIdFromListAll(mTargetId);
-  if (target != nullptr && target->TypesMatch(kET_ScriptActorRotate) != nullptr) {
+  if (TCastToPtr< CScriptActorRotate >(mgr.ObjectById(mTargetId))) {
     UpdateTargetRotation(mgr);
   } else {
     UpdateActorRotations(dt, mgr);
@@ -175,24 +168,14 @@ CScriptActorRotate::CScriptActorRotate(TUniqueId uid, const rstl::string& name,
   if ((mFlags & kF_DurationFromSplines) != 0) {
     mDuration = mXRotation.GetMaxTime();
     float maxTime = mYRotation.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mZRotation.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mXScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mYScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mZScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
   }
 }
