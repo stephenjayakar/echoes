@@ -10,7 +10,9 @@
 #include "rstl/auto_ptr.hpp"
 #include "rstl/vector.hpp"
 
+class CAnimData;
 class CAnimRes;
+class CMarkerGrid;
 class CAreaCollisionCache;
 class CBasicSwarmData;
 class CElementGen;
@@ -29,6 +31,7 @@ public:
   public:
     CBoid(const CTransform4f& xf, uint index);
     bool GetActive() const { return mActive; }
+    float GetDistanceSquaredToSoundListener() const { return mDistanceSquaredToSoundListener; }
     CVector3f GetTranslation() const { return mTransform.GetTranslation(); }
     const CTransform4f& GetTransform() const { return mTransform; }
 
@@ -125,6 +128,30 @@ public:
                                                   uint maxEmitters, ushort sfx,
                                                   ELoopedSoundType type);
 
+  // Guessed names for non-virtual helpers.
+  CAABox BoxForPosition(int x, int y, int z, float margin) const;
+  CAreaCollisionCache MakeAreaCollisionCache(int x, int y, int z) const;
+  void UpdateParticles(float dt);
+  void RenderParticles() const;
+  void CalculateSkinnedState(CModelData& modelData, SwarmRenderHelpers::CSwarmSkinnedModelState& state);
+  void RenderBoidModel(CBoid* boid, const SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
+  void UpdateSeekerTargets(CStateManager& mgr);
+  void AssignSeekerBoids(CStateManager& mgr, const rstl::vector< int >& taken, uint numNeeded,
+                         rstl::vector< int >& out);
+  void StopLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds);
+  void AddParticle(const CTransform4f& xf);
+  void FreezeCollision(const CMarkerGrid& grid);
+  int CountActiveBoids() const;
+  CVector3f FindClosestCell(const CVector3f& pos) const;
+  CBoid* GetClosestPartitionList(const CVector3f& pos) const;
+  uint UpdateLoopedSounds(uint maxEmitters, signed char partitionIndex,
+                          rstl::vector< TLoopedSound >& sounds);
+  bool TryStartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx);
+  void StartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx, uint slot);
+  void UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds);
+  bool CanStartLoopedSound(const CBoid& boid, ELoopedSoundType type) const;
+  CSfxHandle AddLoopedEmitter(const CVector3f& pos, ushort sfx);
+  void UpdateEffects(CStateManager& mgr, CAnimData& animData);
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 
@@ -179,8 +206,8 @@ private:
   rstl::vector< CRepulsor > mDoorRepulsors;
   rstl::optional_object< TCachedToken< CGenDescription > > mParticleDescription;
   rstl::single_ptr< CElementGen > mParticleGenerator;
+  int mNumDeathParticles;
   int mAttackerCount;
-  int mNumBoids;
   int mMaxCreatedBoids;
   int mCreatedBoids;
   bool x4f0_24_ : 1;
@@ -191,6 +218,7 @@ private:
   bool x4f0_29_ : 1;
   bool x4f0_30_ : 1;
   bool x4f0_31_ : 1;
+  bool x4f1_24_ : 1;
   float x4f4_;
   ushort mLocomotionLoopedSound;
   ushort mAttackLoopedSound;
@@ -210,12 +238,19 @@ private:
   rstl::auto_ptr< CUnknownBuffer > x53c_;
   uint x544_;
   float mLifeTime;
-  uint x54c_;
+  bool x54c_24_ : 1;
+  bool x54c_25_ : 1;
+  bool x54c_26_ : 1;
+  bool x54c_27_ : 1;
+  bool x54c_28_ : 1;
+  bool x54c_29_ : 1;
+  bool x54c_30_ : 1;
+  bool x54c_31_ : 1;
   CVector3f x550_;
   float x55c_;
   int x560_;
   rstl::vector< TUniqueId > mSeekerTargets;
-  rstl::vector< int > x574_;
+  rstl::vector< int > mSeekerBoidIndices; // Boid index per entry of mSeekerTargets.
   rstl::vector< int > mActiveBoidIndices;
 };
 NESTED_CHECK_SIZEOF(CSwarmBasics, CBoid, 0xb8)
