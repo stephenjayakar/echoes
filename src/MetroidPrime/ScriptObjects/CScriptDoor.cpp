@@ -290,6 +290,8 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
 
 void CScriptDoor::UpdateLock(float dt, CStateManager& mgr) {
   switch (mLockState) {
+  case kLS_Unlocked:
+    break;
   case kLS_Pending:
     if (mgr.GetPlayer(0)->GetCurrentAreaId() == GetCurrentAreaId()) {
       switch (mDoorState) {
@@ -307,14 +309,24 @@ void CScriptDoor::UpdateLock(float dt, CStateManager& mgr) {
       case kDS_CloseDelay:
         SetDoorState(mgr, kDS_Closing);
         break;
+      case kDS_Closing:
+        break;
       }
     }
     break;
-  case kLS_Locking:
+  case kLS_Locking: {
+    const CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mLockActorId));
+    if (mLockTimer >= 1.f && (!actor || !actor->GetModelData()->IsAnimating())) {
+      SetLockState(mgr, kLS_Locked);
+    }
+    mLockTimer += dt;
+    mColorDirty = true;
+    break;
+  }
   case kLS_Unlocking: {
     const CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mLockActorId));
     if (mLockTimer >= 1.f && (!actor || !actor->GetModelData()->IsAnimating())) {
-      SetLockState(mgr, mLockState == kLS_Locking ? kLS_Locked : kLS_Unlocked);
+      SetLockState(mgr, kLS_Unlocked);
     }
     mLockTimer += dt;
     mColorDirty = true;
@@ -642,9 +654,9 @@ void CScriptDoor::ResetDoor(CStateManager& mgr) {
           kWT_ScrewAttack,
           CWeaponTypeVulnerability(0.f, CWeaponTypeVulnerability::kE_Normal, false)),
   };
-  static const CDamageVulnerability vulnerability(
-      CDamageVulnerability::NormalIgnoreRadiusVulnerability(), overrides, 4,
-      CDamageVulnerability::kOF_Normal);
+  static const CDamageVulnerability vulnerability =
+      CDamageVulnerability(CDamageVulnerability::NormalIgnoreRadiusVulnerability(), overrides, 4,
+                           CDamageVulnerability::kOF_Normal);
   mCurrentVulnerability = mBaseVulnerability = vulnerability;
   mShellColor = skResetColor;
   if (mBlueShellModel) {
