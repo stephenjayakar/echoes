@@ -14,6 +14,7 @@
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Weapons/CGameProjectile.hpp"
 #include "WorldFormat/CMetroidAreaCollider.hpp"
+#include "rstl/math.hpp"
 
 // Integer floor-log2 helper; its original owner/name is unresolved.
 extern "C" int fn_802CC120(uint value);
@@ -293,17 +294,16 @@ void CRagDoll::CheckStatic(float dt) {
   mAverageVel = CVector3f::Zero();
   bool movingSlowly = true;
   for (int i = 0; i < mParticles.size(); ++i) {
-    CRagDollParticle& particle = mParticles[i];
-    CVector3f delta = particle.mCurPos - particle.mPrevPos;
+    CVector3f delta = mParticles[i].mCurPos - mParticles[i].mPrevPos;
     mAverageVel += delta;
     if (delta.MagSquared() > threshold) {
       movingSlowly = false;
     }
-    if (particle.mImpactPending) {
+    if (mParticles[i].mImpactPending) {
       ++mImpactCount;
-      mImpactVel = CMath::Max(mImpactVel, particle.mImpactFrameVel);
+      mImpactVel = rstl::max_val(mImpactVel, mParticles[i].mImpactFrameVel);
     }
-    particle.mImpactFrameVel = 0.f;
+    mParticles[i].mImpactFrameVel = 0.f;
   }
   if (!mParticles.empty()) {
     mAverageVel *= 1.f / (dt * mParticles.size());
@@ -451,7 +451,10 @@ void CRagDoll::CalfAlign(CJointData_LinearStorage& pose, int i1, int i2, int i3,
 
 // Guessed name.
 CAABox CRagDoll::GetRenderBounds() const {
-  return mRenderBoundsValid ? mRenderBounds : CalculateRenderBounds();
+  if (!mRenderBoundsValid) {
+    return CalculateRenderBounds();
+  }
+  return mRenderBounds;
 }
 
 // Guessed name.
@@ -461,12 +464,12 @@ void CRagDoll::UpdateRenderBounds() {
 }
 
 CAABox CRagDoll::CalculateRenderBounds() const {
-  CVector3f min = CAABox::MakeMaxInvertedBox().GetMinPoint();
-  CVector3f max = CAABox::MakeMaxInvertedBox().GetMaxPoint();
+  CVector3f min(3.4028235e38f, 3.4028235e38f, 3.4028235e38f);
+  CVector3f max(-3.4028235e38f, -3.4028235e38f, -3.4028235e38f);
   for (int i = 0; i < mParticles.size(); ++i) {
     for (int j = 0; j < 3; ++j) {
-      min[j] = CMath::Min(min[j], mParticles[i].GetPosition()[j] - mParticles[i].GetRadius());
-      max[j] = CMath::Max(max[j], mParticles[i].GetPosition()[j] + mParticles[i].GetRadius());
+      min[j] = rstl::min_val(mParticles[i].GetPosition()[j] - mParticles[i].GetRadius(), min[j]);
+      max[j] = rstl::max_val(mParticles[i].GetPosition()[j] + mParticles[i].GetRadius(), max[j]);
     }
   }
   return CAABox(min, max);
@@ -512,9 +515,9 @@ CProjectileTouchResult CRagDoll::ProjectileCollision(const CGameProjectile& proj
 void CRagDoll::PreRender(const CVector3f& pos, CModelData& modelData) {}
 
 void CRagDoll::PreRenderAllViewports(CActor& actor, float extent) {
-  CAABox bounds = GetRenderBounds();
-  CVector3f expansion = extent * actor.GetModelData()->GetScale();
-  bounds = CAABox(bounds.GetMinPoint() - expansion, bounds.GetMaxPoint() + expansion);
-  actor.SetOtherBounds(bounds);
-  actor.SetRenderBounds(bounds);
+  const CAABox bounds = GetRenderBounds();
+  const CVector3f expansion = extent * actor.GetModelData()->GetScale();
+  const CAABox expanded(bounds.GetMinPoint() - expansion, bounds.GetMaxPoint() + expansion);
+  actor.SetOtherBounds(expanded);
+  actor.SetRenderBounds(expanded);
 }
