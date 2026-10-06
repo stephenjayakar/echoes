@@ -600,7 +600,11 @@ CIOWin::EMessageReturn CSlideShow::ProcessUserInput(const CFinalInput& input) {
 CIOWin::EMessageReturn CSlideShow::AdvanceSlide(bool forward) {
   if (!mGalleries.empty()) {
     CSfxManager::SfxStart(0x5b6, 127, 64);
-    mSlide += forward ? 1 : -1;
+    if (forward) {
+      ++mSlide;
+    } else {
+      --mSlide;
+    }
     const int gallery = mGallery;
     if (mSlide < 0) {
       --mGallery;
@@ -730,8 +734,9 @@ void CSlideShow::SetZoomSfx(bool active) {
 void CSlideShow::UpdateMusicVolume(float time, float fadeTime) {
   if (!mAudio.null()) {
     const float volume = CMath::Clamp(0.f, time / fadeTime, 1.f);
-    mAudio->SetVolume(
-        static_cast< uchar >(0.7421875f * volume * gpGameState->GameOptions().GetMusicVolume()));
+    const uchar musicVolume =
+        CCast::ToUint8(0.7421875f * volume * int(gpGameState->GameOptions().GetMusicVolume()));
+    mAudio->SetVolume(musicVolume);
     mAudio->StartMixOut();
   }
 }
@@ -772,11 +777,13 @@ void CSlideShow::DrawSlideNumber() const {
   if (mSlideNumberText.null()) {
     return;
   }
+  const int height = CGraphics::GetViewport().mHeight;
   const float fadeTime = gpTweakSlideShow->GetSlideNumberTransitionTime();
-  const float alpha = CMath::Clamp(0.f, (fadeTime - mSlideNumberTimer) / fadeTime, 1.f);
+  const float alpha = CMath::Clamp(
+      0.f, (fadeTime - mSlideNumberTimer) / gpTweakSlideShow->GetSlideNumberTransitionTime(), 1.f);
   const rstl::pair< CVector2i, CVector2i >& bounds = mSlideNumberText->GetBounds();
   const float textHeight = bounds.second.GetY() - bounds.first.GetY();
-  const float y = 2.f * CGraphics::GetViewport().mHeight - mSlideNumberOffset - textHeight;
+  const float y = 2.f * height - mSlideNumberOffset - textHeight;
   CGraphics::SetCullMode(kCM_None);
   gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
   gpRender->SetDepthReadWrite(false, false);
