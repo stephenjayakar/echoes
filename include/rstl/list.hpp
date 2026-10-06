@@ -132,16 +132,7 @@ public:
   void remove(const T& val);
 
   template < typename Pred >
-  void remove_if(Pred pred) {
-    node* it = mStart;
-    while (it != mEnd) {
-      if (pred(*it->get_value())) {
-        it = do_erase(it);
-      } else {
-        it = it->get_next();
-      }
-    }
-  }
+  void remove_if(Pred pred);
 
   template < typename Cmp >
   void sort(Cmp cmp) {
@@ -249,6 +240,19 @@ template < typename InputIterator >
 inline void list< T, Alloc >::insert(const iterator& pos, InputIterator first, InputIterator last) {
   for (InputIterator it = first; it != last; ++it) {
     insert(pos, *it);
+  }
+}
+
+template < typename T, typename Alloc >
+template < typename Pred >
+void list< T, Alloc >::remove_if(Pred pred) {
+  node* it = mStart;
+  while (it != mEnd) {
+    if (pred(*it->get_value())) {
+      it = do_erase(it);
+    } else {
+      it = it->get_next();
+    }
   }
 }
 

@@ -3543,3 +3543,9 @@ void SetRelLoaderFunctionToLoader() {
 extern "C" void RELMain() { SetRelLoaderFunctionToLoader(); }
 
 extern "C" void RELExit() { SetSSpacePirate_FuncPtrs(nullptr); }
+
+rstl::list< TUniqueId > CSpacePirate::mChargePlayerList;
+
+// Guessed names; unreferenced eye-effect locator names.
+static rstl::string sOneEye = rstl::string_l("OneEye");
+static rstl::string sTwoEyes = rstl::string_l("TwoEyes");
