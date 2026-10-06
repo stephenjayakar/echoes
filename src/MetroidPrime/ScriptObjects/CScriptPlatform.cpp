@@ -894,7 +894,7 @@ void CScriptPlatform::ResetMotion(float time, CStateManager& mgr) {
   mCurrentRotation = mPreviousRotation;
   if (mSplineController.get()) {
     const float duration = mSplineController->PositionTimeSpline().GetDuration();
-    SetMotionTime(time < 0.f ? 0.f : duration < time ? duration : time, mgr);
+    SetMotionTime(CMath::Clamp(0.f, time, duration), mgr);
   }
 }
 
