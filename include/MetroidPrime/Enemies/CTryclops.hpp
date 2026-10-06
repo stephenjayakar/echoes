@@ -74,6 +74,7 @@ public:
   bool HasRetreatPattern(CStateManager& mgr, const CTriggerData& data) const;
 
 private:
+  static CVector3f kBombPosOffset;
   static const char* const kMouthLctr;
 
   void SetupCollisionManager(CStateManager& mgr);

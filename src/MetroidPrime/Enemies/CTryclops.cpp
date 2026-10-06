@@ -32,9 +32,52 @@ static EMaterialTypes SolidMaterial = kMT_Unknown59;
 static const CDamageVulnerability::TWeaponVulnerability skPowerBombVulnerability =
     CDamageVulnerability::TWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
 
-static CVector3f kBombPosOffset(0.f, 0.f, -0.3f);
+CVector3f CTryclops::kBombPosOffset(0.f, 0.f, -0.3f);
 const char* const CTryclops::kMouthLctr = "ballGrab_locator";
 static const char* const skRootLocator = "Skeleton_Root";
+
+static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
+    {"InDetectionRange",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InDetectionRange)},
+    {"InAttackPosition",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InAttackPosition)},
+    {"Inside", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::Inside)},
+    {"InMaxRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InMaxRange)},
+    {"InRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InRange)},
+    {"InPosition", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InPosition)},
+    {"SpotPlayer", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::SpotPlayer)},
+    {"HearShot", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::HearShot)},
+    {"CoverBlown", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::CoverBlown)},
+    {"IsDizzy", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::IsDizzy)},
+    {"ShouldRetreat",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::ShouldRetreat)},
+    {"HasRetreatPattern",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::HasRetreatPattern)},
+};
+
+static CPatterned::StateMachine::SStateFunction skStates[] = {
+    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Patrol)},
+    {"Suck", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Suck)},
+    {"Crouch", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Crouch)},
+    {"PathFindEx", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::PathFindEx)},
+    {"PathFind", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::PathFind)},
+    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Attack)},
+    {"TargetCover", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetCover)},
+    {"SelectTarget",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::SelectTarget)},
+    {"JumpBack", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::JumpBack)},
+    {"Approach", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Approach)},
+    {"GetUp", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::GetUp)},
+    {"Shuffle", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Shuffle)},
+    {"TurnAround", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TurnAround)},
+    {"TargetPatrol",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetPatrol)},
+    {"TargetPlayer",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetPlayer)},
+    {"Dizzy", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Dizzy)},
+    {"Cover", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Cover)},
+    {"FixedDelay", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::FixedDelay)},
+};
 
 static CDamageVulnerability MakePowerBombVulnerability() {
   return CDamageVulnerability(CDamageVulnerability::ImmuneVulnerabilty(),
@@ -889,49 +932,6 @@ bool CTryclops::BallCloseToCollision(const CPlayer& player, const CStateManager&
   }
   return false;
 }
-
-static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
-    {"InDetectionRange",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InDetectionRange)},
-    {"InAttackPosition",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InAttackPosition)},
-    {"Inside", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::Inside)},
-    {"InMaxRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InMaxRange)},
-    {"InRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InRange)},
-    {"InPosition", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::InPosition)},
-    {"SpotPlayer", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::SpotPlayer)},
-    {"HearShot", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::HearShot)},
-    {"CoverBlown", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::CoverBlown)},
-    {"IsDizzy", static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::IsDizzy)},
-    {"ShouldRetreat",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::ShouldRetreat)},
-    {"HasRetreatPattern",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CTryclops::HasRetreatPattern)},
-};
-
-static CPatterned::StateMachine::SStateFunction skStates[] = {
-    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Patrol)},
-    {"Suck", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Suck)},
-    {"Crouch", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Crouch)},
-    {"PathFindEx", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::PathFindEx)},
-    {"PathFind", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::PathFind)},
-    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Attack)},
-    {"TargetCover", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetCover)},
-    {"SelectTarget",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::SelectTarget)},
-    {"JumpBack", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::JumpBack)},
-    {"Approach", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Approach)},
-    {"GetUp", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::GetUp)},
-    {"Shuffle", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Shuffle)},
-    {"TurnAround", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TurnAround)},
-    {"TargetPatrol",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetPatrol)},
-    {"TargetPlayer",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::TargetPlayer)},
-    {"Dizzy", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Dizzy)},
-    {"Cover", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::Cover)},
-    {"FixedDelay", static_cast< CPatterned::StateMachine::StateFunc >(&CTryclops::FixedDelay)},
-};
 
 void CTryclops::SetupStateMachine(CStateManager& mgr) {
   StateMachine* stateMachine = mStateMachine.get();
