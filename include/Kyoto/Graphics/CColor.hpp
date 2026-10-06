@@ -27,6 +27,10 @@ public:
   }
 
   CColor(const CColor& other) : mRgba(other.mRgba) {}
+  CColor& operator=(const CColor& other) {
+    mRgba = other.mRgba;
+    return *this;
+  }
 
   void Set(float r, float g, float b, float a);
   void Set(uchar r, uchar g, uchar b, uchar a = 255) {

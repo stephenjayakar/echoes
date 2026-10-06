@@ -100,6 +100,7 @@ private:
     if (is_trivially_destructible< T >::value) {
       return;
     }
+    RSTL_PRECONDITION(mCount >= 0);
     T* ptr = data();
     for (int i = 0; i < mCount; ++i) {
       destroy(&ptr[i]);
