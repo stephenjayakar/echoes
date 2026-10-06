@@ -22,8 +22,10 @@ CAnimTreeDoubleChild::~CAnimTreeDoubleChild() {}
 uint CAnimTreeDoubleChild::VGetBoolPOIList(const CCharAnimTime& time, CBoolPOINode* listOut,
                                            uint capacity, uint iterator, int additive) const {
   uint count = mA->GetBoolPOIList(time, listOut, capacity, iterator, additive);
-  count += mB->GetBoolPOIList(time, listOut, capacity, iterator + count, additive);
-  count = rstl::min_val(count, capacity);
+  count += mB->GetBoolPOIList(time, listOut, capacity, count + iterator, additive);
+  if (count > capacity) {
+    count = capacity;
+  }
   qsort(listOut, count, sizeof(CBoolPOINode), CPOINode::compare);
   return count;
 }
@@ -31,8 +33,10 @@ uint CAnimTreeDoubleChild::VGetBoolPOIList(const CCharAnimTime& time, CBoolPOINo
 uint CAnimTreeDoubleChild::VGetInt32POIList(const CCharAnimTime& time, CInt32POINode* listOut,
                                             uint capacity, uint iterator, int additive) const {
   uint count = mA->GetInt32POIList(time, listOut, capacity, iterator, additive);
-  count += mB->GetInt32POIList(time, listOut, capacity, iterator + count, additive);
-  count = rstl::min_val(count, capacity);
+  count += mB->GetInt32POIList(time, listOut, capacity, count + iterator, additive);
+  if (count > capacity) {
+    count = capacity;
+  }
   qsort(listOut, count, sizeof(CInt32POINode), CPOINode::compare);
   return count;
 }
@@ -40,8 +44,10 @@ uint CAnimTreeDoubleChild::VGetInt32POIList(const CCharAnimTime& time, CInt32POI
 uint CAnimTreeDoubleChild::VGetParticlePOIList(const CCharAnimTime& time, CParticlePOINode* listOut,
                                                uint capacity, uint iterator, int additive) const {
   uint count = mA->GetParticlePOIList(time, listOut, capacity, iterator, additive);
-  count += mB->GetParticlePOIList(time, listOut, capacity, iterator + count, additive);
-  count = rstl::min_val(count, capacity);
+  count += mB->GetParticlePOIList(time, listOut, capacity, count + iterator, additive);
+  if (count > capacity) {
+    count = capacity;
+  }
   qsort(listOut, count, sizeof(CParticlePOINode), CPOINode::compare);
   return count;
 }
@@ -49,8 +55,10 @@ uint CAnimTreeDoubleChild::VGetParticlePOIList(const CCharAnimTime& time, CParti
 uint CAnimTreeDoubleChild::VGetSoundPOIList(const CCharAnimTime& time, CSoundPOINode* listOut,
                                             uint capacity, uint iterator, int additive) const {
   uint count = mA->GetSoundPOIList(time, listOut, capacity, iterator, additive);
-  count += mB->GetSoundPOIList(time, listOut, capacity, iterator + count, additive);
-  count = rstl::min_val(count, capacity);
+  count += mB->GetSoundPOIList(time, listOut, capacity, count + iterator, additive);
+  if (count > capacity) {
+    count = capacity;
+  }
   qsort(listOut, count, sizeof(CSoundPOINode), CPOINode::compare);
   return count;
 }
