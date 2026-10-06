@@ -320,6 +320,7 @@ MetroidPrime/ScriptObjects/CScriptSound.cpp:
 MetroidPrime/ScriptObjects/CScriptPlatform.cpp:
 	.text       start:0x8009F4E4 end:0x800A4850
 	.data       start:0x803B3210 end:0x803B32C0
+	.sdata2     start:0x8041B01C end:0x8041B058 align:4
 
 MetroidPrime/ScriptObjects/CScriptGenerator.cpp:
 	.text       start:0x800A4850 end:0x800A5474
@@ -1404,6 +1405,7 @@ MetroidPrime/Cameras/CPathCamera.cpp:
 
 MetroidPrime/Cameras/CSpindleCamera.cpp:
 	.text       start:0x801B4F68 end:0x801B730C
+	.rodata     start:0x803AA600 end:0x803AA610
 	.data       start:0x803B6868 end:0x803B6900
 
 MetroidPrime/Cameras/CBallCameraTransitionState.cpp:
@@ -2095,7 +2097,9 @@ MetroidPrime/Player/CPlayerOptions.cpp:
 
 MetroidPrime/ScriptObjects/CScriptRepulsor.cpp:
 	.text       start:0x802276A8 end:0x80227ACC
+	.rodata     start:0x803AD318 end:0x803AD320
 	.data       start:0x803B84F8 end:0x803B8578
+	.sdata2     start:0x8041DAD0 end:0x8041DAD8
 
 MetroidPrime/Enemies/SRezbit_FuncPtrs.cpp:
 	.text       start:0x80227ACC end:0x80227B00
@@ -3664,6 +3668,7 @@ Kyoto/Text/CCharacterExtraSpaceInstruction.cpp:
 Kyoto/Math/CMayaSpline.cpp:
 	.text       start:0x80327C10 end:0x8032AFC8
 	.sdata      start:0x80418C50 end:0x80418C68
+	.sbss       start:0x80419C50 end:0x80419C58
 	.sdata2     start:0x8041EBC0 end:0x8041EC28
 
 Kyoto/Audio/CSfxPitchBend.cpp:

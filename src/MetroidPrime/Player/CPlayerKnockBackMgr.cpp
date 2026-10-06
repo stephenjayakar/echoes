@@ -69,7 +69,7 @@ void CPlayerKnockBackMgr::Update(float dt, CStateManager& mgr, CActor& actor) {
     mFreezePending = false;
   }
   UpdateBurning(dt, mgr, *player);
-  UpdateImplosion(mgr, *player);
+  UpdateImplosion(dt, mgr, *player);
   UpdateElectrocution(dt, mgr, *player);
 
   mRagDollDelay -= dt;
@@ -78,7 +78,7 @@ void CPlayerKnockBackMgr::Update(float dt, CStateManager& mgr, CActor& actor) {
     player->PlayerRagDoll() =
         rs_new CPlayerRagDoll(mgr, player, CSfxManager::kInternalInvalidSfxId, 0);
   }
-  if (mBurnDeath && dt < mBurnDeathRemainingTime) {
+  if (mBurnDeath && mBurnDeathRemainingTime > dt) {
     mBurnDeathRemainingTime -= dt;
   }
 }
@@ -92,15 +92,15 @@ void CPlayerKnockBackMgr::KnockBack(CStateManager& mgr, CActor& actor, const CKn
 
   const float power =
       info.GetDamageInfo().GetKnockBackPower(*player->GetDamageVulnerability(), 0.f);
-  if (IsAlive(*player) && power <= 0.f) {
+  if (IsAlive(actor) && power <= 0.f) {
     return;
   }
 
-  const CPlayer::EPlayerMorphBallState morphState = player->GetMorphballTransitionState();
-  mWasBall = morphState == CPlayer::kMS_Morphed || morphState == CPlayer::kMS_Morphing;
+  mWasBall = player->GetMorphballTransitionState() == CPlayer::kMS_Morphed ||
+             player->GetMorphballTransitionState() == CPlayer::kMS_Morphing;
   mWasFrozen = player->GetFrozenState();
   mWasOnGround = player->GetPlayerMovementState() == NPlayer::kMS_OnGround;
-  CKnockBackMgr::KnockBack(mgr, *player, info);
+  CKnockBackMgr::KnockBack(mgr, actor, info);
   if (CanApplyKnockBackForce(mgr, *player, info)) {
     ApplyPlayerKnockBackForce(*player, info.GetDirection(), power, 1.f);
   }
@@ -126,7 +126,7 @@ void CPlayerKnockBackMgr::ResetEffects(CStateManager& mgr, CPlayer& player) {
 }
 
 float CPlayerKnockBackMgr::GetBurnDeathAlpha() const {
-  return mBurnDeath ? mBurnDeathRemainingTime * 0.5f : 1.f;
+  return mBurnDeath ? mBurnDeathRemainingTime / 2.f : 1.f;
 }
 
 bool CPlayerKnockBackMgr::IsAlive(const CActor& actor) const {
@@ -145,7 +145,10 @@ CKnockBackMgr::ECharacterState CPlayerKnockBackMgr::GetCharacterState(const CAct
 
 bool CPlayerKnockBackMgr::HasAnimReaction(const CActor& actor, EAnimReaction reaction) const {
   const int state = skAnimationStates[reaction];
-  return state != -1 && actor.GetAnimationData()->GetPASDatabase().HasState(state);
+  if (state != -1) {
+    return actor.GetAnimationData()->GetPASDatabase().HasState(state);
+  }
+  return false;
 }
 
 void CPlayerKnockBackMgr::DoKnockBackAnimation(const CVector3f& direction, CStateManager& mgr,
@@ -527,7 +530,7 @@ void CPlayerKnockBackMgr::StartBlackHoleDeath(CStateManager& mgr, TUniqueId sour
   }
 }
 
-void CPlayerKnockBackMgr::UpdateImplosion(CStateManager& mgr, CPlayer& player) {
+void CPlayerKnockBackMgr::UpdateImplosion(float dt, CStateManager& mgr, CPlayer& player) {
   if (mImploding && player.GetDeathTime() > 1.5f) {
     mgr.ActorModelParticles()->StopImplosion(player);
   }

@@ -32,17 +32,24 @@ void CScriptAIHint::Think(float dt, CStateManager& mgr) {
   mTimeRemaining -= dt;
   if (mTimeRemaining < 0.f) {
     mTimeRemaining = 0.f;
+    if (!GetActive()) {
+      return;
+    }
   }
 }
 
 bool CScriptAIHint::GetInUse(TUniqueId uid) const {
-  return (mOccupant != kInvalidUniqueId && uid != kInvalidUniqueId && uid != mOccupant) ||
-         mInUse || mTimeRemaining > 0.f;
+  if (mOccupant != kInvalidUniqueId && uid != kInvalidUniqueId && uid != mOccupant) {
+    return true;
+  }
+  return mInUse == true || mTimeRemaining > 0.f;
 }
 
 bool CScriptAIHint::GetInUseIgnoreLock(TUniqueId uid) const {
-  return (mOccupant != kInvalidUniqueId && uid != kInvalidUniqueId && uid != mOccupant) ||
-         mInUse;
+  if (mOccupant != kInvalidUniqueId && uid != kInvalidUniqueId && uid != mOccupant) {
+    return true;
+  }
+  return mInUse;
 }
 
 void CScriptAIHint::SetInUse(bool inUse) {

@@ -1615,6 +1615,10 @@ CScriptObjectLoaderHelper& CStateManager::ScriptObjectLoaderHelper() {
   return mStateManagerContainer->mScriptObjectLoader;
 }
 
+const CScriptObjectLoaderHelper& CStateManager::GetScriptObjectLoaderHelper() const {
+  return mStateManagerContainer->mScriptObjectLoader;
+}
+
 CScopedProfiler::CScopedProfiler(const rstl::string& name, bool enabled) {}
 
 const bool gkWorldOnlyReflection = false;
