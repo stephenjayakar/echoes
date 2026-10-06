@@ -287,24 +287,26 @@ void CScriptEffect::UpdateGeneratorRate(CStateManager& mgr) {
   if (!mUseRateInverseCamDist && !mUseRateCamDistRange) {
     return;
   }
+  float rate = 1.f;
   float distanceSq =
       (mgr.GetCameraManager(0)->GetCurrentCamera(mgr, true)->GetTranslation() - GetTranslation())
           .MagSquared();
-  for (int i = 1; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 1; i < uint(mgr.GetNumPlayers()); ++i) {
     const float nextDistanceSq =
         (mgr.GetCameraManager(i)->GetCurrentCamera(mgr, true)->GetTranslation() - GetTranslation())
             .MagSquared();
-    distanceSq = rstl::max_val(distanceSq, nextDistanceSq);
+    if (nextDistanceSq > distanceSq) {
+      distanceSq = nextDistanceSq;
+    }
   }
   const float distance = distanceSq > 0.001f ? CMath::FastSqrtF(distanceSq) : 0.f;
-  float rate = 1.f;
   if (mUseRateInverseCamDist && distanceSq < mRateInverseCamDistSq) {
     rate = (1.f - mRateInverseCamDistRate) * (distance / mRateInverseCamDist) +
            mRateInverseCamDistRate;
   }
   if (mUseRateCamDistRange) {
-    const float t = rstl::min_val(1.f, rstl::max_val(0.f, distance - mRateCamDistRangeMin) /
-                                           (mRateCamDistRangeMax - mRateCamDistRangeMin));
+    const float range = mRateCamDistRangeMax - mRateCamDistRangeMin;
+    const float t = rstl::min_val(1.f, rstl::max_val(0.f, distance - mRateCamDistRangeMin) / range);
     rate = (1.f - t) * rate + t * mRateCamDistRangeFarRate;
   }
   mParticleSystem->SetGeneratorRate(rate);
@@ -356,13 +358,14 @@ bool CScriptEffect::CanRenderUnsorted(const CStateManager&) const { return false
 
 void CScriptEffect::PreRenderAllViewports(CStateManager& mgr) {
   const rstl::optional_object< CAABox > bounds =
-      mParticleSystem.null() ? rstl::optional_object< CAABox >() : mParticleSystem->GetBounds();
+      !mParticleSystem.null() ? mParticleSystem->GetBounds() : rstl::optional_object< CAABox >();
   if (bounds.valid()) {
     SetOtherBounds(*bounds);
     SetRenderBounds(*bounds);
     mCanRender = true;
   } else {
-    const CAABox emptyBounds(GetTranslation(), GetTranslation());
+    const CVector3f translation = GetTranslation();
+    const CAABox emptyBounds(translation, translation);
     SetOtherBounds(emptyBounds);
     SetRenderBounds(emptyBounds);
     mCanRender = false;
