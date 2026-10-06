@@ -1467,16 +1467,20 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
         (trigger->GetTriggerFlags() &
          (kTFL_DetectMorphedPlayer | kTFL_DetectUnmorphedPlayer | kTFL_DetectScrewAttack)) != 0) {
       const rstl::optional_object< CAABox > touch = trigger->GetTouchBounds();
-      if (touch.valid() && touch->DoBoundsOverlap(bounds)) {
-        const CDamageVulnerability* vulnerability = player.GetDamageVulnerability(
-            CVector3f::Zero(), CVector3f::Up(),
-            CDamageInfo(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, true));
-        if (trigger->GetDamageInfo().GetDamage(*vulnerability) != 0.f && touch.valid()) {
-          const CAABox triggerBounds = *touch;
-          const float distance = CAABox::DistanceBetween(playerBounds, triggerBounds);
-          if (distance < threatDistance) {
-            threatDistance = distance;
-          }
+      if (!(touch.valid() && touch->DoBoundsOverlap(bounds))) {
+        continue;
+      }
+      const CDamageVulnerability* vulnerability = player.GetDamageVulnerability(
+          CVector3f::Zero(), CVector3f::Up(),
+          CDamageInfo(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, true));
+      if (trigger->GetDamageInfo().GetDamage(*vulnerability) == 0.f) {
+        continue;
+      }
+      if (touch.valid()) {
+        const CAABox triggerBounds = *touch;
+        const float distance = CAABox::DistanceBetween(playerBounds, triggerBounds);
+        if (distance < threatDistance) {
+          threatDistance = distance;
         }
       }
     }
@@ -1847,7 +1851,8 @@ void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
     if (mDamageSectorRemaining[i] > 0.f) {
       mDamageSectorRemaining[i] = rstl::max_val(0.f, mDamageSectorRemaining[i] - dt);
       const float ratio = mDamageSectorRemaining[i] / mDamageSectorDurations[i];
-      mDamageSectorIntensity[i] = rstl::min_val(1.f, ratio * mDamageSectorIntensity[i]);
+      const float intensity = mDamageSectorIntensity[i];
+      mDamageSectorIntensity[i] = rstl::min_val(1.f, ratio * intensity);
     }
   }
   if (mDamageHighlightRemaining > 0.f) {
@@ -1895,7 +1900,8 @@ void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
       const CTransform4f& idle = mDecorationRoot->GetIdleXform();
       const CVector3f& translation =
           idle.GetTranslation() + gpTweakGui->GetHudDecoShakeTranslateGain() * mShakeTranslation;
-      mDecorationRoot->SetLocalTransform(CTransform4f(idle.BuildMatrix3f() * mShakeRotation, translation));
+      const CTransform4f xf(idle.BuildMatrix3f() * mShakeRotation, translation);
+      mDecorationRoot->SetLocalTransform(xf);
     }
   }
 }
