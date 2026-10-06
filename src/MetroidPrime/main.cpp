@@ -390,27 +390,26 @@ void CMain::MemoryCardInitializePump() {
 
 void CGameGlobalObjects::AddPaksAndFactories(COsContext& context) {
   CResFactory& factory = *gpResourceFactory;
-  CResLoader& loader = factory.GetResLoader();
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGraphics::SetModelMatrix(CTransform4f::Identity());
   if (CDvdFile::FileExists("Strings.pak")) {
-    loader.AddPakFileAsync(rstl::string_l("aram:Strings"), false, false);
+    factory.GetResLoader().AddPakFileAsync(rstl::string_l("aram:Strings"), false, false);
   }
 
   CDvdFile tweakFile("Standard.NTWK");
-  rstl::auto_ptr< uchar > tweakData(
+  rstl::single_ptr< uchar > tweakData(
       static_cast< uchar* >(CMemory::Alloc(tweakFile.Length(), IAllocator::kHI_RoundUpLen)));
   rstl::single_ptr< CDvdRequest > request(tweakFile.SyncRead(tweakData.get(), tweakFile.Length()));
   CRELFileToken tweaks(rstl::string_l("Tweaks.rel"), 1);
   tweaks.Load();
-  loader.AddPakFileAsync(rstl::string_l("NoARAM"), false, false);
-  loader.AddPakFileAsync(rstl::string_l("AudioGrp"), false, false);
-  loader.AddPakFileAsync(rstl::string_l("aram:MiscData"), false, false);
-  loader.AddPakFileAsync(rstl::string_l("aram:TestAnim"), true, false);
-  loader.AddPakFileAsync(rstl::string_l("aram:MidiData"), false, false);
-  loader.AddPakFileAsync(rstl::string_l("aram:GGuiSys"), false, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("NoARAM"), false, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("AudioGrp"), false, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("aram:MiscData"), false, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("aram:TestAnim"), true, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("aram:MidiData"), false, false);
+  factory.GetResLoader().AddPakFileAsync(rstl::string_l("aram:GGuiSys"), false, false);
   if (CDvdFile::FileExists("FrontEnd.pak")) {
-    loader.AddPakFileAsync(rstl::string_l("FrontEnd"), false, true);
+    factory.GetResLoader().AddPakFileAsync(rstl::string_l("FrontEnd"), false, true);
   }
 
   CErrorOutputWindow errors(CErrorOutputWindow::kF_One);
@@ -418,7 +417,7 @@ void CGameGlobalObjects::AddPaksAndFactories(COsContext& context) {
   CGraphics::SetViewport(0, 0, CGraphics::GetViewport().mWidth, CGraphics::GetViewport().mHeight);
   rstl::single_ptr< IController > controller(IController::Create(context));
   gpController = controller.get();
-  while (!loader.AreAllPaksLoaded() || !request->IsComplete() || !tweaks.IsLoaded()) {
+  while (!factory.GetResLoader().AreAllPaksLoaded() || !request->IsComplete() || !tweaks.IsLoaded()) {
     gpResourceFactory->GetResLoader().AsyncIdlePakLoading();
     gpRelFileManager->Update();
     errors.Update();
@@ -438,43 +437,42 @@ void CGameGlobalObjects::AddPaksAndFactories(COsContext& context) {
     tweaks.Unload();
   }
 
-  CFactoryMgr& factories = factory.GetFactoryMgr();
-  factories.AddFactory('STRG', FStringTableFactory);
-  factories.AddFactory('CMDL', FModelFactory);
-  factories.AddFactory('TXTR', FTextureFactory);
-  factories.AddFactory('CSKR', FSkinRulesFactory);
-  factories.AddFactory('ANIM', AnimSourceFactory);
-  factories.AddFactory('CINF', FCharLayoutInfo);
-  factories.AddFactory('ANCS', FAnimCharacterSet);
-  factories.AddFactory('CRSC', FCollisionResponseDataFactory);
-  factories.AddFactory('SWHC', FParticleSwooshDataFactory);
-  factories.AddFactory('PART', FParticleFactory);
-  factories.AddFactory('ELSC', FParticleElectricDataFactory);
-  factories.AddFactory('SPSC', FSpawnParticleSystemDataFactory);
-  factories.AddFactory('SRSC', FSortedParticleSystemDataFactory);
-  factories.AddFactory('WPSC', FProjectileWeaponDataFactory);
-  factories.AddFactory('FRME', RGuiFrameFactoryInGame);
-  factories.AddFactory('FONT', FRasterFontFactory);
-  factories.AddFactory('SCAN', FScannableObjectInfoFactory);
-  factories.AddFactory('AFSM', FAiFiniteStateMachineFactory);
-  factories.AddFactory('FSM2', FAiStateMachine2Factory);
-  factories.AddFactory('AGSC', FAudioGroupSetLocDataFactory);
-  factories.AddFactory('DCLN', FCollidableOBBTreeGroupFactory);
-  factories.AddFactory('DPSC', FDecalDataFactory);
-  factories.AddFactory('ATBL', FAudioTranslationTableFactory);
-  factories.AddFactory('PATH', FPathFindAreaFactory);
-  factories.AddFactory('MAPW', FMapWorldFactory);
-  factories.AddFactory('MAPA', FMapAreaFactory);
-  factories.AddFactory('MAPU', FMapUniverseFactory);
-  factories.AddFactory('CSNG', FMidiDataFactory);
-  factories.AddFactory('DGRP', FDependencyGroupFactory);
-  factories.AddFactory('SAVW', FSaveWorldFactory);
-  factories.AddFactory('HINT', FHintFactory);
-  factories.AddFactory('CSPP', FSpatialPrimitivesFactory);
-  factories.AddFactory('PTLA', FPortalAreaDataFactory);
-  factories.AddFactory('STLC', FStringListFactory);
-  factories.AddFactory('EGMC', FEditorGeometryToStaticGeometryFactory);
-  factories.AddFactory('RULE', FRuleSetFactory);
+  factory.GetFactoryMgr().AddFactory('STRG', FStringTableFactory);
+  factory.GetFactoryMgr().AddFactory('CMDL', FModelFactory);
+  factory.GetFactoryMgr().AddFactory('TXTR', FTextureFactory);
+  factory.GetFactoryMgr().AddFactory('CSKR', FSkinRulesFactory);
+  factory.GetFactoryMgr().AddFactory('ANIM', AnimSourceFactory);
+  factory.GetFactoryMgr().AddFactory('CINF', FCharLayoutInfo);
+  factory.GetFactoryMgr().AddFactory('ANCS', FAnimCharacterSet);
+  factory.GetFactoryMgr().AddFactory('CRSC', FCollisionResponseDataFactory);
+  factory.GetFactoryMgr().AddFactory('SWHC', FParticleSwooshDataFactory);
+  factory.GetFactoryMgr().AddFactory('PART', FParticleFactory);
+  factory.GetFactoryMgr().AddFactory('ELSC', FParticleElectricDataFactory);
+  factory.GetFactoryMgr().AddFactory('SPSC', FSpawnParticleSystemDataFactory);
+  factory.GetFactoryMgr().AddFactory('SRSC', FSortedParticleSystemDataFactory);
+  factory.GetFactoryMgr().AddFactory('WPSC', FProjectileWeaponDataFactory);
+  factory.GetFactoryMgr().AddFactory('FRME', RGuiFrameFactoryInGame);
+  factory.GetFactoryMgr().AddFactory('FONT', FRasterFontFactory);
+  factory.GetFactoryMgr().AddFactory('SCAN', FScannableObjectInfoFactory);
+  factory.GetFactoryMgr().AddFactory('AFSM', FAiFiniteStateMachineFactory);
+  factory.GetFactoryMgr().AddFactory('FSM2', FAiStateMachine2Factory);
+  factory.GetFactoryMgr().AddFactory('AGSC', FAudioGroupSetLocDataFactory);
+  factory.GetFactoryMgr().AddFactory('DCLN', FCollidableOBBTreeGroupFactory);
+  factory.GetFactoryMgr().AddFactory('DPSC', FDecalDataFactory);
+  factory.GetFactoryMgr().AddFactory('ATBL', FAudioTranslationTableFactory);
+  factory.GetFactoryMgr().AddFactory('PATH', FPathFindAreaFactory);
+  factory.GetFactoryMgr().AddFactory('MAPW', FMapWorldFactory);
+  factory.GetFactoryMgr().AddFactory('MAPA', FMapAreaFactory);
+  factory.GetFactoryMgr().AddFactory('MAPU', FMapUniverseFactory);
+  factory.GetFactoryMgr().AddFactory('CSNG', FMidiDataFactory);
+  factory.GetFactoryMgr().AddFactory('DGRP', FDependencyGroupFactory);
+  factory.GetFactoryMgr().AddFactory('SAVW', FSaveWorldFactory);
+  factory.GetFactoryMgr().AddFactory('HINT', FHintFactory);
+  factory.GetFactoryMgr().AddFactory('CSPP', FSpatialPrimitivesFactory);
+  factory.GetFactoryMgr().AddFactory('PTLA', FPortalAreaDataFactory);
+  factory.GetFactoryMgr().AddFactory('STLC', FStringListFactory);
+  factory.GetFactoryMgr().AddFactory('EGMC', FEditorGeometryToStaticGeometryFactory);
+  factory.GetFactoryMgr().AddFactory('RULE', FRuleSetFactory);
 }
 
 void CMain::DrawDebugMetrics(double dt, CStopwatch& stopWatch) {
@@ -592,7 +590,7 @@ void CMain::FillInAssetIDs() {
   gpSimplePool->fn_8029c7e8(*gpResourceFactory->GetResourceIdByName("sound_lookup_ATBL"));
 }
 
-CGameGlobalObjects::~CGameGlobalObjects() {}
+inline CGameGlobalObjects::~CGameGlobalObjects() {}
 
 int CMain::RsMain(int argc, const char* const* argv) {
   PPCSetFpIEEEMode();
@@ -616,10 +614,13 @@ int CMain::RsMain(int argc, const char* const* argv) {
 
   {
     rstl::string audioTweaksStatus;
+    bool showTweaksStatus;
     if (gpTweakManager->ReadFromMemoryCard(rstl::string_l("AudioTweaks"))) {
       audioTweaksStatus = rstl::string_l("Loaded audio tweaks from memory card\n");
+      showTweaksStatus = true;
     } else {
       audioTweaksStatus = rstl::string_l("FAILED to load audio tweaks from memory card\n");
+      showTweaksStatus = true;
     }
     FillInAssetIDs();
     rstl::single_ptr< CGameArchitectureSupport > architecture(
@@ -637,15 +638,18 @@ int CMain::RsMain(int argc, const char* const* argv) {
       sProgressiveModePrompt = reader.ReadPackedBool();
     }
     const int gameMode = gpGameState->GetGameModeType();
-    if (gameMode != 'COIN' && gameMode != 'DTHM') {
-      architecture->GetIOWinManager().AddIOWin(
+    bool showSplash = true;
+    if (gameMode == 'COIN' || gameMode == 'DTHM') {
+      showSplash = false;
+    }
+    if (showSplash) {
+      mArchSupport->GetIOWinManager().AddIOWin(
           rs_new CSplashScreen(CSplashScreen::kSplashScreen_ProgressiveCheck), 1000, 10000);
     }
     CDvdFile::FileExists("Strings.pak");
 
     while (!mFinished) {
-      CStopwatch& drawTimer = architecture->GetStopwatch2();
-      drawTimer.Reset();
+      architecture->GetStopwatch2().Reset();
       gpResourceFactory->GetResLoader().AsyncIdlePakLoading();
       gpRelFileManager->Update();
       if (gpMemoryCard == nullptr && gpResourceFactory->GetResLoader().AreAllPaksLoaded()) {
@@ -656,35 +660,38 @@ int CMain::RsMain(int argc, const char* const* argv) {
       if (!architecture->UpdateTicks()) {
         mFinished = true;
       }
-      const double tickTime = drawTimer.GetElapsedTime();
+      const double tickTime = architecture->GetStopwatch2().GetElapsedTime();
       mTickTimes.AddValue(tickTime / (1.f / 60.f));
       mAverageTickTime = *mTickTimes.GetAverage();
-      drawTimer.Reset();
+      architecture->GetStopwatch2().Reset();
+      if (showTweaksStatus) {
+        showTweaksStatus = false;
+      }
 
       bool drawFrame = true;
       if (IsMaxSpeed()) {
         AsyncIdle(1000000);
-        if (mMaxSpeedDrawTimer > 0.f) {
+        if (mMaxSpeedDrawTimer <= 0.f) {
+          mMaxSpeedDrawTimer = 1.f;
+        } else {
           drawFrame = false;
           CFrameDelayedKiller::FlushAllocationsForFrame();
           CFrameDelayedKiller::FlushAllocationsForFrame();
-        } else {
-          mMaxSpeedDrawTimer = 1.f;
         }
       }
       if (drawFrame) {
         gpRender->BeginScene();
         architecture->GetIOWinManager().Draw();
-        DrawDebugMetrics(tickTime, drawTimer);
-        const double drawTime = drawTimer.GetElapsedTime();
+        DrawDebugMetrics(tickTime, architecture->GetStopwatch2());
+        const double drawTime = architecture->GetStopwatch2().GetElapsedTime();
         mDrawTimes.AddValue(drawTime / (1.f / 60.f));
         mAverageDrawTime = *mDrawTimes.GetAverage();
         gpRelFileManager->Update();
-        const double idleTime = (1.f / 60.f - (tickTime + drawTimer.GetElapsedTime())) - 0.00075;
-        AsyncIdle(idleTime <= 0.0 ? 0 : static_cast< uint >(idleTime * 1000000.0));
+        const double idleTime = (1.f / 60.f - (tickTime + architecture->GetStopwatch2().GetElapsedTime())) - 0.00075;
+        AsyncIdle(idleTime > 0.0 ? static_cast< uint >(idleTime * 1000000.0) : 0);
         if (gpMain->GetThirtyFps()) {
           const float waitTime =
-              1.f / 30.f - static_cast< float >(tickTime + drawTimer.GetElapsedTime());
+              1.f / 30.f - static_cast< float >(tickTime + architecture->GetStopwatch2().GetElapsedTime());
           if (waitTime > 0.f) {
             CStopwatch::Wait(waitTime);
           }
@@ -701,10 +708,16 @@ int CMain::RsMain(int argc, const char* const* argv) {
       CSfxManager::Update(1.f / 60.f);
       UpdateStreamedAudio();
       if (CheckTerminate()) {
-        gpGameState->ClearAudioGroups();
+        gpGameState->AudioGroups().clear();
         break;
       }
-      if (architecture->GetIOWinManager().IsEmpty() || CheckReset()) {
+      bool reset = false;
+      if (architecture->GetIOWinManager().IsEmpty()) {
+        reset = true;
+      } else if (CheckReset()) {
+        reset = true;
+      }
+      if (reset) {
         mRestartMode = kRM_Default;
         CStreamAudioManager::StopAll();
         PADRecalibrate(0xf0000000);
