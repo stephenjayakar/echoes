@@ -1513,7 +1513,7 @@ bool CPlayerGun::GetBeamAmmoTypeAndCosts(bool combo, CStateManager& mgr,
 
 void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
   CPlayer* player = GetPlayerFromAll(mgr);
-  CPlayerState* playerState = player->GetPlayerState();
+  CPlayerState* const playerState = player->GetPlayerState();
 
   mFidget.ResetAll();
 
@@ -1521,9 +1521,9 @@ void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
     return;
   }
 
+  int outBeamAmmoCost = 0;
   CPlayerState::EItemType beamAmmoTypeA = CPlayerState::kIT_Invalid;
   CPlayerState::EItemType beamAmmoTypeB = CPlayerState::kIT_Invalid;
-  int outBeamAmmoCost = 0;
 
   bool outOfAmmo = IsOutOfAmmoToShoot(mgr);
   if (outOfAmmo && mChargePhase != kCP_Charged) {
@@ -1539,7 +1539,7 @@ void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
              GetBeamAmmoTypeAndCosts(false, mgr, beamAmmoTypeA, beamAmmoTypeB, outBeamAmmoCost)) {
     CPlayerState::EChargeStage chargeState = outOfAmmo ? CPlayerState::kCS_Normal : mChargeState;
     float chargeFactor1 = playerState->GetChargeBeamFactor();
-    if (!outOfAmmo && mAbsorbedPhazonShots == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
+    if (!outOfAmmo && GetAbsorbedPhazonShots() == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
       outBeamAmmoCost = 0;
     }
     if (beamAmmoTypeA != CPlayerState::kIT_Invalid) {
@@ -1551,7 +1551,7 @@ void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
 
     mChargeEffectVisible = mChargePhase == kCP_NotCharging;
     ++mRapidFireShots;
-    const bool targetHoming = mCurrentBeam->GetVelocityInfo().GetTargetHoming(int(chargeState));
+    const uint targetHoming = mCurrentBeam->GetVelocityInfo().GetTargetHoming(int(chargeState));
     CTransform4f xf(mPointBlankWorldSurface ? mElbowWorldXf : mGunWorldXf * mBeamLocalXf);
     if (!mPointBlankWorldSurface && mGunStrikeCooldownTimer <= 0.f) {
       const CVector3f position = xf.GetTranslation();
@@ -1560,39 +1560,39 @@ void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
     }
     xf.AddTranslation(player->GetCameraManager()->GetGlobalCameraTranslation(mgr, true));
     switch (mCurrentBeamId) {
-    case CPlayerState::kBI_Dark:
     case CPlayerState::kBI_Light:
+      mMuzzleEffectVisTimer = 0.5f;
+      break;
+    case CPlayerState::kBI_Dark:
       mMuzzleEffectVisTimer = 0.5f;
       break;
     default:
       mMuzzleEffectVisTimer = 0.0625f;
       break;
     }
+    const TCachedToken< CWeaponDescription >& projectile = mCurrentBeam->GetProjectileToken(chargeState);
     if (outOfAmmo) {
       chargeFactor1 *= 0.5f;
     }
     const uint attributes = outOfAmmo ? (1 << 3) : 0;
 
-    if (mAbsorbedPhazonShots == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
-      TCachedToken< CWeaponDescription > phazonBallToken(gpSimplePool->GetObj("PhazonBall"), true);
-
-      TUniqueId homingTarget = targetHoming ? GetTargetId(mgr) : kInvalidUniqueId;
-      mCurrentBeam->CGunWeapon::Fire(phazonBallToken, mUnderwater, dt, chargeState, xf, mgr,
-                                     homingTarget, attributes, 0x1c4, nullptr, nullptr,
-                                     chargeFactor1, chargeFactor1);
-
-    } else {
-      const TUniqueId homingTarget = targetHoming ? GetTargetId(mgr) : kInvalidUniqueId;
-      mCurrentBeam->Fire(mCurrentBeam->GetProjectileToken(chargeState), mUnderwater, dt,
-                         chargeState, xf, mgr, homingTarget, attributes,
+    if (GetAbsorbedPhazonShots() != gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
+      mCurrentBeam->Fire(projectile, mUnderwater, dt,
+                         chargeState, xf, mgr, targetHoming ? static_cast< const TUniqueId& >(GetTargetId(mgr)) : kInvalidUniqueId, attributes,
                          CSfxManager::kInternalInvalidSfxId, nullptr, nullptr, chargeFactor1,
                          chargeFactor1);
+    } else {
+      TCachedToken< CWeaponDescription > phazonBallToken(gpSimplePool->GetObj("PhazonBall"), true);
+
+      mCurrentBeam->CGunWeapon::Fire(phazonBallToken, mUnderwater, dt, chargeState, xf, mgr,
+                                     targetHoming ? static_cast< const TUniqueId& >(GetTargetId(mgr)) : kInvalidUniqueId, attributes, 0x1c4, nullptr, nullptr,
+                                     chargeFactor1, chargeFactor1);
     }
 
     mgr.InformListeners(mGunWorldXf.GetTranslation(), kLNT_PlayerFire);
 
-    bool resetCharge = false;
     mCooldown = mCurrentBeam->GetWeaponInfo().mCoolDown;
+    bool resetCharge = false;
     if (mChargePhase == kCP_ChargeFx || mChargePhase == kCP_Charged) {
       resetCharge = true;
     }
@@ -1607,7 +1607,7 @@ void CPlayerGun::UpdateNormalShotCycle(float dt, CStateManager& mgr) {
       PlaySfxForPlayer(GetPlayer(mgr), 0x2612, mSoundVolume, mgr.GetNextAreaId().Value(),
                        mUnderwater, 0);
     }
-    mFiredWeaponFlags |= resetCharge ? 4 : 1;
+    mFiredWeaponFlags = mFiredWeaponFlags | (resetCharge ? 4 : 1);
   } else {
     PlaySfxForPlayer(GetPlayer(mgr), skEmptyBeamSfx[mSoundSetIndex], mSoundVolume,
                      mgr.GetNextAreaId().Value(), mUnderwater, 0);
