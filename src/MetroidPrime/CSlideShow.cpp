@@ -667,20 +667,29 @@ void CSlideShow::UpdateControlsText(const CFinalInput& input) {
   if (mControlsText.null()) {
     return;
   }
-  const CControlMapper& mapper = gpGameState->ControlMapper();
-  mCStick = GetStickDirection(mapper.GetAnalogInput(CControlMapper::kC_MapMoveForward, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapMoveBack, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapMoveLeft, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapMoveRight, input));
-  mLStick = GetStickDirection(mapper.GetAnalogInput(CControlMapper::kC_MapCircleDown, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapCircleUp, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapCircleLeft, input),
-                              mapper.GetAnalogInput(CControlMapper::kC_MapCircleRight, input));
-  mRTrigger = mapper.GetAnalogInput(CControlMapper::kC_MapZoomIn, input) > 0.f ? 1 : 0;
-  mLTrigger = mapper.GetAnalogInput(CControlMapper::kC_MapZoomOut, input) > 0.f ? 1 : 0;
-  const CStringTable& strings = ***mGalleryNames;
+  {
+    const CControlMapper& mapper = gpGameState->ControlMapper();
+    mCStick = GetStickDirection(mapper.GetAnalogInput(CControlMapper::kC_MapMoveForward, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapMoveBack, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapMoveLeft, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapMoveRight, input));
+  }
+  {
+    const CControlMapper& mapper = gpGameState->ControlMapper();
+    mLStick = GetStickDirection(mapper.GetAnalogInput(CControlMapper::kC_MapCircleDown, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapCircleUp, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapCircleLeft, input),
+                                mapper.GetAnalogInput(CControlMapper::kC_MapCircleRight, input));
+  }
+  const float zoomIn =
+      gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapZoomIn, input);
+  const float zoomOut =
+      gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapZoomOut, input);
+  mRTrigger = zoomIn > 0.f ? 1 : 0;
+  mLTrigger = zoomOut > 0.f ? 1 : 0;
   rstl::wstring text;
   text.reserve(256);
+  const CStringTable& strings = ***mGalleryNames;
   text.append(CStringExtras::ConvertToUNICODE(
       CBasics::Stringize("%sSI,0.6,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mLStick[mLStick], skImageTagEnd)));
   text.append(strings.GetString("Browse"), -1);
