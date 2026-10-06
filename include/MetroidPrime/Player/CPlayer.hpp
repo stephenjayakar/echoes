@@ -571,13 +571,13 @@ public:
   ERezbitState GetRezbitState() const;
   void UpdateRezbitRecoveryInput(const CFinalInput& input);
   void ResetRezbitRecoveryInput();
-  bool BoostHeld(const CFinalInput& input) const; // Guessed name.
-  bool ChargeBeamHeld(const CFinalInput& input) const;
-  bool JumpPressed(const CFinalInput& input) const;
-  bool JumpHeld(const CFinalInput& input) const;
-  bool AutoFireHeld(const CFinalInput& input) const;
-  bool FireBeamPressed(const CFinalInput& input) const;
-  bool FireBeamHeld(const CFinalInput& input) const;
+  uchar BoostHeld(const CFinalInput& input) const; // Guessed name.
+  uchar ChargeBeamHeld(const CFinalInput& input) const;
+  uchar JumpPressed(const CFinalInput& input) const;
+  uchar JumpHeld(const CFinalInput& input) const;
+  uchar AutoFireHeld(const CFinalInput& input) const;
+  uchar FireBeamPressed(const CFinalInput& input) const;
+  uchar FireBeamHeld(const CFinalInput& input) const;
   bool IsAligningGrappleSwingTurn() const { return mAligningGrappleSwingTurn; }
   void SetAligningGrappleSwingTurn(bool aligning) { mAligningGrappleSwingTurn = aligning; }
   bool SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mgr);
@@ -890,7 +890,7 @@ private:
   rstl::single_ptr< void > mReflectionTextureData;
   rstl::single_ptr< void > mIndirectTextureData;
   rstl::single_ptr< void > mMaskTextureData;
-  uint mRezbitRecoveryDirection;
+  int mRezbitRecoveryDirection;
   uint mRezbitRecoveryInputCount;
   CControlMapper mControlMapper;
   rstl::single_ptr< CHintManager > mControlHintManager;
