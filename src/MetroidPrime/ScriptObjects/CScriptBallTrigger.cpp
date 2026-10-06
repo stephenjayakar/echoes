@@ -27,7 +27,7 @@ CScriptBallTrigger::CScriptBallTrigger(TUniqueId uid, const rstl::string& name,
 , mAttractionAngle(attractionAngle)
 , mAttractionDistance(attractionDistance)
 , mAttractionDirection(CVector3f::Zero())
-, mCapturedPlayerIndex(-1)
+, mCapturedPlayerIndex(kInvalidPlayerIndex)
 , mNoBallMovement(noBallMovement) {
   if (attractionDirection.CanBeNormalized()) {
     mAttractionDirection = attractionDirection.AsNormalized();
@@ -38,7 +38,7 @@ CScriptBallTrigger::~CScriptBallTrigger() {}
 
 void CScriptBallTrigger::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   if (CPlayer* player = TCastToPtr< CPlayer >(actor)) {
-    if (mCapturedPlayerIndex == -1u || mCapturedPlayerIndex == player->GetPlayerIndex()) {
+    if (mCapturedPlayerIndex == kInvalidPlayerIndex || mCapturedPlayerIndex == player->GetPlayerIndex()) {
       mCapturedPlayerIndex = player->GetPlayerIndex();
       player->GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostDisabled);
       const CVector3f position =
@@ -51,7 +51,7 @@ void CScriptBallTrigger::InhabitantAdded(CActor& actor, CStateManager& mgr) {
 void CScriptBallTrigger::InhabitantExited(CActor& actor, CStateManager&) {
   if (CPlayer* player = TCastToPtr< CPlayer >(actor)) {
     if (mCapturedPlayerIndex == player->GetPlayerIndex()) {
-      mCapturedPlayerIndex = -1;
+      mCapturedPlayerIndex = kInvalidPlayerIndex;
     }
     player->GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostAvailable);
   }
@@ -66,7 +66,7 @@ void CScriptBallTrigger::Think(float dt, CStateManager& mgr) {
 
   for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
     CPlayer& player = *mgr.GetPlayer(i);
-    if (mCapturedPlayerIndex != -1u && mCapturedPlayerIndex != i) {
+    if (mCapturedPlayerIndex != kInvalidPlayerIndex && mCapturedPlayerIndex != i) {
       continue;
     }
 
@@ -119,7 +119,7 @@ void CScriptBallTrigger::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& m
 
 bool CScriptBallTrigger::ShouldSendScriptMsgs(CActor& actor, CStateManager&) const {
   const CPlayer* player = TCastToPtr< CPlayer >(actor);
-  if (player != nullptr && mCapturedPlayerIndex != -1u) {
+  if (player != nullptr && mCapturedPlayerIndex != kInvalidPlayerIndex) {
     const bool captured = player->GetPlayerIndex() == mCapturedPlayerIndex;
     return captured;
   }

@@ -16,6 +16,9 @@ extern const TAreaId kInvalidAreaId;
 extern const TEditorId kInvalidEditorId;
 extern const TEditorId kUnkId;
 extern const TUniqueId kInvalidUniqueId;
+extern const uint kInvalidPlayerIndex;
+extern const uint kUnkPlayerIndexZero;
+extern const float kDefaultGravityAccel;
 
 struct TAreaId {
   int value;
