@@ -28,7 +28,7 @@ public:
   float CalculateLookAtDistance(const CStateManager& mgr) const;
   float CalculatePositionDistance(float dt, const CStateManager& mgr) const;
   CVector3f MoveAlongSpline(float dt, CStateManager& mgr);
-  CTransform4f AvoidDoorCollisions(const CTransform4f& xf, const CStateManager& mgr);
+  CTransform4f AvoidDoorCollisions(const CTransform4f& xf, CStateManager& mgr);
   void UpdateOrientation(float dt, const CTransform4f& xf, const CStateManager& mgr);
   void UpdateFov(const CStateManager& mgr);
 
