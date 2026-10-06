@@ -117,11 +117,10 @@ float CFlanger::GetLFOFrequency() { return 1.f - mLFOFrequencyComplement; }
 void CFlanger::setProgramName(char* name) { strcpy(mPrograms[mCurrentProgram].mName, name); }
 
 void CFlanger::getProgramName(char* name) {
-  const char* programName = mPrograms[mCurrentProgram].mName;
-  if (strcmp(programName, "Init") == 0)
-    sprintf(name, "%s %d", programName, mCurrentProgram + 1);
+  if (strcmp(mPrograms[mCurrentProgram].mName, "Init") == 0)
+    sprintf(name, "%s %d", mPrograms[mCurrentProgram].mName, mCurrentProgram + 1);
   else
-    strcpy(name, programName);
+    strcpy(name, mPrograms[mCurrentProgram].mName);
 }
 
 void CFlanger::suspend() {
@@ -350,14 +349,15 @@ void CFlanger::ProcessSamples(float* input, float* output, float* delayWrite, fl
   while (--sampleFrames >= 0) {
     float inputSample = *input++;
     float delayedSample = *delayRead++;
+    float mixedSample = inputSample;
     float oldOutput = *output;
-    float feedbackSample = inputSample + delayedSample * feedback;
-    float mixedSample = inputSample * dry;
+    inputSample += delayedSample * feedback;
+    mixedSample *= dry;
     mixedSample += delayedSample * wet;
     mixedSample *= volume;
     if (mixedSample > peak)
       peak = mixedSample;
-    *delayWrite++ = feedbackSample;
+    *delayWrite++ = inputSample;
     *output++ = oldOutput + mixedSample;
   }
   mPeak = peak;
@@ -473,13 +473,14 @@ void CFlanger::ProcessReplacingSamples(float* input, float* output, float* delay
   while (--sampleFrames >= 0) {
     float inputSample = *input++;
     float delayedSample = *delayRead++;
-    float feedbackSample = inputSample + delayedSample * feedback;
-    float mixedSample = inputSample * dry;
+    float mixedSample = inputSample;
+    inputSample += delayedSample * feedback;
+    mixedSample *= dry;
     mixedSample += delayedSample * wet;
     mixedSample *= volume;
     if (mixedSample > peak)
       peak = mixedSample;
-    *delayWrite++ = feedbackSample;
+    *delayWrite++ = inputSample;
     *output++ = mixedSample;
   }
   mPeak = peak;
