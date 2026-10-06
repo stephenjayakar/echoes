@@ -141,15 +141,14 @@ void CScriptActorRotate::UpdateActorRotations(float dt, CStateManager& mgr) {
 }
 
 void CScriptActorRotate::CheckEnd(CStateManager& mgr) {
-  if (mCurrentTime < mDuration) {
-    return;
-  }
-  SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
-  if ((mFlags & kF_Loop) != 0) {
-    mCurrentTime -= mDuration;
-  } else {
-    StopRotation();
-    mCurrentTime = mDuration;
+  if (mCurrentTime >= mDuration) {
+    SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+    if ((mFlags & kF_Loop) != 0) {
+      mCurrentTime -= mDuration;
+    } else {
+      StopRotation();
+      mCurrentTime = mDuration;
+    }
   }
 }
 

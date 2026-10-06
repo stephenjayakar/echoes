@@ -54,7 +54,11 @@ COBBTree::COBBTree(CInputStream& in)
 }
 
 COBBTree::~COBBTree() {
-  CNode::SetAllocator(mAllocator.GetPoolMemSize() ? &mAllocator : nullptr);
+  if (mAllocator.GetPoolMemSize() != 0) {
+    CNode::SetAllocator(&mAllocator);
+  } else {
+    CNode::SetAllocator(nullptr);
+  }
   delete mRoot;
 }
 
@@ -62,7 +66,7 @@ CAABox COBBTree::CalculateLocalAABox() const {
   if (mRoot) {
     return mRoot->GetOBB().CalculateAABox(CTransform4f::Identity());
   }
-  return CAABox(CVector3f::Zero(), CVector3f::Zero());
+  return CAABox(0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
 }
 
 rstl::auto_ptr< COBBTree > COBBTree::BuildOrientedBoundingBoxTree(const CVector3f& extent,
