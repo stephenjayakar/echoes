@@ -343,7 +343,8 @@ void CGunTurretTop::Revive(CStateManager& mgr) {
   mColor.SetAlpha(1.f);
   SetModelFlags(CModelFlags(CModelFlags::kT_Opaque, 1.f));
   mAlphaDelta = 0.f;
-  mColor = CColor(0.f, 0.f, 0.f, 1.f);
+  const CColor black(0.f, 0.f, 0.f, 1.f);
+  mColor.Set(black.GetRedu8(), black.GetGreenu8(), black.GetBlueu8(), mColor.GetAlphau8());
   BodyController()->DouseElectrocuting();
   BodyController()->DouseFlames();
   BodyController()->UnFreeze();
