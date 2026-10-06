@@ -606,19 +606,18 @@ bool CPlayer::CheckOrbitDisableSourceList(const CStateManager& mgr) {
 
 bool CPlayer::WithinOrbitScreenEllipse(const CVector3f& screenPosition,
                                        EPlayerZoneInfo zone) const {
-  if (!(screenPosition.GetZ() < 1.f)) {
+  if (screenPosition.GetZ() >= 1.f) {
     return false;
   }
   const float x =
       CMath::AbsF(screenPosition.GetX() - CCast::LtoF(GetTweakPlayer()->GetOrbitZoneCentreX(zone)));
-  const float heYSq = CCast::LtoF(GetTweakPlayer()->GetOrbitZoneHeight(zone) *
-                                  GetTweakPlayer()->GetOrbitZoneHeight(zone));
-  const float heXSq = CCast::LtoF(GetTweakPlayer()->GetOrbitZoneWidth(zone) *
-                                  GetTweakPlayer()->GetOrbitZoneWidth(zone));
   const float y =
       CMath::AbsF(screenPosition.GetY() - CCast::LtoF(GetTweakPlayer()->GetOrbitZoneCentreY(zone)));
-  const bool inside = x * x <= (1.f - y * y / heYSq) * heXSq;
-  return inside;
+  const float heXSq = CCast::LtoF(GetTweakPlayer()->GetOrbitZoneWidth(zone) *
+                                  GetTweakPlayer()->GetOrbitZoneWidth(zone));
+  const float heYSq = CCast::LtoF(GetTweakPlayer()->GetOrbitZoneHeight(zone) *
+                                  GetTweakPlayer()->GetOrbitZoneHeight(zone));
+  return x * x <= (1.f - y * y / heYSq) * heXSq;
 }
 
 bool CPlayer::WithinOrbitScreenBox(const CVector3f& screenPosition, EPlayerZoneInfo zone,
@@ -1146,7 +1145,8 @@ void CPlayer::SetOrbitPosition(float distance) {
 }
 
 void CPlayer::UpdateOrbitFixedPosition() {
-  mOrbitPoint = GetEyePosition() + GetTransform().Rotate(mOrbitVector);
+  const CVector3f eyePosition = GetEyePosition();
+  mOrbitPoint = eyePosition + GetTransform().Rotate(mOrbitVector);
 }
 
 void CPlayer::UpdateOrbitZPosition() {
