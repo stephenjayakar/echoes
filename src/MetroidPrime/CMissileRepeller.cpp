@@ -110,8 +110,9 @@ void CMissileRepeller::Render(const CStateManager& mgr, const CActor& actor) con
     const CGameProjectile* projectile = TCastToConstPtr< CGameProjectile >(mgr.GetObjectById(*it));
     if (projectile) {
       const float distance = (center - projectile->GetTranslation()).Magnitude();
+      const float ratio = distance / mRadius;
       mgr.DrawSpaceWarp(projectile->GetTranslation(),
-                        mSpaceWarpStrength * (1.f - rstl::min_val(distance / mRadius, 1.f)));
+                        mSpaceWarpStrength * (1.f - rstl::min_val(ratio, 1.f)));
     }
   }
 }
