@@ -248,18 +248,20 @@ void CKnockBackMgr::ValidateState(const CActor& actor) {
     disableFollowUp = !mEnableSlow;
     break;
   case kFU_Freeze:
-  case kFU_FreezeBurn:
-  case kFU_FreezeDisintegration:
     disableFollowUp = !mEnableFreeze;
     break;
   case kFU_Shock:
     disableFollowUp = !mEnableShock;
     break;
   case kFU_Burn:
+    disableFollowUp = !mEnableBurn;
+    break;
   case kFU_BurnPhase:
     disableFollowUp = !mEnableBurn;
     break;
   case kFU_ExplodeDeath:
+    disableFollowUp = !mEnableExplodeDeath;
+    break;
   case kFU_IceDeath:
     disableFollowUp = !mEnableExplodeDeath;
     break;
@@ -267,9 +269,19 @@ void CKnockBackMgr::ValidateState(const CActor& actor) {
     disableFollowUp = !mEnableBurnDeath;
     break;
   case kFU_LaggedBurnDeath:
+    disableFollowUp = !mEnableLaggedBurnDeath;
+    break;
   case kFU_BlackDeath:
+    disableFollowUp = !mEnableLaggedBurnDeath;
+    break;
   case kFU_ImmediateDisintegration:
     disableFollowUp = !mEnableLaggedBurnDeath;
+    break;
+  case kFU_FreezeBurn:
+    disableFollowUp = !mEnableFreeze;
+    break;
+  case kFU_FreezeDisintegration:
+    disableFollowUp = !mEnableFreeze;
     break;
   default:
     break;
