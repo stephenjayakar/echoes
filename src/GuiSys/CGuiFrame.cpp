@@ -18,6 +18,7 @@
 namespace rstl {
 class CWidgetFartherFromCamera {
 public:
+  CWidgetFartherFromCamera() {}
   bool operator()(const CGuiWidget* a, const CGuiWidget* b) const {
     return a->GetWorldPosition().GetY() > b->GetWorldPosition().GetY();
   }
@@ -181,8 +182,9 @@ void CGuiFrame::ProcessUserInput(const CFinalInput& input) {
   rstl::list< CGuiWidget* > activeWidgets;
   for (rstl::vector< CGuiWidget* >::const_iterator it = mInputWidgets.begin();
        it != mInputWidgets.end(); ++it) {
-    if ((*it)->GetIsActive()) {
-      activeWidgets.push_back(*it);
+    CGuiWidget* widget = *it;
+    if (widget->GetIsActive()) {
+      activeWidgets.push_back(widget);
     }
   }
   for (rstl::list< CGuiWidget* >::iterator it = activeWidgets.begin(); it != activeWidgets.end();
@@ -274,9 +276,9 @@ CGuiFrameLoader::~CGuiFrameLoader() {}
 bool CGuiFrameLoader::IsFinishedLoading() const { return mRequest->IsComplete(); }
 
 CGuiFrame* CGuiFrameLoader::CreateFrame() {
-  if (!mRequest->IsComplete()) {
-    return nullptr;
+  if (mRequest->IsComplete()) {
+    CMemoryInStream in(mBuffer.get(), mBufferLength);
+    return rs_new CGuiFrame(in, mPool);
   }
-  CMemoryInStream in(mBuffer.get(), mBufferLength);
-  return rs_new CGuiFrame(in, mPool);
+  return nullptr;
 }
