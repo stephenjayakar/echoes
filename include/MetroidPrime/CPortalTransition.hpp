@@ -46,7 +46,7 @@ private:
   // Guessed names.
   CTransform4f GetCameraTransform(ECameraPass pass) const;
   float GetCameraFov(ECameraPass pass) const;
-  void UpdateLights();
+  void UpdateLights(float dt);
 
   // Guessed field names, recovered from construction and runtime consumers.
   float mCurTime;

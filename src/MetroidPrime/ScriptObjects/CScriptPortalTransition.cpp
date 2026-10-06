@@ -258,7 +258,7 @@ bool CPortalTransition::TouchModels() {
   return ready;
 }
 
-void CPortalTransition::UpdateLights() {
+void CPortalTransition::UpdateLights(float dt) {
   static const CColor warm(1.f, 1.f, 0.9f, 1.f);
   static const CColor cool(0.05f, 0.f, 1.f, 1.f);
   mLights.clear();
@@ -308,7 +308,7 @@ void CPortalTransition::Update(float dt) {
   } else {
     mModelFlags = CModelFlags::Normal();
   }
-  UpdateLights();
+  UpdateLights(dt);
   if (mCameraPass == kCP_First && mFirstPassCamera && mSecondPassCamera &&
       mCurTime >= mFirstPassCamera->GetDuration()) {
     mCameraPass = kCP_Second;
