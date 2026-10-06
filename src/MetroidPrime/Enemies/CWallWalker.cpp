@@ -259,10 +259,9 @@ void CWallWalker::SetupCollisionManager(CStateManager& mgr) {
   mCollisionActorManager = rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(),
                                                          joints, GetActive());
   RemoveMaterial(kMT_SeekerTarget, kMT_Orbit, mgr);
-  for (int i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
-    const CJointCollisionDescription& desc = mCollisionActorManager->GetCollisionDescFromIndex(i);
-    if (CCollisionActor* colAct =
-            TCastToPtr< CCollisionActor >(mgr.ObjectById(desc.GetCollisionActorId()))) {
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const TUniqueId id = mCollisionActorManager->GetCollisionDescFromIndex(i).GetCollisionActorId();
+    if (CCollisionActor* colAct = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
       colAct->AddMaterial(kMT_SeekerTarget, kMT_Orbit, mgr);
       colAct->SetDamageVulnerability(mLegVulnerability);
       colAct->HealthInfo()->SetHP(5.f);
@@ -280,11 +279,9 @@ void CWallWalker::DestroyCollisionManager(CStateManager& mgr) {
 void CWallWalker::UpdateCollisionManager(float dt, CStateManager& mgr) {
   if (mCollisionActorManager.get() != nullptr) {
     mCollisionActorManager->Update(dt, mgr, CCollisionActorManager::kUO_ObjectSpace);
-    for (int i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
-      const CJointCollisionDescription& desc =
-          mCollisionActorManager->GetCollisionDescFromIndex(i);
-      if (CCollisionActor* colAct =
-              TCastToPtr< CCollisionActor >(mgr.ObjectById(desc.GetCollisionActorId()))) {
+    for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+      const TUniqueId id = mCollisionActorManager->GetCollisionDescFromIndex(i).GetCollisionActorId();
+      if (CCollisionActor* colAct = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
         if (colAct->GetHealthInfo()->GetHP() < 5.f) {
           colAct->HealthInfo()->SetHP(5.f);
           if (!mLegHitByMissile || (!mLeftLegHit && !mRightLegHit)) {
@@ -318,14 +315,16 @@ void CWallWalker::Think(float dt, CStateManager& mgr) {
     return;
   }
 
-  if (!mBurning && close_enough(mDeathTime, 0.f)) {
+  if (!mBurning) {
     const CWeaponMode deathWeapon = GetHealthInfo()->GetCauseOfDeathWeapon();
-    if (deathWeapon.GetType() == kWT_Dark && deathWeapon.IsCharged() == true) {
-      SendScriptMsgs(kSS_IceXDamage, mgr, kInvalidUniqueId, kSM_None);
-    } else if (IsIngPossessed() == true) {
-      SendScriptMsgs(kSS_DarkXDamage, mgr, kInvalidUniqueId, kSM_None);
-    } else {
-      SendScriptMsgs(kSS_XDamage, mgr, kInvalidUniqueId, kSM_None);
+    if (close_enough(mDeathTime, 0.f)) {
+      if (deathWeapon.GetType() == kWT_Dark && deathWeapon.IsCharged() == true) {
+        SendScriptMsgs(kSS_IceXDamage, mgr);
+      } else if (IsIngPossessed() == true) {
+        SendScriptMsgs(kSS_DarkXDamage, mgr);
+      } else {
+        SendScriptMsgs(kSS_XDamage, mgr);
+      }
     }
   }
   mDeathTime += dt;
@@ -344,7 +343,8 @@ static CVector3f RandomVectorInCone(CStateManager& mgr, float coneAngle, float m
   const float magnitude = (maxMagnitude - minMagnitude) * mgr.Random()->Float() + minMagnitude;
   const float cosAngle = CMath::FastCosR((M_PIF / 360.f) * coneAngle);
   const float z = 1.f - (1.f - cosAngle) * mgr.Random()->Float();
-  const float radius = magnitude * CMath::FastSqrtF(rstl::max_val(0.f, 1.f - z * z));
+  const float zSq = z * z;
+  const float radius = magnitude * CMath::FastSqrtF(rstl::max_val(1.f - zSq, 0.f));
   const float theta = (2.f * M_PIF) * mgr.Random()->Float();
   return CVector3f(radius * CMath::FastCosR(theta), radius * CMath::FastSinR(theta),
                    magnitude * z);
@@ -363,19 +363,21 @@ void CWallWalker::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
     DestroyCollisionManager(mgr);
     SetDrawEnabled(false);
     mGrenadeId = mgr.AllocateUniqueId();
-    CBouncyGrenade* grenade = rs_new CBouncyGrenade(
+    CBouncyGrenade* const grenade = rs_new CBouncyGrenade(
         mGrenadeId, rstl::string_l("Inglet"),
         CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true, kInvalidEditorId),
         CTransform4f::LookAt(GetTranslation(), GetTranslation() - CVector3f::Up(),
                              CVector3f::Up()),
-        CModelData::CModelDataNull(), CActorParameters(), GetUniqueId(), 1.f, mGrenadeData, 0.5f,
+        CModelData::CModelDataNull(), CActorParameters::None(), GetUniqueId(), 1.f, mGrenadeData, 0.5f,
         CAABox::MakeMaxInvertedBox(), kInvalidUniqueId, 0.f, 7, nullptr, nullptr);
-    grenade->SetAngularImpulseWR(GetAngularImpulseWR() +
-                               CAxisAngle(RandomVectorInCone(mgr, 360.f, 5.f, 8.f)));
+    const CAxisAngle angle(RandomVectorInCone(mgr, 360.f, 5.f, 8.f));
+    grenade->SetAngularImpulseWR(GetAngularImpulseWR() + angle);
     mgr.AddObject(grenade);
     break;
   }
-  default:
+  case kStateMsg_Update:
+    break;
+  case kStateMsg_Deactivate:
     break;
   }
 }
@@ -386,8 +388,8 @@ void CWallWalker::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
   switch (type) {
   case kUE_Projectile: {
     const CTransform4f lctrXf = GetLctrTransform(node.GetLocatorName());
-    const CTransform4f xf = CTransform4f::LookAt(
-        lctrXf.GetTranslation(), lctrXf.GetTranslation() + CVector3f::Down(), CVector3f::Up());
+    const CVector3f pos = lctrXf.GetTranslation();
+    const CTransform4f xf = CTransform4f::LookAt(pos, pos + CVector3f::Down(), CVector3f::Up());
     LaunchProjectiles(xf, mgr);
     handled = true;
     break;
@@ -409,7 +411,7 @@ void CWallWalker::LaunchProjectiles(const CTransform4f& xf, CStateManager& mgr) 
   for (int i = 0; i < mNumShots; ++i) {
     if (mgr.CanCreateProjectile(GetUniqueId(), kWT_AI, 4)) {
       const CTransform4f shotXf = CTransform4f::Translate(xf.GetTranslation()) *
-                                  xf.GetRotation() *
+                                  GetTransform().GetRotation() *
                                   CTransform4f::RotateY(CRelAngle::FromDegrees(angle)) *
                                   CTransform4f::RotateX(CRelAngle::FromRadians(M_PIF / 2.f));
       angle += angleStep;
