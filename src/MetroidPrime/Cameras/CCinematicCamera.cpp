@@ -43,7 +43,7 @@ void CCinematicCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
   }
 }
 
-bool CCinematicCamera::CanSkip(const CStateManager& mgr) const {
+const bool CCinematicCamera::CanSkip(const CStateManager& mgr) const {
   bool result = false;
   if (gpGameState->GetHardModeEnabled()) {
     result = true;
