@@ -982,7 +982,10 @@ void CActor::PlayLoopedSound(ushort sfxId, int flags, float fallOff, float maxDi
     return;
   }
 
-  const uint musyxFlags = (flags & 8) ? 9 : 1;
+  uint musyxFlags = 1;
+  if (flags & 8) {
+    musyxFlags |= 8;
+  }
   CAudioSys::C3DEmitterParmData emitter(maxDist, fallOff, musyxFlags, maxVol, minVol);
   emitter.mPos = locator.val() == 0
                      ? GetTranslation()
@@ -994,7 +997,8 @@ void CActor::PlayLoopedSound(ushort sfxId, int flags, float fallOff, float maxDi
     AddLoopedSound(sfxId, nonEmitter, area, useAcoustics, emitter, locator, pitchStart, pitchEnd,
                    pitchDuration, useEchoVolume);
   } else if (flags & 4) {
-    CSfxManager::RemoveEmitter(mLoopingSounds[0].second.mHandle);
+    const CSfxHandle handle = mLoopingSounds[0].second.mHandle;
+    CSfxManager::RemoveEmitter(handle);
     RemoveLoopedSoundAt(0);
     AddLoopedSound(sfxId, nonEmitter, area, useAcoustics, emitter, locator, pitchStart, pitchEnd,
                    pitchDuration, useEchoVolume);
@@ -1122,11 +1126,12 @@ void CActor::UpdatePortalSystemState(CStateManager& mgr) {
 }
 
 float CActor::GetDistanceToCamera(CStateManager& mgr) const {
-  float distanceSquared = FLT_MAX;
+  float distanceSquared = 3.4028235e38f;
   const CVector3f position = GetTranslation();
   for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     const CGameCamera* camera = mgr.GetCameraManager(i)->GetCurrentCamera(mgr, true);
-    const float cameraDistanceSquared = (camera->GetTranslation() - position).MagSquared();
+    const CVector3f delta = camera->GetTranslation() - position;
+    const float cameraDistanceSquared = delta.MagSquared();
     if (cameraDistanceSquared < distanceSquared) {
       distanceSquared = cameraDistanceSquared;
     }
