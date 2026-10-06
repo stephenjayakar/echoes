@@ -176,7 +176,7 @@ CFishCloud::CFishCloud(
                   close_enough(up.GetX(), 1.f));
   if (aRes.GetId() != kInvalidAssetId) {
     for (int i = 0; i < 4; ++i) {
-      mModels.push_back(rstl::rc_ptr< CModelData >(rs_new CModelData(aRes)));
+      mModels.push_back(rs_new CModelData(aRes));
     }
     mValidModel = true;
     mDisplayList = rs_new SwarmRenderHelpers::CSwarmDisplayList(
@@ -377,12 +377,15 @@ bool CFishCloud::AddAttractor(TUniqueId source, bool swirl, float radius, float 
   if (it != mModifierSources.end()) {
     it->SetAffectRadius(radius);
     it->SetAffectPriority(priority);
+    return true;
   }
   if (mModifierSources.size() < mModifierSources.capacity()) {
-    mModifierSources.insert(
-        rstl::lower_bound(mModifierSources.begin(), mModifierSources.end(), modifier), modifier);
+    TModifierSourceVector::iterator insertIt =
+        rstl::lower_bound(mModifierSources.begin(), mModifierSources.end(), modifier);
+    mModifierSources.insert(insertIt, modifier);
+    return true;
   }
-  return true;
+  return false;
 }
 
 bool CFishCloud::AddRepulsor(TUniqueId source, bool swirl, float radius, float priority) {
@@ -392,12 +395,15 @@ bool CFishCloud::AddRepulsor(TUniqueId source, bool swirl, float radius, float p
   if (it != mModifierSources.end()) {
     it->SetAffectRadius(radius);
     it->SetAffectPriority(priority);
+    return true;
   }
   if (mModifierSources.size() < mModifierSources.capacity()) {
-    mModifierSources.insert(
-        rstl::lower_bound(mModifierSources.begin(), mModifierSources.end(), modifier), modifier);
+    TModifierSourceVector::iterator insertIt =
+        rstl::lower_bound(mModifierSources.begin(), mModifierSources.end(), modifier);
+    mModifierSources.insert(insertIt, modifier);
+    return true;
   }
-  return true;
+  return false;
 }
 
 void CFishCloud::RemoveAttractor(TUniqueId source) {
@@ -665,7 +671,46 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
         state = player->GetMorphballTransitionState();
       }
       if (state == CPlayer::kMS_Morphed && !close_enough(mPlayerBallPriority, 0.f)) {
-        // TODO: morph ball push-away
+        const float ballRadius = 2.f * player->GetMorphBall()->GetBallRadius() + 0.25f;
+        const float ballRadiusSquared = ballRadius * ballRadius;
+        const CVector3f ballPos(player->GetTranslation().GetX() + mgr.Random()->Range(-0.1f, 0.1f),
+                                player->GetTranslation().GetY() + 0.f,
+                                player->GetTranslation().GetZ() + 0.f);
+        const float outerSquared = ballRadiusSquared + 0.8f;
+        const float distanceSquared = mPlayerBallDistance * mPlayerBallDistance;
+        int index = 0;
+        for (TBoidVector::iterator it = mBoids.begin(); it != mBoids.end(); ++it, ++index) {
+          const CVector3f delta = ballPos - it->GetTranslation();
+          const float magSquared = delta.MagSquared();
+          if (magSquared > outerSquared) {
+            if ((index & mUpdateMask) != (mThinkCounter & mUpdateMask) &&
+                magSquared < distanceSquared) {
+              const float weight = 1.f - magSquared / distanceSquared;
+              it->mVel += mPlayerBallPriority * (weight * delta.AsNormalized());
+            }
+          } else if (magSquared < ballRadiusSquared) {
+            if (delta.GetY() > 0.f) {
+              const CVector3f flat(delta.GetX(), 0.f, delta.GetZ());
+              if (flat.CanBeNormalized() && it->mVel.CanBeNormalized()) {
+                const float mag = flat.Magnitude();
+                const CVector3f velocity = it->mVel.AsNormalized();
+                const CVector3f normal = -flat / mag;
+                const float push = 0.1f + (ballRadius - mag);
+                const float dot = CVector3f::Dot(velocity, normal);
+                it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
+                it->mPos += push * normal;
+              }
+            } else if (delta.CanBeNormalized() && it->mVel.CanBeNormalized()) {
+              const float mag = delta.Magnitude();
+              const CVector3f velocity = it->mVel.AsNormalized();
+              const CVector3f normal = -delta / mag;
+              const float push = 0.1f + (ballRadius - mag);
+              const float dot = CVector3f::Dot(velocity, normal);
+              it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
+              it->mPos += push * normal;
+            }
+          }
+        }
       }
       CRandom16& random = *mgr.Random();
       const CVector3f playerPos = player->GetTranslation();

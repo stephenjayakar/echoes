@@ -153,7 +153,7 @@ private:
   float mWeaponKillRadius;                  // 0x1e8
   float mContainmentRadius;                 // 0x1ec
   rstl::reserved_vector< SwarmRenderHelpers::CSwarmSkinnedModelState, 4 > mModelStates; // 0x1f0
-  rstl::reserved_vector< rstl::rc_ptr< CModelData >, 4 > mModels;                        // 0x284
+  rstl::reserved_vector< rstl::ncrc_ptr< CModelData >, 4 > mModels;                       // 0x284
   rstl::reserved_vector< TLockedToken< CGenDescription >, 4 > mParticleDescs;            // 0x2a8
   rstl::reserved_vector< rstl::auto_ptr< CElementGen >, 4 > mParticleGens;               // 0x2dc
   rstl::reserved_vector< int, 4 > mDeathParticleCounts;                                  // 0x300
