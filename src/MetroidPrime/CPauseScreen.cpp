@@ -366,8 +366,9 @@ void CPauseScreen::RestoreTextures() {
            mTexturesToRestore.begin();
        it != mTexturesToRestore.end(); ++it) {
     CTexture& texture = **it->second;
+    const bool restore = it->first;
     bool transferred = false;
-    if (!texture.GetNoSwap() && it->first) {
+    if (!texture.GetNoSwap() && restore) {
       texture.LoadToARAM();
       if (texture.IsARAMTransferInProgress()) {
         while (texture.IsARAMTransferInProgress()) {
