@@ -230,6 +230,11 @@ private:
 };
 
 NESTED_CHECK_SIZEOF(CMetroidAreaCollider, SBoxEdge, 0x70)
+
+namespace rstl {
+RSTL_DECLARE_BITWISE_CONSTRUCTION(CMetroidAreaCollider::SBoxEdge)
+}
+
 NESTED_CHECK_SIZEOF(CMetroidAreaCollider, CMovingAABoxComponents, 0x580)
 NESTED_CHECK_SIZEOF(CMetroidAreaCollider, COctreeLeafCache, 0x910)
 

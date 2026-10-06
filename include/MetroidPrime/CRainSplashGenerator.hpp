@@ -92,4 +92,8 @@ private:
 };
 CHECK_SIZEOF(CRainSplashGenerator, 0x4c)
 
+namespace rstl {
+RSTL_DECLARE_BITWISE_CONSTRUCTION(CRainSplashGenerator::SRainSplash)
+}
+
 #endif // _CRAINSPLASHGENERATOR

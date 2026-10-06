@@ -54,7 +54,7 @@ CRainSplashGenerator::CRainSplashGenerator(const CVector3f& scale, int maxSplash
 , mForceRaining(false) {
   mRainSplashes.reserve(maxSplashes);
   for (int i = 0; i < maxSplashes; ++i) {
-    mRainSplashes.push_back(SRainSplash());
+    mRainSplashes.push_back_unsafe(SRainSplash());
   }
 }
 
