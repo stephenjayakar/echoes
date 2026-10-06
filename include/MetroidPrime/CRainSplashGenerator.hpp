@@ -11,6 +11,8 @@ struct SSkinningWorkspace;
 class CStateManager;
 class CTransform4f;
 
+extern const uchar kSplashLineWidth;
+
 class CRainSplashGenerator {
 private:
   struct SSplashLine {
@@ -29,7 +31,7 @@ private:
     , mEndY(0.f)
     , mSpeed(4.f)
     , mParabolaHeight(0.015625f)
-    , mLineWidth(3)
+    , mLineWidth(kSplashLineWidth)
     , mLength(1)
     , mActive(true) {}
 
