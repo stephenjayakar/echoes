@@ -1484,6 +1484,14 @@ config.libs = [
         ],
     },
     Rel(
+        "DestructibleBarrier",
+        [
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),
+        ],
+        # Float constants are addressed one by one, not through a pooled base register.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "ForgottenObject",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptForgottenObject.cpp"),
