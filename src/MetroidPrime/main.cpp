@@ -851,7 +851,6 @@ CStaticInterference::~CStaticInterference() {}
 
 CGameOptions::~CGameOptions() {}
 
-CWorldState::~CWorldState() {}
 
 
 
