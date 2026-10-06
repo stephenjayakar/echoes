@@ -152,7 +152,7 @@ void CWorldShadow::BuildLightShadowTexture(const CStateManager& mgr, TAreaId are
 
 void CWorldShadow::EnableModelProjectedShadow(const CTransform4f& transform, uint lightIndex,
                                               float scale) const {
-  static float sqrt2 = sqrt(2.0);
+  static float sqrt2 = sqrt(2.f);
   CTransform4f textureTransform = CTransform4f::LookAt(
       CVector3f::Zero(), mLightPosition - mObjectPosition, CVector3f(0.f, 0.f, 1.f));
   CTransform4f rotation = transform;

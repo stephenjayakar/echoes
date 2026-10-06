@@ -287,7 +287,8 @@ bool CPFArea::PathExists(const CPFRegion* source, const CPFRegion* destination, 
 void CPFArea::SetTransform(const CTransform4f& transform) {
   const CTransform4f delta = mTransform.GetInverse() * transform;
   for (int i = 0; i < mPoints.size(); ++i) {
-    mPoints[i].SetPosition(transform.GetTranslation() + delta.Rotate(mPoints[i].GetPosition()));
+    CPFPoint& point = mPoints[i];
+    point.SetPosition(transform.GetTranslation() + delta.Rotate(point.GetPosition()));
   }
   mTransform = transform;
 }
