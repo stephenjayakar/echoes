@@ -45,7 +45,7 @@ void CEntity::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   case kSM_ToggleActive: {
     EScriptObjectMessage next = mActive ? kSM_Deactivate : kSM_Activate;
-    CScriptMsg newMsg(msg.GetSenderId(), msg.GetId(), msg.GetOriginator(), next, msg.GetState());
+    CScriptMsg newMsg(msg.GetSenderId(), msg.GetOriginator(), msg.GetId(), next, msg.GetState());
     AcceptScriptMsg(mgr, newMsg);
     break;
   }
