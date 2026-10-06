@@ -1591,8 +1591,11 @@ bool CPlayer::ValidateFPPosition(CVector3f position, CStateManager& mgr) {
   const CCollidableAABox collisionBounds(
       CAABox(baseBounds.GetMinPoint() + position, baseBounds.GetMaxPoint() + position),
       CMaterialList());
-  return !CGameCollision::DetectCollisionBoolean(mgr, collisionBounds, CTransform4f::Identity(),
-                                                 filter, nearList);
+  if (!CGameCollision::DetectCollisionBoolean(mgr, collisionBounds, CTransform4f::Identity(), filter,
+                                              nearList)) {
+    return true;
+  }
+  return false;
 }
 
 void CPlayer::ApplyGrappleForces(const CFinalInput& input, CStateManager& mgr, float dt) {
