@@ -23,7 +23,7 @@ CSporbTop::CSporbTop(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , mOrbitPosition(GetTranslation())
 , mFreezeDuration(0.f)
 , mCollisionPrimitive(CSphere(pInfo.GetBodyOrigin(),
-                              rstl::max_val(pInfo.GetHalfExtent(), pInfo.GetHeight() * 0.5f)),
+                              rstl::max_val(pInfo.GetHalfExtent(), pInfo.GetHeight() / 2.f)),
                       GetMaterialList())
 , mGenerateType(3)
 , mBaseId(kInvalidUniqueId)

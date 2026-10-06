@@ -20,6 +20,9 @@ struct SLdrSporbProjectile {
 };
 
 inline SLdrSporbProjectile::SLdrSporbProjectile() : editorProperties(), patterned(), actorInformation(), ballSpitParticleEffect(kInvalidAssetId), ballEscapeParticleEffect(kInvalidAssetId) {
+  patterned.health.hI_KnockBackResistance = 2.0f;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
 }
 
 inline SLdrSporbProjectile::~SLdrSporbProjectile() {}
