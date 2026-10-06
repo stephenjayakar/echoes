@@ -358,7 +358,7 @@ CCubeRenderer::CCubeRenderer(IObjectStore& store, COsContext& context, CMemorySy
 , mPrimVertCount(0)
 , mFrustumPlanes(CTransform4f::Identity(), 1.5707964f, 1.f, 1.f, false, 100.f)
 , mDrawableCallback(nullptr)
-, mViewPlane(0.f, CUnitVector3f(CVector3f::Forward(), CUnitVector3f::kN_Yes))
+, mViewPlane(0.f, CUnitVector3f(0.f, 1.f, 0.f, CUnitVector3f::kN_Yes))
 , mPVSMode(0)
 , mBlackTex(kTF_RGB565, 4, 4, 1)
 , mReflectionRamp(kTF_IA8, 32, 32, 1)
