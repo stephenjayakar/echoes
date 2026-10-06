@@ -1541,9 +1541,12 @@ void CPlayer::UpdateMorphBallTransition(float dt, CStateManager& mgr) {
     bounds.GetCenterPoint();
     ClearForcesAndTorques();
     SetAngularVelocityWR(CAxisAngle::Identity());
-    const bool cinematic = mCameraManager->IsInCinematicCamera();
+    bool cinematic = false;
+    if (mCameraManager->IsInCinematicCamera()) {
+      cinematic = true;
+    }
     if (mMorphTime >= mMorphDuration || cinematic) {
-      mTransitionFilterTimer = rstl::max_val(mTransitionFilterTimer, .95f);
+      mTransitionFilterTimer = rstl::max_val(mTransitionFilterTimer, skTransitionFilterStartTime);
       CVector3f displacement = CVector3f::Zero();
       if (CanLeaveMorphBallState(mgr, displacement)) {
         SetTranslation(GetTranslation() + displacement);
@@ -1558,9 +1561,12 @@ void CPlayer::UpdateMorphBallTransition(float dt, CStateManager& mgr) {
   case kMS_Morphing: {
     ClearForcesAndTorques();
     SetAngularVelocityWR(CAxisAngle::Identity());
-    const bool cinematic = mCameraManager->IsInCinematicCamera();
+    bool cinematic = false;
+    if (mCameraManager->IsInCinematicCamera()) {
+      cinematic = true;
+    }
     if (mMorphTime >= mMorphDuration || cinematic) {
-      if (CanEnterMorphBallState()) {
+      if (CanEnterMorphBallState(mgr, 1.f)) {
         ActivateMorphBallCamera(mgr);
         EnterMorphBallState(mgr, mSpawnedMorphBallState);
       } else {

@@ -2319,7 +2319,7 @@ void CPlayer::UpdateMorphBallState(const CFinalInput& input, float dt, CStateMan
       (morphPressed && playerState->GetItemAmount(CPlayerState::kIT_MorphBall, true) != 0)) {
     switch (mMorphBallState) {
     case kMS_Unmorphed:
-      if (CanEnterMorphBallState() && mCanStartMorphTransition) {
+      if (CanEnterMorphBallState(mgr, 0.f) && mCanStartMorphTransition) {
         mMorphTime = 0.f;
         if (state == kMS_Morphed) {
           mMorphDuration = screwAttackIntoBallDuration;
@@ -3291,7 +3291,7 @@ void CPlayer::SetHudDisable(float staticTimer, float fadeOutSpeed, float fadeInS
   }
 }
 
-bool CPlayer::CanEnterMorphBallState() const {
+bool CPlayer::CanEnterMorphBallState(CStateManager& mgr, float dt) const {
   if (mGrappleState != kGS_None || !mCanEnterMorphBall) {
     return false;
   }
