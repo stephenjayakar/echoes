@@ -234,7 +234,7 @@ int CTextParser::ParseInt(const wchar_t* str, int len, bool allowSign) {
 
   int value = 0;
   for (; pos < len; ++pos) {
-    value = value * 10 + str[pos] - L'0';
+    value = value * 10 + (str[pos] - L'0');
   }
   return negative ? -value : value;
 }
