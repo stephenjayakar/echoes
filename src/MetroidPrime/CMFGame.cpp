@@ -404,6 +404,14 @@ CIOWin::EMessageReturn CMFGame::OnMessage(const CArchitectureMessage& message,
   return kMR_Normal;
 }
 
+// Unused and dead-stripped in the target; only its format strings survive in the pool
+// (between DrawWorld's and OnMessage's). Name and body are guesses.
+void CMFGame_DebugStringize(int a, int b, int c) {
+  CBasics::Stringize("%d ", a);
+  CBasics::Stringize("<S>:%d", b);
+  CBasics::Stringize("<E>:%d", c);
+}
+
 void CMFGame::DrawWorld(bool singleViewport) const {
   uint playerCount = mStateManager->GetNumPlayers();
   if (singleViewport) {
