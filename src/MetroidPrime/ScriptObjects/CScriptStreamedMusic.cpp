@@ -53,14 +53,14 @@ void CScriptStreamedMusic::Think(float dt, CStateManager& mgr) {
   }
 }
 
-void CScriptStreamedMusic::StartStream() {
+void CScriptStreamedMusic::StartStream() const {
   if (!mPreload || mPreload->IsReady()) {
     CStreamAudioManager::PlaySoftwareAudio(IsOneShot(mLoop), mFileName, mFadeIn, mFadeOut,
                                           static_cast< uchar >(mVolume), mMusic);
   }
 }
 
-void CScriptStreamedMusic::StopStream() {
+void CScriptStreamedMusic::StopStream() const {
   CStreamAudioManager::StopSoftwareAudio(IsOneShot(mLoop), mFileName);
 }
 
@@ -173,7 +173,7 @@ void CScriptStreamedMusic::SetStereoPair() {
   }
 }
 
-void CScriptStreamedMusic::StopNonDsp() {
+void CScriptStreamedMusic::StopNonDsp() const {
   CStreamAudioManager::FadeBackIn(mFadeOut);
 }
 
