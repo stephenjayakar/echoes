@@ -693,7 +693,7 @@ void CScriptPlatform::SplashThink(const CAABox& bounds, const CFluidPlane& fluid
 
 void CScriptPlatform::AddRider(TUniqueId id, CStateManager& mgr,
                                const rstl::optional_object< float >& decayTimer) {
-  AddRider(mRiders, id, this, mgr, decayTimer);
+  AddRider(mRiders, id, this, mgr, rstl::optional_object< float >(decayTimer));
 }
 
 void CScriptPlatform::AddSlave(TUniqueId id, CStateManager& mgr,
@@ -701,15 +701,15 @@ void CScriptPlatform::AddSlave(TUniqueId id, CStateManager& mgr,
   rstl::vector< SRiders >::iterator it =
       rstl::find(mDynamicSlaves.begin(), mDynamicSlaves.end(),
                  SRiders(id, CTransform4f::Identity(), rstl::optional_object< float >()));
-  if (it != mDynamicSlaves.end()) {
+  if (it == mDynamicSlaves.end()) {
+    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(id))) {
+      actor->AddMaterial(kMT_PlatformSlave, mgr);
+      const CTransform4f xf = GetTransform().GetQuickInverse() * actor->GetTransform();
+      mDynamicSlaves.reserve(mDynamicSlaves.size() + 1);
+      mDynamicSlaves.push_back(SRiders(id, xf, rstl::optional_object< float >(decayTimer)));
+    }
+  } else {
     it->mDecayTimer = decayTimer;
-    return;
-  }
-  if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(id))) {
-    actor->AddMaterial(kMT_PlatformSlave, mgr);
-    const CTransform4f xf = GetTransform().GetQuickInverse() * actor->GetTransform();
-    mDynamicSlaves.reserve(mDynamicSlaves.size() + 1);
-    mDynamicSlaves.push_back(SRiders(id, xf, decayTimer));
   }
 }
 
