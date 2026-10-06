@@ -59,8 +59,8 @@ public:
     uint mIndex : 10;
     uint mRemainingLaunchNotOnSurfaceFrames : 8;
     uint xac_ : 6;
-    signed char mPartitionIndex;
-    uchar xb1_;
+    int mPartitionIndex : 8;
+    uint xb1_ : 8;
     bool mActive : 1;
     bool mInFrustum : 1;
     bool mLaunched : 1;
