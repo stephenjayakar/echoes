@@ -6,6 +6,8 @@
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrAreaDamage.hpp"
 
+#include "rstl/algorithm.hpp"
+
 CScriptAreaDamage::CScriptAreaDamage(TUniqueId uid, const rstl::string& name,
                                      const CEntityInfo& info, const CDamageInfo& damage,
                                      float pulseTime, float graceTime)
@@ -17,6 +19,21 @@ CScriptAreaDamage::CScriptAreaDamage(TUniqueId uid, const rstl::string& name,
 , mGraceTime(graceTime)
 , mPulseAccumulator(0.f) {}
 
+namespace {
+// Guessed name. Matches list entries whose key is the given player ID.
+class CPlayerIdMatcher {
+public:
+  CPlayerIdMatcher(const TUniqueId& uid) : mUid(uid) {}
+  template < typename T >
+  bool operator()(const T& entry) const {
+    return entry.first == mUid;
+  }
+
+private:
+  TUniqueId mUid;
+};
+} // namespace
+
 void CScriptAreaDamage::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CEntity::AcceptScriptMsg(mgr, msg);
   if (!GetActive()) {
@@ -25,48 +42,40 @@ void CScriptAreaDamage::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& ms
 
   switch (msg.GetMessage()) {
   case kSM_Decrement: {
-    const TUniqueId uid = msg.GetOriginator();
-    if (uid == kInvalidUniqueId) {
+    if (msg.GetOriginator() == kInvalidUniqueId) {
       break;
     }
 
-    rstl::list< TExclusion >::iterator exclusion = mExcludedPlayers.begin();
-    while (exclusion != mExcludedPlayers.end() && exclusion->first != uid) {
-      ++exclusion;
-    }
+    rstl::list< TExclusion >::iterator exclusion = rstl::find_if(
+        mExcludedPlayers.begin(), mExcludedPlayers.end(), CPlayerIdMatcher(msg.GetOriginator()));
     if (exclusion == mExcludedPlayers.end()) {
-      mExcludedPlayers.push_back(TExclusion(uid, 0));
+      mExcludedPlayers.push_back(TExclusion(msg.GetOriginator(), 0));
     } else {
       ++exclusion->second;
     }
 
-    rstl::list< TGraceTimer >::iterator timer = mPlayerGraceTimers.begin();
-    while (timer != mPlayerGraceTimers.end() && timer->first != uid) {
-      ++timer;
-    }
+    rstl::list< TGraceTimer >::iterator timer =
+        rstl::find_if(mPlayerGraceTimers.begin(), mPlayerGraceTimers.end(),
+                      CPlayerIdMatcher(msg.GetOriginator()));
     if (timer != mPlayerGraceTimers.end()) {
       mPlayerGraceTimers.erase(timer);
     }
     break;
   }
   case kSM_Increment: {
-    const TUniqueId uid = msg.GetOriginator();
-    if (uid == kInvalidUniqueId) {
+    if (msg.GetOriginator() == kInvalidUniqueId) {
       break;
     }
 
-    rstl::list< TExclusion >::iterator exclusion = mExcludedPlayers.begin();
-    while (exclusion != mExcludedPlayers.end() && exclusion->first != uid) {
-      ++exclusion;
-    }
+    rstl::list< TExclusion >::iterator exclusion = rstl::find_if(
+        mExcludedPlayers.begin(), mExcludedPlayers.end(), CPlayerIdMatcher(msg.GetOriginator()));
     if (exclusion != mExcludedPlayers.end() && exclusion->second-- == 0) {
       mExcludedPlayers.erase(exclusion);
     }
 
-    rstl::list< TGraceTimer >::iterator timer = mPlayerGraceTimers.begin();
-    while (timer != mPlayerGraceTimers.end() && timer->first != uid) {
-      ++timer;
-    }
+    rstl::list< TGraceTimer >::iterator timer =
+        rstl::find_if(mPlayerGraceTimers.begin(), mPlayerGraceTimers.end(),
+                      CPlayerIdMatcher(msg.GetOriginator()));
     if (timer != mPlayerGraceTimers.end()) {
       mPlayerGraceTimers.erase(timer);
     }
