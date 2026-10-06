@@ -436,11 +436,10 @@ void CActorLights::AddOverflowToLights(const CLight& light, const CVector3f& col
 
 void CActorLights::MoveAmbienceToLights(const CVector3f& color) {
   if (mAmbienceGenerated || !sUseOverflowLight || mAreaLights.empty()) {
-    const CVector3f ambient(mAmbientColor.GetRed(), mAmbientColor.GetGreen(),
-                            mAmbientColor.GetBlue());
-    const CVector3f combined = ambient + color / 3.f;
-    mAmbientColor.Set(rstl::min_val(1.f, combined.GetX()), rstl::min_val(1.f, combined.GetY()),
-                      rstl::min_val(1.f, combined.GetZ()), 1.f);
+    const float red = rstl::min_val(1.f, (1.f / 3.f) * color.GetX() + mAmbientColor.GetRed());
+    const float green = rstl::min_val(1.f, (1.f / 3.f) * color.GetY() + mAmbientColor.GetGreen());
+    const float blue = rstl::min_val(1.f, (1.f / 3.f) * color.GetZ() + mAmbientColor.GetBlue());
+    mAmbientColor.Set(red, green, blue, 1.f);
     return;
   }
 
@@ -448,8 +447,8 @@ void CActorLights::MoveAmbienceToLights(const CVector3f& color) {
   float r, g, b;
   light.GetColor().Get(r, g, b);
   CVector3f useColor = color + CVector3f(r, g, b);
-  const float maxComponent =
-      rstl::max_val(rstl::max_val(useColor.GetX(), useColor.GetY()), useColor.GetZ());
+  float maxComponent = rstl::max_val(useColor.GetX(), useColor.GetY());
+  maxComponent = rstl::max_val(maxComponent, useColor.GetZ());
   if (maxComponent > FLT_EPSILON) {
     useColor *= 1.f / maxComponent;
   }
