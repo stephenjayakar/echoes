@@ -442,7 +442,7 @@ public:
   void UpdateDamageTimers(float dt);
   bool IsPlayerDeadEnough(const CStateManager& mgr) const;
   void CollectBallTransitionAnimationTokens();
-  uint GetDamageWeaponType() const; // Reconstructed name; retained damage-event weapon type.
+  int GetDamageWeaponType() const; // Reconstructed name; retained damage-event weapon type.
   const CColor& GetScreenFilterColor() const { return mScreenFilterColor; } // Guessed name.
   TUniqueId GetEnemyLockOnActorId() const { return mEnemyLockOnActorId; }   // Guessed name.
   char GetEnemyLockOnCount() const { return mEnemyLockOnCount; }            // Guessed name.
@@ -616,6 +616,8 @@ public:
                             CGameHint::EBreakHintType breakType);
 
 private:
+  friend class CSamusHud;
+
   NPlayer::EPlayerMovementState mMovementState;                  // 0x2d0
   rstl::vector< CToken > mBallTransitionsRes;                    // 0x2d4
   TUniqueId mAttachedActor;                                      // 0x2e4

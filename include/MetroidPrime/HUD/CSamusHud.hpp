@@ -120,7 +120,7 @@ private:
   rstl::reserved_vector< bool, 4 > BuildPlayerHasVisors(const CStateManager& mgr) const;
   void UpdateBootSequence(float dt, const CStateManager& mgr);
   void UpdateStateTransition(float dt, const CStateManager& mgr);
-  void UpdateHudDamage(float dt, const CStateManager& mgr);
+  void UpdateHudDamage(float dt, const CStateManager& mgr, uint helmetVisibility);
   CColor GetVisorHudLightColor(const CColor& color, const CStateManager& mgr) const;
   void UpdateHudDynamicLights(float dt, const CStateManager& mgr);
   int FindEmptyHudLightSlot(const CLight& light) const;
