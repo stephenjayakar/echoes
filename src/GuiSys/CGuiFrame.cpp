@@ -114,8 +114,9 @@ void CGuiFrame::LoadWidgetsInGame(CInputStream& in, CSimplePool* pool, uint vers
 
 void CGuiFrame::Initialize() {
   SortDrawOrder();
-  mRootWidget->RecalcWidgetColor(kTM_ChildrenAndSiblings);
-  mRootWidget->DispatchInitialize();
+  CGuiWidget* root = mRootWidget;
+  root->RecalcWidgetColor(kTM_ChildrenAndSiblings);
+  root->DispatchInitialize();
 }
 
 void CGuiFrame::Draw(const CGuiWidgetDrawParms& parms) const {
@@ -245,7 +246,7 @@ void CGuiFrame::SortDrawOrder() {
 
 CGuiWidget* CGuiFrame::FindWidget(const rstl::string& name) const {
   const short id = mWidgetIds.FindWidgetID(name);
-  return id != -1 ? FindWidget(id) : nullptr;
+  return id != CGuiWidgetIdDB::kInvalidWidgetId ? FindWidget(id) : nullptr;
 }
 
 CGuiWidget* CGuiFrame::FindWidget(short id) const {
