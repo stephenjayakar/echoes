@@ -7,6 +7,8 @@
 #include "MetroidPrime/CStateManager.hpp"
 
 extern "C" ushort lbl_8041E2E6;
+extern "C" const char* const lbl_8041D394;
+extern "C" const char* const lbl_8041D398;
 
 CPowerBeam::CPowerBeam(TUniqueId playerId, const CVector3f& scale, int unk)
 : CGunWeapon(kWT_Power, playerId, scale, unk)
@@ -168,9 +170,9 @@ void CPowerBeam::EnableSecondaryFx(ESecondaryFxType type) {
 }
 
 void CPowerBeam::InitializeResources(CStateManager& mgr) {
-  if (mSubtypeBasePose == 0) {
+  if (!mResourcesAllocated) {
     CGunWeapon::InitializeResources(mgr);
-    mShotSmoke = gpSimplePool->GetObj("ShotSmoke");
-    mPower2nd1 = gpSimplePool->GetObj("Power2nd_1");
+    mShotSmoke = gpSimplePool->GetObj(lbl_8041D394);
+    mPower2nd1 = gpSimplePool->GetObj(lbl_8041D398);
   }
 }

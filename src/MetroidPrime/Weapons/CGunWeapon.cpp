@@ -30,6 +30,10 @@
 #include "MetroidPrime/Weapons/WeaponSound.hpp"
 #include "Weapons/CWeaponDescription.hpp"
 
+// Asset-name pointers defined in another TU (unsplit .sdata2).
+extern "C" const char* const lbl_8041D3BC; // "Power_Anim_DGRP"
+extern "C" const char* const lbl_8041D3C0; // "VariaArm"
+
 static const char* const skWeaponNames[] = {
     "PowerBeam", "PowerBall",  "IceBeam",    "IceBall",
     "WaveBeam",  "WaveBall_1", "PlasmaBeam", "PlasmaBall",
@@ -72,7 +76,7 @@ CPlayerState::EBeamId GetWeaponIndex(EWeaponType type) {
 CGunWeapon::CGunWeapon(EWeaponType type, TUniqueId playerId, const CVector3f& scale, int flags)
 : mScale(scale)
 , mCurrentPlayerSuit(CPlayerState::kPS_Varia)
-, mArmModel(gpSimplePool->GetObj("VariaArm"))
+, mArmModel(gpSimplePool->GetObj(lbl_8041D3C0))
 , mXferEffect(gpSimplePool->GetObj(skBeamXferNames[GetWeaponIndex(type)]))
 , mRainSplashGenerator(nullptr)
 , mWeaponType(type)
@@ -681,7 +685,7 @@ void CGunWeapon::FillTokenVector(const rstl::vector< SObjectTag >& tags,
 void CGunWeapon::BuildDependencyList(CPlayerState::EBeamId beam) {
   const TLockedToken< CDependencyGroup > dependencies =
       gpSimplePool->GetObj(skDependencyNames[beam]);
-  const TLockedToken< CDependencyGroup > animDependencies = gpSimplePool->GetObj("Power_Anim_DGRP");
+  const TLockedToken< CDependencyGroup > animDependencies = gpSimplePool->GetObj(lbl_8041D3BC);
   mDeps.reserve(dependencies->GetObjectTagVector().size() +
                 animDependencies->GetObjectTagVector().size());
   FillTokenVector(dependencies->GetObjectTagVector(), mDeps, true);
@@ -713,7 +717,7 @@ void CGunWeapon::AsyncLoadSuitArm() {
 void CGunWeapon::LoadSuitArm() {
   if (mArmModel.IsLoaded()) {
     mSuitArmModelData =
-        CModelData(CStaticRes(NWeaponTypes::get_asset_id_from_name("VariaArm"), mScale));
+        CModelData(CStaticRes(NWeaponTypes::get_asset_id_from_name(lbl_8041D3C0), mScale));
     mSuitArmLocked = false;
     if (!x271_26) {
       mSuitArmModelData->LockTextures();
