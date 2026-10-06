@@ -249,23 +249,20 @@ bool SScanObjectLess::operator()(TUniqueId id, const CPlayerTargeting::SScanObje
 
 int CPlayerTargeting::GetScanTargetIndex(const CStateManager& mgr, const TUniqueId& id) const {
   const TUniqueId resolved = ResolveScanTarget(mgr, id);
-  if (resolved == kInvalidUniqueId) {
-    return 0;
-  }
-
-  if (!IsInVisibleArea(mgr, mgr.GetObjectById(id))) {
+  if (resolved == kInvalidUniqueId || !IsInVisibleArea(mgr, mgr.GetObjectById(id))) {
     return 0;
   }
 
   rstl::vector< SScanObject >::const_iterator it =
       rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), id, SScanObjectLess());
   if (it != mScanObjects.end()) {
-    return it - mScanObjects.begin() + 2;
+    return rstl::distance(mScanObjects.begin(), it) + 2;
   }
 
-  it = rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), resolved, SScanObjectLess());
-  if (it != mScanObjects.end()) {
-    return it - mScanObjects.begin() + 2;
+  rstl::vector< SScanObject >::const_iterator resolvedIt =
+      rstl::binary_find(mScanObjects.begin(), mScanObjects.end(), resolved, SScanObjectLess());
+  if (resolvedIt != mScanObjects.end()) {
+    return rstl::distance(mScanObjects.begin(), resolvedIt) + 2;
   }
 
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(resolved));
