@@ -219,8 +219,10 @@ void CMemoryCard::MergeEnvironmentVariables(const rstl::vector< EnvironmentVaria
   destination.reserve(destination.size() + source.size());
   for (rstl::vector< EnvironmentVariable >::const_iterator it = source.begin(); it != source.end();
        ++it) {
-    if (rstl::find(destination.begin(), destination.end(), *it) == destination.end()) {
-      destination.push_back(*it);
+    rstl::vector< EnvironmentVariable >::iterator found =
+        rstl::find(destination.begin(), destination.end(), *it);
+    if (found == destination.end()) {
+      destination.push_back_unsafe(*it);
     }
   }
 }
