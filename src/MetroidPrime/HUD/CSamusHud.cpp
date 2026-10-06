@@ -972,8 +972,8 @@ void CSamusHud::UpdateHudColor() {
 }
 
 void CSamusHud::UpdateEnergy(float dt, const CStateManager& mgr, bool init) {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
+  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
   const float energy = rstl::max_val(0.f, CMath::CeilingF(state.GetHealthInfo().GetHP()));
   const int numEnergyTanks = state.GetItemCapacity(CPlayerState::kIT_EnergyTanks);
   const bool energyLow = player.IsEnergyLow();
@@ -1036,7 +1036,8 @@ void CSamusHud::UpdateEnergy(float dt, const CStateManager& mgr, bool init) {
     CColor damageColor = CColor::Lerp(finalFilled, gpTweakGuiColors->GetEnergyBarDamageColor(),
                                       mDamageHighlightRemaining / mDamageHighlightDuration);
     if (mEnergyLow) {
-      damageColor = CColor::Lerp(damageColor, CColor(1.f, 0.f, 0.f, 1.f), mEnergyLowTimer);
+      const CColor red(1.f, 0.f, 0.f, 1.f);
+      damageColor = CColor::Lerp(damageColor, red, mEnergyLowTimer);
     }
     mEnergyBar->SetFilledColor(damageColor);
     mEnergyBar->SetShadowColor(finalShadow);
@@ -1046,7 +1047,8 @@ void CSamusHud::UpdateEnergy(float dt, const CStateManager& mgr, bool init) {
     }
   }
   if (mBossEnergy.get() != nullptr) {
-    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mgr.GetBossId()))) {
+    const TUniqueId bossId = mgr.GetBossId();
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(bossId))) {
       if (const CHealthInfo* health = actor->GetHealthInfo()) {
         const float bossEnergy = CMath::CeilingF(health->GetHP());
         const float maxEnergy = mgr.GetTotalBossEnergy();
