@@ -1947,7 +1947,8 @@ void CMorphBall::UpdateScrewAttackRecovery(float dt) {
   }
 
   if (mScrewAttackExitAnimationFrames != 0) {
-    mPlayer.BodyController()->CommandMgr().DeliverCmd(CPBCJumpCmd(0, 4));
+    CPlayerBodyStateCmdMgr& cmdMgr = mPlayer.BodyController()->CommandMgr();
+    cmdMgr.DeliverCmd(CPBCJumpCmd(0, 4));
     --mScrewAttackExitAnimationFrames;
   }
 
@@ -1962,10 +1963,9 @@ void CMorphBall::UpdateScrewAttackRecovery(float dt) {
 
   if (mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround) {
     ++mScrewAttackGroundedFrames;
-    CVector2f flatVelocity(velocity.GetX(), velocity.GetY());
+    const CVector2f flatVelocity = CVector2f(velocity.GetX(), velocity.GetY());
     const CVector3f dampedVelocity =
-        velocity - static_cast< float >(pow(0.05f, 60.f * dt)) *
-                       CVector3f(flatVelocity.GetX(), flatVelocity.GetY(), 0.f);
+        velocity - static_cast< float >(pow(0.05f, 60.f * dt)) * CVector3f(flatVelocity, 0.f);
     mPlayer.SetVelocityWR(dampedVelocity);
   }
 
