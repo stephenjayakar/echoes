@@ -23,17 +23,14 @@
 #include "MetroidPrime/Weapons/WeaponCommon.hpp"
 #include "MetroidPrime/Weapons/WeaponSound.hpp"
 
-static const char* const kBeamLocators[] = {"LGBeam", "LGBeam", "LGBeamLight"};
-static const char* const kGrappleGear[] = {"GrappleGear", "GrappleGear", ""};
-static const rstl::pair< const char*, const char* > kSuitModels[] = {
-    rstl::pair< const char*, const char* >("", ""),
-    rstl::pair< const char*, const char* >("LeftArm_Dark_CMDL", "LeftArm_Dark_CSKR"),
-    rstl::pair< const char*, const char* >("LeftArm_Light_CMDL", "LeftArm_Light_CSKR")};
-// Guessed names. Gun PAS states reuse numeric IDs from the actor PAS domain.
-enum EArmPASState { kAPS_Fidget = 10, kAPS_Grapple = 11 };
-static const ushort kFireSfx[] = {0x1d9, 0x258a};
-static const ushort kLoopSfx[] = {0x1da, 0x2589};
-static const ushort kSwooshSfx[] = {0x1df, 0x1df};
+// Asset-name pointers defined in another TU (unsplit .sdata2).
+extern "C" const char* const lbl_8041D360; // "SamusArmFSM"
+extern "C" const char* const lbl_8041D37C; // "grappleArm"
+extern "C" const char* const lbl_8041D380; // "grappleSegment"
+extern "C" const char* const lbl_8041D384; // "grappleClaw"
+extern "C" const char* const lbl_8041D388; // "grappleHit"
+extern "C" const char* const lbl_8041D38C; // "grappleMuzzle"
+extern "C" const char* const lbl_8041D390; // "grappleSwoosh"
 
 static const TStateMachineState< CGrappleArm >::STriggerFunction kTriggerFunctions[] = {
     {"HoldGun", &CGrappleArm::HoldGun},
@@ -51,26 +48,41 @@ static const TStateMachineState< CGrappleArm >::SStateFunction kStateFunctions[]
     {"Fidget", &CGrappleArm::Fidget},
     {"Grappling", &CGrappleArm::Grappling}};
 
+static const char* const kGrappleLocator = "grapLocator_SDK";
+static const char* const kBeamLocators[] = {"LGBeam", "LGBeam", "LGBeamLight"};
+// Defined in another TU (unsplit .rodata).
+extern const char* const kGrappleGear[];
+static const rstl::pair< const char*, const char* > kSuitModels[] = {
+    rstl::pair< const char*, const char* >("", ""),
+    rstl::pair< const char*, const char* >("LeftArm_Dark_CMDL", "LeftArm_Dark_CSKR"),
+    rstl::pair< const char*, const char* >("LeftArm_Light_CMDL", "LeftArm_Light_CSKR")};
+// Guessed names. Gun PAS states reuse numeric IDs from the actor PAS domain.
+enum EArmPASState { kAPS_Fidget = 10, kAPS_Grapple = 11 };
+static const ushort kFireSfx[] = {0x1d9, 0x258a};
+static const ushort kLoopSfx[] = {0x1da, 0x2589};
+static const ushort kSwooshSfx[] = {0x1df, 0x1df};
+
 CGrappleArm::CGrappleArm(const CVector3f& scale, TUniqueId playerId, bool multiplayer)
 : CEntity(kInvalidUniqueId, CEntity::NullEntityInfo, rstl::string_l("SamusArm"), 0)
 , mCurrentSuit(CPlayerState::kPS_Varia)
 , mLoadedSuit(CPlayerState::kPS_Invalid)
 , mArmModel(
-      CModelData(CAnimRes(NWeaponTypes::get_asset_id_from_name("grappleArm"), 5, scale, -1, false)))
-, mArmCharacter(gpSimplePool->GetObj("grappleArm"))
+      CModelData(CAnimRes(NWeaponTypes::get_asset_id_from_name(lbl_8041D37C), 5, scale, -1, false)))
+, mGrappleGearModel(CModelData::CModelDataNull())
+, mArmCharacter(gpSimplePool->GetObj(lbl_8041D37C))
 , mBeamId(CPlayerState::kBI_Power)
-, mStateMachineToken(gpSimplePool->GetObj("SamusArmFSM"))
+, mStateMachineToken(gpSimplePool->GetObj(lbl_8041D360))
 , mTransform(CTransform4f::Identity())
 , mAuxTransform(CTransform4f::Identity())
 , mGrappleLocatorXf(CTransform4f::Identity())
 , mScale(scale)
 , mGrapplePointPosition(CVector3f::Zero())
 , mGunController(nullptr)
-, mGrappleSegment(gpSimplePool->GetObj("grappleSegment"))
-, mGrappleClaw(gpSimplePool->GetObj("grappleClaw"))
-, mGrappleHitDesc(gpSimplePool->GetObj("grappleHit"))
-, mGrappleMuzzle(gpSimplePool->GetObj("grappleMuzzle"))
-, mGrappleSwoosh(gpSimplePool->GetObj("grappleSwoosh"))
+, mGrappleSegment(gpSimplePool->GetObj(lbl_8041D380))
+, mGrappleClaw(gpSimplePool->GetObj(lbl_8041D384))
+, mGrappleHitDesc(gpSimplePool->GetObj(lbl_8041D388))
+, mGrappleMuzzle(gpSimplePool->GetObj(lbl_8041D38C))
+, mGrappleSwoosh(gpSimplePool->GetObj(lbl_8041D390))
 , mSegmentGenerator(rs_new CElementGen(mGrappleSegment))
 , mClawGenerator(rs_new CElementGen(mGrappleClaw))
 , mHitGenerator(rs_new CElementGen(mGrappleHitDesc))
@@ -104,7 +116,9 @@ CGrappleArm::CGrappleArm(const CVector3f& scale, TUniqueId playerId, bool multip
   if (multiplayer) {
     mMultiplayerSegmentGenerator->SetParticleEmission(false);
   }
-  for (int i = 0; i < mSwooshGenerator->GetSwooshCount() - 1; ++i) {
+  int i = 0;
+  CParticleSwoosh* swoosh = mSwooshGenerator.get();
+  for (; i < swoosh->GetSwooshCount() - 1; ++i) {
     mSwooshGenerator->SetWarmUp();
     mSwooshGenerator->Update(0.0);
     if (multiplayer) {
@@ -119,7 +133,7 @@ CGrappleArm::CGrappleArm(const CVector3f& scale, TUniqueId playerId, bool multip
   CAnimData& animData = *mArmModel->AnimationData();
   animData.SetPoseBuilt(false);
   animData.BuildPose();
-  mGrappleLocator = animData.GetLocatorSegId(rstl::string_l("grapLocator_SDK"));
+  mGrappleLocator = animData.GetLocatorSegId(rstl::string_l(kGrappleLocator));
   for (int i = 0; i < 3; ++i) {
     mBeamLocators.push_back(animData.GetLocatorSegId(rstl::string_l(kBeamLocators[i])));
   }
@@ -136,9 +150,15 @@ CGrappleArm::CGrappleArm(const CVector3f& scale, TUniqueId playerId, bool multip
 void CGrappleArm::BuildBeamDependencyList(bool multiplayer) {
   const CAnimData& animData = *mArmModel->GetAnimationData();
   const CPASAnimState& state = *animData.GetPASDatabase().GetAnimState(kAPS_Fidget);
+  rstl::vector< int > anims;
+  const int numAnims = state.GetNumAnims();
+  anims.reserve(numAnims);
+  for (int i = 0; i < numAnims; ++i) {
+    anims.push_back_unsafe(state.GetAnimInfoByIndex(i)->GetAnimId());
+  }
   rstl::set< CPrimitive > primitives;
-  for (int i = 0; i < state.GetNumAnims(); ++i) {
-    const CAnimPlaybackParms parms(state.GetAnimInfoByIndex(i)->GetAnimId(), -1, 1.f, true);
+  for (rstl::vector< int >::const_iterator it = anims.begin(); it != anims.end(); ++it) {
+    const CAnimPlaybackParms parms(*it, -1, 1.f, true);
     animData.GetAnimationPrimitives(parms, primitives);
   }
   rstl::set< SObjectTag > animTags;
@@ -148,15 +168,16 @@ void CGrappleArm::BuildBeamDependencyList(bool multiplayer) {
   }
 
   for (int i = 0; i < 4; ++i) {
-    CModelData model(CAnimRes(NWeaponTypes::get_asset_id_from_name("grappleArm"),
-                              multiplayer ? 5 : i + 1, CVector3f::One(), 0, true));
+    int charIdx = multiplayer ? 5 : i + 1;
+    CModelData model(CAnimRes(NWeaponTypes::get_asset_id_from_name(lbl_8041D37C), charIdx,
+                              CVector3f::One(), 0, true));
     rstl::vector< SObjectTag > tags;
     model.GetAnimationData()->CollectAnimationResources(tags);
     rstl::vector< CToken > tokens;
     tokens.reserve(tags.size());
-    for (int j = 0; j < tags.size(); ++j) {
-      if (animTags.find(tags[j]) != animTags.end()) {
-        tokens.push_back(gpSimplePool->GetObj(tags[j]));
+    for (rstl::vector< SObjectTag >::const_iterator it = tags.begin(); it != tags.end(); ++it) {
+      if (animTags.find(*it) != animTags.end()) {
+        tokens.push_back_unsafe(gpSimplePool->GetObj(*it));
       }
     }
     mBeamDependencies.push_back(tokens);
