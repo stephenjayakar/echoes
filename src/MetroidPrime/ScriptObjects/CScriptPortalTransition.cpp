@@ -342,9 +342,10 @@ CTransform4f CPortalTransition::GetCameraTransform(ECameraPass pass) const {
 }
 
 void CPortalTransition::Draw() const {
-  gpRender->SetPerspective(GetCameraFov(mCameraPass) * 0.7f, 1.42f,
-                           CCameraManager::GetDefaultFirstPersonNearClipDistance(),
-                           CCameraManager::GetDefaultFirstPersonFarClipDistance());
+  const float fov = GetCameraFov(mCameraPass);
+  const float znear = CCameraManager::GetDefaultFirstPersonNearClipDistance();
+  const float zfar = CCameraManager::GetDefaultFirstPersonFarClipDistance();
+  gpRender->SetPerspective(fov * 0.7f, 1.42f, znear, zfar);
   CGraphics::SetViewPointMatrix(GetCameraTransform(mCameraPass));
   CActorLights lights(0, CVector3f::Zero(), 4, 4, 0.f, false, false, false, false);
   lights.BuildFakeLightList(mLights, CColor(0.f, 0.f, 0.f, 1.f));
