@@ -85,8 +85,8 @@ public:
     if (mCount == count) {
       return;
     }
-    if (count < mCount) {
-      destroy(data() + count, data() + mCount);
+    if (mCount > count) {
+      destroy(begin() + count, end());
     } else {
       uninitialized_fill_n(data() + mCount, count - mCount, item);
     }

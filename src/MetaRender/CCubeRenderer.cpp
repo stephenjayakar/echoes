@@ -882,7 +882,7 @@ void CCubeRenderer::EndPrimitive() {
 void CCubeRenderer::SetAmbientColor(const CColor& color) { CGraphics::SetAmbientColor(color); }
 
 void CCubeRenderer::SetPerspective(float fovy, float width, float height, float znear, float zfar) {
-  CGraphics::SetPerspective(fovy, width / height, znear, zfar);
+  CGraphics::SetPerspective(fovy, (width / height) * CGraphics::GetPixelAspectRatio(), znear, zfar);
 }
 
 void CCubeRenderer::SetPerspective(float fovy, float aspect, float znear, float zfar) {
@@ -1000,9 +1000,10 @@ void CCubeRenderer::CacheReflection(void (*callback)(void*, const CVector3f&), v
 }
 
 void CCubeRenderer::DrawSpaceWarp(const CVector3f& point, float strength) {
-  if (point.GetZ() < 1.f) {
-    _DrawSpaceWarp(point, strength);
+  if (point.GetZ() >= 1.f) {
+    return;
   }
+  _DrawSpaceWarp(point, strength);
 }
 
 void CCubeRenderer::_DrawSpaceWarp(const CVector3f& point, float strength) {
@@ -2796,9 +2797,9 @@ void CCubeRenderer::fn_802679DC(const void* unused, const SModelRenderData& mode
   model.DrawFlat(flags, true, true);
 }
 
-void CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
+bool CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
                                                  const CTransform4f& xf, bool alternate) {
-  CTransform4f textureTransform = xf * CGraphics::GetModelMatrix();
+  CTransform4f textureTransform = xf.MultiplyIgnoreTranslation(CGraphics::GetModelMatrix());
   textureTransform.SetTranslation(CVector3f::Zero());
   GXLoadTexMtxImm(textureTransform.GetCStyleMatrix(), matrix, GX_MTX3x4);
   static const float environmentMatrix[3][4] = {
@@ -2812,6 +2813,7 @@ void CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
       {0.f, 0.f, 0.f, 1.f},
   };
   GXLoadTexMtxImm(alternate ? alternateMatrix : environmentMatrix, postMatrix, GX_MTX3x4);
+  return true;
 }
 
 void CCubeRenderer::LoadScrollingTextureMatrix(uint matrix, const CVector2f& scroll,
