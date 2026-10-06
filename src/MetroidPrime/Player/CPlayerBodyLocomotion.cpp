@@ -36,8 +36,9 @@ CPlayerBodyController::SLocomotionState::SLocomotionState(CActor& actor)
       const rstl::pair< float, int > best = database.FindBestAnimation(parms, -1);
       float speed = 0.f;
       if (best.second != -1) {
-        speed = actor.GetAverageAnimVelocity(best.second);
-        speed = category != 0 ? scale.GetY() * speed : 0.f;
+        const float velocity = actor.GetAverageAnimVelocity(best.second);
+        speed = velocity * scale.GetY();
+        speed = category != 0 ? speed : 0.f;
       }
       mAnims[mode][category] = rstl::pair< int, float >(best.second, speed);
     }
@@ -90,11 +91,12 @@ void CPlayerBodyController::SLocomotionState::UpdateAnimation(CPlayerBodyControl
   if (force || (mPrimeTime >= 0.2f && !mAnimationChangeDisabled)) {
     const ECategory previous = force ? kC_Invalid : mCategory;
     float speed = 0.f;
+    const CPlayerBodyStateCmdMgr& commands = controller.CommandMgr();
     const CPBCLocomotionCmd* command =
-        static_cast< const CPBCLocomotionCmd* >(controller.CommandMgr().GetCmd(kPBSC_Locomotion));
+        static_cast< const CPBCLocomotionCmd* >(commands.GetCmd(kPBSC_Locomotion));
     if (command) {
       speed = command->GetMovement().Magnitude();
-    } else if (controller.CommandMgr().GetCmd(kPBSC_ContinueLocomotion)) {
+    } else if (commands.GetCmd(kPBSC_ContinueLocomotion)) {
       if (CPlayer* player = TCastToPtr< CPlayer >(&controller.GetPlayer())) {
         speed = player->GetDampedClampedVelocityWR().ToVec2f().Magnitude();
       }
@@ -136,13 +138,17 @@ void CPlayerBodyController::SLocomotionState::UpdateStrafe(float speed,
   CVector3f movement = command->GetMovement();
   movement = controller.GetPlayer().GetTransform().TransposeRotate(movement);
   const CVector3f squared = CVector3f::ByElementMultiply(movement, movement);
-  EDirection direction;
-  if (squared.GetX() <= squared.GetY()) {
-    direction = movement.GetY() < 0.f ? kD_Backward : kD_Forward;
+  if ((squared.GetX() <= squared.GetY()) == false) {
+    if (movement.GetX() < 0.f) {
+      UpdateDirectional(speed, controller, previous, kD_Left);
+    } else {
+      UpdateDirectional(speed, controller, previous, kD_Right);
+    }
+  } else if (movement.GetY() < 0.f) {
+    UpdateDirectional(speed, controller, previous, kD_Backward);
   } else {
-    direction = movement.GetX() < 0.f ? kD_Left : kD_Right;
+    UpdateDirectional(speed, controller, previous, kD_Forward);
   }
-  UpdateDirectional(speed, controller, previous, direction);
 }
 
 void CPlayerBodyController::SLocomotionState::UpdateIdle(CPlayerBodyController& controller,
