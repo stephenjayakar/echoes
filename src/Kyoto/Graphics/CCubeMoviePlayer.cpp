@@ -57,13 +57,12 @@ struct CMoviePlayer::SIndexLoad {
   rstl::single_ptr< uchar > mBuffer;
   int mState;
 
-  ~SIndexLoad();
+  ~SIndexLoad() {}
 
   SIndexLoad()
   : mBuffer(static_cast< uchar* >(CMemory::Alloc(64, IAllocator::kHI_RoundUpLen)))
   , mState(0) {}
 };
-CMoviePlayer::SIndexLoad::~SIndexLoad() {}
 
 CMoviePlayer::CTHPTextureSet::CTHPTextureSet(void* y, void* u, void* v, void* audio)
 : mY(static_cast< uchar* >(y))
