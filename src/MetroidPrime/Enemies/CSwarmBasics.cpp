@@ -312,9 +312,8 @@ void CSwarmBasics::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
           uid, rstl::string_l(""),
           CEntityInfo(area, rstl::vector< SConnection >(), true, kInvalidEditorId), 0,
           CTransform4f::Identity(), CModelData::CModelDataNull(), CMaterialList(kMT_SeekerTarget),
-          CAABox(CVector3f(-mBoidRadius, -mBoidRadius, -mBoidRadius),
-                 CVector3f(mBoidRadius, mBoidRadius, mBoidRadius)),
-          SMoverData(1.f), CActorParameters(), CPhysicsActor::skDefaultStepData);
+          CAABox(-mBoidRadius, -mBoidRadius, -mBoidRadius, mBoidRadius, mBoidRadius, mBoidRadius),
+          SMoverData(1.f), CActorParameters::None(), CPhysicsActor::skDefaultStepData);
       act->AddMaterial(kMT_SeekerTarget, mgr);
       act->RemoveMaterial(kMT_Unknown59, mgr);
       if (act) {
@@ -390,7 +389,7 @@ void CSwarmBasics::CreateBoid(CStateManager& mgr, int index) {
       const CVector3f pos = waypoint->GetTranslation();
       const CCollisionSurface surface(FindBestCollisionInBox(mgr, pos));
       const CVector3f projected = ProjectPointToPlane(pos, surface.GetVert(0), surface.GetNormal());
-      const CVector3f translation = projected + mBoidRadius * surface.GetNormal();
+      const CVector3f translation = projected + surface.GetNormal() * mBoidRadius;
       mBoids[index].mTransform = CTransform4f::Translate(translation);
       if (close_enough(CVector3f::Dot(CVector3f(0.f, 0.f, 1.f), surface.GetNormal()), -1.f)) {
         mBoids[index].mTransform.SetRotation(
@@ -403,8 +402,9 @@ void CSwarmBasics::CreateBoid(CStateManager& mgr, int index) {
       mBoids[index].mActive = true;
       mBoids[index].mVelocity = CVector3f::Zero();
       mBoids[index].mTargetWaypoint = nextId;
-      const CUnitVector3f normal((next->GetTranslation() - waypoint->GetTranslation()).AsNormalized());
-      mBoids[index].mSurfacePlane = CPlane(next->GetTranslation(), normal);
+      mBoids[index].mSurfacePlane =
+          CPlane(next->GetTranslation(),
+                 CUnitVector3f((next->GetTranslation() - waypoint->GetTranslation()).AsNormalized()));
       mBoids[index].mFramesNotOnSurface = 0;
       mBoids[index].mFreezeTimer = 0.f;
       mBoids[index].xb2_3 = false;
