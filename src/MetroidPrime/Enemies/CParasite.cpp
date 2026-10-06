@@ -37,6 +37,12 @@ float CParasite::skAttackVelocity = 15.f / skAttackTime;
 float CParasite::skRetreatTime = 2.f * CMath::SqrtF(2.5f / CPhysicsActor::GravityConstant());
 float CParasite::skRetreatVelocity = 3.f / skRetreatTime;
 
+struct SSphereJointInfo {
+  const char* name;
+  float radius;
+};
+static const SSphereJointInfo skIceJoints[] = {{"Skeleton_Root", 0.f}};
+
 CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor,
                      const CEntityInfo& info, const CTransform4f& xf, const CModelData& mData,
                      const CPatternedInfo& pInfo, EBodyType bodyType, float maxTelegraphReactDist,
@@ -966,7 +972,93 @@ void CParasite::Touch(CActor& actor, CStateManager& mgr) { CPatterned::Touch(act
 
 void CParasite::UpdatePFDestination(CStateManager&) {}
 
-void CParasite::DoFlockingBehavior(CStateManager& mgr) {}
+static EMaterialTypes skFlockMaterial = kMT_Character;
+
+void CParasite::DoFlockingBehavior(CStateManager& mgr) {
+  CVector3f upVec = GetTransform().GetUp();
+  rstl::reserved_vector< TUniqueId, 1024 > parasiteList;
+  float radius = mParasiteSearchRadius;
+  const CVector3f position = GetTranslation();
+  CAABox aabb(position - CVector3f(radius, radius, radius),
+              position + CVector3f(radius, radius, radius));
+  if ((mThinkCounter % 6) == 0) {
+    rstl::reserved_vector< TUniqueId, 1024 > nearList;
+    nearList.clear();
+    static const CMaterialFilter filter =
+        CMaterialFilter::MakeInclude(CMaterialList(skFlockMaterial));
+    CParasite* closestParasite = nullptr;
+    float minDistSq = 2.f + mParasiteSeparationDist * mParasiteSeparationDist;
+    mgr.BuildNearList(nearList, aabb, filter, nullptr);
+    for (rstl::reserved_vector< TUniqueId, 1024 >::iterator it = nearList.begin();
+         it != nearList.end(); ++it) {
+      if (CParasite* parasite = TCastToPtr< CParasite >(mgr.ObjectById(*it))) {
+        if (parasite->GetUniqueId() != GetUniqueId() && parasite->GetAlive()) {
+          parasiteList.push_back(parasite->GetUniqueId());
+          float distSq = (parasite->GetTranslation() - GetTranslation()).MagSquared();
+          if (distSq < minDistSq) {
+            minDistSq = distSq;
+            closestParasite = parasite;
+          }
+        }
+      }
+    }
+    if (closestParasite && mParasiteSeparationWeight > 0.f && mParasiteSeparationDist > 0.f) {
+      mParasiteSeparationMove =
+          mSteeringBehaviors.Separation(*this, closestParasite->GetTranslation(),
+                                        mParasiteSeparationDist) *
+          mActiveSpeed;
+    } else {
+      mParasiteSeparationMove = CVector3f::Zero();
+    }
+    mParasiteCohesionMove =
+        mSteeringBehaviors.Cohesion(*this, parasiteList, 0.6f, mgr) * mActiveSpeed;
+    mParasiteAlignmentMove = mSteeringBehaviors.Alignment(*this, parasiteList, mgr) * mActiveSpeed;
+  }
+
+  if ((mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).MagSquared() <
+      mPlayerSeparationDist * mPlayerSeparationDist) {
+    const CVector3f playerSeparation =
+        ProjectVectorToPlane(mSteeringBehaviors.Separation(*this,
+                                                           mgr.GetPlayer(0)->GetTranslation(),
+                                                           mPlayerSeparationDist),
+                             upVec) *
+        mActiveSpeed;
+    mBodyController->CommandMgr().DeliverCmd(
+        CBCLocomotionCmd(playerSeparation, CVector3f::Zero(), mPlayerSeparationWeight));
+  }
+
+  if (!(mParasiteSeparationMove == CVector3f::Zero())) {
+    mBodyController->CommandMgr().DeliverCmd(
+        CBCLocomotionCmd(ProjectVectorToPlane(mParasiteSeparationMove, upVec), CVector3f::Zero(),
+                         mParasiteSeparationWeight));
+  }
+
+  for (rstl::vector< CRepulsor >::iterator it = mDoorRepulsors.begin();
+       it != mDoorRepulsors.end(); ++it) {
+    const CRepulsor& r = *it;
+    if ((r.GetPos() - GetTranslation()).MagSquared() < r.GetRadius() * r.GetRadius()) {
+      const CVector3f doorSeparation =
+          mSteeringBehaviors.Separation(*this, r.GetPos(), r.GetRadius()) * mActiveSpeed;
+      mBodyController->CommandMgr().DeliverCmd(
+          CBCLocomotionCmd(ProjectVectorToPlane(doorSeparation, upVec), CVector3f::Zero(), 1.f));
+    }
+  }
+
+  if (mTelegraphRemTime <= 0.f) {
+    mBodyController->CommandMgr().DeliverCmd(
+        CBCLocomotionCmd(ProjectVectorToPlane(mParasiteCohesionMove, upVec), CVector3f::Zero(),
+                         mParasiteCohesionWeight));
+    mBodyController->CommandMgr().DeliverCmd(
+        CBCLocomotionCmd(ProjectVectorToPlane(mParasiteAlignmentMove, upVec), CVector3f::Zero(),
+                         mParasiteAlignmentWeight));
+    const CVector3f seek =
+        ProjectVectorToPlane(mSteeringBehaviors.Seek(*this, mDestPos), upVec) * mActiveSpeed;
+    mBodyController->CommandMgr().DeliverCmd(CBCLocomotionCmd(
+        ProjectVectorToPlane(seek, upVec), CVector3f::Zero(), mDestinationSeekWeight));
+    mBodyController->CommandMgr().DeliverCmd(CBCLocomotionCmd(
+        GetTransform().GetForward() * mActiveSpeed, CVector3f::Zero(), mForwardMoveWeight));
+  }
+}
 
 void CParasite::PreRender(CStateManager& mgr) {
   CPatterned::PreRender(mgr);
@@ -1029,7 +1121,22 @@ CDamageInfo CParasite::GetContactDamage() const {
   }
 }
 
-void CParasite::SetupIceZoomerCollision(CStateManager& mgr) {}
+void CParasite::SetupIceZoomerCollision(CStateManager& mgr) {
+  rstl::vector< CJointCollisionDescription > descs;
+  descs.reserve(2);
+  CAnimData& animData = *ModelData()->AnimationData();
+  for (int i = 0; i < ARRAY_SIZE(skIceJoints); ++i) {
+    const SSphereJointInfo& joint = skIceJoints[i];
+    const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
+        animData.GetLocatorSegId(rstl::string_l(joint.name)), CVector3f::Zero(),
+        0.01f + mColSphere.GetSphere().GetRadius(), rstl::string_l(joint.name), 0.001f);
+    descs.push_back_unsafe(desc);
+  }
+  RemoveMaterial(kMT_Unknown59, mgr);
+  AddMaterial(kMT_NoPlatformCollision, mgr);
+  mCollisionActorManager =
+      rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), descs, GetActive());
+}
 
 void CParasite::DestroyActorManager(CStateManager& mgr) { mCollisionActorManager->Destroy(mgr); }
 
@@ -1045,7 +1152,33 @@ void CParasite::SetupIceZoomerVulnerability(CStateManager& mgr, const CDamageVul
   }
 }
 
-void CParasite::UpdateCollisionActors(float dt, CStateManager& mgr) {}
+void CParasite::UpdateCollisionActors(float dt, CStateManager& mgr) {
+  mCollisionActorManager->Update(dt, mgr, CCollisionActorManager::kUO_ObjectSpace);
+  if (!mVulnerable) {
+    float totalHP = 0.f;
+    for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+      const CJointCollisionDescription& cDesc = mCollisionActorManager->GetCollisionDescFromIndex(i);
+      const TUniqueId id = cDesc.GetCollisionActorId();
+      if (CCollisionActor* cact = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+        totalHP += cact->HealthInfo()->GetHP();
+      }
+    }
+    if (totalHP <= 0.f) {
+      mVulnerable = true;
+      AddMaterial(kMT_Unknown59, mgr);
+      RemoveMaterial(kMT_NoPlatformCollision, mgr);
+      DestroyActorManager(mgr);
+      ModelData()->AnimationData()->SetSkinnedModel(*mExtraModel);
+      if (mWalkerType == kWT_IceZoomer) {
+        CSfxManager::AddEmitter(mHaltSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
+                                false);
+        mBodyController->SetLocomotionType(pas::kLT_Internal8);
+        mBodyController->CommandMgr().DeliverCmd(CBCMeleeAttackCmd(pas::kS_Zero));
+        SendScriptMsgs(kSS_AboutToMassivelyDie, mgr, kInvalidUniqueId, kSM_None);
+      }
+    }
+  }
+}
 
 void CParasite::MassiveDeath(CStateManager& mgr) { CPatterned::MassiveDeath(mgr); }
 
