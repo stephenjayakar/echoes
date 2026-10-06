@@ -933,8 +933,9 @@ CColor CSwarmBasics::SoftwareLight(const CStateManager& mgr, const CAABox& bound
         rstl::min_val(1.f, 1.f / (distance * (distance * light.GetAttenuationQuadratic()) +
                                  (distance * light.GetAttenuationLinear() +
                                   light.GetAttenuationConstant())));
-    result = CColor::Add(result, CColor::Lerp(CColor::Black(), light.GetColor(),
-                                              CMath::Clamp(0.f, 0.8f * attenuation, 1.f)));
+    result = CColor::Add(result,
+                         CColor::Lerp(CColor::Black(), light.GetColor(),
+                                      rstl::max_val(0.f, rstl::min_val(0.8f * attenuation, 1.f))));
   }
   return result;
 }
@@ -1490,6 +1491,7 @@ int CSwarmBasics::FindBestLockOnIndex(CStateManager& mgr) const {
 
 // Guessed name: orders seeker candidates by descending view alignment.
 struct SSeekerCandidateSorter {
+  SSeekerCandidateSorter() {}
   bool operator()(const rstl::pair< uint, float >& a, const rstl::pair< uint, float >& b) const {
     return a.second > b.second;
   }
@@ -1507,7 +1509,10 @@ void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< uin
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
     if (it->mActive) {
       CVector3f delta = it->GetTranslation() - camPos;
-      if (delta.MagSquared() <= maxDistSq && delta.CanBeNormalized()) {
+      if (delta.MagSquared() > maxDistSq) {
+        continue;
+      }
+      if (delta.CanBeNormalized()) {
         float dot = CVector3f::Dot(camFwd, delta.AsNormalized());
         if (dot > 0.5f) {
           candidates.push_back_unsafe(rstl::pair< uint, float >(uint(it->mIndex), dot));
