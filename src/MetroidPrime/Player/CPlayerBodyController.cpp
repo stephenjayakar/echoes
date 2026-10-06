@@ -3,6 +3,8 @@
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Animation/CPASDatabase.hpp"
 #include "Kyoto/CSimplePool.hpp"
+#include "Kyoto/Math/CQuaternion.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
@@ -423,8 +425,44 @@ void CPlayerBodyController::KnockBack(CStateManager& mgr, int msg, float) {
   }
 }
 
-void CPlayerBodyController::Dead(CStateManager&, int, float) {
-  // TODO: Recover death-animation selection and its orientation adjustment.
+void CPlayerBodyController::Dead(CStateManager& mgr, int msg, float) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mMoving = false;
+    mDeathReactionActive = true;
+    const CPBCDeathReactionCmd* command =
+        static_cast< const CPBCDeathReactionCmd* >(mCommandMgr.GetCmd(kPBSC_DeathReaction));
+    if (command != nullptr) {
+      const CVector3f localDirection =
+          mPlayer->GetTransform().TransposeRotate(command->GetDirection());
+      const float angle = CMath::ClampRadians(atan2(localDirection.GetY(), localDirection.GetX()));
+      const CPASAnimParmData parameters(static_cast< pas::EAnimationState >(kPAS_DeathReaction),
+                                        CPASAnimParm::FromReal32((180.f / M_PIF) * angle),
+                                        CPASAnimParm::FromEnum(command->GetMode()));
+      const CPASDatabase& database = GetPASDatabase();
+      const rstl::pair< float, int > best =
+          database.FindBestAnimation(parameters, *mgr.Random(), -1);
+      RequestAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
+      const CPASAnimState* state = database.GetAnimState(kPAS_DeathReaction);
+      const CPASAnimParm adjust = state->GetAnimParmData(best.second, 2);
+      if (adjust.GetBoolValue()) {
+        const CPASAnimParm offset = state->GetAnimParmData(best.second, 0);
+        const float offsetAngle = (M_PIF / 180.f) * offset.GetReal32Value();
+        const CRelAngle rotation = CRelAngle::FromRadians(angle - offsetAngle);
+        const CQuaternion& current = CQuaternion::FromMatrix(mPlayer->GetTransform());
+        const CQuaternion& orientation = current * CQuaternion::ZRotation(rotation);
+        CPlayer& player = *mPlayer;
+        player.SetTransform(orientation.BuildTransform4f(player.GetTranslation()));
+      }
+    }
+    break;
+  }
+  case kStateMsg_Update:
+    if (IsAnimationOver()) {
+      mDeathReactionOver = true;
+    }
+    break;
+  }
 }
 
 void CPlayerBodyController::GibDeath(CStateManager&, int msg, float) {
