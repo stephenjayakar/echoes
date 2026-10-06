@@ -1524,6 +1524,14 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "SandBoss",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSandBoss.cpp"),
+        ],
+        # Float constants are addressed one by one, not through a pooled base register.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "ScriptSafeZone",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptSafeZone.cpp"),
