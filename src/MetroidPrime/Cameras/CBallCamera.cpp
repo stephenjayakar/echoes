@@ -1097,13 +1097,13 @@ void CBallCamera::UpdateUsingSpline(float dt, CStateManager& mgr) {
   }
 }
 
-bool CBallCamera::fn_801a39d0(float distance, float dt, CVector3f& position, CStateManager& mgr) {
-  const CVector3f cameraPos = GetTranslation();
-  const CVector3f extent(8.f, 8.f, 8.f);
-  const CAABox bounds(cameraPos - extent, cameraPos + extent);
+const bool CBallCamera::fn_801a39d0(float distance, float dt, CVector3f& position,
+                                    CStateManager& mgr) {
+  const CAABox bounds(GetTranslation() - CVector3f(8.f, 8.f, 8.f),
+                      GetTranslation() + CVector3f(8.f, 8.f, 8.f));
+  const CMaterialFilter filter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Pillar));
   rstl::reserved_vector< TUniqueId, 1024 > nearList;
-  mgr.BuildNearList(nearList, bounds, CMaterialFilter::MakeInclude(CMaterialList(kMT_Pillar)),
-                    this);
+  mgr.BuildNearList(nearList, bounds, filter, this);
 
   const CVector3f ballPos = Player(mgr).GetBallPosition();
   CVector3f result = CVector3f::Zero();
@@ -1116,30 +1116,32 @@ bool CBallCamera::fn_801a39d0(float distance, float dt, CVector3f& position, CSt
       continue;
     }
 
-    CVector3f repulsorDirection((repulsor->GetTranslation() - GetTranslation()).ToVec2f(), 0.f);
-    CVector3f ballDirection((ballPos - GetTranslation()).ToVec2f(), 0.f);
+    const CVector2f repulsorFlat(repulsor->GetTranslation().GetX() - GetTranslation().GetX(),
+                                 repulsor->GetTranslation().GetY() - GetTranslation().GetY());
+    const CVector3f repulsorDirection(repulsorFlat.GetX(), repulsorFlat.GetY(), 0.f);
+    const CVector2f ballFlat = CVector3f(ballPos - GetTranslation()).ToVec2f();
+    const CVector3f ballDirection(ballFlat.GetX(), ballFlat.GetY(), 0.f);
     const float radius = repulsor->GetRadius();
     found = true;
-    if (!ballDirection.CanBeNormalized() || repulsorDirection.Magnitude() >= radius ||
-        !(CVector3f::Dot(ballDirection, repulsorDirection) > 0.f)) {
-      continue;
+    if (ballDirection.CanBeNormalized() && repulsorDirection.Magnitude() < radius &&
+        CVector3f::Dot(ballDirection, repulsorDirection) > 0.f) {
+      const CLine line(GetTranslation(), CUnitVector3f(ballDirection));
+      const CVector3f closestPoint = line.GetClosestPoint(repulsor->GetTranslation());
+      if (repulsorDirection.Magnitude() < distance) {
+        const float strength = repulsor->GetStrength();
+        const float falloff =
+            1.f - CMath::Clamp(0.f, repulsorDirection.Magnitude() / radius, 1.f);
+        const CVector2f pushFlat = CVector3f(closestPoint - repulsor->GetTranslation()).ToVec2f();
+        CVector3f pushDirection(pushFlat.GetX(), pushFlat.GetY(), 0.f);
+        if (CMath::AbsF(CVector3f::Dot(pushDirection, ballDirection)) > 0.999f) {
+          pushDirection = CVector3f(pushDirection.GetY(), -pushDirection.GetX(), 0.f);
+        }
+        if (repulsor->GetFlags() & CScriptRepulsor::kF_UseForwardVector) {
+          pushDirection = repulsor->GetTransform().GetForward();
+        }
+        result += falloff * (strength * (dt * pushDirection.AsNormalized()));
+      }
     }
-
-    const CLine line(GetTranslation(), CUnitVector3f(ballDirection));
-    const CVector3f closestPoint = line.GetClosestPoint(repulsor->GetTranslation());
-    if (repulsorDirection.Magnitude() >= distance) {
-      continue;
-    }
-    const float strength = repulsor->GetStrength();
-    const float falloff = 1.f - CMath::Clamp(0.f, repulsorDirection.Magnitude() / radius, 1.f);
-    CVector3f pushDirection((closestPoint - repulsor->GetTranslation()).ToVec2f(), 0.f);
-    if (CMath::AbsF(CVector3f::Dot(pushDirection, ballDirection)) > 0.999f) {
-      pushDirection = CVector3f(pushDirection.GetY(), -pushDirection.GetX(), 0.f);
-    }
-    if (repulsor->GetFlags() & CScriptRepulsor::kF_UseForwardVector) {
-      pushDirection = repulsor->GetTransform().GetForward();
-    }
-    result += falloff * (strength * (dt * pushDirection.AsNormalized()));
   }
   position = result;
   return found;
