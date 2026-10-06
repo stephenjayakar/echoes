@@ -18,6 +18,7 @@ class CTexture;
 struct SDataNetworkNode {
   SDataNetworkNode(TUniqueId id, int index, int parent, bool isProxy, bool parentIsProxy);
 
+  TUniqueId GetId() const { return mId; }
   CScriptFrontEndDataNetwork* GetNetwork(CStateManager& mgr);
   const CScriptFrontEndDataNetwork* GetNetwork(const CStateManager& mgr) const;
 
@@ -100,7 +101,7 @@ private:
   void FaceNode(TUniqueId id, const CStateManager& mgr, bool onlyWhenInactive);
   void AddController(int controller);
   void ClearControllers();
-  void RenderNode(const CStateManager& mgr, const CTransform4f& xf, float alpha, int idx) const;
+  void RenderNode(const CStateManager& mgr, const CTransform4f& xf, int idx, float alpha) const;
   void DrawConnection(const CTransform4f& xf, const CVector3f& a, const CVector3f& b,
                       const CColor& colorA, const CColor& colorB, float width) const;
   void DrawBillboard(const CTransform4f& xf, const CVector3f& pos, float size,

@@ -252,9 +252,8 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
     mSpin = mSpin.AsNormalized() * sMaxSpin;
   }
   const CVector2f spin = mSpin * dt;
-  const CQuaternion pitch = CQuaternion::XRotation(CRelAngle::FromDegrees(spin.GetY()));
-  const CQuaternion yaw = CQuaternion::ZRotation(CRelAngle::FromDegrees(spin.GetX()));
-  mOrientation = mOrientation * yaw * pitch;
+  mOrientation = mOrientation * CQuaternion::ZRotation(CRelAngle::FromDegrees(spin.GetX())) *
+                 CQuaternion::XRotation(CRelAngle::FromDegrees(spin.GetY()));
 
   if (mTransitionState == 0 && !mIsLocked) {
     SDataNetworkNode& node = mNodes[mCurIndex];
@@ -268,7 +267,8 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
         SDataNetworkNode& child = mNodes[node.mChildren[i]];
         const CScriptFrontEndDataNetwork* net = child.GetNetwork(mgr);
         if (net->GetActive() && net->mCanBeSelected) {
-          const float distSq = ((child.GetPos() - pos) - target).MagSquared();
+          const CVector3f delta = (child.GetPos() - pos) - target;
+          const float distSq = delta.MagSquared();
           const float score = (prevSelected == i ? 1.f : 1.5f) * distSq;
           if (score < best) {
             node.SetSelectedChild(i);
@@ -575,13 +575,13 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
     const CTransform4f xf(mOrientation.BuildTransform4f());
     CVector3f pos = it->GetPos();
     float radius = mConnectionRadius;
-    if (&*it != mNodes.data()) {
+    if (mNodes.data() != &*it) {
       SDataNetworkNode& parent = mNodes[it->mParent];
       pos -= parent.GetPos();
       radius = parent.GetNetwork(const_cast< const CStateManager& >(mgr))->mConnectionRadius;
     }
     const CVector3f local = xf.TransposeRotate(pos - xf.GetTranslation());
-    float facing = (-1.f * local.GetY()) / radius;
+    float facing = (-1.f * local).GetY() / radius;
     if (-1.f > facing) {
       facing = -1.f;
     } else if (1.f < facing) {
@@ -591,7 +591,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
     it->SetX5C(facing + 0.5f);
 
     if (CScriptFrontEndDataNetwork* net =
-            TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(it->mId))) {
+            TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(it->GetId()))) {
       if (CScriptPlatform* platform =
               TCastToPtr< CScriptPlatform >(mgr.ObjectById(net->GetPlatformId()))) {
         SDataNetworkNode& current = mNodes[mCurIndex];
@@ -625,8 +625,8 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
         const CTransform4f nodeXf(CTransform4f::Translate(center) *
                                   mOrientation.BuildTransform4f());
         CTransform4f platformXf(GetTransform());
-        const CVector3f offset =
-            nodeXf.TransposeRotate(it->GetRenderPos() - nodeXf.GetTranslation());
+        const CVector3f& renderPos = it->GetRenderPos();
+        const CVector3f offset = nodeXf.TransposeRotate(renderPos - nodeXf.GetTranslation());
         platformXf.SetTranslation(GetTransform().GetTranslation() + offset);
         platform->SetTransformIfNoPositionSpline(platformXf);
         CColor color = CColor::Lerp(mUnselectedMinColor, mUnselectedMaxColor, it->x5c);
@@ -783,7 +783,8 @@ void CScriptFrontEndDataNetwork::OpenNode(TUniqueId id, CStateManager& mgr) {
         target->SetRenderPos(node->GetRenderPos());
         LayoutChildren(idx, mgr);
       }
-      target->GetNetwork(mgr)->SendScriptMsgs(kSS_Entered, mgr);
+      CScriptFrontEndDataNetwork* targetNet = target->GetNetwork(mgr);
+      targetNet->SendScriptMsgs(kSS_Entered, mgr);
       SetSelection(mgr, idx, !GetActive());
       return;
     }
@@ -792,18 +793,21 @@ void CScriptFrontEndDataNetwork::OpenNode(TUniqueId id, CStateManager& mgr) {
 
 void CScriptFrontEndDataNetwork::CloseNode(CStateManager& mgr) {
   SDataNetworkNode& node = mNodes[mCurIndex];
-  node.GetNetwork(mgr)->SendScriptMsgs(kSS_PressB, mgr);
-  int parent = node.mParent;
+  CScriptFrontEndDataNetwork* net = node.GetNetwork(mgr);
+  net->SendScriptMsgs(kSS_PressB, mgr);
+  const int parent = node.mParent;
+  int selection = parent;
   if (parent != -1) {
     node.SetSelectedChild(-1);
     SDataNetworkNode* parentNode = &mNodes[parent];
     if (parentNode->GetNetwork(const_cast< const CStateManager& >(mgr))->mIsProxy) {
       parentNode->GetNetwork(mgr)->SendScriptMsgs(kSS_PressB, mgr);
-      parent = parentNode->mParent;
-      parentNode = &mNodes[parent];
+      selection = parentNode->mParent;
+      parentNode = &mNodes[selection];
     }
-    parentNode->GetNetwork(mgr)->SendScriptMsgs(kSS_Entered, mgr);
-    SetSelection(mgr, parent, false);
+    CScriptFrontEndDataNetwork* parentNet = parentNode->GetNetwork(mgr);
+    parentNet->SendScriptMsgs(kSS_Entered, mgr);
+    SetSelection(mgr, selection, false);
   }
 }
 
@@ -858,30 +862,30 @@ void CScriptFrontEndDataNetwork::Render(const CStateManager& mgr) const {
   const SDataNetworkNode& prev = mNodes[prevIdx];
   switch (mTransitionState) {
   case 0:
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, 1.f - mTransitionT, mCurIndex);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mCurIndex, 1.f - mTransitionT);
     break;
   case 1:
     pos = prev.GetRenderPos();
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mTransitionT, mPrevIndex);
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, 1.f - mTransitionT, mCurIndex);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mPrevIndex, mTransitionT);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mCurIndex, 1.f - mTransitionT);
     break;
   case 2:
     if (mTransitionForward == 1) {
       pos = prev.GetRenderPos();
     }
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mTransitionT, mPrevIndex);
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, 1.f - mTransitionT, mCurIndex);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mPrevIndex, mTransitionT);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mCurIndex, 1.f - mTransitionT);
     break;
   case 3:
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mTransitionT, prevIdx);
-    RenderNode(mgr, CTransform4f::Translate(pos) * rot, 1.f - mTransitionT, mCurIndex);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, prevIdx, mTransitionT);
+    RenderNode(mgr, CTransform4f::Translate(pos) * rot, mCurIndex, 1.f - mTransitionT);
     break;
   }
   CGraphics::SetCullMode(kCM_Front);
 }
 
 void CScriptFrontEndDataNetwork::RenderNode(const CStateManager& mgr, const CTransform4f& xf,
-                                            float alpha, int idx) const {
+                                            int idx, float alpha) const {
   rstl::vector< SRenderItem > items;
   items.reserve(2);
   const CColor nodeColor = GetModelFlags().GetColor();
@@ -1199,7 +1203,8 @@ CVector3f CScriptFrontEndDataNetwork::GetSeparation(const CStateManager& mgr,
   for (int i = 0; i < count; ++i) {
     const int childIdx = children[i];
     if (idx != childIdx) {
-      const float distSq = (mNodes[childIdx].GetPos() - pos).MagSquared();
+      const CVector3f delta = mNodes[childIdx].GetPos() - pos;
+      const float distSq = delta.MagSquared();
       if (distSq < best) {
         best = distSq;
         result = mNodes[childIdx].GetPos();
@@ -1227,7 +1232,8 @@ CVector3f CScriptFrontEndDataNetwork::GetCohesion(const CStateManager& mgr,
   for (int i = 0; i < numChildren; ++i) {
     const int childIdx = children[i];
     if (idx != childIdx) {
-      if ((pos - mNodes[childIdx].GetPos()).MagSquared() < maxDistSq) {
+      const CVector3f delta = pos - mNodes[childIdx].GetPos();
+      if (delta.MagSquared() < maxDistSq) {
         ++count;
         sum += mNodes[childIdx].GetPos();
       }
