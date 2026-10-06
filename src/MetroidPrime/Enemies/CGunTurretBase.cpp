@@ -25,6 +25,7 @@
 #include "Kyoto/Animation/CJointData_LinearStorage.hpp"
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
+#include "Kyoto/Basics/CCast.hpp"
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
@@ -951,7 +952,7 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
             (mMaxTimeBetweenAttacks - mMinTimeBetweenAttacks) * mgr.Random()->Float();
         mShotCount = 0;
         mShotsInBurst = mMinShotsInABurst +
-                        static_cast< uchar >((mMaxShotsInABurst - mMinShotsInABurst) *
+                        CCast::ToUint8((mMaxShotsInABurst - mMinShotsInABurst) *
                                              mgr.Random()->Float());
         mInBurst = false;
         mCanCharge = true;
@@ -960,12 +961,13 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
 
       const CVector3f firePos = GetGunFirePosition(mgr);
       if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-        ProcessSoundEvent(mIsPirateTurret ? mPirateFireShotSfx : mGFFireShotSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                          GetClosestCameraDistanceSq(mgr), GetTranslation(),
+        ProcessSoundEvent(mIsPirateTurret ? mPirateFireShotSfx : mGFFireShotSfx, 1.f, 0,
+                          mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                          GetClosestCameraDistanceSq(mgr), firePos,
                           mgr.GetNextAreaId().Value(), mgr, true);
         const CTransform4f& topXf = top->GetTransform();
         const CAssetId effect = top->GetChargeEffect(mIsPirateTurret);
-        char name[256];
+        char name[100];
         sprintf(name, "GUN_TURRET_TOP_EFFECT%d-%d", effect, mEffectIndex++);
         top->AddParticleEffect(mgr, CTransform4f(topXf.BuildMatrix3f(), firePos), 1.f, effect,
                                CPOINode::GetHashForString(name), 0x40);
@@ -977,15 +979,15 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
           static CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
               CMaterialList(kMT_Unknown59), CMaterialList(kMT_NoPlatformCollision));
           mgr.BuildNearList(nearList, firePos, topXf.GetColumn(kDY), 100.f, filter, this);
-          const float signX = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
-          const float signZ = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
+          const int signX = (mgr.Random()->Next() % 2) == 0 ? 1 : -1;
+          const int signZ = (mgr.Random()->Next() % 2) == 0 ? 1 : -1;
           const float angleX = signX * (mShotAngleVariance * mgr.Random()->Float());
           const float angleZ = signZ * (mShotAngleVariance * mgr.Random()->Float());
           const CTransform4f spread = CTransform4f::RotateX(CRelAngle::FromDegrees(angleX)) *
                                       CTransform4f::RotateZ(CRelAngle::FromDegrees(angleZ));
-          const CVector3f dir = topXf.Rotate(spread.GetColumn(kDY));
           const CRayCastResult result =
-              mgr.RayWorldIntersection(hitId, firePos, dir, 100.f, filter, nearList);
+              mgr.RayWorldIntersection(hitId, topXf.GetTranslation(), spread * topXf.GetColumn(kDY),
+                                       100.f, filter, nearList);
           if (result.IsValid()) {
             mgr.DoCollisionResponse(**mCrsc, result, hitId, mAttackDamage, false);
             if (hitId == mHitTarget) {
@@ -1001,8 +1003,8 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
 
   mAttackTimer += dt;
   mShotTimer += dt;
-  mAttackTimer = 10000.f < mAttackTimer ? 10000.f : mAttackTimer;
-  mShotTimer = 10000.f < mShotTimer ? 10000.f : mShotTimer;
+  mAttackTimer = rstl::min_val(mAttackTimer, 10000.f);
+  mShotTimer = rstl::min_val(mShotTimer, 10000.f);
 }
 
 void CGunTurretBase::ResetAttack(CStateManager& mgr) {
@@ -1010,7 +1012,7 @@ void CGunTurretBase::ResetAttack(CStateManager& mgr) {
                         (mMaxTimeBetweenAttacks - mMinTimeBetweenAttacks) * mgr.Random()->Float();
   mTimeBetweenShots = mMinTimeBetweenShots +
                       (mMaxTimeBetweenShots - mMinTimeBetweenShots) * mgr.Random()->Float();
-  mShotsInBurst = mMinShotsInABurst + static_cast< uchar >((mMaxShotsInABurst - mMinShotsInABurst) *
+  mShotsInBurst = mMinShotsInABurst + CCast::ToUint8((mMaxShotsInABurst - mMinShotsInABurst) *
                                                            mgr.Random()->Float());
   mAttackTimer = mTimeBetweenAttacks;
   mShotTimer = mTimeBetweenShots;
@@ -1054,10 +1056,10 @@ void CGunTurretBase::LaunchProjectile(CStateManager& mgr) {
   }
   CVector3f gunPos = GetGunFirePosition(mgr);
   CVector3f target = mTargetPos;
-  float signX = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
-  float signZ = (mgr.Random()->Next() % 2) == 0 ? 1.f : -1.f;
-  float angleX = signX * (mShotAngleVariance * mgr.Random()->Float());
-  float angleZ = signZ * (mShotAngleVariance * mgr.Random()->Float());
+  const int signX = (mgr.Random()->Next() % 2) == 0 ? 1 : -1;
+  const int signZ = (mgr.Random()->Next() % 2) == 0 ? 1 : -1;
+  const float angleX = signX * (mShotAngleVariance * mgr.Random()->Float());
+  const float angleZ = signZ * (mShotAngleVariance * mgr.Random()->Float());
   CTransform4f xf = CTransform4f::LookAt(gunPos, target, CVector3f::Up()) *
                     (CTransform4f::RotateX(CRelAngle::FromDegrees(angleX)) *
                      CTransform4f::RotateZ(CRelAngle::FromDegrees(angleZ)));
@@ -1067,7 +1069,9 @@ void CGunTurretBase::LaunchProjectile(CStateManager& mgr) {
       GetUniqueId(), kInvalidUniqueId, 0, false, CVector3f(1.f, 1.f, 1.f),
       CImpactVisorEffect::ParticleEffect(mPirateProjectileEffect, CSfxManager::kInternalInvalidSfxId, false),
       false, true, false, 1.f, 4.f, 4.f);
-  mgr.AddObject(projectile);
+  if (projectile) {
+    mgr.AddObject(projectile);
+  }
 }
 
 void CGunTurretBase::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
