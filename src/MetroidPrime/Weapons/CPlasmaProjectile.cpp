@@ -442,7 +442,7 @@ void CPlasmaProjectile::RenderBeam(int subdivisions, float width, const CColor& 
 }
 
 void CPlasmaProjectile::UpdateEnergyPulse(float dt) {
-  if (GetDamageType() != kDT_None && mEnableEnergyPulse) {
+  if (GetDamageType() != kDT_None ? mEnableEnergyPulse : false) {
     mEnergyPulseTimer -= dt;
     if (mEnergyPulseTimer <= 0.f) {
       mEnergyPulseTimer = 2.f * dt;
@@ -450,7 +450,7 @@ void CPlasmaProjectile::UpdateEnergyPulse(float dt) {
       const float lengthRatio = GetCurrentLength() / GetMaxLength();
       for (float t = 0.f; t <= lengthRatio; t += 0.1f) {
         const float y = t * GetMaxLength() + mEnergyPulseStartY;
-        if (y <= GetCurrentLength()) {
+        if (!(y > GetCurrentLength())) {
           mPulseGen->SetTranslation(CVector3f(0.f, y, 0.f));
           mPulseGen->ForceParticleCreation(1);
         }

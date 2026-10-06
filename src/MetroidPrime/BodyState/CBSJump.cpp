@@ -281,11 +281,12 @@ uchar CBSJump::CheckForWallJump(CBodyController& bc, CStateManager& mgr) {
 }
 
 pas::EAnimationState CBSJump::GetBodyStateTransition(float dt, CBodyController& bc) {
-  if (CBCHurledCmd* cmd = static_cast< CBCHurledCmd* >(bc.CommandMgr().GetCmd(kBSC_Hurled))) {
-    cmd->SetSkipLaunchState(true);
+  CBodyStateCmdMgr& cmdMgr = bc.CommandMgr();
+  if (const CBCHurledCmd* cmd =
+          static_cast< const CBCHurledCmd* >(bc.GetCommandMgr().GetCmd(kBSC_Hurled))) {
+    const_cast< CBCHurledCmd* >(cmd)->SetSkipLaunchState(true);
     return pas::kAS_Hurled;
   }
-  CBodyStateCmdMgr& cmdMgr = bc.CommandMgr();
   if (cmdMgr.GetCmd(kBSC_KnockDown)) {
     return pas::kAS_Fall;
   }

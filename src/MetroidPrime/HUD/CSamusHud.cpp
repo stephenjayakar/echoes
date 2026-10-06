@@ -2474,16 +2474,16 @@ void CSamusHud::Draw(const CStateManager& mgr, float alpha, uint helmetVisibilit
 }
 
 void CSamusHud::DrawHelmet(const CStateManager& mgr, float cameraYOffset) const {
-  if (mLoadedHelmetFrame == nullptr || mgr.GetPlayer(mPlayerIndex)->IsInTurret()) {
-    return;
-  }
-  const bool unmorphed =
-      mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
-  if (mLoadedHelmetFrame != nullptr && unmorphed && mNextState != kHS_Ball) {
-    const float alpha = mPreviousState == kHS_Ball ? mTransitionFactor : 1.f;
-    const CGuiWidgetDrawParms parms(alpha * gpGameState->GameOptions().GetHelmetAlpha(),
-                                    CVector3f(0.f, 15.f * cameraYOffset, 0.f));
-    mLoadedHelmetFrame->Draw(parms);
+  if (mLoadedHelmetFrame != nullptr && !mgr.GetPlayer(mPlayerIndex)->IsInTurret()) {
+    const bool unmorphed =
+        mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
+    if (mLoadedHelmetFrame != nullptr && unmorphed && mNextState != kHS_Ball) {
+      const CGameOptions& options = gpGameState->GameOptions();
+      const float alpha = mPreviousState == kHS_Ball ? mTransitionFactor : 1.f;
+      const CGuiWidgetDrawParms parms(alpha * options.GetHelmetAlpha(),
+                                      CVector3f(0.f, 15.f * cameraYOffset, 0.f));
+      mLoadedHelmetFrame->Draw(parms);
+    }
   }
 }
 
