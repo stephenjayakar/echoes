@@ -163,10 +163,13 @@ static ushort AllocateId() {
     memset(sGenerations, 0, sizeof(sGenerations));
   }
 
-  do {
+  while (true) {
     ++sLastId;
     sLastId %= kRC_Size;
-  } while (sGenerations[sLastId] >= kRC_Occupied);
+    if (sGenerations[sLastId] < kRC_Occupied) {
+      break;
+    }
+  }
 
   ++sGenerations[sLastId];
   sGenerations[sLastId] |= kRC_Occupied;
