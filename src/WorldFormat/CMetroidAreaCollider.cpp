@@ -139,7 +139,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheck_Internal(const CAreaOctTree::Node
         ++gDupTrianglesProcessed;
       } else {
         spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-        const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+        const CCollisionSurface surf(owner.GetTriangle(triIdx));
         CMaterialList material(surf.GetSurfaceFlags());
         if (filter.Passes(material)) {
           if (CollisionUtil::TriBoxOverlap(cache.mCenter, cache.mHalfExtent, surf.GetVert(0),
@@ -302,7 +302,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Internal(
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
-            const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+            const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
             if (cache.mFilter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
               if (CollisionUtil::TriBoxOverlap(cache.mCenter, cache.mHalfExtent, surf.GetVert(0),
                                                surf.GetVert(1), surf.GetVert(2)) == true)
@@ -405,7 +405,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Internal(const CAreaOctTree::Nod
               ++gDupTrianglesProcessed;
             } else {
               spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-              const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+              const CCollisionSurface surf(owner.GetTriangle(triIdx));
               CMaterialList material(surf.GetSurfaceFlags());
               if (cache.mFilter.Passes(material)) {
                 if (CollisionUtil::TriSphereIntersection(cache.mSphere, surf.GetVert(0),
@@ -453,7 +453,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Cached(const COctreeLeafCache& l
           ++gDupTrianglesProcessed;
         } else {
           spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-          const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+          const CCollisionSurface surf(owner.GetTriangle(triIdx));
           CMaterialList material(surf.GetSurfaceFlags());
           if (filter.Passes(material)) {
             if (CollisionUtil::TriSphereIntersection(sphere, surf.GetVert(0), surf.GetVert(1),
@@ -522,7 +522,7 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Internal(
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
-            const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+            const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
             if (cache.mFilter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
               if (CollisionUtil::TriSphereOverlap(cache.mSphere, surf.GetVert(0), surf.GetVert(1),
                                                   surf.GetVert(2)) == true)
@@ -551,7 +551,7 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Cached(const COctreeLeafC
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
-        const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+        const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
         if (filter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
           if (CollisionUtil::TriSphereOverlap(sphere, surf.GetVert(0), surf.GetVert(1),
                                               surf.GetVert(2)) == true)
