@@ -2244,7 +2244,7 @@ void CPlayer::ProcessInput(float dt, const CFinalInput& input, CStateManager& mg
           mControlMapper.GetPressInput(CControlMapper::kC_TurnRight, activeInput);
       const bool forward = mControlMapper.GetPressInput(CControlMapper::kC_Forward, activeInput);
       const bool backward = mControlMapper.GetPressInput(CControlMapper::kC_Backward, activeInput);
-      const bool jump = JumpPressed(activeInput);
+      const uchar jump = JumpPressed(activeInput);
       if (turnLeft || turnRight || forward || backward || jump) {
         const float step = 600.f * dt;
         mAttachedActorStruggle += dt * step;

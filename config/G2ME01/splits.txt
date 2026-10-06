@@ -3025,6 +3025,7 @@ Kyoto/Text/CSaveableState.cpp:
 
 Kyoto/Text/CTextExecuteBuffer.cpp:
 	.text       start:0x802B6D90 end:0x802B90D0
+	.rodata     start:0x803AEE88 end:0x803AEE90
 
 Kyoto/Text/CTextInstruction.cpp:
 	.text       start:0x802B90D0 end:0x802B9368

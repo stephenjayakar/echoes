@@ -13,8 +13,6 @@
 #include "MetroidPrime/ScriptObjects/CScriptPlayerHint.hpp"
 #include "MetroidPrime/Tweaks/CTweakBall.hpp"
 
-#include <float.h>
-
 void CPlayer::UpdatePlayerControlDirection(float dt, CStateManager& mgr) {
   const CVector3f oldDirection = mControlDir;
   const CVector3f oldFlatDirection = mControlDirFlat;
@@ -196,7 +194,7 @@ bool CPlayer::SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mg
   return switchedVisor;
 }
 
-bool CPlayer::FireBeamHeld(const CFinalInput& input) const {
+uchar CPlayer::FireBeamHeld(const CFinalInput& input) const {
   bool held = false;
   if (mControlMapper.GetDigitalInput(CControlMapper::kC_FireOrBomb, input) ||
       mControlMapper.GetDigitalInput(CControlMapper::kC_FireOrBomb2, input)) {
@@ -205,7 +203,7 @@ bool CPlayer::FireBeamHeld(const CFinalInput& input) const {
   return held;
 }
 
-bool CPlayer::FireBeamPressed(const CFinalInput& input) const {
+uchar CPlayer::FireBeamPressed(const CFinalInput& input) const {
   bool pressed = false;
   if (mControlMapper.GetPressInput(CControlMapper::kC_FireOrBomb, input) ||
       mControlMapper.GetPressInput(CControlMapper::kC_FireOrBomb2, input)) {
@@ -214,7 +212,7 @@ bool CPlayer::FireBeamPressed(const CFinalInput& input) const {
   return pressed;
 }
 
-bool CPlayer::AutoFireHeld(const CFinalInput& input) const {
+uchar CPlayer::AutoFireHeld(const CFinalInput& input) const {
   bool held = false;
   if (mControlMapper.GetDigitalInput(CControlMapper::kC_AutoFireBeam, input)) {
     held = true;
@@ -222,7 +220,7 @@ bool CPlayer::AutoFireHeld(const CFinalInput& input) const {
   return held;
 }
 
-bool CPlayer::JumpHeld(const CFinalInput& input) const {
+uchar CPlayer::JumpHeld(const CFinalInput& input) const {
   bool held = false;
   if (mControlMapper.GetDigitalInput(CControlMapper::kC_JumpOrBoost, input) ||
       mControlMapper.GetDigitalInput(CControlMapper::kC_JumpOrBoost2, input)) {
@@ -231,7 +229,7 @@ bool CPlayer::JumpHeld(const CFinalInput& input) const {
   return held;
 }
 
-bool CPlayer::JumpPressed(const CFinalInput& input) const {
+uchar CPlayer::JumpPressed(const CFinalInput& input) const {
   bool pressed = false;
   if (mControlMapper.GetPressInput(CControlMapper::kC_JumpOrBoost, input) ||
       mControlMapper.GetPressInput(CControlMapper::kC_JumpOrBoost2, input)) {
@@ -240,7 +238,7 @@ bool CPlayer::JumpPressed(const CFinalInput& input) const {
   return pressed;
 }
 
-bool CPlayer::ChargeBeamHeld(const CFinalInput& input) const {
+uchar CPlayer::ChargeBeamHeld(const CFinalInput& input) const {
   bool held = false;
   if (mControlMapper.GetDigitalInput(CControlMapper::kC_ChargeBeam, input) ||
       mControlMapper.GetDigitalInput(CControlMapper::kC_ChargeBeam2, input)) {
@@ -249,7 +247,7 @@ bool CPlayer::ChargeBeamHeld(const CFinalInput& input) const {
   return held;
 }
 
-bool CPlayer::BoostHeld(const CFinalInput& input) const {
+uchar CPlayer::BoostHeld(const CFinalInput& input) const {
   bool held = false;
   if (mControlMapper.GetDigitalInput(CControlMapper::kC_BoostBall, input)) {
     held = true;
@@ -316,7 +314,7 @@ void CPlayer::UpdateRezbitState(float dt) {
       const int playerIndex = GetPlayerIndex();
       CSamusHud::DisplayHudMemo(
           rstl::wstring_l(gpStringTable->GetString("RezbitSuitSoftwareVirus")),
-          CHUDMemoParms(FLT_MAX, true, false, false, 1 << playerIndex, false));
+          CHUDMemoParms(3.4028235e38f, true, false, false, 1 << playerIndex, false));
     }
   }
   if (mStaticTimer < 0.5f) {
