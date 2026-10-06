@@ -239,17 +239,19 @@ CRayCastResult CGameCollision::RayStaticIntersection(const CStateManager& mgr,
   if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return result;
   }
-  const CLine line(position, CUnitVector3f(direction, CUnitVector3f::kN_No));
+  const CUnitVector3f unitDir = CUnitVector3f(direction.GetX(), direction.GetY(), direction.GetZ());
+  const CLine line(position, unitDir);
+  const CWorld* world = mgr.GetWorld();
   float closest = length > 0.f ? length : 100000.f;
-  for (CGameArea::CConstChainIterator area = mgr.GetWorld()->GetChainHead(CWorld::kC_Alive);
+  for (CGameArea::CConstChainIterator area = world->GetChainHead(CWorld::kC_Alive);
        area != CWorld::skGlobalEnd; ++area) {
     CAreaOctTree::SRayResult candidate;
     const CAreaOctTree& tree = *area->GetPostConstructed()->mCollision;
     tree.GetRootNode().LineTestEx(line, staticFilter, candidate, length);
-    if (candidate.mSurface && (length == 0.f || candidate.mT <= length) && candidate.mT < closest) {
+    if (candidate.mSurface && (length == 0.f || !(length < candidate.mT)) && candidate.mT < closest) {
+      closest = candidate.mT;
       result = CRayCastResult(candidate.mT, position + candidate.mT * direction, candidate.mPlane,
                               CMaterialList(candidate.mSurface->GetSurfaceFlags()));
-      closest = candidate.mT;
     }
   }
   return result;
