@@ -26,7 +26,7 @@ CScriptSoundModifier::CScriptSoundModifier(TUniqueId uid, const rstl::string& na
 , mDuration(duration)
 , mAutoReset(autoReset)
 , mAutoStart(autoStart)
-, mRunning(autoStart) {}
+, mRunning(mAutoStart) {}
 
 CScriptSoundModifier::~CScriptSoundModifier() {}
 

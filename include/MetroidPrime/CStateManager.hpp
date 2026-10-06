@@ -159,6 +159,7 @@ public:
 
   TUniqueId AllocateUniqueId();
   CScriptObjectLoaderHelper& ScriptObjectLoaderHelper();
+  const CScriptObjectLoaderHelper& GetScriptObjectLoaderHelper() const; // Guessed name
   uint MaskUIdNumPlayers(TUniqueId id) const;
   void SetIsDarkWorld(bool);
   bool GetIsDarkWorld() const { return mIsDarkWorld; }

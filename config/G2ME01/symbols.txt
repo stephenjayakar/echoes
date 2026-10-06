@@ -1020,7 +1020,7 @@ construct__Q24rstl62construction_policy<Q218CImpactVisorEffect15SParticleEffect,
 __ct__Q218CImpactVisorEffect15SParticleEffectFRCQ218CImpactVisorEffect15SParticleEffect = .text:0x80036104; // type:function size:0x80 scope:weak
 CModelDataNull__10CModelDataFv = .text:0x80036184; // type:function size:0x20
 clear_transform__FRC12CTransform4f = .text:0x800361A4; // type:function size:0x5C scope:local align:4
-fn_80036200 = .text:0x80036200; // type:function size:0x10 align:4
+GetScriptObjectLoaderHelper__13CStateManagerCFv = .text:0x80036200; // type:function size:0x10 align:4
 ScriptObjectLoaderHelper__13CStateManagerFv = .text:0x80036210; // type:function size:0x10
 TakePortalTransition__13CStateManagerFv = .text:0x80036220; // type:function size:0x8 align:4
 SetPortalTransition__13CStateManagerFRQ24rstl31single_ptr<17CPortalTransition> = .text:0x80036228; // type:function size:0x5C align:4
