@@ -438,6 +438,83 @@ void CSplitterCommandModule::Idle(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
+void CSplitterCommandModule::SpawnIdle(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mFaceDirection = CVector3f::Zero();
+    break;
+  case kStateMsg_Update:
+    if (xefc_ == kInvalidUniqueId) {
+      xefc_ = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+    }
+    break;
+  }
+}
+
+void CSplitterCommandModule::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    StopLaserSweep(mgr);
+    DeathDelete(mgr);
+    break;
+  }
+}
+
+void CSplitterCommandModule::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (xf6a_24_) {
+    mPathFindNavigation.PathFind(mgr, msg, dt, *this);
+  }
+  switch (msg) {
+  case kStateMsg_Activate:
+    xf6a_25_ = false;
+    break;
+  case kStateMsg_Update: {
+    CVector3f moveVector = BodyController()->GetCommandMgr().GetMoveVector();
+    moveVector += GetSeparation(mgr);
+    if (moveVector.IsMagnitudeSafe()) {
+      const CVector3f move = (dt * mData.maxLinearVelocity) * moveVector;
+      const CVector3f dest = GetTranslation() + move;
+      MoveTo(dest, dt);
+      const TUniqueId faceTargetId = mPathFindNavigation.GetFaceTarget();
+      CVector3f faceDir = move;
+      if (const CActor* faceTarget = static_cast< const CActor* >(mgr.GetObjectById(faceTargetId))) {
+        faceDir = faceTarget->GetTranslation() - GetTranslation();
+        faceDir.SetZ(0.f);
+      }
+      BodyController()->FaceDirection(faceDir, dt);
+    }
+    break;
+  }
+  case kStateMsg_Deactivate:
+    xf6a_24_ = true;
+    break;
+  }
+}
+
+void CSplitterCommandModule::Hover(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    break;
+  case kStateMsg_Update:
+    if (dt > 0.f) {
+      if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
+        CVector3f delta = target->GetAimPosition(mgr, 0.f) - GetTranslation();
+        const float dz = delta.GetZ();
+        delta.SetZ(0.f);
+        BodyController()->FaceDirection(delta, dt);
+        const float maxMove = dt * mData.maxLinearVelocity;
+        if (fabsf(dz) > maxMove) {
+          const CVector3f dest =
+              GetTranslation() + CVector3f(0.f, 0.f, dz > 0.f ? maxMove : -maxMove);
+          MoveTo(dest, dt);
+        }
+      }
+    }
+    break;
+  }
+}
+
 void CSplitterCommandModule::SeekMainChassis(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
@@ -452,7 +529,8 @@ void CSplitterCommandModule::SeekMainChassis(CStateManager& mgr, EStateMsg msg, 
       const CVector3f delta = dockPos - GetTranslation();
       const float speed = dt * mData.maxLinearVelocity;
       if (delta.MagSquared() > speed * speed && delta.IsMagnitudeSafe()) {
-        MoveTo(GetTranslation() + speed * delta.AsNormalized(), dt);
+        const CVector3f dest = GetTranslation() + speed * delta.AsNormalized();
+        MoveTo(dest, dt);
       } else {
         SetTranslation(dockPos);
         mAnimationState.SetState(CAnimationState::kAS_Over);
@@ -478,7 +556,8 @@ void CSplitterCommandModule::FollowDockingPath(CStateManager& mgr, EStateMsg msg
     const CVector3f moveVector = BodyController()->GetCommandMgr().GetMoveVector();
     const float speed = dt * mData.maxLinearVelocity;
     if (moveVector.IsMagnitudeSafe()) {
-      MoveTo(GetTranslation() + speed * moveVector, dt);
+      const CVector3f dest = GetTranslation() + speed * moveVector;
+      MoveTo(dest, dt);
       BodyController()->FaceDirection(moveVector, dt);
     }
     break;

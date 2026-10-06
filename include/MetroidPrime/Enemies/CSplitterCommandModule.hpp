@@ -133,6 +133,8 @@ private:
   void UpdateAlertEffect(CStateManager& mgr);
   int FindDodgeDirection(CStateManager& mgr);
   void MoveTo(const CVector3f& pos, float dt);
+  void StopLaserSweep(CStateManager& mgr);
+  CVector3f GetSeparation(CStateManager& mgr);
   void FireLaserPulse(CStateManager& mgr, const rstl::string& locator);
 
   CSplitterCommandModuleData mData;
