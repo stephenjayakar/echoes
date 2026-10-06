@@ -748,68 +748,70 @@ void CActor::ProcessSoundEvent(int sfxId, float weight, int flags, float fallOff
                                float pitchDuration, uchar minVol, uchar maxVol,
                                float distanceSquared, const CVector3f& position, int aid,
                                CStateManager& mgr, bool translateId) {
-  if (!(distanceSquared < maxDist * maxDist)) {
-    return;
-  }
+  if (distanceSquared < maxDist * maxDist) {
+    const ushort id = translateId ? static_cast< ushort >(sfxId) : static_cast< ushort >(sfxId);
+    if (sfxId & 0x20000) {
+      aid = CSfxManager::kAllAreas;
+    }
+    const bool useAcoustics = (flags & 0x80) == 0;
+    const bool looping = (sfxId & 0x80000000) != 0;
+    const bool nonEmitter = (sfxId & 0x40000000) != 0;
+    const bool continuousUpdate = (sfxId & 0x20000000) != 0;
+    const bool useEchoVolume = (sfxId & 0x40000) != 0;
+    uchar volume = maxVol;
+    if (useEchoVolume) {
+      volume = GetVisorSoundVolume(mgr);
+    }
+    uint musyxFlags = 0x1; // Continuous parameter update
+    if (flags & 0x8) {
+      musyxFlags |= 0x8; // Doppler FX
+    }
 
-  const ushort id = static_cast< ushort >(sfxId);
-  const bool nonEmitter = (sfxId & 0x40000000) != 0;
-  const bool useAcoustics = (flags & 0x80) == 0;
-  const bool useEchoVolume = (sfxId & 0x40000) != 0;
-  if (sfxId & 0x20000) {
-    aid = CSfxManager::kAllAreas;
-  }
-  const uchar volume = useEchoVolume ? GetVisorSoundVolume(mgr) : maxVol;
-  const uchar minimumVolume = rstl::min_val(minVol, volume);
-
-  uint musyxFlags = 0x1; // Continuous parameter update
-  if (flags & 0x8) {
-    musyxFlags |= 0x8; // Doppler FX
-  }
-
-  CAudioSys::C3DEmitterParmData parms(maxDist, fallOff, musyxFlags, volume, minimumVolume);
-  parms.mPos = locator.val() == 0
-                   ? position
-                   : (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
-  parms.mDir = CVector3f::Zero();
-  parms.mSfxId = id;
-
-  if (!(mgr.Random()->Float() <= weight)) {
-    return;
-  }
-
-  if (sfxId & 0x80000000) {
-    PlayLoopedSound(id, flags, fallOff, maxDist, minimumVolume, volume, nonEmitter, aid,
-                    useAcoustics, locator, pitchStart, pitchEnd, pitchDuration, useEchoVolume);
-  } else {
-    CSfxHandle handle;
-    if (nonEmitter) {
-      short pan = 64;
-      if (flags & 0x10000000) {
-        if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(GetUniqueId()))) {
-          pan = player->GetSoundPan(CPlayer::kMSP_4);
-        }
-      }
-      handle =
-          CSfxManager::SfxStart(id, 127, pan, aid, useAcoustics, false, CSfxManager::kMedPriority);
+    CAudioSys::C3DEmitterParmData parms(maxDist, fallOff, musyxFlags, volume,
+                                        rstl::min_val(minVol, volume));
+    if (locator.val() == 0) {
+      parms.mPos = position;
     } else {
-      handle = CSfxManager::AddEmitter(parms, aid, useAcoustics, false, CSfxManager::kMedPriority);
+      parms.mPos = (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
     }
-    if ((sfxId & 0x20000000) != 0 /* continuous update */) {
-      mNonLoopingSounds[mNextNonLoopingSfxHandle] = SSound(handle, locator, useEchoVolume);
-      mNextNonLoopingSfxHandle = (mNextNonLoopingSfxHandle + 1) % mNonLoopingSounds.size();
-    }
+    parms.mDir = CVector3f::Zero();
+    parms.mSfxId = id;
 
-    if (handle) {
-      if (mEnablePitchBend) {
-        CSfxManager::PitchBend(handle, mPitchBend);
-      }
-      if (pitchDuration <= 0.f) {
-        if (!mEnablePitchBend) {
-          CSfxManager::PitchBend(handle, pitchStart);
-        }
+    if (mgr.Random()->Float() <= weight) {
+      if (looping) {
+        PlayLoopedSound(id, flags, fallOff, maxDist, rstl::min_val(minVol, volume), volume,
+                        nonEmitter, aid, useAcoustics, locator, pitchStart, pitchEnd,
+                        pitchDuration, useEchoVolume);
       } else {
-        CSfxManager::AddPitchBend(CSfxPitchBend(handle, pitchStart, pitchEnd, pitchDuration));
+        CSfxHandle handle;
+        if (!nonEmitter) {
+          handle =
+              CSfxManager::AddEmitter(parms, aid, useAcoustics, false, CSfxManager::kMedPriority);
+        } else {
+          short pan = 64;
+          if (flags & 0x10000000) {
+            if (const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(GetUniqueId()))) {
+              pan = player->GetSoundPan(CPlayer::kMSP_4);
+            }
+          }
+          handle = CSfxManager::SfxStart(id, 127, pan, aid, useAcoustics, false,
+                                         CSfxManager::kMedPriority);
+        }
+        if (continuousUpdate) {
+          mNonLoopingSounds[mNextNonLoopingSfxHandle] = SSound(handle, locator, useEchoVolume);
+          mNextNonLoopingSfxHandle = (mNextNonLoopingSfxHandle + 1) % mNonLoopingSounds.size();
+        }
+
+        if (handle) {
+          if (mEnablePitchBend) {
+            CSfxManager::PitchBend(handle, mPitchBend);
+          }
+          if (pitchDuration > 0.f) {
+            CSfxManager::AddPitchBend(CSfxPitchBend(handle, pitchStart, pitchEnd, pitchDuration));
+          } else if (!mEnablePitchBend) {
+            CSfxManager::PitchBend(handle, pitchStart);
+          }
+        }
       }
     }
   }
