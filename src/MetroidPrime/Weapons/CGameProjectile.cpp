@@ -447,8 +447,9 @@ void CGameProjectile::UpdateProjectileMovement(float dt, CStateManager& mgr) {
       }
     }
   }
-  const CGameArea& area = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId());
-  if (area.IsLoaded() && area.GetOcclusionState() == CGameArea::kOS_Occluded) {
+  if (mgr.GetWorld()->IsAreaValid(GetCurrentAreaId()) &&
+      mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetOcclusionState() ==
+          CGameArea::kOS_Occluded) {
     mgr.DeleteObjectRequest(GetUniqueId());
   }
 }
