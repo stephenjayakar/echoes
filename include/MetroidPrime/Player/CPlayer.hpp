@@ -330,6 +330,13 @@ public:
   static int SfxIdFromMaterial(const CMaterialList& mat, const ushort* idList, int tableLen,
                                ushort defId);
   static const float skDefaultHudFadeInSpeed;
+  // Guessed names. Morph-transition scan-line filter timing, defined beside the HUD fade speeds.
+  static const float skTransitionFilterStartTime;
+  static const float skTransitionFilterFadeInTime;
+  static const float skTransitionFilterFadeOutTime;
+  static const float skTransitionFilterHoldTime;
+  static const float skTransitionFilterEndTime;
+  static const float skTransitionFilterMaxAlpha;
   void SetHudDisable(float staticTimer, float fadeOutSpeed = skDefaultHudFadeOutSpeed,
                      float fadeInSpeed = skDefaultHudFadeInSpeed);
   float GetStaticTimer() const { return mStaticTimer; }

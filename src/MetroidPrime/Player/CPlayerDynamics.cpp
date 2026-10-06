@@ -1490,27 +1490,36 @@ void CPlayer::LeaveMorphBallState(CStateManager& mgr) {
 void CPlayer::UpdateTransitionFilter(float dt, CStateManager& mgr) {
   const uint player = mgr.MaskUIdNumPlayers(GetUniqueId());
   CCameraFilterPass& filter = mgr.CameraFilterPass(player, 8);
-  if (mTransitionFilterTimer > 0.f) {
-    mTransitionFilterTimer += dt;
-    if (mTransitionFilterTimer > 1.25f) {
-      mTransitionFilterTimer = 0.f;
-      filter.DisableFilter(0.f);
-    } else if (mTransitionFilterTimer >= .95f) {
-      const float time = mTransitionFilterTimer - .95f;
-      float alpha;
-      if (time < .1f) {
-        alpha = .3f * time / .1f;
-      } else if (time < .15f) {
-        alpha = .3f;
-      } else {
-        alpha = .3f * (1.f - CMath::Limit((time - .15f) / .15f, 1.f));
-      }
-      filter.SetFilter(CCameraFilterPass::kFT_Add, CCameraFilterPass::kFS_ScanLinesEven, 0.f,
-                       CColor(0xffdf8900u).WithAlphaOf(alpha), kInvalidAssetId);
-    }
-  } else {
+  if (mTransitionFilterTimer <= 0.f) {
     filter.DisableFilter(0.f);
+    return;
   }
+
+  mTransitionFilterTimer += dt;
+  if (mTransitionFilterTimer > skTransitionFilterEndTime) {
+    mTransitionFilterTimer = 0.f;
+    filter.DisableFilter(0.f);
+    return;
+  }
+  if (mTransitionFilterTimer < skTransitionFilterStartTime) {
+    return;
+  }
+
+  const float time = mTransitionFilterTimer - skTransitionFilterStartTime;
+  CColor color(static_cast< uchar >(0xff), static_cast< uchar >(0xdf), static_cast< uchar >(0x89),
+               static_cast< uchar >(0xff));
+  if (time < skTransitionFilterFadeInTime) {
+    color.SetAlpha(CCast::ToUint8(255.f * (skTransitionFilterMaxAlpha * time / skTransitionFilterFadeInTime)));
+  } else if (time >= skTransitionFilterHoldTime) {
+    color.SetAlpha(CCast::ToUint8(255.f * (skTransitionFilterMaxAlpha *
+                                          (1.f - CMath::Limit((time - skTransitionFilterHoldTime) /
+                                                                  skTransitionFilterFadeOutTime,
+                                                              1.f)))));
+  } else {
+    color.SetAlpha(CCast::ToUint8(255.f * skTransitionFilterMaxAlpha));
+  }
+  filter.SetFilter(CCameraFilterPass::kFT_Add, CCameraFilterPass::kFS_ScanLinesEven, 0.f, color,
+                   kInvalidAssetId);
 }
 
 void CPlayer::UpdateMorphBallTransition(float dt, CStateManager& mgr) {
