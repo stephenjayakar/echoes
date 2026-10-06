@@ -27,6 +27,10 @@
 
 // Guessed name.
 struct SModelDataMultipassContext {
+  SModelDataMultipassContext(const CSkinnedModel& model, const CModelFlags* flags, const u64* masks,
+                             const CColor* colors, const CPlane* planes, int count)
+  : mModel(model), mFlags(flags), mMasks(masks), mColors(colors), mPlanes(planes), mCount(count) {}
+
   const CSkinnedModel& mModel;
   const CModelFlags* mFlags;
   const u64* mMasks;
@@ -67,8 +71,9 @@ CModelData::CModelData(const CAnimRes& res)
   if (defaultAnim < 0) {
     defaultAnim = factory->GetCharInfo(res.GetCharacterNodeId()).GetDefaultAnimation();
   }
-  mAnimData = factory->CreateCharacter(res.GetCharacterNodeId(), res.CanLoop(), factory,
-                                       defaultAnim);
+  mAnimData = rstl::auto_ptr< CAnimData >(
+      factory->CreateCharacter(res.GetCharacterNodeId(), res.CanLoop(), factory, defaultAnim)
+          .release());
   mAnimData->SetModelScale(mScale);
 }
 
@@ -228,17 +233,17 @@ void CModelData::RenderModelMultipleTimesWithFlags(EWhichModel which, const CTra
                                                    int count) const {
   const CTransform4f modelXf = xf * CTransform4f::Scale(mScale);
   gpRender->SetModelMatrix(modelXf);
-  if (lights == nullptr || which == kWM_Dark) {
+  if (lights != nullptr && which != kWM_Dark) {
+    lights->ActivateLights();
+  } else {
     CGraphics::DisableAllLights();
     gpRender->SetAmbientColor(mAmbientColor);
-  } else {
-    lights->ActivateLights();
   }
 
   if (HasAnimation()) {
     const CSkinnedModel& model = PickAnimatedModel(which);
     mAnimData->SetupRender();
-    SModelDataMultipassContext context = {model, flags, masks, colors, planes, count};
+    SModelDataMultipassContext context(model, flags, masks, colors, planes, count);
     model.Draw(&mAnimData->Pose(), &MultipassDrawCallback, &context);
   } else {
     const CModel& model = **PickStaticModel(which);
@@ -443,9 +448,11 @@ void CModelData::SetEchoModel(const rstl::pair< CAssetId, CAssetId >& assets) {
 
   if (HasAnimation() && assets.second != 0 &&
       gpResourceFactory->GetResourceTypeById(assets.second) == 'CSKR') {
-    TLockedToken< CModel > model(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
-    TLockedToken< CSkinRules > skin(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)));
-    mAnimData->SetXRayModel(model, skin);
+    mAnimData->SetXRayModel(
+        TLockedToken< CModel >(
+            TToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)))),
+        TLockedToken< CSkinRules >(
+            TToken< CSkinRules >(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)))));
   } else {
     mEchoModel = TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
   }
@@ -458,9 +465,11 @@ void CModelData::SetDarkModel(const rstl::pair< CAssetId, CAssetId >& assets) {
 
   if (HasAnimation() && assets.second != 0 &&
       gpResourceFactory->GetResourceTypeById(assets.second) == 'CSKR') {
-    TLockedToken< CModel > model(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
-    TLockedToken< CSkinRules > skin(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)));
-    mAnimData->SetInfraModel(model, skin);
+    mAnimData->SetInfraModel(
+        TLockedToken< CModel >(
+            TToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)))),
+        TLockedToken< CSkinRules >(
+            TToken< CSkinRules >(gpSimplePool->GetObj(SObjectTag('CSKR', assets.second)))));
   } else {
     mDarkModel = TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', assets.first)));
   }
