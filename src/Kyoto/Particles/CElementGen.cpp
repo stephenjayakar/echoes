@@ -2745,7 +2745,11 @@ void CElementGen::RenderModelParticle(SModelRenderState& state, const CColor& co
           CModelFlags::kT_One, 0,
           CModelFlags::EFlags(CModelFlags::kF_DepthCompare | CModelFlags::kF_DepthUpdate), color));
     } else {
-      model->Draw(CModelFlags(CModelFlags::kT_Blend, 0, CModelFlags::kF_DepthCompare, color));
+      model->Draw(CModelFlags(CModelFlags::kT_Blend, 0,
+                              CModelFlags::EFlags(CModelFlags::kF_DepthCompare |
+                                                  CModelFlags::kF_DepthUpdate),
+                              color)
+                      .DepthCompareUpdate(true, false));
     }
   }
 }
@@ -2764,21 +2768,20 @@ void CElementGen::RenderIndirectModelParticle(SModelRenderState& state, const CC
   CGraphics::CClippedScreenQuad clip = CGraphics::ClipScreenQuadFromMS(
       CVector3f(0.5f, 0.f, 0.5f), CVector3f(-0.5f, 0.f, 0.5f), CVector3f(-0.5f, 0.f, -0.5f),
       CVector3f(0.5f, 0.f, -0.5f), kTF_RGB565);
-  void* dest = CGraphics::GetDolphinSpareBuffer();
   if (!clip.IsValid()) {
     return;
   }
-  const bool halfSize = mLoadedGenDesc->mINDM;
+  const uint halfSize = mLoadedGenDesc->mINDM ? 1 : 0;
+  void* dest = CGraphics::GetDolphinSpareBuffer();
   GXSetTexCopySrc(clip.GetX(), clip.GetY(), clip.GetWidth(), clip.GetHeight());
   GXSetTexCopyDst(clip.GetTexWidth() >> halfSize, clip.GetHeight() >> halfSize, GX_TF_RGB565,
-                  halfSize);
-  const size_t bufferSize = CGraphics::GetSpareBufferSize();
-  const size_t textureSize = GXGetTexBufferSize(
-      clip.GetTexWidth() >> halfSize, clip.GetHeight() >> halfSize, GX_TF_RGB565, false, 0);
-  if (textureSize > bufferSize) {
+                  halfSize != 0);
+  const uint bufferSize = CGraphics::GetSpareBufferSize();
+  if (GXGetTexBufferSize(clip.GetTexWidth() >> halfSize, clip.GetHeight() >> halfSize,
+                         GX_TF_RGB565, GX_FALSE, 0) > bufferSize) {
     return;
   }
-  const bool useVideoFilter = CGraphics::GetUseVideoFilter();
+  bool useVideoFilter = CGraphics::GetUseVideoFilter();
   CGraphics::SetUseVideoFilter(false);
   GXCopyTex(dest, GX_FALSE);
   CGraphics::SetUseVideoFilter(useVideoFilter);
@@ -3050,19 +3053,19 @@ bool CElementGen::SystemHasLight() { return mLightType != kLT_None; }
 
 CLight CElementGen::GetLight() {
   switch (mLightType) {
-  case kLT_Directional:
-    return CLight::BuildDirectional(mLDIR.AsNormalized(),
-                                    CColor(rstl::min_val(1.f, mLINT * mLCLR.GetRed()),
-                                           rstl::min_val(1.f, mLINT * mLCLR.GetGreen()),
-                                           rstl::min_val(1.f, mLINT * mLCLR.GetBlue()),
-                                           rstl::min_val(1.f, mLINT * mLCLR.GetAlpha())));
+  case kLT_Directional: {
+    const CColor color(rstl::min_val(1.f, mLINT * mLCLR.GetRed()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetGreen()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetBlue()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetAlpha()));
+    return CLight::BuildDirectional(mLDIR.AsNormalized(), color);
+  }
   case kLT_Spot: {
-    CLight light = CLight::BuildSpot(mLOFF, mLDIR.AsNormalized(),
-                                     CColor(rstl::min_val(1.f, mLINT * mLCLR.GetRed()),
-                                            rstl::min_val(1.f, mLINT * mLCLR.GetGreen()),
-                                            rstl::min_val(1.f, mLINT * mLCLR.GetBlue()),
-                                            rstl::min_val(1.f, mLINT * mLCLR.GetAlpha())),
-                                     mLSLA);
+    const CColor color(rstl::min_val(1.f, mLINT * mLCLR.GetRed()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetGreen()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetBlue()),
+                       rstl::min_val(1.f, mLINT * mLCLR.GetAlpha()));
+    CLight light = CLight::BuildSpot(mLOFF, mLDIR.AsNormalized(), color, mLSLA);
     const float quadratic = mFalloffType == kFT_Quadratic ? mLFOR : 0.f;
     const float linear = mFalloffType == kFT_Linear ? mLFOR : 0.f;
     const float constant = mFalloffType == kFT_Constant ? 1.f : 0.f;
