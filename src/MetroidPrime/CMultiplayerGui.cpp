@@ -66,10 +66,14 @@ void CMultiplayerGui::Update(float dt, const CStateManager& mgr) {
     const int deaths = mgr.GetPlayerState(i)->GetItemAmount(CPlayerState::kIT_DiedCount);
     mScoreTextPanes[widgetIndex]->TextSupport().SetText(
         CStringExtras::ConvertToUNICODE(rstl::string(CBasics::Stringize("%02d", score))));
-    mScoreTextPanes[widgetIndex]->TextSupport().SetFontColor(
-        gameMode.IsNearScoreLimit(mgr, i) ? gpTweakGuiColors->GetMultiplayerWinningScoreTextColor()
-                                          : gpTweakGuiColors->GetMultiplayerScoreTextColor());
-    if (mPreviousScores[i] < score) {
+    if (gameMode.IsNearScoreLimit(mgr, i)) {
+      mScoreTextPanes[widgetIndex]->TextSupport().SetFontColor(
+          gpTweakGuiColors->GetMultiplayerWinningScoreTextColor());
+    } else {
+      mScoreTextPanes[widgetIndex]->TextSupport().SetFontColor(
+          gpTweakGuiColors->GetMultiplayerScoreTextColor());
+    }
+    if (score > mPreviousScores[i]) {
       mScoreIncreaseFlashTimes[i] = 1.f;
       mPreviousScores[i] = score;
     }
@@ -83,8 +87,10 @@ void CMultiplayerGui::Update(float dt, const CStateManager& mgr) {
     }
     mScoreDecreaseFlashTimes[i] = rstl::max_val(0.f, mScoreDecreaseFlashTimes[i] - flashDelta);
     mScoreIncreaseFlashTimes[i] = rstl::max_val(0.f, mScoreIncreaseFlashTimes[i] - flashDelta);
-    if (!CMath::IsEpsilon(mScoreDecreaseFlashTimes[i], 0.f, 1.e-5f) ||
-        !CMath::IsEpsilon(mScoreIncreaseFlashTimes[i], 0.f, 1.e-5f)) {
+    if (CMath::IsEpsilon(mScoreDecreaseFlashTimes[i], 0.f, 1.e-5f) &&
+        CMath::IsEpsilon(mScoreIncreaseFlashTimes[i], 0.f, 1.e-5f)) {
+      mScoreFlashModels[widgetIndex]->SetVisibility(false, kTM_Children);
+    } else {
       CColor color(0.f, 0.f, 0.f, 0.f);
       if (mScoreDecreaseFlashTimes[i] > mScoreIncreaseFlashTimes[i]) {
         if (int(8.f * mScoreDecreaseFlashTimes[i]) & 1) {
@@ -95,8 +101,6 @@ void CMultiplayerGui::Update(float dt, const CStateManager& mgr) {
       }
       mScoreFlashModels[widgetIndex]->SetColor(color);
       mScoreFlashModels[widgetIndex]->SetVisibility(true, kTM_Children);
-    } else {
-      mScoreFlashModels[widgetIndex]->SetVisibility(false, kTM_Children);
     }
   }
 
@@ -109,7 +113,7 @@ void CMultiplayerGui::Update(float dt, const CStateManager& mgr) {
         CBasics::Stringize("%02d:%02d", secondsRemaining / 60, secondsRemaining % 60));
     mTimeTextPane->TextSupport().SetText(CStringExtras::ConvertToUNICODE(timeString));
     const bool periodicWarning = float(fmod(double(timeRemaining - 1.f), 300.0)) > 298.f;
-    bool minuteWarning = secondsRemaining < 61 && secondsRemaining > 58;
+    bool minuteWarning = secondsRemaining <= 60 && secondsRemaining > 58;
     const bool justStarted = gameMode.GetElapsedTime() < 3.f;
     if (justStarted) {
       minuteWarning = false;
@@ -145,8 +149,8 @@ void CMultiplayerGui::BindWidgets(const CStateManager& mgr) {
   static const char* noTimeSuffix = "notime";
   static const char* timeSuffix = "";
   const bool noTimer = gameMode.GetMatchTimeLimit() <= 0.f && numPlayers == 2;
-  const char* hiddenSuffix = noTimer ? timeSuffix : noTimeSuffix;
   const char* visibleSuffix = noTimer ? noTimeSuffix : timeSuffix;
+  const char* hiddenSuffix = !noTimer ? noTimeSuffix : timeSuffix;
   for (int i = 0; i < 4; ++i) {
     CGuiWidget* widget = mReadyFrame->FindWidget(
         CBasics::Stringize("%s%s%d", skScoreWidgetName, hiddenSuffix, i + 1));
@@ -155,26 +159,27 @@ void CMultiplayerGui::BindWidgets(const CStateManager& mgr) {
     }
   }
   for (int i = 0; i < 4; ++i) {
+    const int n = i + 1;
     CGuiWidget* widget = mReadyFrame->FindWidget(
-        CBasics::Stringize("%s%s%d", skScoreWidgetName, visibleSuffix, i + 1));
+        CBasics::Stringize("%s%s%d", skScoreWidgetName, visibleSuffix, n));
     if (widget != nullptr) {
       mScoreWidgets.push_back(widget);
       widget->SetVisibility(false, kTM_Children);
       CGuiTextPane* textPane = static_cast< CGuiTextPane* >(mReadyFrame->FindWidget(
-          CBasics::Stringize("%s%s%d", skScoreTextName, visibleSuffix, i + 1)));
+          CBasics::Stringize("%s%s%d", skScoreTextName, visibleSuffix, n)));
       mScoreTextPanes.push_back(textPane);
       textPane->TextSupport().SetFontColor(gpTweakGuiColors->GetMultiplayerScoreTextColor());
       textPane->SetDepthTest(false);
       widget = mReadyFrame->FindWidget(
-          CBasics::Stringize("%s%s%d", skScoreBackgroundName, visibleSuffix, i + 1));
+          CBasics::Stringize("%s%s%d", skScoreBackgroundName, visibleSuffix, n));
       widget->SetColor(gpTweakGuiColors->GetMultiplayerScoreboardDecoColor());
       widget->SetDepthTest(false);
       widget = mReadyFrame->FindWidget(
-          CBasics::Stringize("%s%s%d", skScoreFillName, visibleSuffix, i + 1));
+          CBasics::Stringize("%s%s%d", skScoreFillName, visibleSuffix, n));
       widget->SetColor(gpTweakGuiColors->GetMultiplayerScoreboardBackgroundColor());
       widget->SetDepthTest(false);
       widget = mReadyFrame->FindWidget(
-          CBasics::Stringize("%s%s%d", skScoreFlashName, visibleSuffix, i + 1));
+          CBasics::Stringize("%s%s%d", skScoreFlashName, visibleSuffix, n));
       widget->SetVisibility(false, kTM_Children);
       mScoreFlashModels.push_back(widget);
       widget->SetDepthTest(false);
