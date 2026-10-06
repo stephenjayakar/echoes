@@ -40,12 +40,39 @@
 #include "MetroidPrime/CGameCollision.hpp"
 #include "MetroidPrime/CWorld.hpp"
 
+#include "MetroidPrime/CObjectList.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptDoor.hpp"
+
+#include "Collision/CCollidableSphere.hpp"
+#include "Kyoto/Math/CQuaternion.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
+#include "MetroidPrime/CPhysicsActor.hpp"
+#include "MetroidPrime/CSafeZoneManager.hpp"
+#include "WorldFormat/CAreaOctTree.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
 struct SSwarmBasics_FuncPtrs {
   void* (*mFactory)();
 };
+
+CTransform4f CSwarmBasics::ShortestRotationArcWrapped(const CVector3f& a, const CVector3f& b,
+                                                      const CRelAngle& angle) {
+  const float dot = CVector3f::Dot(a, b);
+  if (close_enough(dot, 1.f)) {
+    return CTransform4f::Identity();
+  }
+  if (dot > -0.99981f) {
+    return CQuaternion::ShortestRotationArcClamped(a, b, angle).BuildTransform4f();
+  }
+  if (!(a == CVector3f::Right()) && !(b == CVector3f::Right())) {
+    return CQuaternion::AxisAngle(CUnitVector3f(CVector3f::Cross(a, CVector3f::Right())), angle)
+        .BuildTransform4f();
+  }
+  return CQuaternion::AxisAngle(CUnitVector3f(CVector3f::Cross(a, CVector3f::Up())), angle)
+      .BuildTransform4f();
+}
 
 // Guessed names: qsort comparators over the listener distance cached in each boid.
 static int CompareBoidsByListenerDistance(const void* a, const void* b) {
@@ -90,6 +117,308 @@ CAABox CSwarmBasics::GetBoundingBox() const {
 }
 
 rstl::optional_object< CAABox > CSwarmBasics::GetTouchBounds() const { return mAabox; }
+
+void CSwarmBasics::CreateBoid(CStateManager& mgr, int index) {
+  const CAABox bounds = GetBoundingBox();
+  const TUniqueId waypointId = GetWaypointForState(kSS_Patrol, mgr);
+  if (const CScriptWaypoint* waypoint =
+          TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(waypointId))) {
+    const TUniqueId nextId = waypoint->NextWaypoint(mgr);
+    if (const CScriptWaypoint* next = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(nextId))) {
+      const CVector3f pos = waypoint->GetTranslation();
+      const CCollisionSurface surface(FindBestCollisionInBox(mgr, pos));
+      const CVector3f projected = ProjectPointToPlane(pos, surface.GetVert(0), surface.GetNormal());
+      const CVector3f translation = projected + mBoidRadius * surface.GetNormal();
+      mBoids[index].mTransform = CTransform4f::Translate(translation);
+      if (close_enough(CVector3f::Dot(CVector3f(0.f, 0.f, 1.f), surface.GetNormal()), -1.f)) {
+        mBoids[index].mTransform.SetRotation(
+            CTransform4f::FromColumns(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, -1.f, 0.f),
+                                      CVector3f(0.f, 0.f, -1.f), CVector3f::Zero()));
+      } else {
+        mBoids[index].mTransform.SetRotation(ShortestRotationArcWrapped(
+            CVector3f(0.f, 0.f, 1.f), surface.GetNormal(), CRelAngle::FromRadians(M_PIF)));
+      }
+      mBoids[index].mActive = true;
+      mBoids[index].mVelocity = CVector3f::Zero();
+      mBoids[index].mTargetWaypoint = nextId;
+      const CUnitVector3f normal((next->GetTranslation() - waypoint->GetTranslation()).AsNormalized());
+      mBoids[index].mSurfacePlane = CPlane(next->GetTranslation(), normal);
+      mBoids[index].mFramesNotOnSurface = 0;
+      mBoids[index].mFreezeTimer = 0.f;
+      mBoids[index].xb2_3 = false;
+      mBoids[index].mHealth = mHealthInfo.GetHP();
+      mBoids[index].mIndex = index;
+      mBoids[index].mHasLoopedSound = false;
+      mBoids[index].mLifeTime = mLifeTime;
+      mBoids[index].xa8_ = kInvalidUniqueId;
+      mBoids[index].xaa_ = kInvalidUniqueId;
+      mBoids[index].mPartitionIndex = -1;
+      mBoids[index].xb1_ = 0;
+    }
+  }
+}
+
+void CSwarmBasics::PreRenderAllViewports(CStateManager& mgr) {
+  const CAABox bounds = GetBoundingBox();
+  SetOtherBounds(bounds);
+  SetRenderBounds(bounds);
+  UpdatePortalSystemState(mgr);
+}
+
+CVector3f CSwarmBasics::ProjectPointToPlane(const CVector3f& point, const CVector3f& planePoint,
+                                            const CVector3f& normal) {
+  return point - CVector3f::Dot(point - planePoint, normal) * normal;
+}
+
+CVector3f CSwarmBasics::ProjectVectorToPlane(const CVector3f& point, const CVector3f& normal) {
+  return point - CVector3f::Dot(point, normal) * normal;
+}
+
+bool CSwarmBasics::PointOnSurface(const CCollisionSurface& surface, const CVector3f& pos,
+                                  const CPlane& plane) {
+  const CVector3f projected = ProjectPointToPlane(pos, surface.GetVert(0), plane.GetNormal());
+  for (int i = 0; i < 3; ++i) {
+    const int next = i + 2;
+    const int previous = next == 2 ? next : next - 3;
+    const CVector3f edge2 = surface.GetVert(previous) - surface.GetVert(i);
+    const CVector3f edge1 = projected - surface.GetVert(i);
+    const CVector3f cross = CVector3f::Cross(edge1, edge2);
+    if (CVector3f::Dot(plane.GetNormal(), cross) < 0.f) {
+      return false;
+    }
+  }
+  return true;
+}
+
+CCollisionSurface CSwarmBasics::FindBestCollisionInBox(CStateManager& mgr, const CVector3f& pos) {
+  CCollisionSurface result(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f),
+                           CVector3f(0.f, 0.f, 1.f), ~0);
+  const CAABox& bounds = GetBoundingBox();
+  const CVector3f extent(0.5f * bounds.GetWidth(), 0.5f * bounds.GetHeight(),
+                         0.5f * bounds.GetDepth());
+  for (float scale = 0.1f; scale < 1.f; scale += 0.1f) {
+    const CAABox searchBounds(pos - extent * scale, pos + extent * scale);
+    CAreaCollisionCache cache(searchBounds);
+    CGameCollision::BuildAreaCollisionCache(mgr, cache);
+    if (FindBestSurface(cache, pos, 2.f * (extent * scale).Magnitude(), result)) {
+      return result;
+    }
+  }
+  return result;
+}
+
+bool CSwarmBasics::FindBestSurface(const CAreaCollisionCache& cache, CVector3f pos, float radius,
+                                   CCollisionSurface& out) {
+  bool found = false;
+  float minDistance = radius;
+  CSphere sphere(pos, radius);
+  for (int i = 0; i < int(cache.GetNumCaches()); ++i) {
+    const CMetroidAreaCollider::COctreeLeafCache& leafCache = cache.GetOctreeLeafCache(i);
+    for (int j = 0; j < leafCache.GetNumLeaves(); ++j) {
+      const CAreaOctTree::Node& node = leafCache.GetLeaf(j);
+      if (CCollidableSphere::Sphere_AABox_Bool(sphere, node.GetBoundingBox())) {
+        const CAreaOctTree::TriListReference triangles = node.GetTriangleArray();
+        const CAreaOctTree& tree = node.GetOwner();
+        const int triangleCount = triangles.GetSize();
+        for (int k = 0; k < triangleCount; ++k) {
+          const CCollisionSurface surface(tree.GetTriangle(triangles.GetAt(k)));
+          if (!CMaterialList(surface.GetSurfaceFlags()).HasMaterial(kMT_AIPassthrough)) {
+            const CPlane plane = surface.GetPlane();
+            const float distance = CMath::AbsF(plane.GetHeight(pos));
+            if (distance < minDistance && PointOnSurface(surface, pos, plane)) {
+              sphere = CSphere(pos, distance);
+              out = surface;
+              found = true;
+              minDistance = distance;
+            }
+          }
+        }
+      }
+    }
+  }
+  return found;
+}
+
+void CSwarmBasics::UpdateLightComboBeam(CBoid& boid, CStateManager& mgr) {
+  if (boid.xaa_ != kInvalidUniqueId) {
+    CLightComboProjectile* proj = TCastToPtr< CLightComboProjectile >(mgr.ObjectById(boid.xa8_));
+    const CPlasmaProjectile* plasma =
+        TCastToConstPtr< CPlasmaProjectile >(mgr.GetObjectById(boid.xaa_));
+    if (plasma && proj) {
+      proj->UpdateRayTarget(mgr, boid.xaa_, boid.GetTranslation());
+      boid.mHealth -= plasma->GetCurrentDamageInfo().GetDamage(*GetDamageVulnerability());
+      if (boid.mHealth <= 0.f) {
+        KillBoid(boid, mgr, CWeaponMode(kWT_Light));
+        proj->RequestRayReset(mgr, boid.xaa_, false);
+      }
+    } else {
+      boid.xaa_ = kInvalidUniqueId;
+      boid.xa8_ = kInvalidUniqueId;
+    }
+  }
+}
+
+void CSwarmBasics::UpdateBoid(CAreaCollisionCache& cache, CStateManager& mgr, float dt, CBoid& boid,
+                              int partitionIndex) {
+  boid.mPartitionIndex = partitionIndex;
+  if (mLifeTime > 0.f) {
+    boid.mLifeTime -= dt;
+    if (boid.mLifeTime <= 0.f) {
+      KillBoid(boid, mgr, CWeaponMode());
+    }
+  }
+  x4f0_31_ = true;
+  if (x4f0_28_) {
+    if (mgr.GetSafeZoneManager()->PointIsInSafeZone(mgr, boid.GetTranslation())) {
+      KillBoid(boid, mgr, CWeaponMode());
+    }
+  }
+  UpdateLightComboBeam(boid, mgr);
+  if (boid.mLaunched) {
+    const float boidRadius = mBoidRadius;
+    const float radius = 2.f * boidRadius;
+    const float speed = boid.mVelocity.Magnitude();
+    float distance = speed * dt;
+    CVector3f pos = boid.GetTranslation();
+    const CVector3f step = boidRadius * ((1.f / speed) * -boid.mVelocity);
+    bool found = false;
+    while (distance >= 0.f && !found) {
+      CCollisionSurface surface(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f),
+                                CVector3f(0.f, 0.f, 1.f), ~0);
+      const CVector3f predicted = pos + x4f4_ * (dt * boid.mVelocity);
+      if (FindBestSurface(cache, predicted, radius, surface) &&
+          boid.mRemainingLaunchNotOnSurfaceFrames == 0) {
+        boid.mTransform = ShortestRotationArcWrapped(boid.GetTransform().GetUp(),
+                                                     surface.GetNormal(), CRelAngle::FromRadians(M_PIF))
+                              .MultiplyIgnoreTranslation(boid.GetTransform());
+        const CPlane plane = surface.GetPlane();
+        found = true;
+        boid.mTransform.AddTranslation(
+            -(plane.GetHeight(boid.GetTranslation()) - boidRadius - 0.01f) * plane.GetNormal());
+        boid.mFramesNotOnSurface = 0;
+        boid.mLaunched = false;
+        BoidCollidedCallback(mgr, boid);
+      }
+      distance -= boidRadius;
+      pos += step;
+    }
+    if (!found) {
+      boid.mVelocity += dt * CVector3f(0.f, 0.f, -CPhysicsActor::GravityConstant());
+      if (boid.mRemainingLaunchNotOnSurfaceFrames != 0) {
+        boid.mRemainingLaunchNotOnSurfaceFrames--;
+      }
+    }
+  } else if (boid.mFramesNotOnSurface >= 30) {
+    boid.mActive = false;
+    if (boid.mHasLoopedSound) {
+      StopLoopedSound(boid, mLocomotionSounds);
+    }
+  } else {
+    const float boidRadius = mBoidRadius;
+    const float radius = 2.f * boidRadius;
+    const CVector3f pos = boid.GetTranslation();
+    bool found = false;
+    CCollisionSurface surface(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f),
+                              CVector3f(0.f, 0.f, 1.f), ~0);
+    const CVector3f predicted = pos + x4f4_ * (dt * boid.mVelocity);
+    if (FindBestSurface(cache, predicted, radius, surface)) {
+      boid.mSurface = surface;
+      const CPlane plane = surface.GetPlane();
+      const float distance = plane.GetHeight(boid.GetTranslation());
+      if (distance <= mBoidRadius * x4f4_) {
+        boid.mTransform =
+            ShortestRotationArcWrapped(boid.GetTransform().GetUp(), surface.GetNormal(),
+                                       CRelAngle::FromDegrees(180.f * dt))
+                .MultiplyIgnoreTranslation(boid.GetTransform());
+        found = true;
+        boid.mTransform.AddTranslation(-(distance - boidRadius - 0.01f) * plane.GetNormal());
+        boid.mFramesNotOnSurface = 0;
+      }
+    }
+    if (!found) {
+      const float angularSpeed = boid.mVelocity.Magnitude() / boidRadius;
+      boid.mTransform =
+          ShortestRotationArcWrapped(boid.GetTransform().GetUp(),
+                                     boid.GetTransform().GetForward(), CRelAngle::FromRadians(angularSpeed * dt))
+              .MultiplyIgnoreTranslation(boid.GetTransform());
+      ++boid.mFramesNotOnSurface;
+    }
+    rstl::reserved_vector< CBoid*, 50 > nearList;
+    BuildBoidNearList(boid, mSeparationRadius, nearList);
+    CVector3f ahead = 0.3f * boid.GetTransform().GetForward();
+    ApplySteeringBehaviors(mgr, boid, ahead, nearList);
+    const CVector3f projected = ProjectVectorToPlane(ahead, boid.GetTransform().GetUp());
+    const CVector3f forward = boid.GetTransform().GetForward();
+    const CVector3f direction = projected.AsNormalized();
+    boid.mTransform = ShortestRotationArcWrapped(forward, direction,
+                                                 CRelAngle::FromDegrees(mTurnRate * dt))
+                          .MultiplyIgnoreTranslation(boid.GetTransform());
+  }
+}
+
+void CSwarmBasics::ApplySteeringBehaviors(CStateManager& mgr, CBoid& boid, CVector3f& ahead,
+                                          const rstl::reserved_vector< CBoid*, 50 >& nearList) {
+  if (boid.mFreezeTimer <= 0.f) {
+    for (int i = 0; i < 8; ++i) {
+      switch (i) {
+      case 0:
+        for (rstl::vector< CRepulsor >::iterator it = mDoorRepulsors.begin();
+             it != mDoorRepulsors.end(); ++it) {
+          if ((it->mCenter - boid.GetTranslation()).MagSquared() < it->mMagnitude * it->mMagnitude) {
+            ApplySeparation(boid, it->mCenter, it->mMagnitude, 4.5f, ahead);
+          }
+        }
+        break;
+      case 1:
+      case 2:
+        break;
+      case 3:
+        ApplyAttraction(boid, mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f), mAttractionRadius,
+                        mAttractionMagnitude, ahead);
+        break;
+      case 4:
+        ApplySeparation(boid, nearList, ahead);
+        break;
+      case 5:
+        MoveToWayPoint(boid, mgr, ahead);
+        break;
+      case 6:
+        ApplyCohesion(boid, nearList, ahead);
+        break;
+      case 7:
+        ApplyAlignment(boid, nearList, ahead);
+        break;
+      }
+      if (ahead.MagSquared() >= 9.f) {
+        return;
+      }
+    }
+  }
+}
+
+void CSwarmBasics::AddDoorRepulsors(CStateManager& mgr) {
+  CObjectList& objects = mgr.ObjectListById(kOL_PhysicsActor);
+  int count = 0;
+  for (int i = objects.GetFirstObjectIndex(); i != -1; i = objects.GetNextObjectIndex(i)) {
+    if (CScriptDoor* door = TCastToPtr< CScriptDoor >(objects[i])) {
+      if (door->GetCurrentAreaId() == GetCurrentAreaId()) {
+        ++count;
+      }
+    }
+  }
+  mDoorRepulsors.reserve(count);
+  for (int i = objects.GetFirstObjectIndex(); i != -1; i = objects.GetNextObjectIndex(i)) {
+    if (CScriptDoor* door = TCastToPtr< CScriptDoor >(objects[i])) {
+      if (door->GetCurrentAreaId() == GetCurrentAreaId()) {
+        rstl::optional_object< CAABox > bounds = door->GetTouchBounds();
+        if (bounds.valid()) {
+          float diagonal = (bounds->GetMinPoint() - bounds->GetMaxPoint()).Magnitude();
+          mDoorRepulsors.push_back_unsafe(CRepulsor(bounds->GetCenterPoint(), 0.75f * diagonal));
+        }
+      }
+    }
+  }
+}
 
 void CSwarmBasics::Think(float dt, CStateManager& mgr) {
   if (!GetActive()) {

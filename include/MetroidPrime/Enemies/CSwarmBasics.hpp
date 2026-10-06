@@ -13,6 +13,7 @@
 class CAdvancementDeltas;
 class CAnimData;
 class CAnimRes;
+class CRelAngle;
 class CMarkerGrid;
 class CAreaCollisionCache;
 class CBasicSwarmData;
@@ -56,7 +57,8 @@ public:
     TUniqueId xaa_;
     uint mFramesNotOnSurface : 8;
     uint mIndex : 10;
-    uint xac_ : 14;
+    uint mRemainingLaunchNotOnSurfaceFrames : 8;
+    uint xac_ : 6;
     signed char mPartitionIndex;
     uchar xb1_;
     bool mActive : 1;
@@ -73,6 +75,9 @@ public:
     friend class CSwarmBasics;
     CVector3f mCenter;
     float mMagnitude;
+
+  public:
+    CRepulsor(const CVector3f& center, float magnitude) : mCenter(center), mMagnitude(magnitude) {}
   };
 
   // Original Wii enum type; enumerator names are guessed from native sound consumers.
@@ -181,6 +186,17 @@ public:
   int GetLockOnIndex(CStateManager& mgr) const;
   int FindBestLockOnIndex(CStateManager& mgr) const;
   void UpdateLockOnBlend(int prevIndex, int newIndex, float dt);
+  void AddDoorRepulsors(CStateManager& mgr);
+  void UpdateLightComboBeam(CBoid& boid, CStateManager& mgr);
+  bool FindBestSurface(const CAreaCollisionCache& cache, CVector3f pos, float radius,
+                       CCollisionSurface& out);
+  CCollisionSurface FindBestCollisionInBox(CStateManager& mgr, const CVector3f& pos);
+  bool PointOnSurface(const CCollisionSurface& surface, const CVector3f& pos, const CPlane& plane);
+  CVector3f ProjectPointToPlane(const CVector3f& point, const CVector3f& planePoint,
+                                const CVector3f& normal);
+  CVector3f ProjectVectorToPlane(const CVector3f& point, const CVector3f& normal);
+  static CTransform4f ShortestRotationArcWrapped(const CVector3f& a, const CVector3f& b,
+                                                 const CRelAngle& angle);
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 
@@ -218,7 +234,7 @@ private:
   float mDamageCooldown;
   float mBoidRadius;
   float mTouchRadius;
-  float mSafeZoneAvoidancePriority;
+  float mTurnRate; // Degrees per second.
   float mPlayerTouchRadius;
   CDamageInfo mDamage;
   CDamageInfo mRadiusDamage;
