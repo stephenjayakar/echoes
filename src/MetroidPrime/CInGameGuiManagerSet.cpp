@@ -44,13 +44,13 @@ bool CInGameGuiManagerSet::CheckPlayerGuiLoadComplete(const CStateManager& mgr) 
   return true;
 }
 
-CMultiplayerGui::~CMultiplayerGui() {}
+inline CMultiplayerGui::~CMultiplayerGui() {}
 
 inline CInGameQuitScreen::~CInGameQuitScreen() {}
 
 inline CSamusFaceReflection::~CSamusFaceReflection() {}
 
-CInGameGuiManager::~CInGameGuiManager() {}
+inline CInGameGuiManager::~CInGameGuiManager() {}
 
 bool CInGameGuiManagerSet::CheckLoadComplete(const CStateManager& mgr) {
   switch (mLoadPhase) {
