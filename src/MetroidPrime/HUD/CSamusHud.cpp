@@ -1445,7 +1445,7 @@ void CSamusHud::ResolveLockOnTexture() {
 }
 
 void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
-  if (mgr.GetNumPlayers() >= 2) {
+  if (mgr.GetNumPlayers() > 1) {
     return;
   }
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
@@ -1468,9 +1468,9 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
          (kTFL_DetectMorphedPlayer | kTFL_DetectUnmorphedPlayer | kTFL_DetectScrewAttack)) != 0) {
       const rstl::optional_object< CAABox > touch = trigger->GetTouchBounds();
       if (touch.valid() && touch->DoBoundsOverlap(bounds)) {
-        const CDamageInfo damage(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, true);
-        const CDamageVulnerability* vulnerability =
-            player.GetDamageVulnerability(CVector3f::Zero(), CVector3f::Up(), damage);
+        const CDamageVulnerability* vulnerability = player.GetDamageVulnerability(
+            CVector3f::Zero(), CVector3f::Up(),
+            CDamageInfo(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, true));
         if (trigger->GetDamageInfo().GetDamage(*vulnerability) != 0.f && touch.valid()) {
           const CAABox triggerBounds = *touch;
           const float distance = CAABox::DistanceBetween(playerBounds, triggerBounds);
@@ -1511,12 +1511,13 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
     if (!close_enough(environmentThreat, 0.f) || threatDistance <= range) {
       mThreatAnimationTime += 2.f * dt;
     }
-    float alpha = rstl::min_val(mThreatAnimationTime, 1.f);
+    const float animAlpha = rstl::min_val(1.f, mThreatAnimationTime);
     const float pulse =
-        amount >= 1.f ? (1.f - CMath::FastCosR(2.f * mThreatAnimationTime)) * 0.5f : 0.f;
+        amount < 1.f ? 0.f : (1.f - CMath::FastCosR(2.f * mThreatAnimationTime)) / 2.f;
     const CColor warning =
         CColor::Lerp(iconColor, gpTweakGuiColors->GetThreatWarningColor(), pulse);
-    alpha *= mScanInterface.null() ? 1.f : mScanInterface->GetMessageTextAlpha();
+    const float alpha =
+        animAlpha * (!mScanInterface.null() ? mScanInterface->GetMessageTextAlpha() : 1.f);
     if (mThreatRoot != nullptr) {
       mThreatRoot->SetVisibility(true, kTM_Children);
     }
@@ -1538,7 +1539,11 @@ void CSamusHud::UpdateThreatAssessment(float dt, const CStateManager& mgr) {
     }
     const float alpha = rstl::min_val(1.f, mThreatAnimationTime);
     if (mThreatRoot != nullptr) {
-      mThreatRoot->SetVisibility(!close_enough(alpha, 0.f), kTM_Children);
+      if (close_enough(alpha, 0.f)) {
+        mThreatRoot->SetVisibility(false, kTM_Children);
+      } else {
+        mThreatRoot->SetVisibility(true, kTM_Children);
+      }
     }
     if (mThreatIcon != nullptr) {
       mThreatIcon->SetColor(ModulateColor(gpTweakGuiColors->GetThreatGroupInactiveColor())
