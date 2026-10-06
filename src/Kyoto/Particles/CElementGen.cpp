@@ -2307,9 +2307,9 @@ void CElementGen::RenderParticlesIndirectTexture() {
         static_cast< CParticleListItem* >(alloca(particleCount * sizeof(CParticleListItem)));
     for (int i = 0; i < particleCount; ++i) {
       CParticle& particle = mParticles[i];
-      const CVector3f delta = particle.mPos - particle.mPrevPos;
-      const CVector3f pos = delta * mTimeDeltaScale + particle.mPrevPos;
-      sortItems[i].mViewPoint = systemCameraCopy * pos;
+      sortItems[i].mViewPoint =
+          systemCameraCopy *
+          ((particle.mPos - particle.mPrevPos) * mTimeDeltaScale + particle.mPrevPos);
       sortItems[i].mPartIdx = static_cast< ushort >(i);
     }
 
@@ -2364,65 +2364,65 @@ void CElementGen::RenderParticlesIndirectTexture() {
     const float sinT = halfSize * CMath::FastSinR(theta);
     const float cosT = halfSize * CMath::FastCosR(theta);
     const float sinPlusCos = sinT + cosT;
-    const CVector3f topRight(vpX + sinPlusCos, vpY, vpZ + (cosT - sinT));
-    const CVector3f topLeft(vpX + (sinT - cosT), vpY, vpZ + sinPlusCos);
-    const CVector3f bottomLeft(vpX - sinPlusCos, vpY, vpZ - (cosT - sinT));
-    const CVector3f bottomRight(vpX + (-sinT + cosT), vpY, vpZ + (-cosT - sinT));
-    CGraphics::CClippedScreenQuad clipRect =
-        CGraphics::ClipScreenQuadFromMS(topRight, topLeft, bottomLeft, bottomRight, kTF_RGB565);
-    const int width = clipRect.GetTexWidth();
-    const int height = clipRect.GetHeight();
-
-    if (clipRect.IsValid()) {
-      const bool halfSizeCopy = mLoadedGenDesc->mINDM;
-      void* dest = CGraphics::GetDolphinSpareBuffer();
-      GXSetTexCopySrc(static_cast< u16 >(clipRect.GetX()), static_cast< u16 >(clipRect.GetY()),
-                      static_cast< u16 >(clipRect.GetWidth()), static_cast< u16 >(height));
-      GXSetTexCopyDst(width >> halfSizeCopy, height >> halfSizeCopy, GX_TF_RGB565, halfSizeCopy);
-
-      size_t bufSize = CGraphics::GetSpareBufferSize();
-      size_t texBufSize = GXGetTexBufferSize(width >> halfSizeCopy, height >> halfSizeCopy,
-                                             GX_TF_RGB565, GX_FALSE, 0);
-      if (texBufSize <= bufSize) {
-        const bool useVideoFilter = CGraphics::GetUseVideoFilter();
-        CGraphics::SetUseVideoFilter(false);
-        GXCopyTex(dest, GX_FALSE);
-        CGraphics::SetUseVideoFilter(useVideoFilter);
-        GXPixModeSync();
-
-        CGraphics::LoadDolphinSpareTexture(width >> halfSizeCopy, height >> halfSizeCopy,
-                                           GX_TF_RGB565, NULL, CGraphics::kSpareBufferTexMapID);
-
-        uint color = particle->mColor.GetColor_u32();
-        CGX::Begin(GX_QUADS, GX_VTXFMT0, 4);
-
-        GXPosition3f32(topRight.GetX(), topRight.GetY(), topRight.GetZ());
-        GXColor1u32(color);
-        GXTexCoord2f32(uvs.xMax, uvs.yMax);
-        GXTexCoord2f32(clipRect.GetTexCoord(0).GetX(), clipRect.GetTexCoord(0).GetY());
-        GXTexCoord2f32(uvsInd.xMax, uvsInd.yMax);
-
-        GXPosition3f32(topLeft.GetX(), topLeft.GetY(), topLeft.GetZ());
-        GXColor1u32(color);
-        GXTexCoord2f32(uvs.xMin, uvs.yMax);
-        GXTexCoord2f32(clipRect.GetTexCoord(1).GetX(), clipRect.GetTexCoord(1).GetY());
-        GXTexCoord2f32(uvsInd.xMin, uvsInd.yMax);
-
-        GXPosition3f32(bottomLeft.GetX(), bottomLeft.GetY(), bottomLeft.GetZ());
-        GXColor1u32(color);
-        GXTexCoord2f32(uvs.xMin, uvs.yMin);
-        GXTexCoord2f32(clipRect.GetTexCoord(2).GetX(), clipRect.GetTexCoord(2).GetY());
-        GXTexCoord2f32(uvsInd.xMin, uvsInd.yMin);
-
-        GXPosition3f32(bottomRight.GetX(), bottomRight.GetY(), bottomRight.GetZ());
-        GXColor1u32(color);
-        GXTexCoord2f32(uvs.xMax, uvs.yMin);
-        GXTexCoord2f32(clipRect.GetTexCoord(3).GetX(), clipRect.GetTexCoord(3).GetY());
-        GXTexCoord2f32(uvsInd.xMax, uvsInd.yMin);
-
-        CGX::End();
-      }
+    CGraphics::CClippedScreenQuad clipRect = CGraphics::ClipScreenQuadFromMS(
+        CVector3f(sinPlusCos + vpX, vpY, (cosT - sinT) + vpZ),
+        CVector3f((sinT - cosT) + vpX, vpY, sinPlusCos + vpZ),
+        CVector3f(vpX - sinPlusCos, vpY, vpZ - (cosT - sinT)),
+        CVector3f((-sinT + cosT) + vpX, vpY, (-cosT - sinT) + vpZ), kTF_RGB565);
+    if (!clipRect.IsValid()) {
+      continue;
     }
+    const int indScale = mLoadedGenDesc->mINDM ? 1 : 0;
+    void* dest = CGraphics::GetDolphinSpareBuffer();
+    GXSetTexCopySrc(static_cast< u16 >(clipRect.GetX()), static_cast< u16 >(clipRect.GetY()),
+                    static_cast< u16 >(clipRect.GetWidth()),
+                    static_cast< u16 >(clipRect.GetHeight()));
+    GXSetTexCopyDst(clipRect.GetTexWidth() >> indScale, clipRect.GetHeight() >> indScale,
+                    GX_TF_RGB565, indScale != 0);
+
+    const uint bufSize = CGraphics::GetSpareBufferSize();
+    if (GXGetTexBufferSize(clipRect.GetTexWidth() >> indScale, clipRect.GetHeight() >> indScale,
+                           GX_TF_RGB565, GX_FALSE, 0) > bufSize) {
+      continue;
+    }
+    bool useVideoFilter = CGraphics::GetUseVideoFilter();
+    CGraphics::SetUseVideoFilter(false);
+    GXCopyTex(dest, GX_FALSE);
+    CGraphics::SetUseVideoFilter(useVideoFilter);
+    GXPixModeSync();
+
+    CGraphics::LoadDolphinSpareTexture(clipRect.GetTexWidth() >> indScale,
+                                       clipRect.GetHeight() >> indScale, GX_TF_RGB565, NULL,
+                                       CGraphics::kSpareBufferTexMapID);
+
+    uint color = particle->mColor.GetColor_u32();
+    CGX::Begin(GX_QUADS, GX_VTXFMT0, 4);
+
+    GXPosition3f32(sinPlusCos + vpX, vpY, (cosT - sinT) + vpZ);
+    GXColor1u32(color);
+    GXTexCoord2f32(uvs.xMax, uvs.yMax);
+    GXTexCoord2f32(clipRect.GetTexCoord(0).GetX(), clipRect.GetTexCoord(0).GetY());
+    GXTexCoord2f32(uvsInd.xMax, uvsInd.yMax);
+
+    GXPosition3f32((sinT - cosT) + vpX, vpY, sinPlusCos + vpZ);
+    GXColor1u32(color);
+    GXTexCoord2f32(uvs.xMin, uvs.yMax);
+    GXTexCoord2f32(clipRect.GetTexCoord(1).GetX(), clipRect.GetTexCoord(1).GetY());
+    GXTexCoord2f32(uvsInd.xMin, uvsInd.yMax);
+
+    GXPosition3f32(vpX - sinPlusCos, vpY, vpZ - (cosT - sinT));
+    GXColor1u32(color);
+    GXTexCoord2f32(uvs.xMin, uvs.yMin);
+    GXTexCoord2f32(clipRect.GetTexCoord(2).GetX(), clipRect.GetTexCoord(2).GetY());
+    GXTexCoord2f32(uvsInd.xMin, uvsInd.yMin);
+
+    GXPosition3f32((-sinT + cosT) + vpX, vpY, (-cosT - sinT) + vpZ);
+    GXColor1u32(color);
+    GXTexCoord2f32(uvs.xMax, uvs.yMin);
+    GXTexCoord2f32(clipRect.GetTexCoord(3).GetX(), clipRect.GetTexCoord(3).GetY());
+    GXTexCoord2f32(uvsInd.xMax, uvsInd.yMin);
+
+    CGX::End();
   }
 
   CGX::SetNumIndStages(0);
