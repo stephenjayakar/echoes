@@ -363,8 +363,8 @@ void CSwarmBasics::AllocateSkinnedModels(CStateManager& mgr, CModelData::EWhichM
     uint count = mModelDatas.size();
     mSkinnedModelStates.reserve(count);
     for (uint i = 0; i < count; ++i) {
-      mSkinnedModelStates.push_back_unsafe(
-          SwarmRenderHelpers::CSwarmSkinnedModelState(mModelDatas[i].PickAnimatedModel(which)));
+      const CSkinnedModel& skinnedModel = mModelDatas[i].PickAnimatedModel(which);
+      mSkinnedModelStates.push_back_unsafe(SwarmRenderHelpers::CSwarmSkinnedModelState(skinnedModel));
       mModelDatas[i].EnableLooping(true);
       mModelDatas[i].AdvanceAnimation(
           mModelDatas[i].GetAnimationData()->GetAnimTimeRemaining(rstl::string_l("Whole Body")) *
@@ -375,8 +375,9 @@ void CSwarmBasics::AllocateSkinnedModels(CStateManager& mgr, CModelData::EWhichM
     mSkinnedModelState = rs_new SwarmRenderHelpers::CSwarmSkinnedModelState(model);
     const CAnimData* animData = mModelData->GetAnimationData();
     animData->BuildPose();
-    model.StoreCalculation(mSkinnedModelState->State(), &animData->Pose());
-    mSkinnedModelState->StateToArrays();
+    SwarmRenderHelpers::CSwarmSkinnedModelState& state = *mSkinnedModelState;
+    model.StoreCalculation(state.State(), &animData->Pose());
+    state.StateToArrays();
   }
   mWhichModel = which;
 }
@@ -967,8 +968,8 @@ bool CSwarmBasics::CanRenderUnsorted(const CStateManager& mgr) const { return tr
 
 void CSwarmBasics::CachePose(CModelData& modelData,
                              SwarmRenderHelpers::CSwarmSkinnedModelState& state) const {
-  const CAnimData* animData = modelData.GetAnimationData();
   const CSkinnedModel& model = **mModelData->GetAnimationData()->GetModelData();
+  const CAnimData* animData = modelData.GetAnimationData();
   animData->BuildPose();
   model.StoreCalculation(state.State(), &animData->Pose());
   state.StateToArrays();
