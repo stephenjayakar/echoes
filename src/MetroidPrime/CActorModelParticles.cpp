@@ -692,17 +692,16 @@ void CActorModelParticles::CItem::GeneratePoints(const CSkinnedModel& model,
     CRandom16 random(mAshSeed);
     int previousIndex = mAshPointIterator;
     while (mAshQueuedParticles-- > 0) {
-      const int index = GetNextBestPt(previousIndex, model, workspace, count, random);
+      int index = GetNextBestPt(previousIndex, model, workspace, count, random);
       mAshGen->SetTranslation(CVector3f::ByElementMultiply(
           mParticleOffsetScale, model.GetSkinnedPosition(workspace, index)));
       CVector3f normal = model.GetSkinnedNormal(workspace, index);
       normal.SetZ(0.f);
       if (normal.CanBeNormalized()) {
         normal.Normalize();
-        const CVector3f& right = CVector3f::Cross(normal, CVector3f::Up());
-        CElementGen* gen = mAshGen.get();
-        gen->SetOrientation(
-            CTransform4f::FromColumns(right, normal, CVector3f::Up(), CVector3f::Zero()));
+        mAshGen->SetOrientation(CTransform4f::FromColumns(CVector3f::Cross(normal, CVector3f::Up()),
+                                                          normal, CVector3f::Up(),
+                                                          CVector3f::Zero()));
       }
       mAshGen->ForceParticleCreation(1);
       previousIndex = index;
@@ -723,10 +722,9 @@ void CActorModelParticles::CItem::GeneratePoints(const CSkinnedModel& model,
         normal.SetZ(0.f);
         if (normal.CanBeNormalized()) {
           normal.Normalize();
-          const CVector3f& right = CVector3f::Cross(normal, CVector3f::Up());
-          CElementGen* gen = mImplosionGen.get();
-          gen->SetOrientation(
-              CTransform4f::FromColumns(right, normal, CVector3f::Up(), CVector3f::Zero()));
+          mImplosionGen->SetOrientation(CTransform4f::FromColumns(
+              CVector3f::Cross(normal, CVector3f::Up()), normal, CVector3f::Up(),
+              CVector3f::Zero()));
         }
         mImplosionGen->ForceParticleCreation(1);
         previousIndex = index;

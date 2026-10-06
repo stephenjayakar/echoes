@@ -571,7 +571,7 @@ void CPauseScreen::UpdatePulse(float dt) {
   int index = 0;
   for (rstl::vector< CGuiWidget* >::const_iterator it = mHexWidgets.begin();
        it != mHexWidgets.end(); ++it, ++index) {
-    const float brightness = 1.f - rstl::min_val(1.f, CMath::AbsF(pulse - index / count) / width);
+    const float brightness = 1.f - rstl::min_val(CMath::AbsF(pulse - index / count) / width, 1.f);
     (*it)->SetColor(CColor::Modulate(gpTweakGui->GetMapBackgroundColor(),
                                      CColor(brightness, brightness, brightness, 1.f)));
   }
@@ -1586,9 +1586,8 @@ void CPauseScreen::DrawNodeLabel(const CTransform4f& view, const CVector3f& posi
     gpRender->SetBlendMode_AdditiveAlpha();
     mNodeText->SetText(node->GetName(), false);
     mNodeText->SetGeometryColor(color);
-    const float scale = gpTweakGui->GetLogBookTextScale();
     const CVector3f offset(-mNodeText->GetTextBoundingWidth() / 2.f, 0.f,
-                           -(1.2f * (0.2f * iconScale) / 2.f) / (0.02f * scale));
+                           -(1.2f * (0.2f * iconScale) / 2.f) / (0.02f * gpTweakGui->GetLogBookTextScale()));
     const CTransform4f textXf = CTransform4f::Scale(0.02f * textScale) * view.GetRotation() *
                                 CTransform4f::Translate(offset);
     CGraphics::SetModelMatrix(CTransform4f::Translate(position) * textXf);
