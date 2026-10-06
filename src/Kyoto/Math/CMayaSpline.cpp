@@ -641,22 +641,24 @@ CMayaSpline::FilterLeftIntersections(const rstl::reserved_vector< float, 8 >& in
 rstl::reserved_vector< float, 8 > CMayaSpline::FilterRightIntersections(
     const rstl::reserved_vector< float, 8 >& intersections) const {
   rstl::reserved_vector< float, 8 > result;
-  for (int i = 0; i < intersections.size(); ++i) {
+  for (int i = 0; i <= intersections.size() - 1; ++i) {
     const float time = intersections[i];
     for (int j = mKnots.size() - 2; j >= 0; --j) {
-      const float start = mKnots[j].GetTime();
-      const float end = mKnots[j + 1].GetTime();
-      bool atEndpoint =
-          CMath::IsEpsilon(time, start, 0.002f) || CMath::IsEpsilon(time, end, 0.002f);
-      if (atEndpoint || (start <= time && time <= end)) {
-        if (!IsSegmentConstant(j)) {
+      bool atEndpoint = false;
+      if (CMath::IsEpsilon(time, mKnots[j].GetTime(), 0.002f) ||
+          CMath::IsEpsilon(time, mKnots[j + 1].GetTime(), 0.002f)) {
+        atEndpoint = true;
+      }
+      if (atEndpoint || (time >= mKnots[j].GetTime() && time <= mKnots[j + 1].GetTime())) {
+        if (IsSegmentConstant(j)) {
+          if (!CMath::IsEpsilon(time, mKnots[j + 1].GetTime(), 0.002f)) {
+            break;
+          }
+          result.push_back(time);
+        } else {
           result.push_back(time);
           break;
         }
-        if (!CMath::IsEpsilon(time, end, 0.002f)) {
-          break;
-        }
-        result.push_back(time);
       }
     }
   }
