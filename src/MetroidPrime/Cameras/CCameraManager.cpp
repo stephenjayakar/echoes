@@ -219,7 +219,7 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
   CCameraFilterPass& pass = mgr.CameraFilterPass(mPlayerIndex, 4);
   CGameCamera& camera = *CurrentCamera(mgr, false);
   camera.RemoveInvalidFluidIds(mgr);
-  const CScriptWater* water =
+  const CScriptWater* const water =
       TCastToConstPtr< CScriptWater >(mgr.GetObjectById(camera.InFluidId()));
   if (camera.GetFluidCount() && water) {
     const float near = camera.GetNearClipDistance();
@@ -230,7 +230,7 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
       if (mFluidFogTime >= 8.f) {
         mFluidFogTime -= 8.f;
       }
-      far += 75.f * sinf(M_2PIF * mFluidFogTime * 0.125f);
+      far += 75.f * sinf(M_2PIF * mFluidFogTime / 8.f);
     }
     const CColor& color = water->GetUnderwaterFogColor();
     mFog.SetFogExplicit(kRFM_PerspExp, color, CVector2f(near, far));
@@ -263,16 +263,14 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
       flash.DisableFilter(0.f);
     } else if (!(mScreenFlashTimer < 0.95f)) {
       const float time = mScreenFlashTimer - 0.95f;
-      float alpha;
+      CColor color(static_cast< uchar >(0xff), 0xdf, 0x89, 0xff);
       if (time < 0.1f) {
-        alpha = (0.3f * time) / 0.1f;
+        color = color.WithAlphaOf((0.3f * time) / 0.1f);
       } else if (time >= 0.15f) {
-        alpha = 0.3f * (1.f - CMath::Limit((time - 0.15f) / 0.15f, 1.f));
+        color = color.WithAlphaOf(0.3f * (1.f - CMath::Limit((time - 0.15f) / 0.15f, 1.f)));
       } else {
-        alpha = 0.3f;
+        color = color.WithAlphaOf(0.3f);
       }
-      CColor color(0xffdf8900);
-      color.SetAlpha(alpha);
       flash.SetFilter(CCameraFilterPass::kFT_Add, CCameraFilterPass::kFS_Fullscreen, 0.f, color,
                       kInvalidAssetId);
     }
