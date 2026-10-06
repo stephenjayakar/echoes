@@ -519,13 +519,17 @@ void CPlayerGun::Recoil(CStateManager& mgr, int message, float dt) {
   switch (message) {
   case kSM_Enter:
     EnableChargeFx(mgr, false);
-    if (mChargePhase == kCP_Charging) {
+    switch (mChargePhase) {
+    case kCP_Charging:
       mChargePhase = kCP_ChargeDone;
       PlaySfxForPlayer(GetPlayer(mgr), skEmptyBeamSfx[mSoundSetIndex], mSoundVolume,
                        mgr.GetNextAreaId().Value(), mUnderwater, 0);
-    } else if (mChargePhase > kCP_ChargeRequested && mChargePhase < kCP_ComboTransfer) {
+      break;
+    case kCP_ChargeFx:
+    case kCP_Charged:
       UpdateNormalShotCycle(dt, mgr);
       StopChargeSound(mgr, false);
+      break;
     }
     break;
   case kSM_Exit:
@@ -661,8 +665,6 @@ void CPlayerGun::MissileActive(CStateManager& mgr, int message, float dt) {
     }
     mMissileState = kMS_Ready;
     mMissileMode = true;
-    UpdateSeeker(dt, mgr);
-    break;
   case kSM_Update:
     UpdateSeeker(dt, mgr);
     break;
@@ -1460,7 +1462,10 @@ void CPlayerGun::SetAuxTargetId(TUniqueId target) {
 }
 
 TUniqueId CPlayerGun::GetAuxTargetId() const {
-  return mAuxWeapon.null() ? kInvalidUniqueId : mAuxWeapon->GetTargetId();
+  if (!mAuxWeapon.null()) {
+    return mAuxWeapon->GetTargetId();
+  }
+  return kInvalidUniqueId;
 }
 
 void CPlayerGun::AsyncLoadSuit(CStateManager& mgr) { mCurrentBeam->AsyncLoadSuitArm(); }
@@ -2175,7 +2180,8 @@ void CPlayerGun::DoUserAnimEvent(float dt, CStateManager& mgr, const CInt32POINo
       mChargePhase = kCP_ComboFired;
     }
     break;
-  default:
+  case kUE_Delete:
+  case kUE_DamageOn:
     break;
   }
 }
@@ -2525,46 +2531,52 @@ void CPlayerGun::SetFidgetAnimBits(int animSet, bool holster) {
     return;
   }
   switch (mFidget.GetType()) {
-  case SamusGun::kFT_Major:
-    mFidgetAnimBits = animSet > 3 && animSet < 6 ? 1 : 2;
-    mFidgetAnimBits |= 4;
-    break;
   case SamusGun::kFT_Minor:
     mFidgetAnimBits = 1;
-    if (animSet == 1) {
+    if (animSet > 0 && animSet < 2) {
       mFidgetAnimBits |= 4;
     }
     break;
-  default:
+  case SamusGun::kFT_Major:
+    switch (animSet) {
+    case 4:
+    case 5:
+      mFidgetAnimBits = 1;
+      break;
+    default:
+      mFidgetAnimBits = 2;
+      break;
+    }
+    mFidgetAnimBits |= 4;
     break;
   }
 }
 
 bool CPlayerGun::IsFidgetLoaded() {
-  uint loaded = 0;
-  if ((mFidgetAnimBits & 1) && mGunMotion->GunController().IsFidgetLoaded()) {
-    loaded = 1;
+  int loaded = 0;
+  if ((mFidgetAnimBits & 1) == 1 && mGunMotion->GunController().IsFidgetLoaded()) {
+    loaded |= 1;
   }
-  if ((mFidgetAnimBits & 2) && mCurrentBeam->IsFidgetLoaded()) {
+  if ((mFidgetAnimBits & 2) == 2 && mCurrentBeam->IsFidgetLoaded()) {
     loaded |= 2;
   }
-  if (mFidgetAnimBits & 4) {
+  if ((mFidgetAnimBits & 4) == 4) {
     CGunController* controller = mGrappleArm->GunController();
     if (controller != nullptr && controller->IsFidgetLoaded()) {
       loaded |= 4;
     }
   }
-  return mFidgetAnimBits == loaded;
+  return loaded == mFidgetAnimBits;
 }
 
 void CPlayerGun::UnLoadFidget() {
-  if (mFidgetAnimBits & 1) {
+  if ((mFidgetAnimBits & 1) == 1) {
     mGunMotion->GunController().UnLoadFidget();
   }
-  if (mFidgetAnimBits & 2) {
+  if ((mFidgetAnimBits & 2) == 2) {
     mCurrentBeam->UnLoadFidget();
   }
-  if (mFidgetAnimBits & 4) {
+  if ((mFidgetAnimBits & 4) == 4) {
     CGunController* controller = mGrappleArm->GunController();
     if (controller != nullptr) {
       controller->UnLoadFidget();
@@ -2576,19 +2588,19 @@ void CPlayerGun::UnLoadFidget() {
 void CPlayerGun::AsyncLoadFidget(CStateManager& mgr) {
   const SamusGun::EFidgetType type = mFidget.GetType();
   const int animSet = mFidget.GetAnimSet();
-  const bool holster = mFidget.GetState() == CFidget::kS_HolsterBeam;
+  bool holster = mFidget.GetState() == CFidget::kS_HolsterBeam;
   SetFidgetAnimBits(animSet, holster);
-  if (mFidgetAnimBits & 1) {
+  if ((mFidgetAnimBits & 1) == 1) {
     mGunMotion->GunController().LoadFidgetAnimAsync(mgr, type, mCurrentBeamId, animSet);
   }
-  if (mFidgetAnimBits & 2) {
+  if ((mFidgetAnimBits & 2) == 2) {
     mCurrentBeam->AsyncLoadFidget(mgr, holster ? SamusGun::kFT_Minor : type, animSet);
   }
-  if (mFidgetAnimBits & 4) {
+  if ((mFidgetAnimBits & 4) == 4) {
     CGunController* controller = mGrappleArm->GunController();
     if (controller != nullptr) {
       controller->LoadFidgetAnimAsync(
-          mgr, type, type == SamusGun::kFT_Minor ? CPlayerState::kBI_Power : mCurrentBeamId,
+          mgr, type, type != SamusGun::kFT_Minor ? mCurrentBeamId : CPlayerState::kBI_Power,
           animSet);
     }
   }
@@ -2598,18 +2610,18 @@ void CPlayerGun::AsyncLoadFidget(CStateManager& mgr) {
 void CPlayerGun::EnterFidget(CStateManager& mgr) {
   const SamusGun::EFidgetType type = mFidget.GetType();
   const int animSet = mFidget.GetAnimSet();
-  if (mFidgetAnimBits & 1) {
+  if ((mFidgetAnimBits & 1) == 1) {
     mGunMotion->EnterFidget(mgr, type, animSet);
     mGunMotionFidgeting = true;
   } else {
     mGunMotionFidgeting = false;
   }
-  if (mFidgetAnimBits & 2) {
+  if ((mFidgetAnimBits & 2) == 2) {
     mCurrentBeam->EnterFidget(mgr, type, animSet);
   }
-  if (mFidgetAnimBits & 4) {
+  if ((mFidgetAnimBits & 4) == 4) {
     mGrappleArm->EnterFidget(
-        mgr, type, type == SamusGun::kFT_Minor ? CPlayerState::kBI_Power : mCurrentBeamId, animSet);
+        mgr, type, type != SamusGun::kFT_Minor ? mCurrentBeamId : CPlayerState::kBI_Power, animSet);
   }
   UnLoadFidget();
   mFidget.DoneLoading();
