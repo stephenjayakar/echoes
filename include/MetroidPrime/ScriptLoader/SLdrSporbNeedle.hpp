@@ -28,18 +28,26 @@ struct SLdrSporbNeedle {
   int explosionSound; // 0x6028d1cc
 };
 
-inline SLdrSporbNeedle::SLdrSporbNeedle() : editorProperties(), actorInformation(), model(kInvalidAssetId), attackDamage(), trailEffect(kInvalidAssetId), explosionEffect(kInvalidAssetId) {
+inline SLdrSporbNeedle::SLdrSporbNeedle()
+: editorProperties()
+, actorInformation()
+, model(kInvalidAssetId)
+, attackDamage()
+, trailEffect(kInvalidAssetId)
+, explosionEffect(kInvalidAssetId)
+, launchSound(-1)
+, flightSound(-1)
+, hitPlayerSound(-1)
+, collisionSound(-1)
+, explosionSound(-1) {
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
   initialSpeed = 60.0f;
   mass = 1.0f;
   attackDamage.dI_WeaponType = 9;
   attackDamage.dI_Damage = 5.0f;
   attackDamage.dI_KnockBackPower = 2.0f;
   fuseTime = 1.5f;
-  launchSound = 0;
-  flightSound = 0;
-  hitPlayerSound = 0;
-  collisionSound = 0;
-  explosionSound = 0;
 }
 
 inline SLdrSporbNeedle::~SLdrSporbNeedle() {}
