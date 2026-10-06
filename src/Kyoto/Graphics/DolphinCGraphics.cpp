@@ -2,6 +2,7 @@
 #include "Kyoto/Graphics/CGraphics.hpp"
 
 #include "Kyoto/Alloc/CMemory.hpp"
+#include "Kyoto/Alloc/LockedCache.hpp"
 #include "Kyoto/Basics/COsContext.hpp"
 #include "Kyoto/Basics/CStopwatch.hpp"
 #include "Kyoto/Basics/RAssertDolphin.hpp"
@@ -401,23 +402,25 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
 }
 
 GXTexRegion* CGraphics::TexRegionCallback(const GXTexObj* obj, GXTexMapID id) {
-  static uchar nextTexRgn = 0;
-  static uchar nextTexRgnCI = 0;
+  static signed char nextTexRgn = 0;
+  static signed char nextTexRgnCI = 0;
   const GXTexFmt fmt = GXGetTexObjFmt(obj);
-  const bool indexed = fmt == GX_TF_C4 || fmt == GX_TF_C8 || fmt == GX_TF_C14X2;
   if (id == GX_TEXMAP7) {
-    return indexed ? &mTexRegionsCI[0] : &mTexRegions[0];
+    if (fmt != GX_TF_C4 && fmt != GX_TF_C8 && fmt != GX_TF_C14X2) {
+      return &mTexRegions[0];
+    }
+    return &mTexRegionsCI[0];
   }
-  if (indexed) {
+  if (fmt != GX_TF_C4 && fmt != GX_TF_C8 && fmt != GX_TF_C14X2) {
     do {
-      nextTexRgnCI = (nextTexRgnCI + 1) & 3;
-    } while (nextTexRgnCI == 0);
-    return &mTexRegionsCI[nextTexRgnCI];
+      nextTexRgn = (nextTexRgn + 1) & 7;
+    } while (nextTexRgn == 0);
+    return &mTexRegions[nextTexRgn];
   }
   do {
-    nextTexRgn = (nextTexRgn + 1) & 7;
-  } while (nextTexRgn == 0);
-  return &mTexRegions[nextTexRgn];
+    nextTexRgnCI = (nextTexRgnCI + 1) & 3;
+  } while (nextTexRgnCI == 0);
+  return &mTexRegionsCI[nextTexRgnCI];
 }
 
 void CGraphics::InitGraphicsVariables() {
@@ -1020,22 +1023,22 @@ void CGraphics::DrawPrimitive(ERglPrimitive primitive, const float* pos, const C
 
 #define STREAM_PRIM_BUFFER_SIZE 240
 
-#define VTX_BUFFER_ADDR static_cast< uchar* >(LCGetBase())
-#define NRM_BUFFER_ADDR (VTX_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
-#define TXT0_BUFFER_ADDR (NRM_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
-#define TXT1_BUFFER_ADDR (TXT0_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
-#define CLR_BUFFER_ADDR (TXT1_BUFFER_ADDR + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
+#define NRM_BUFFER_ADDR(base) ((base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
+#define TXT0_BUFFER_ADDR(base) (NRM_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(float)))
+#define TXT1_BUFFER_ADDR(base) (TXT0_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
+#define CLR_BUFFER_ADDR(base) (TXT1_BUFFER_ADDR(base) + ((STREAM_PRIM_BUFFER_SIZE + 1) * sizeof(Vec2)))
 
 static const uchar kHasNormals = 1;
 static const uchar kHasColor = 2;
 static const uchar kHasTexture = 4;
 
 void CGraphics::StreamBegin(ERglPrimitive primitive) {
-  mVertexBuffer = reinterpret_cast< VecPtr >(VTX_BUFFER_ADDR);
-  mNormalBuffer = reinterpret_cast< VecPtr >(NRM_BUFFER_ADDR);
-  mTexCoordBuffer0 = reinterpret_cast< Vec2Ptr >(TXT0_BUFFER_ADDR);
-  mTexCoordBuffer1 = reinterpret_cast< Vec2Ptr >(TXT1_BUFFER_ADDR);
-  mColorBuffer = reinterpret_cast< uint* >(CLR_BUFFER_ADDR);
+  uchar* base = static_cast< uchar* >(GetLockedCacheAllocationBase());
+  mVertexBuffer = reinterpret_cast< VecPtr >(base);
+  mNormalBuffer = reinterpret_cast< VecPtr >(NRM_BUFFER_ADDR(base));
+  mTexCoordBuffer0 = reinterpret_cast< Vec2Ptr >(TXT0_BUFFER_ADDR(base));
+  mTexCoordBuffer1 = reinterpret_cast< Vec2Ptr >(TXT1_BUFFER_ADDR(base));
+  mColorBuffer = reinterpret_cast< uint* >(CLR_BUFFER_ADDR(base));
   ResetVertexDataStream(true);
   mCurrentPrimitive = primitive;
   vtxDescr.mStreamFlags = kHasColor;
