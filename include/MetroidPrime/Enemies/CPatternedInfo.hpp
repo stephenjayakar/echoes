@@ -21,6 +21,8 @@ public:
   ~CPatternedInfo();
 
   const CAnimationParameters& GetAnimationParameters() const { return mAnimationParameters; }
+  float GetSpeed() const { return mSpeed; }
+  const CDamageInfo& GetContactDamage() const { return mContactDamageInfo; }
   const CHealthInfo& GetHealthInfo() const { return mHealthInfo; }
   const CDamageVulnerability& GetDamageVulnerability() const { return mDamageVulnerability; }
   float GetHalfExtent() const { return mHalfExtent; }

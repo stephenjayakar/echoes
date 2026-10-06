@@ -1621,6 +1621,13 @@ config.libs = [
         ],
         extra_cflags=["-pool off"],
     ),
+    Rel(
+        "Blogg",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CBlogg.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
 ]
 
 

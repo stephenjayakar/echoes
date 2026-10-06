@@ -23,11 +23,11 @@ struct SLdrBloggStruct {
 };
 
 inline SLdrBloggStruct::SLdrBloggStruct() {
-  min_________________________ = -2143184152;
-  max_________________________ = 0;
-  unknown_0x6e603df2 = 0.0f;
-  unknown_0x1e74f1ec = 0.0f;
-  unknown_0xecba9fb2 = 0.0f;
+  min_________________________ = 1;
+  max_________________________ = 1;
+  unknown_0x6e603df2 = 0.5f;
+  unknown_0x1e74f1ec = 0.5f;
+  unknown_0xecba9fb2 = 0.5f;
 }
 
 inline SLdrBloggStruct::~SLdrBloggStruct() {}
@@ -112,8 +112,13 @@ struct SLdrBlogg {
   SLdrBloggStruct bloggStruct_0xf2ba21e1; // non-matching name, 0xf2ba21e1
 };
 
-inline SLdrBlogg::SLdrBlogg() : editorProperties(), patterned(), actorInformation(), projectileParticleEffect(kInvalidAssetId), projectileDamage(), armorVulnerability(), ingPossessionData(), ingPossessedArmorVulnerability(), bloggStruct(), bloggStruct_0x97dd1aa7(), bloggStruct_0xf2ba21e1() {
+inline SLdrBlogg::SLdrBlogg() : editorProperties(), patterned(), actorInformation(), projectileParticleEffect(kInvalidAssetId), projectileDamage(), armorVulnerability(), mouthOpenSound(-1), ingPossessionData(), ingPossessedArmorVulnerability(), bloggStruct(), bloggStruct_0x97dd1aa7(), bloggStruct_0xf2ba21e1() {
+  editorProperties.unknown_0x5d298a43 = 3;
+  patterned.health.hI_KnockBackResistance = 2.0f;
   patterned.creatureSize = 1;
+  patterned.echoParameters.isEchoEmitter = true;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
   minAttackAngle = 30.0f;
   maxAttackAngle = 30.0f;
   minDelayBetweenProjectileAttacks = 2.0f;
@@ -143,25 +148,11 @@ inline SLdrBlogg::SLdrBlogg() : editorProperties(), patterned(), actorInformatio
   maxBallPursuitTime = 5.0f;
   minDelayBetweenMeleeAttacks = 2.0f;
   maxCollisionTime = 0.2f;
-  mouthOpenSound = 0;
+  ingPossessionData.ingPossessedHealth.health = 150.0f;
+  ingPossessionData.ingPossessedHealth.hI_KnockBackResistance = 2.0f;
   isMegaBlogg = false;
   projectileBlurRadius = 4.0f;
   projectileBlurTime = 4.0f;
-  bloggStruct.min_________________________ = 1;
-  bloggStruct.max_________________________ = 1;
-  bloggStruct.unknown_0x6e603df2 = 0.5f;
-  bloggStruct.unknown_0x1e74f1ec = 0.5f;
-  bloggStruct.unknown_0xecba9fb2 = 0.5f;
-  bloggStruct_0x97dd1aa7.min_________________________ = 1;
-  bloggStruct_0x97dd1aa7.max_________________________ = 1;
-  bloggStruct_0x97dd1aa7.unknown_0x6e603df2 = 0.5f;
-  bloggStruct_0x97dd1aa7.unknown_0x1e74f1ec = 0.5f;
-  bloggStruct_0x97dd1aa7.unknown_0xecba9fb2 = 0.5f;
-  bloggStruct_0xf2ba21e1.min_________________________ = 1;
-  bloggStruct_0xf2ba21e1.max_________________________ = 1;
-  bloggStruct_0xf2ba21e1.unknown_0x6e603df2 = 0.5f;
-  bloggStruct_0xf2ba21e1.unknown_0x1e74f1ec = 0.5f;
-  bloggStruct_0xf2ba21e1.unknown_0xecba9fb2 = 0.5f;
 }
 
 inline SLdrBlogg::~SLdrBlogg() {}

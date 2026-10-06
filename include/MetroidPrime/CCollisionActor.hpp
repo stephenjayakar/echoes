@@ -14,12 +14,16 @@ class CCollidableSphere;
 // Name exported by the Echoes Wii build; the virtual method names are inferred from G2ME01 calls.
 class CNonUniformVulnerability {
 public:
-  virtual ~CNonUniformVulnerability();
+  // Inline: the Blogg REL carries its own copies of the destructor, the vtable and the default
+  // response-type query.
+  virtual ~CNonUniformVulnerability() {}
   virtual const CDamageVulnerability*
   GetDamageVulnerability(const CDamageVulnerability*, const CVector3f&, const CVector3f&,
                          const CDamageInfo&) const = 0; // Guessed name
   virtual bool GetCollisionResponseType(const CVector3f&, const CVector3f&, const CWeaponMode&, int,
-                                        EWeaponCollisionResponseTypes&) const = 0; // Guessed name
+                                        EWeaponCollisionResponseTypes&) const { // Guessed name
+    return false;
+  }
 };
 
 class CCollisionActor : public CPhysicsActor {
