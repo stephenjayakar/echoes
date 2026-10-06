@@ -9,6 +9,8 @@
 #include "Kyoto/Animation/CCharLayoutInfo.hpp"
 #include "Kyoto/Animation/CJointData_LinearStorage.hpp"
 #include "Kyoto/Animation/CPrimitive.hpp"
+#include "Kyoto/Animation/CSkinRules.hpp"
+#include "Kyoto/Animation/CSkinnedModel.hpp"
 #include "Kyoto/Animation/CTransitionManager.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
@@ -134,8 +136,36 @@ CAABox CAnimData::GetBoundingBox(const CTransform4f& xf) const {
 }
 
 CAABox CAnimData::CalcBoundingBoxFromModelVerts() const {
-  // TODO: Accumulate the model vertices after applying the reference pose.
-  return mAabb;
+  BuildPoseIfNecessary();
+  float minX = 1000000.f;
+  float maxX = -1000000.f;
+  float minY = minX;
+  float maxY = maxX;
+  float minZ = minX;
+  float maxZ = maxX;
+  CSkinnedModelState state(mModelData->MakeDefaultStorage());
+  const CSkinnedModel* model = *mModelData;
+  model->StoreCalculation(state, &mPose);
+  const int count = model->GetSkinRules()->GetNumPoints();
+  for (int i = 0; i < count; ++i) {
+    const CVector3f pos = mModelData->GetSkinnedPosition(state.GetWorkspace(), i);
+    if (pos.GetX() > maxX) {
+      maxX = pos.GetX();
+    } else if (pos.GetX() < minX) {
+      minX = pos.GetX();
+    }
+    if (pos.GetY() > maxY) {
+      maxY = pos.GetY();
+    } else if (pos.GetY() < minY) {
+      minY = pos.GetY();
+    }
+    if (pos.GetZ() > maxZ) {
+      maxZ = pos.GetZ();
+    } else if (pos.GetZ() < minZ) {
+      minZ = pos.GetZ();
+    }
+  }
+  return CAABox(minX, minY, minZ, maxX, maxY, maxZ);
 }
 
 void CAnimData::ResetPOILists() {
