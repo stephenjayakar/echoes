@@ -698,9 +698,9 @@ void CSlideShow::UpdateControlsText(const CFinalInput& input) {
       gpGameState->ControlMapper().GetAnalogInput(CControlMapper::kC_MapZoomOut, input);
   mRTrigger = zoomIn > 0.f ? 1 : 0;
   mLTrigger = zoomOut > 0.f ? 1 : 0;
-  const CStringTable& strings = ***mGalleryNames;
   rstl::wstring text;
   text.reserve(256);
+  const CStringTable& strings = ***mGalleryNames;
   text.append(CStringExtras::ConvertToUNICODE(
       CBasics::Stringize("%sSI,0.6,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mLStick[mLStick], skImageTagEnd)));
   text.append(strings.GetString("Browse"), -1);
