@@ -372,9 +372,9 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
   CColor palette[64] = {
       CColor(0.f, 0.f, 0.f, 0.f),
       CColor::Lerp(skScanPulseStart, skScanPulseEnd,
-                   (1.f + CMath::FastCosR(3.f * CGraphics::GetSecondsMod900())) * 0.5f)};
-  const int count = mScanObjects.size();
-  for (int i = 2; i < count + 2; ++i) {
+                   (1.f + CMath::FastCosR(3.f * CGraphics::GetSecondsMod900())) / 2.f)};
+  const int count = mScanObjects.size() + 2;
+  for (int i = 2; i < count; ++i) {
     palette[i] = GetScanObjectColor(mgr, i - 2);
   }
 
@@ -395,7 +395,7 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
           CColor::Lerp(CColor::White(), gpTweakGui->GetScanVisorInactiveColor(), transition),
           CColor::Lerp(CColor::White(), gpTweakGui->GetScanVisorInactiveExternalColor(),
                        transition),
-          palette, count + 2, direction);
+          palette, count, direction);
 }
 
 TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueId id) const {
