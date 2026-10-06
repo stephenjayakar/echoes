@@ -794,7 +794,7 @@ void CAutoMapper::ProcessControllerInput(const CFinalInput& input, CStateManager
 
   if (input.PY()) {
     int paneMode =
-        gpGameState->SystemOptions().FindEnvironmentVariable("AutoMapperPaneMode")->GetValue();
+        gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("AutoMapperPaneMode")->GetValue();
     if (mMapMode == kMM_Teleport) {
       switch (paneMode) {
       case 1:
@@ -822,7 +822,7 @@ void CAutoMapper::ProcessControllerInput(const CFinalInput& input, CStateManager
         break;
       }
     }
-    gpGameState->SystemOptions().FindEnvironmentVariable("AutoMapperPaneMode")->Set(paneMode);
+    gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("AutoMapperPaneMode")->Set(paneMode);
   }
 
   if ((gpGameState->ControlMapper().GetPressInput(CControlMapper::kC_MapScreen, input) ||
@@ -1661,7 +1661,7 @@ void CAutoMapper::Update(float dt, CStateManager& mgr) {
       model->SetColor(gpTweakAutoMapper->GetBlackColor());
     }
 
-    gpGameState->SystemOptions().FindEnvironmentVariable("AutoMapperPaneMode")->Set(1);
+    gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("AutoMapperPaneMode")->Set(1);
     mLeftPanePos = 1.f;
     if (mMapMode == kMM_Teleport) {
       mTextpaneInstructions1->TextSupport().SetText(rstl::wstring_l(L""));
@@ -1742,7 +1742,7 @@ void CAutoMapper::Update(float dt, CStateManager& mgr) {
   }
 
   const float step = 2.f * dt;
-  switch (gpGameState->SystemOptions().FindEnvironmentVariable("AutoMapperPaneMode")->GetValue()) {
+  switch (gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable("AutoMapperPaneMode")->GetValue()) {
   case 0:
     mLeftPanePos -= step;
     mYButtonPanePos -= step;

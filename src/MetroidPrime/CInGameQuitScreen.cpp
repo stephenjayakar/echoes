@@ -149,7 +149,7 @@ void CInGameQuitScreen::FinishedLoading() {
   }
   for (int track = 0; track < 7; ++track) {
     bool unlocked = track == 0;
-    const CEnvironmentVariable* variable = gpGameState->SystemOptions().FindEnvironmentVariable(
+    const CEnvironmentVariable* variable = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(
         CBasics::Stringize("UnlockMusic%d", track));
     if (variable != nullptr) {
       unlocked = variable->GetMaximum() == variable->GetValue();
@@ -205,7 +205,7 @@ void CInGameQuitScreen::ApplyMusicSelection(CStateManager& mgr) {
   int unlockedIndex = 0;
   for (int track = 0; track < 7; ++track) {
     bool unlocked = track == 0;
-    const CEnvironmentVariable* variable = gpGameState->SystemOptions().FindEnvironmentVariable(
+    const CEnvironmentVariable* variable = gpGameState->SystemOptions().EnvVars().FindEnvironmentVariable(
         CBasics::Stringize("UnlockMusic%d", track));
     if (variable != nullptr) {
       unlocked = variable->GetValue() == variable->GetMaximum();

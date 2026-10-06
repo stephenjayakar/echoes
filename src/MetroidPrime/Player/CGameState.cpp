@@ -111,14 +111,14 @@ void CGameStateEnvVarManager::PutTo(CBitStreamWriter& out) const {
   }
 }
 
-CPersistentOptions::CPersistentOptions() : CGameStateEnvVarManager(kVS_System), mSaveIdx(0) {
+CPersistentOptions::CPersistentOptions() : mEnvVars(CGameStateEnvVarManager::kVS_System), mSaveIdx(0) {
   if (gpMemoryCard != nullptr) {
     InitializeMemoryState();
   }
 }
 
 CPersistentOptions::CPersistentOptions(CBitStreamReader& in)
-: CGameStateEnvVarManager(kVS_Game), mSaveIdx(0) {
+: mEnvVars(CGameStateEnvVarManager::kVS_Game), mSaveIdx(0) {
   in.ReadBits(32); // SYST
   mSaveIdx = in.ReadBits(2);
 
@@ -151,12 +151,12 @@ CPersistentOptions::CPersistentOptions(CBitStreamReader& in)
   }
 
   InitializeMemoryState();
-  CGameStateEnvVarManager::operator=(CGameStateEnvVarManager(kVS_System, in));
+  mEnvVars = CGameStateEnvVarManager(CGameStateEnvVarManager::kVS_System, in);
   in.ReadBits(32); // SYND
 }
 
 void CPersistentOptions::InitializeMemoryState() {
-  CGameStateEnvVarManager::InitializeMemoryState();
+  mEnvVars.InitializeMemoryState();
 }
 
 void CPersistentOptions::PutTo(CBitStreamWriter& out) const {
@@ -187,7 +187,7 @@ void CPersistentOptions::PutTo(CBitStreamWriter& out) const {
     out.WriteBits(cinematicStates[i] ? 1 : 0, 1);
   }
 
-  CGameStateEnvVarManager::PutTo(out);
+  mEnvVars.PutTo(out);
   out.WriteBits('SYND', 32);
 }
 
