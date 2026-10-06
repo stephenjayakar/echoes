@@ -106,7 +106,7 @@ void CMarkerGrid::MarkCells(const CSphere& sphere, uint value) {
   }
 }
 
-CVector3f CMarkerGrid::GetWorldPositionForCell(uint x, uint y, uint z) const {
+CVector3f CMarkerGrid::GetWorldPositionForCell(uint x, const uint y, uint z) const {
   return CVector3f(x * mGridUnits.GetX(), y * mGridUnits.GetY(), z * mGridUnits.GetZ()) +
          mBounds.GetMinPoint() + 0.5f * mGridUnits;
 }
