@@ -29,7 +29,7 @@ bool CControlHintManager::SetHint(CHintState* hint, CStateManager& mgr, bool are
 }
 
 void CControlHintManager::ClearHint(CStateManager& mgr, bool areaChanged) {
-  ClearCurrentHint(10000);
+  SetCurrentHint(kInvalidUniqueId, 10000);
   mgr.GetPlayer(GetPlayerIndex())->GetControlMapper().ResetCommandFilters();
 }
 
