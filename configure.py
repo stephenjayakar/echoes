@@ -1505,6 +1505,13 @@ config.libs = [
         ],
     ),
     Rel(
+        "Metaree",
+        [
+            Object(Matching, "MetroidPrime/Enemies/CMetaree.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Ripper",
         [
             Object(Matching, "MetroidPrime/Enemies/CRipper.cpp"),
