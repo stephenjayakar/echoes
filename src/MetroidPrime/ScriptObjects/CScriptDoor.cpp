@@ -198,7 +198,11 @@ void CScriptDoor::SetShieldAlpha(float alpha, CStateManager& mgr) {
   const rstl::vector< TUniqueId > slaves = FindConnectedObjects(mgr, kSS_Slave, kSM_Activate);
   for (rstl::vector< TUniqueId >::const_iterator it = slaves.begin(); it != slaves.end(); ++it) {
     if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(*it))) {
-      actor->SetActive(alpha != 0.f);
+      if (alpha == 0.f) {
+        actor->SetActive(false);
+      } else {
+        actor->SetActive(true);
+      }
       actor->SetModelFlags(CModelFlags::AlphaBlended(alpha));
     }
   }
@@ -244,7 +248,7 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
   case kLS_Unlocked:
     SetLockAnimation(mgr, 0);
     mCurrentVulnerability = mBaseVulnerability;
-    mLockState = kLS_Unlocked;
+    mLockState = state;
     mColorDirty = true;
     mLockTimer = 0.f;
     if (mResetPending) {
@@ -254,25 +258,25 @@ void CScriptDoor::SetLockState(CStateManager& mgr, ELockState state) {
     break;
   case kLS_Pending:
     if (mLockState == kLS_Unlocked || mLockState == kLS_Unlocking) {
-      mLockState = kLS_Pending;
+      mLockState = state;
     }
     break;
   case kLS_Locking:
     SetLockAnimation(mgr, 1);
     mCurrentVulnerability = CDamageVulnerability::ReflectVulnerabilty();
-    mLockState = kLS_Locking;
+    mLockState = state;
     break;
   case kLS_Locked:
     SetLockAnimation(mgr, 3);
     mCurrentVulnerability = CDamageVulnerability::ReflectVulnerabilty();
-    mLockState = kLS_Locked;
+    mLockState = state;
     mColorDirty = true;
     mLockTimer = 0.f;
     break;
   case kLS_Unlocking:
     if (mLockState != kLS_Unlocked) {
       SetLockAnimation(mgr, 2);
-      mLockState = kLS_Unlocking;
+      mLockState = state;
       if (mResetPending && !mHasReset) {
         mShellColor = skResetColor;
         if (mBlueShellModel) {
