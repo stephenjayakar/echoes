@@ -45,10 +45,13 @@ static inline CVector3f VecDiv(const CVector3f& vec, const float f) {
 
 CFishCloudModifier::~CFishCloudModifier() {}
 
+// Local copy of CModelData::CModelDataNull.
+static CModelData CModelDataNull() { return CModelData(); }
+
 CFishCloudModifier::CFishCloudModifier(TUniqueId uid, const rstl::string& name,
                                        const CEntityInfo& info, const CVector3f& pos,
                                        bool isRepulsor, bool swirl, float radius, float priority)
-: CActor(uid, name, info, 0, CTransform4f::Translate(pos), CModelData::CModelDataNull(),
+: CActor(uid, name, info, 0, CTransform4f::Translate(pos), CModelDataNull(),
          CMaterialList(kMT_NoStepLogic), CActorParameters::None(), kInvalidUniqueId)
 , mRadius(radius)
 , mPriority(priority)
@@ -178,9 +181,9 @@ CFishCloud::CFishCloud(
 , mEnablePlayerRepelDamping(false)
 , mUpdateWithoutPartitions(false) {
   mModifierSources.reserve(10);
-  const CVector3f forward = GetTransform().GetColumn(kDY);
-  const CVector3f up = GetTransform().GetColumn(kDZ);
-  const CVector3f right = GetTransform().GetColumn(kDX);
+  const CVector3f& forward = GetTransform().GetForward();
+  const CVector3f& up = GetTransform().GetUp();
+  const CVector3f& right = GetTransform().GetRight();
   mWorldSpace = !(close_enough(right.GetX(), 1.f) && close_enough(right.GetX(), 0.f) &&
                   close_enough(right.GetX(), 0.f) && close_enough(forward.GetX(), 0.f) &&
                   close_enough(forward.GetX(), 1.f) && close_enough(forward.GetX(), 0.f) &&
@@ -192,7 +195,7 @@ CFishCloud::CFishCloud(
     }
     mValidModel = true;
     mDisplayList = rs_new SwarmRenderHelpers::CSwarmDisplayList(
-        mModels[0]->PickAnimatedModel(CModelData::kWM_Normal));
+        **mModels[0]->GetAnimationData()->GetModelData());
   }
   if (part1 != kInvalidAssetId) {
     mParticleDescs.push_back(gpSimplePool->GetObj(SObjectTag('PART', part1)));
@@ -214,7 +217,7 @@ CFishCloud::CFishCloud(
   mDeathParticleCounts.push_back(partCount2);
   mDeathParticleCounts.push_back(partCount3);
   mDeathParticleCounts.push_back(partCount4);
-  const CAABox aabb = GetBoundingBox();
+  const CAABox& aabb = GetBoundingBox();
   mPartitionPitch = (aabb.GetMaxPoint() - aabb.GetMinPoint()) * (1.f / 7.f);
   mOoPartitionPitch = CVector3f(1.f / mPartitionPitch.GetX(), 1.f / mPartitionPitch.GetY(),
                                 1.f / mPartitionPitch.GetZ());
