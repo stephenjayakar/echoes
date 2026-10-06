@@ -242,7 +242,7 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
   bool done = mCurTime >= mDuration;
 
   if (!mParticleGen0.null()) {
-    if (done) {
+    if (mCurTime >= mDuration) {
       mParticleGen0->SetParticleEmission(false);
     } else {
       if (mParticle0GlobalTranslation) {
@@ -250,12 +250,14 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
       } else {
         mParticleGen0->SetTranslation(GetTranslation());
       }
-      if (mParticleOr0 == kOT_AlongVelocity && GetVelocityWR().CanBeNormalized()) {
-        const CVector3f velocity = GetVelocityWR().AsNormalized();
-        const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
-                                                                  : CVector3f(0.f, 1.f, 0.f);
-        mParticleGen0->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
-      } else if (mParticleOr0 == kOT_ToObject) {
+      if (static_cast< EOrientationType >(mParticleOr0) == kOT_AlongVelocity) {
+        if (GetVelocityWR().CanBeNormalized()) {
+          const CVector3f velocity = GetVelocityWR().AsNormalized();
+          const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
+                                                                    : CVector3f(0.f, 1.f, 0.f);
+          mParticleGen0->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
+        }
+      } else if (static_cast< EOrientationType >(mParticleOr0) == kOT_ToObject) {
         mParticleGen0->SetOrientation(GetTransform().GetRotation());
       }
     }
@@ -276,12 +278,14 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
       } else {
         mParticleGen1->SetTranslation(GetTranslation());
       }
-      if (mParticleOr1 == kOT_AlongVelocity && GetVelocityWR().CanBeNormalized()) {
-        const CVector3f velocity = GetVelocityWR().AsNormalized();
-        const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
-                                                                  : CVector3f(0.f, 1.f, 0.f);
-        mParticleGen1->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
-      } else if (mParticleOr1 == kOT_ToObject) {
+      if (static_cast< EOrientationType >(mParticleOr1) == kOT_AlongVelocity) {
+        if (GetVelocityWR().CanBeNormalized()) {
+          const CVector3f velocity = GetVelocityWR().AsNormalized();
+          const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
+                                                                    : CVector3f(0.f, 1.f, 0.f);
+          mParticleGen1->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
+        }
+      } else if (static_cast< EOrientationType >(mParticleOr1) == kOT_ToObject) {
         mParticleGen1->SetOrientation(GetTransform().GetRotation());
       }
     }
@@ -296,22 +300,25 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
   if (!mParticleGen2.null()) {
     if (mCurTime >= mDuration && !mParticle2Active) {
       mParticleGen2->SetGlobalTranslation(GetTranslation());
-      if (mParticleOr2 == kOT_AlongVelocity && GetVelocityWR().CanBeNormalized()) {
-        const CVector3f velocity = GetVelocityWR().AsNormalized();
-        const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
-                                                                  : CVector3f(0.f, 1.f, 0.f);
-        mParticleGen2->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
-      } else if (mParticleOr2 == kOT_ToObject) {
+      if (static_cast< EOrientationType >(mParticleOr2) == kOT_AlongVelocity) {
+        if (GetVelocityWR().CanBeNormalized()) {
+          const CVector3f velocity = GetVelocityWR().AsNormalized();
+          const CVector3f up = CMath::AbsF(velocity.GetZ()) < 0.99f ? CVector3f(0.f, 0.f, 1.f)
+                                                                    : CVector3f(0.f, 1.f, 0.f);
+          mParticleGen2->SetOrientation(CTransform4f::LookAt(CVector3f::Zero(), velocity, up));
+        }
+      } else if (static_cast< EOrientationType >(mParticleOr2) == kOT_ToObject) {
         mParticleGen2->SetOrientation(GetTransform().GetRotation());
-      } else if (mParticleOr2 == kOT_AlongCollisionNormal) {
+      } else if (static_cast< EOrientationType >(mParticleOr2) == kOT_AlongCollisionNormal) {
         if (mCollisionNormal.MagSquared() == 0.f) {
           mCollisionNormal = CVector3f::Up();
         }
-        const CVector3f up = CMath::AbsF(CVector3f::Dot(CVector3f::Up(), mCollisionNormal)) > 0.99f
-                                 ? CVector3f(1.f, 0.f, 0.f)
-                                 : CVector3f(0.f, 0.f, 1.f);
-        mParticleGen2->SetOrientation(
-            CTransform4f::LookAt(CVector3f::Zero(), mCollisionNormal, up));
+        const CTransform4f orientation = CTransform4f::LookAt(
+            CVector3f::Zero(), mCollisionNormal,
+            CMath::AbsF(CVector3f::Dot(CVector3f::Up(), mCollisionNormal)) > 0.99f
+                ? CVector3f::Right()
+                : CVector3f::Up());
+        mParticleGen2->SetOrientation(orientation);
       }
       mParticle2Active = true;
     }
@@ -353,8 +360,7 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
 
   if (GetMovable()) {
     mSpeedHistory.AddValue(GetVelocityWR().Magnitude());
-    const rstl::optional_object< float > maxSpeed = mSpeedHistory.GetMax();
-    if (maxSpeed && *maxSpeed < mDisablePhysicsThreshold) {
+    if (*mSpeedHistory.GetMax() < mDisablePhysicsThreshold) {
       DisablePhysics();
     }
   }
