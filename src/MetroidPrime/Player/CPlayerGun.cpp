@@ -385,7 +385,9 @@ bool CPlayerGun::AnimOver(CStateManager& mgr, const float& argument) {
 }
 
 bool CPlayerGun::ActivateMissile(CStateManager& mgr, const float& argument) {
-  if (mSecondaryCooldown <= 0.f && ((mPressedInputFlags & 2) != 0 || (mInputFlags & 2) != 0)) {
+  bool pressed;
+  if ((mSecondaryCooldown > 0.f) == false &&
+      ((pressed = (mPressedInputFlags & 2) != 0) || (mInputFlags & 2) != 0)) {
     CPlayerState* state = GetPlayer(mgr)->GetPlayerState();
     if (mgr.IsMultiplayer() && state->HasPowerUp(CPlayerState::kIT_SuperMissile)) {
       return true;
@@ -394,7 +396,7 @@ bool CPlayerGun::ActivateMissile(CStateManager& mgr, const float& argument) {
         state->GetItemAmount(CPlayerState::kIT_Missile, true) > 0) {
       return true;
     }
-    if ((mPressedInputFlags & 2) != 0) {
+    if (pressed) {
       PlaySfxForPlayer(GetPlayer(mgr), skEmptyBeamSfx[mSoundSetIndex], mSoundVolume,
                        mgr.GetNextAreaId().Value(), mUnderwater, false);
     }
@@ -466,7 +468,10 @@ void CPlayerGun::Start(CStateManager& mgr, int message, float dt) {}
 
 void CPlayerGun::Main(CStateManager& mgr, int message, float dt) {
   CPlayerState* state = GetPlayerFromAll(mgr)->GetPlayerState();
-  if (message == kSM_Update) {
+  switch (message) {
+  case kSM_Enter:
+    break;
+  case kSM_Update: {
     CPlayer* player = GetPlayer(mgr);
     if ((mReleasedInputFlags & 0xd) != 0 && (mReleasedInputFlags & 4) != 0 &&
         state->ItemEnabled(CPlayerState::kIT_ChargeBeam) && mChargePhase != kCP_NotCharging) {
@@ -477,9 +482,10 @@ void CPlayerGun::Main(CStateManager& mgr, int message, float dt) {
                          mgr.GetNextAreaId().Value(), mUnderwater, 0);
       }
     }
-    if (mCooldown <= 0.f && mChargePhase == kCP_NotCharging && !mInBigStrike) {
+    if ((mCooldown > 0.f) == false && mChargePhase == kCP_NotCharging && !mInBigStrike) {
       const bool canCharge = state->ItemEnabled(CPlayerState::kIT_ChargeBeam);
-      if (!mRequestReturnToDefault && ((mPressedInputFlags & 1) != 0 || (mInputFlags & 8) != 0)) {
+      const uint firePressed = mPressedInputFlags & 1;
+      if (!mRequestReturnToDefault && (firePressed != 0 || (mInputFlags & 8) != 0)) {
         UpdateNormalShotCycle(dt, mgr);
         mFiring = (mChargePhase == kCP_NotCharging || mChargePhase == kCP_ChargeRequested) &&
                   !player->IsInFreeLook();
@@ -493,6 +499,10 @@ void CPlayerGun::Main(CStateManager& mgr, int message, float dt) {
     if (!mgr.IsMultiplayer()) {
       UpdateGunIdle(dt, mgr);
     }
+    break;
+  }
+  case kSM_Exit:
+    break;
   }
 }
 
