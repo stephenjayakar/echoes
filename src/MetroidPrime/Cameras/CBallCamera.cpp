@@ -1856,7 +1856,7 @@ void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
       CameraManager(mgr).GetInterpolationCamera()->GetTargetId() != GetUniqueId()) {
     return;
   }
-  if ((mgr.GetUpdateFrameIdx() & 3) != GetControllerNumber()) {
+  if ((mgr.GetUpdateFrameIdx() & 3) != static_cast< uint >(GetControllerNumber())) {
     mObscuredTime += dt;
     return;
   }
@@ -1873,13 +1873,10 @@ void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
   const CRayCastResult hit = mgr.RayWorldIntersection(
       mObscuringObjectId, GetTranslation(), cameraToBall, rayLength, skLineOfSightFilter, nearList);
   const CPlayer& player = *mgr.GetPlayer(GetControllerNumber());
-  if (!hit.IsValid()) {
-    mClearLOS = true;
-    mObscuringMaterial = CMaterialList(kMT_NoStepLogic);
-  } else {
+  if (hit.IsValid()) {
     mObscuringMaterial = hit.GetMaterial();
     CVector3f upperBallPos = ballPos;
-    upperBallPos.SetZ(upperBallPos.GetZ() + player.GetTweakPlayer()->GetBallRadius());
+    upperBallPos[kDZ] += player.GetTweakPlayer()->GetBallRadius();
     const CVector3f lowerBallPos = player.GetTranslation();
     const bool clearAbove =
         mgr.RayCollideWorld(GetTranslation(), upperBallPos, nearList, skLineOfSightFilter, &player);
@@ -1896,15 +1893,18 @@ void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
         }
       }
     }
+  } else {
+    mClearLOS = true;
+    mObscuringMaterial = CMaterialList(kMT_NoStepLogic);
   }
 
-  if (mClearLOS) {
-    mObscuredTime = 0.f;
-  } else {
+  if (!mClearLOS) {
     mObscuredTime += dt;
     ShouldResetSpline(mgr);
+  } else {
+    mObscuredTime = 0.f;
   }
-  mUnobscureMag = CMath::Clamp(0.f, 0.5f * mObscuredTime, 1.f);
+  mUnobscureMag = CMath::Clamp(0.f, mObscuredTime / 2.f, 1.f);
   if (mObscureAvoidance &&
       (mObscuredTime > 2.f || (mTooCloseActorId != kInvalidUniqueId && mObscuredTime > 1.f)) &&
       !mClearLOS && mSplineState == kBSS_Invalid) {
@@ -1913,7 +1913,8 @@ void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
     mPendingFailsafe = false;
   }
   bool useFailsafe = mPendingFailsafe;
-  if ((GetTranslation() - ballPos).Magnitude() < 0.3f + player.GetTweakPlayer()->GetBallRadius()) {
+  const float ballDistance = CVector3f(GetTranslation() - ballPos).Magnitude();
+  if (ballDistance < 0.3f + player.GetTweakPlayer()->GetBallRadius()) {
     useFailsafe = true;
   }
   if (mNearbyDoorClosed) {
@@ -1973,8 +1974,10 @@ void CBallCamera::DoorClosed(TUniqueId uid) {
 }
 
 void CBallCamera::Think(float dt, CStateManager& mgr) {
-  CPlayer& player = Player(mgr);
-  if (!player.GetPlayerState()->IsPlayerAlive() || gpMain->IsMaxSpeed()) {
+  if (!Player(mgr).GetPlayerState()->IsPlayerAlive()) {
+    return;
+  }
+  if (gpMain->IsMaxSpeed()) {
     return;
   }
 
@@ -1983,14 +1986,14 @@ void CBallCamera::Think(float dt, CStateManager& mgr) {
   UpdatePlayerMovement(dt, mgr);
 
   CCollisionActor* collisionActor =
-      TCastToPtr< CCollisionActor >(mgr.GetObjectByIdFromListAll(mCollisionActorId));
+      TCastToPtr< CCollisionActor >(mgr.ObjectById(mCollisionActorId));
   if (collisionActor != nullptr) {
     mgr.SetActorAreaId(*collisionActor, areaId);
   }
 
-  const CPlayer::EPlayerCameraState cameraState = player.GetCameraState();
-  if (cameraState != CPlayer::kCS_Ball && cameraState != CPlayer::kCS_MorphBallTransition &&
-      cameraState != CPlayer::kCS_Transitioning && !mForceProcessing) {
+  if (Player(mgr).GetCameraState() != CPlayer::kCS_MorphBall &&
+      Player(mgr).GetCameraState() != CPlayer::kCS_MorphBallTransition &&
+      Player(mgr).GetCameraState() != CPlayer::kCS_Transitioning && !mForceProcessing) {
     if (collisionActor != nullptr) {
       collisionActor->SetActive(false);
     }
@@ -2001,7 +2004,7 @@ void CBallCamera::Think(float dt, CStateManager& mgr) {
   }
 
   const CTransform4f oldTransform = GetTransform();
-  if (player.GetBombJumpCounter() != 1) {
+  if (Player(mgr).GetBombJumpCounter() != 1) {
     UpdateLookAtPosition(dt, mgr, false);
   }
   CheckFailSafe(dt, mgr);
@@ -2025,20 +2028,22 @@ void CBallCamera::Think(float dt, CStateManager& mgr) {
     case kBCB_HintBallToCam:
     case kBCB_Unknown6:
     case kBCB_HintLocalOffset:
-      if (mSplineState == kBSS_Invalid) {
-        UpdateUsingColliders(dt, mgr);
-      } else {
+      if (mSplineState != kBSS_Invalid) {
         UpdateUsingSpline(dt, mgr);
+      } else {
+        UpdateUsingColliders(dt, mgr);
       }
       break;
     case kBCB_FixedTransform:
       SetTransform(mFixedTransform);
       break;
-    case kBCB_Unknown7:
-      mLookPos += mBallDelta;
-      mLookPosAhead += mBallDelta;
-      mFixedLookPos += mBallDelta;
+    case kBCB_Unknown7: {
+      const CVector3f ballDelta = mBallDelta;
+      mLookPos += ballDelta;
+      mLookPosAhead += ballDelta;
+      mFixedLookPos += ballDelta;
       break;
+    }
     default:
       break;
     }
