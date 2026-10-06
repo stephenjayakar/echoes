@@ -6,7 +6,10 @@
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptAIHint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptActor.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCounter.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptEffect.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
@@ -187,13 +190,14 @@ void CBabyMetroid::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       const TUniqueId id = mgr.GetIdForScript(it->objId);
       if (state == kSS_Approach) {
         if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id))) {
-          xa54_.push_back(id);
+          xa54_.push_back_unsafe(id);
         } else if (CScriptActor* actor = TCastToPtr< CScriptActor >(mgr.ObjectById(id))) {
           xa64_ = id;
           actor->AddMaterial(kMT_AIPassthrough, mgr);
           actor->RemoveMaterial(kMT_AIBlock, mgr);
+          const CMaterialFilter& filter = actor->GetMaterialFilter();
           actor->SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
-              actor->GetMaterialFilter().GetIncludeList(), CMaterialList(kMT_Character)));
+              filter.GetIncludeList(), CMaterialList(kMT_Character)));
         }
       } else if (state == kSS_MaxReached) {
         if (TCastToConstPtr< CScriptCounter >(mgr.GetObjectById(id))) {
@@ -250,5 +254,92 @@ void CBabyMetroid::Think(float dt, CStateManager& mgr) {
   CMetroid::Think(dt, mgr);
   if (mHitByPlayerProjectile) {
     mHitByPlayerProjectile = false;
+  }
+}
+
+CVector3f CBabyMetroid::FindAIHintPosition(CStateManager& mgr, int hintType) {
+  rstl::reserved_vector< CScriptAIHint*, 20 > hints;
+  CObjectList& list = mgr.ObjectListById(kOL_AiWaypoint);
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    CScriptAIHint* hint = TCastToPtr< CScriptAIHint >(list[i]);
+    if (hintType == 9) {
+      if (hint != nullptr && hint->GetCurrentAreaId() == GetCurrentAreaId() &&
+          hintType == hint->GetHintType() && hint->GetActive() == true && hints.size() < 20) {
+        if (!hint->GetInUse(kInvalidUniqueId)) {
+          hints.push_back(hint);
+        }
+      }
+    } else if (hint != nullptr && hint->GetCurrentAreaId() == GetCurrentAreaId() &&
+               hintType == hint->GetHintType() && hint->GetActive() == true && hints.size() < 20) {
+      hints.push_back(hint);
+    }
+  }
+  if (hints.size() == 0) {
+    return CVector3f::Zero();
+  }
+  return hints[mgr.Random()->Range(0, hints.size() - 1)]->GetTranslation();
+}
+
+void CBabyMetroid::SetEnergySourceDest(CStateManager& mgr, float) {
+  if (!xac8_25_) {
+    BodyController()->SetLocomotionType(pas::kLT_Lurk);
+    BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_FullSpeed);
+    BodyController()->CommandMgr().SetSteeringSpeedRange(1.f, 1.f);
+    x7c0_ = GetTranslation();
+    const CVector3f pos = FindAIHintPosition(mgr, 9);
+    if (!(pos == CVector3f::Zero())) {
+      x7c0_ = pos;
+    }
+    xac8_25_ = true;
+  }
+  mPathFindNavigation.SetDestination(x7c0_);
+  mPathFindNavigation.SetFaceTarget(kInvalidUniqueId);
+}
+
+void CBabyMetroid::Attack(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mState = kAiState_Over;
+    xa78_ = 0.f;
+    mShouldSeekEnergySource = false;
+    xac8_25_ = false;
+    break;
+  case kStateMsg_Update:
+    break;
+  case kStateMsg_Deactivate: {
+    CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Melee, mgr, mTeamAiManagerId, GetUniqueId(),
+                                false);
+    mAttackChance = GetAverageAttackTime();
+    if (mgr.IsRandomAvailable() == true) {
+      const float variation = mAttackTimeVariation;
+      const float random = mgr.Random()->Float();
+      mAttackChance += random * variation;
+    }
+    mAttackState = 0;
+    DetachFromTarget(mgr, true);
+    mIsAttacking = false;
+    const CQuaternion rotation = CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw()));
+    SetTransform(rotation.BuildTransform4f(GetTranslation()));
+    AddMaterial(kMT_Orbit, kMT_Target, mgr);
+    RemoveMaterial(kMT_Trigger, mgr);
+    break;
+  }
+  }
+}
+
+void CBabyMetroid::AbsorbEnergy(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    *DamageVulnerability() = mGrowthVulnerability;
+    BodyController()->SetLocomotionType(pas::kLT_Internal8);
+    SendScriptMsgs(kSS_Arrived, mgr, kSM_None);
+    break;
+  case kStateMsg_Update: {
+    xa50_ = rstl::min_val(xa50_ + dt, xa4c_);
+    const float t = xa50_ / xa4c_;
+    const float scale = mInitialScale * (1.f - t) + mBabyMetroidScale * t;
+    ModelData()->SetScale(CVector3f(scale, scale, scale));
+    break;
+  }
   }
 }

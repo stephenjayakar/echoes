@@ -51,6 +51,7 @@ public:
   void ApplyContactDamage(CStateManager& mgr, CActor& target,
                           const CDamageInfo& info); // Guessed name.
   void TryJoinHive(CStateManager& mgr);             // Guessed name.
+  CVector3f FindAIHintPosition(CStateManager& mgr, int hintType); // Guessed name.
 
 private:
   float xa48_;

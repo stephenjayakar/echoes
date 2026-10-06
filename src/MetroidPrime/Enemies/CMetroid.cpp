@@ -218,7 +218,9 @@ void CMetroid::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
     }
   } else if (vulnerability->WeaponHits(mode, 0)) {
     const float variation = mAttackTimeVariation;
-    mAttackChance = mgr.Random()->Float() * variation + GetAverageAttackTime();
+    const float average = GetAverageAttackTime();
+    const float random = mgr.Random()->Float();
+    mAttackChance = random * variation + average;
     if (frozen) {
       BodyController()->UnFreeze();
     }
@@ -306,7 +308,9 @@ bool CMetroid::IsTargetGettingSucked(const CStateManager& mgr) const {
 void CMetroid::UpdateAILogicTimers(float dt, CStateManager& mgr) {
   if (IsTargetGettingSucked(mgr)) {
     const float variation = mAttackTimeVariation;
-    mAttackChance = mgr.Random()->Float() * variation + GetAverageAttackTime();
+    const float average = GetAverageAttackTime();
+    const float random = mgr.Random()->Float();
+    mAttackChance = random * variation + average;
   } else if (mAttackChance > 0.f) {
     mAttackChance -= dt;
   }
