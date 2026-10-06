@@ -68,7 +68,8 @@ void CABSReaction::Shutdown(CBodyController& bc) { StopAnimation(bc); }
 bool CBodyController::HasIceBreakoutState() {
   const CPASAnimParmData parms(pas::kAS_AdditiveReaction,
                                CPASAnimParm::FromEnum(pas::kART_IceBreakout));
-  return GetPASDatabase().FindBestAnimation(parms, -1).first > 0.f;
+  const CPASDatabase& db = GetPASDatabase();
+  return db.FindBestAnimation(parms, -1).first > 0.f;
 }
 
 pas::EAnimationState CABSReaction::GetBodyStateTransition(float dt, CBodyController& bc) {
