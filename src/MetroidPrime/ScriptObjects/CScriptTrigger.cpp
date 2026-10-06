@@ -481,7 +481,10 @@ void CScriptTrigger::InhabitantRejected(CActor&, CStateManager&) {}
 
 bool CScriptTrigger::ShouldSendScriptMsgs(CActor& actor, CStateManager& mgr) const {
   if (const CGameCamera* camera = TCastToPtr< CGameCamera >(actor)) {
-    return camera->CameraManager(mgr).GetCurrentCameraId(true) == actor.GetUniqueId();
+    const TUniqueId cameraId = camera->GetUniqueId();
+    if (camera->CameraManager(mgr).GetCurrentCameraId(true) != cameraId) {
+      return false;
+    }
   }
   return true;
 }
@@ -499,20 +502,22 @@ bool CScriptTrigger::IsAI(CStateManager& mgr, CActor& actor) const {
   return false;
 }
 
-bool CScriptTrigger::ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateManager& mgr) {
+uchar CScriptTrigger::ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateManager& mgr) {
   const CActor* oldActor = TCastToConstPtr< CActor >(mgr.GetObjectById(oldId));
   const CActor* newActor = TCastToConstPtr< CActor >(mgr.GetObjectById(newId));
   if (oldActor == nullptr || newActor == nullptr) {
     return false;
   }
 
+  bool replaced = false;
   const bool alreadyInside = HasInhabitant(newId);
   if (!alreadyInside) {
     for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
          ++it) {
       if (it->GetObjectId() == oldId) {
         it->SetObjectId(newId);
-        return true;
+        replaced = true;
+        break;
       }
     }
   } else {
@@ -524,7 +529,7 @@ bool CScriptTrigger::ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateM
       }
     }
   }
-  return false;
+  return replaced;
 }
 
 bool CScriptTrigger::RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr) {
@@ -545,7 +550,7 @@ bool CScriptTrigger::RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr)
   return false;
 }
 
-bool CScriptTrigger::RemoveInhabitant(TUniqueId id, CStateManager& mgr) {
+uchar CScriptTrigger::RemoveInhabitant(TUniqueId id, CStateManager& mgr) {
   if (TCastToConstPtr< CActor >(mgr.GetObjectById(id)) == nullptr) {
     return false;
   }
