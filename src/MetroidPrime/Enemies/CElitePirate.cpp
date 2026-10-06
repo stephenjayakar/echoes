@@ -591,6 +591,7 @@ void CElitePirate::PreRender(CStateManager& mgr) {
   if (CActor* launcher = static_cast< CActor* >(mgr.ObjectById(mLauncherId))) {
     launcher->SetModelFlags(GetModelFlags());
   }
+  SetModelFlags(GetModelFlags().UseShaderSet(0));
   UpdateShieldEffect(mgr, 0.f);
 }
 
@@ -922,15 +923,16 @@ bool CElitePirate::DonePursuing(CStateManager& mgr, const CTriggerData& data) co
        mPathFindSearch.GetCurrentWaypoint() >= mPathFindSearch.GetWaypoints().size() - 1)) {
     return true;
   }
-  if (mTime > mPursueStartTime) {
+  if (mLastObstacleTime > mPursueStartTime) {
     const CPlayer* player = mgr.GetPlayer(0);
     if (GetCurrentAreaId() != player->GetCurrentAreaId()) {
       return true;
     }
     if (hint != CScriptAIHint::kHT_GrenadeLauncherRaisedAim) {
       const CVector3f pos = GetTranslation();
-      const CVector3f dist = player->GetAimPosition(mgr, 0.f) - pos;
-      if (dist.MagSquared() < mData.GetMaxShockwaveRange() * mData.GetMaxShockwaveRange()) {
+      const CVector3f aimPos = player->GetAimPosition(mgr, 0.f);
+      if (CVector3f(aimPos - pos).MagSquared() <
+          mData.GetMaxShockwaveRange() * mData.GetMaxShockwaveRange()) {
         return true;
       }
     }
@@ -941,8 +943,9 @@ bool CElitePirate::DonePursuing(CStateManager& mgr, const CTriggerData& data) co
   }
   const CPlayer* player = mgr.GetPlayer(0);
   const CVector3f pos = GetTranslation();
-  const CVector3f dist = player->GetAimPosition(mgr, 0.f) - pos;
-  if (dist.MagSquared() < 4.f * (mData.GetMaxMeleeRange() * mData.GetMaxMeleeRange())) {
+  const CVector3f aimPos = player->GetAimPosition(mgr, 0.f);
+  if (CVector3f(aimPos - pos).MagSquared() <
+      4.f * (mData.GetMaxMeleeRange() * mData.GetMaxMeleeRange())) {
     return true;
   }
   if (2.5f + mPursueStartTime > mTime &&
@@ -1011,7 +1014,7 @@ bool CElitePirate::ShouldMeleeAttack(CStateManager& mgr, const CTriggerData& dat
 
 bool CElitePirate::ShouldShockwave(CStateManager& mgr, const CTriggerData& data) const {
   if (mAttackTimer <= 0.f) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       if (GetCurrentAreaId() == player->GetCurrentAreaId()) {
         const CVector3f dist = player->GetAimPosition(mgr, 0.f) - GetTranslation();
@@ -1025,7 +1028,7 @@ bool CElitePirate::ShouldShockwave(CStateManager& mgr, const CTriggerData& data)
             return true;
           }
           if (magSq >= mData.GetMinShockwaveRange() * mData.GetMinShockwaveRange()) {
-            return dist.GetZ() < 3.f;
+            return CMath::AbsF(dist.GetZ()) < 3.f;
           }
         }
       }
@@ -1128,7 +1131,9 @@ void CElitePirate::PursueTarget(CStateManager& mgr, EStateMsg msg, const CVector
   case kStateMsg_Update: {
     const float dx = target.GetX() - mPathDestination.GetX();
     const float dy = target.GetY() - mPathDestination.GetY();
-    if (0.f + (dx * dx + dy * dy) > 16.f) {
+    float distSq = 0.f;
+    distSq += dx * dx + dy * dy;
+    if (distSq > 16.f) {
       UpdatePathDestination(mgr, target, dt);
     }
     if (mPathFindSearch.GetWaypoints().size() > 0) {
@@ -1146,7 +1151,7 @@ void CElitePirate::PursueTarget(CStateManager& mgr, EStateMsg msg, const CVector
       mPathFindNavigation.PathFind(mgr, msg, dt, *this);
       move = BodyController()->GetCommandMgr().GetMoveVector();
     } else {
-      move = mSteeringBehaviors.Arrival(*this, mPathDestination, 7.f);
+      move = mSteeringBehaviors.Arrival(*this, target, 7.f);
     }
     BodyController()->CommandMgr().DeliverCmd(CBCLocomotionCmd(move, CVector3f::Zero(), 1.f));
     break;
@@ -1336,21 +1341,22 @@ bool CElitePirate::CanShockwave(CStateManager& mgr, const CTriggerData& data) co
 }
 
 bool CElitePirate::ClearLineOfSight(CStateManager& mgr, const CTriggerData& data) const {
-  if (const CElitePirateGrenadeLauncher* launcher =
-          static_cast< const CElitePirateGrenadeLauncher* >(mgr.GetObjectById(mLauncherId))) {
-    const CVector3f origin = launcher->GetTurretTransform().GetTranslation();
-    const CVector3f dir = mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f) - origin;
-    if (dir.CanBeNormalized() == true) {
-      const CVector3f flat(dir.GetX(), dir.GetY(), 0.f);
-      if (flat.MagSquared() > 0.5f * (mData.GetMaxRocketRange() * mData.GetMaxRocketRange())) {
-        return false;
-      }
-      return CGameCollision::RayStaticLineOfSightTest(
-          *mgr.World()->Area(GetCurrentAreaId()),
-          origin, dir.AsNormalized(), dir.Magnitude(),
-          CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Solid),
-                                              CMaterialList(kMT_Player)));
+  const CElitePirateGrenadeLauncher* launcher =
+      static_cast< const CElitePirateGrenadeLauncher* >(mgr.GetObjectById(mLauncherId));
+  if (launcher == nullptr) {
+    return false;
+  }
+  const CVector3f origin = launcher->GetTurretTransform().GetTranslation();
+  const CVector3f dir = mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f) - origin;
+  if (dir.CanBeNormalized() == true) {
+    if (CVector3f(dir.GetX(), dir.GetY(), 0.f).MagSquared() >
+        0.5f * (mData.GetMaxShockwaveRange() * mData.GetMaxShockwaveRange())) {
+      return false;
     }
+    const CMaterialFilter filter =
+        CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Solid), CMaterialList(kMT_Player));
+    return CGameCollision::RayStaticLineOfSightTest(*mgr.World()->Area(GetCurrentAreaId()), origin,
+                                                    dir.AsNormalized(), dir.Magnitude(), filter);
   }
   return false;
 }
@@ -1852,26 +1858,28 @@ void CElitePirate::UpdateAttackTimeLeft(CStateManager& mgr) {
 }
 
 void CElitePirate::ProcessStompGround(CStateManager& mgr) {
-  const bool doubleWave = mAttackType == kAT_DoubleShockwave;
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  const bool isShockwave = mCurrentAction == kA_Shockwave;
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     CPlayer* player = mgr.Player(i);
     const float distance = (GetTranslation() - player->GetTranslation()).Magnitude();
-    const float scale = doubleWave ? 1.f : 0.25f;
-    const CVector3f modelScale = GetModelData()->GetScale();
-    if (-(0.05f * distance - scale * modelScale.Magnitude()) > 0.f &&
+    float scale = isShockwave ? 1.f : 0.25f;
+    scale *= GetModelData()->GetScale().Magnitude();
+    scale -= 0.05f * distance;
+    if (scale > 0.f &&
         player->GetSurfaceRestraint() != CPlayer::kSR_Air && player->GetFluidCount() == 0) {
       const CPlayer::EPlayerMorphBallState state =
           player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
               ? player->GetMorphballTransitionState()
               : CPlayer::kMS_Unmorphed;
       if (state != CPlayer::kMS_Morphed) {
-        const TUniqueId cameraId = mgr.GetCameraManager(0)->GetFirstPersonCamera()->GetUniqueId();
-        if (mgr.GetCameraManager(0)->GetCurrentCameraId(false) == cameraId) {
+        const CCameraManager* camMgr = mgr.GetCameraManager(i);
+        const TUniqueId cameraId = camMgr->GetFirstPersonCamera()->GetUniqueId();
+        if (camMgr->GetCurrentCameraId(true) == cameraId) {
           mgr.RumbleManager(mgr.MaskUIdNumPlayers(player->GetUniqueId()))
               ->Rumble(mgr, kRFX_CameraShake, 1.f, kRP_Two);
         }
       } else {
-        const CVector3f impulse = (doubleWave ? 20.f : 10.f) * CVector3f::Up();
+        const CVector3f impulse = (isShockwave ? 20.f : 10.f) * CVector3f::Up();
         player->Stop();
         player->ApplyImpulseWR(player->GetMass() * impulse, CAxisAngle::Identity());
         player->SetMoveState(NPlayer::kMS_ApplyJump, mgr);
