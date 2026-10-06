@@ -1187,7 +1187,11 @@ void CPlayer::SetOrbitTargetId(TUniqueId target, const CStateManager& mgr) {
   if (target != kInvalidUniqueId) {
     const CPatterned* patterned = TCastToConstPtr< CPatterned >(mgr.GetObjectById(target));
     const CSwarmBasics* swarm = TCastToConstPtr< CSwarmBasics >(mgr.GetObjectById(target));
-    mOrbitingEnemy = patterned || swarm;
+    if (patterned || swarm) {
+      mOrbitingEnemy = true;
+    } else {
+      mOrbitingEnemy = false;
+    }
     mOrbitTargetLineOfSightClear = true;
   }
   mOrbitTargetId = target;
@@ -1262,8 +1266,11 @@ void CPlayer::PreventFallingCameraPitch() {
 }
 
 bool CPlayer::InGrappleJumpCooldown() const {
-  return mMovementState != NPlayer::kMS_OnGround &&
-         (mGrappleJumpTimeout > 0.f || (mJumpCameraTimer == 0.f && mOrbitState == kOS_NoOrbit));
+  if (mMovementState != NPlayer::kMS_OnGround &&
+      (mGrappleJumpTimeout > 0.f || (mJumpCameraTimer == 0.f && mOrbitState == kOS_NoOrbit))) {
+    return true;
+  }
+  return false;
 }
 
 void CPlayer::SetOrbitRequestForOtherPlayers(EPlayerOrbitRequest request, CStateManager& mgr) {
