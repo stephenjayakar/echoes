@@ -37,11 +37,14 @@ void CABSAim::Start(CBodyController& bc, CStateManager& mgr) {
     const CPASAnimParmData parms(pas::kAS_AdditiveAim, CPASAnimParm::FromEnum(i),
                                  CPASAnimParm::FromEnum(mAimType));
     mAnims[i] = bc.GetPASDatabase().FindBestAnimation(parms, *mgr.Random(), -1).second;
-    mAngles[i] = CRelAngle::FromDegrees(aimState->GetAnimParmData(mAnims[i], 2).GetReal32Value())
-                     .AsRadians();
+    const CPASAnimParm parm = aimState->GetAnimParmData(mAnims[i], 2);
+    mAngles[i] = CRelAngle::FromDegrees(parm.GetReal32Value()).AsRadians();
   }
 
-  mNeedsIdle = bc.CommandMgr().GetCmd(kBSC_AdditiveIdle) != nullptr;
+  mNeedsIdle = false;
+  if (bc.CommandMgr().GetCmd(kBSC_AdditiveIdle)) {
+    mNeedsIdle = true;
+  }
 }
 
 pas::EAnimationState CABSAim::UpdateBody(float dt, CBodyController& bc, CStateManager& mgr) {
