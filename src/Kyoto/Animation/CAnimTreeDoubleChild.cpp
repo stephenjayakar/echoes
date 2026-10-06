@@ -160,7 +160,10 @@ rstl::rc_ptr< CAnimTreeNode > CAnimTreeDoubleChild::VGetBestUnblendedChild() con
   }
 
   rstl::rc_ptr< CAnimTreeNode > best = child->GetBestUnblendedChild();
-  return best ? best : child;
+  if (!best) {
+    return child;
+  }
+  return best;
 }
 
 void CAnimTreeDoubleChild::VGetWeightedReaders(
