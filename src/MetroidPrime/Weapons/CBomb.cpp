@@ -102,8 +102,8 @@ void CBomb::AddToRenderer(const CStateManager& mgr) const {
 
   const CVector3f extent(radius, radius, radius);
   const CAABox bounds(origin - extent, origin + extent);
-  const CVector3f closestPoint =
-      bounds.ClosestPointAlongVector(CGraphics::GetViewMatrix().GetForward());
+  const CVector3f forward = CGraphics::GetViewMatrix().GetForward();
+  const CVector3f closestPoint = bounds.ClosestPointAlongVector(forward);
 
   if (mIsNotDetonated) {
     gpRender->AddParticleGen(*mParticle1, closestPoint, bounds);

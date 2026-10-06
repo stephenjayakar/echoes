@@ -29,27 +29,27 @@ bool CConditionalRelayQuery::IsConditionSatisfied(const CStateManager& mgr,
   case kC_LessOrEqual:
     return amount <= mValue;
   case kC_GreaterThanAllPlayers:
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
       if (i == playerIndex) {
         continue;
       }
       const CPlayerState& other = *mgr.GetPlayerState(i);
       const int otherAmount = mField == kF_Amount ? other.GetItemAmount(mItem, true)
                                                  : other.GetItemCapacity(mItem);
-      if (amount <= otherAmount + mValue) {
+      if (otherAmount + mValue >= amount) {
         return false;
       }
     }
     return true;
   case kC_LessThanAllPlayers:
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
       if (i == playerIndex) {
         continue;
       }
       const CPlayerState& other = *mgr.GetPlayerState(i);
       const int otherAmount = mField == kF_Amount ? other.GetItemAmount(mItem, true)
                                                  : other.GetItemCapacity(mItem);
-      if (amount >= otherAmount - mValue) {
+      if (otherAmount - mValue <= amount) {
         return false;
       }
     }

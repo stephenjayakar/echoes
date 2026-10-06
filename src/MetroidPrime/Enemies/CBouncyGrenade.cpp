@@ -357,7 +357,7 @@ void CBouncyGrenade::UpdateExplodeChecks(float dt, CStateManager& mgr) {
       }
     }
     mLastPosition += moved;
-    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       const CVector3f playerPos =
           player->GetTranslation() + CVector3f(0.f, 0.f, 0.5f * player->GetEyeHeight());
