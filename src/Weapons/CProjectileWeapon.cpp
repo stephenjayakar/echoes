@@ -471,7 +471,10 @@ const bool CProjectileWeapon::IsSystemDeletable() const {
 }
 
 void CProjectileWeapon::Render() const {
-  if (mCurFrame > mLifetime || !mActive) {
+  if (mCurFrame > mLifetime) {
+    return;
+  }
+  if (!mActive) {
     return;
   }
   if (mModel) {
@@ -544,9 +547,21 @@ void CProjectileWeapon::RenderBillboardEffects() const {
   CColor trailEndColor = CColor::Grey();
   float billboard1Rotation = 0.f;
   float billboard2Rotation = 0.f;
-  SUVElementSet billboard1UV = {0.f, 0.f, 1.f, 1.f};
-  SUVElementSet billboard2UV = {0.f, 0.f, 1.f, 1.f};
-  SUVElementSet trailUV = {0.f, 0.f, 1.f, 1.f};
+  SUVElementSet billboard1UV;
+  SUVElementSet billboard2UV;
+  SUVElementSet trailUV;
+  billboard1UV.xMin = 0.f;
+  billboard1UV.yMin = 0.f;
+  billboard1UV.xMax = 1.f;
+  billboard1UV.yMax = 1.f;
+  billboard2UV.xMin = 0.f;
+  billboard2UV.yMin = 0.f;
+  billboard2UV.xMax = 1.f;
+  billboard2UV.yMax = 1.f;
+  trailUV.xMin = 0.f;
+  trailUV.yMin = 0.f;
+  trailUV.xMax = 1.f;
+  trailUV.yMax = 1.f;
 
   if (description.mB1TX) {
     description.mB1TX->GetValueUV(mCurFrame, billboard1UV);
@@ -579,10 +594,10 @@ void CProjectileWeapon::RenderBillboardEffects() const {
   const CTransform4f orientation = GetTransform();
   CVector3f direction = orientation * GetVelocity();
   const float speed = direction.Magnitude();
-  if (speed <= FLT_EPSILON) {
-    direction = CVector3f(0.f, 1.f, 0.f);
-  } else {
+  if (speed > FLT_EPSILON) {
     direction *= 1.f / speed;
+  } else {
+    direction = CVector3f(0.f, 1.f, 0.f);
   }
   const CVector3f position = GetTranslation();
   const CTransform4f scale = CTransform4f::Scale(mGlobalScale);
