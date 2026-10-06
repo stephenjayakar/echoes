@@ -320,7 +320,8 @@ void CPatterned::UpdateAlphaDelta(CStateManager& mgr, float dt) {
   }
   Shadow()->SetUserAlpha(alpha);
   mColor.SetAlpha(alpha);
-  // TODO: Propagate alpha to the actor's particle database.
+  AnimationData()->GetParticleDB().SetModulationColorAllActiveEffects(
+      CColor(1.f, 1.f, 1.f, alpha));
 }
 
 void CPatterned::UpdateHitDamageTime(float dt) {
