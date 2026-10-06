@@ -259,7 +259,8 @@ CVector3f CPathCamera::MoveAlongSpline(float dt, const CStateManager& mgr) {
 
 CTransform4f CPathCamera::AvoidDoorCollisions(const CTransform4f& xf, const CStateManager& mgr) {
   CTransform4f result(xf);
-  const CBallCamera* ballCamera = GetCameraManager(mgr).GetBallCamera();
+  const CBallCamera* ballCamera =
+      CameraManager(const_cast< CStateManager& >(mgr)).GetBallCamera();
   const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(
       mgr.GetObjectById(ballCamera->GetTooCloseActorId()));
   if (door && !door->IsOpen() &&
@@ -269,7 +270,7 @@ CTransform4f CPathCamera::AvoidDoorCollisions(const CTransform4f& xf, const CSta
       return xf;
     }
     float newDistance = mPlayerDistance + camera->GetDistance();
-    if (mPlayerDistance < mPositionDistance) {
+    if (mPositionDistance > mPlayerDistance) {
       newDistance = mPlayerDistance - camera->GetDistance();
     }
     mPositionDistance = newDistance;

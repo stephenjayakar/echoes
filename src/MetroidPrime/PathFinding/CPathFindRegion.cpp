@@ -233,9 +233,10 @@ CVector3f CPFRegion::FitThroughLink2d(const CVector3f& source, const CPFLink& li
     const float destinationAlong = CVector2f::Dot(edge2d, destinationDelta.ToVec2f());
     const float distance = sourceDistance + destinationDistance;
     if (distance > FLT_EPSILON) {
-      t = (1.f / distance) *
+      const float rawT = (1.f / distance) *
           (destinationDistance * sourceAlong + sourceDistance * destinationAlong);
-      t = CMath::Clamp(radius, t, link.Get2dWidth() - radius);
+      const float maxT = link.Get2dWidth() - radius;
+      t = CMath::Clamp(radius, rawT, maxT);
       t *= link.GetOO2dWidth();
     }
   }

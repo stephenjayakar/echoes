@@ -409,8 +409,7 @@ TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueI
 TUniqueId CPlayerTargeting::GetScanTargetId(const CStateManager& mgr, int paletteIndex) const {
   const int index = paletteIndex - 2;
   if (index >= 0 && index < mScanObjects.size()) {
-    const TUniqueId id = mScanObjects[index].mId;
-    return ResolveScanTarget(mgr, id);
+    return ResolveScanTarget(mgr, TUniqueId(mScanObjects[index].mId));
   }
 
   return kInvalidUniqueId;
