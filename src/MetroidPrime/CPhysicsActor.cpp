@@ -308,6 +308,10 @@ const CCollisionPrimitive* CPhysicsActor::GetCollisionPrimitive() const {
   return &mCollisionPrimitive;
 }
 
+void CPhysicsActor::SetCollisionPrimitive(const CCollidableAABox& primitive) {
+  mCollisionPrimitive = primitive;
+}
+
 void CPhysicsActor::MoveCollisionPrimitive(const CVector3f& offset) {
   mPrimitiveOffset = offset;
 }
