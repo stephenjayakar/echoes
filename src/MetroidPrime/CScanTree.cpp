@@ -262,16 +262,16 @@ CScanTreeMenu::CScanTreeMenu(int id, const SLdrTransform& transform, CAssetId na
       gpSimplePool->GetObj(SObjectTag('STRG', optionStringTable))))
 , mOptions() {
   typedef rstl::pair< rstl::string, int > Option;
-  if (option1.size() != 0) {
+  if (option1.length() != 0) {
     mOptions.push_back(Option(option1, value1));
   }
-  if (option2.size() != 0) {
+  if (option2.length() != 0) {
     mOptions.push_back(Option(option2, value2));
   }
-  if (option3.size() != 0) {
+  if (option3.length() != 0) {
     mOptions.push_back(Option(option3, value3));
   }
-  if (option4.size() != 0) {
+  if (option4.length() != 0) {
     mOptions.push_back(Option(option4, value4));
   }
   mOptionStringTable->Lock();
