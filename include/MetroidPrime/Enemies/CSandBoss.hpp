@@ -1,6 +1,7 @@
 #ifndef _CSANDBOSS
 #define _CSANDBOSS
 
+#include "Kyoto/Audio/CSfxHandle.hpp"
 #include "Kyoto/Math/CQuaternion.hpp"
 #include "MetroidPrime/CBoneTracking.hpp"
 #include "MetroidPrime/CDamageVulnerability.hpp"
@@ -16,7 +17,18 @@
 
 class CCollisionActorManager;
 class CScannableObjectInfo;
+class CPlayer;
 class CScriptSafeZone;
+
+// Guessed name; one charge beam fired by the boss.
+struct SChargeBeam {
+  TUniqueId mBeamId;
+  CVector3f mStart;
+  CVector3f mEnd;
+  CSfxHandle mSfx;
+
+  ~SChargeBeam() {}
+};
 
 // Guessed name; the charge beam fired by the sand boss ("SandBossChargeBeam").
 class CSandBossChargeBeam : public CPlasmaProjectile {
@@ -172,6 +184,24 @@ public:
   int GetNumActiveSafeZones(const CStateManager& mgr) const;
   float GetStampedeSpeed(const CStateManager& mgr) const;
   TUniqueId SelectDarkBeamBoss(CStateManager& mgr) const;
+  void UpdateTurnLocomotion(const CVector3f& target);
+  void UpdateDamageFlash(float time);
+  bool PullPlayerToMouth(CPlayer& player, float dt);
+  void AttachPlayerToMouth(CPlayer& player);
+  void FaceDeathWaypoint(CStateManager& mgr);
+  void ReleasePlayer(CStateManager& mgr);
+  void UpdateSpitOut(CStateManager& mgr);
+  int GetNumFiringBeams(CStateManager& mgr);
+  int SelectFacingBoss(CStateManager& mgr, const rstl::reserved_vector< TUniqueId, 3 >& bosses,
+                       CVector3f target) const;
+  int FindLungingBoss(CStateManager& mgr,
+                      const rstl::reserved_vector< TUniqueId, 3 >& bosses) const;
+  void TurnTowards(const CVector3f& target, CStateManager& mgr, float dt);
+  void TurnBetweenBosses(const CVector3f& target, CStateManager& mgr, TUniqueId id1,
+                         TUniqueId id2, float dt);
+  void FaceTarget(const CVector3f& target, float dt);
+  void TurnWithBoss(const CVector3f& target, CStateManager& mgr, TUniqueId id, float dt);
+  void SyncAttackOrder(CStateManager& mgr, int offset);
   void RenderArmor(const CStateManager& mgr, const CTransform4f& xf, const CModelFlags& flags,
                    const CModelFlags& headFlags) const;
 
@@ -219,7 +249,7 @@ private:
   TUniqueId xe8c_;
   TUniqueId xe8e_;
   TUniqueId xe90_;
-  rstl::reserved_vector< CVector3f, 8 > xe94_;
+  rstl::reserved_vector< SChargeBeam, 3 > mChargeBeams;
   TUniqueId xef8_;
   rstl::reserved_vector< CSegId, 8 > mSpineSegIds; // Guessed name.
   CSegId mHeadSegId;                               // Guessed name.

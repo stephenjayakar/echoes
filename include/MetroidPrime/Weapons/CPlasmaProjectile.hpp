@@ -40,6 +40,7 @@ public:
   CColor GetOuterColor() const { return mOuterColor; }
   void SetOuterColor(const CColor& color) { mOuterColor = color; }
   bool IsFiring() const { return mFiring; }
+  EExpansionState GetExpansionState() const { return mExpansionState; }
 
 private:
   static const int kMaxPlasmaLights;

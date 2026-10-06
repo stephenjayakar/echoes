@@ -18,6 +18,7 @@
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptSafeZone.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
 
@@ -159,7 +160,7 @@ void CSandBoss::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CPatterned::AcceptScriptMsg(mgr, msg);
   switch (message) {
   case kSM_Create:
-    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
     BodyController()->Activate(mgr, pas::kAS_Invalid);
     SetupCollisionActors(mgr);
     break;
@@ -587,6 +588,207 @@ bool CSandBoss::SyncAttachToSphere(CStateManager& mgr, const CTriggerData& data)
   return true;
 }
 
+void CSandBoss::Recover(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    x165d_27_ = false;
+    break;
+  case kStateMsg_Update:
+    if (mStateMachine->GetTime() > 2.5f) {
+      x165d_26_ = false;
+    }
+    break;
+  }
+}
+
+void CSandBoss::UnderGround(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    mCollisionActorManager->SetActive(mgr, false);
+    mStampedeHP = mData.stampedeProperties.breakStampedeHP;
+    x165c_24_ = true;
+    RemoveMaterial(kMT_Target, kMT_Orbit, mgr);
+    break;
+  case kStateMsg_Deactivate:
+    x165c_24_ = false;
+    x165d_26_ = false;
+    break;
+  }
+}
+
+void CSandBoss::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (msg == kStateMsg_Activate) {
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    FaceDeathWaypoint(mgr);
+    SendScriptMsgs(kSS_DeathRattle, mgr, GetUniqueId(), kSM_None);
+    SendScriptMsgs(kSS_Dead, mgr, GetUniqueId(), kSM_None);
+    ReleasePlayer(mgr);
+    mgr.SetBossParams(kInvalidUniqueId, 0.f, 0);
+    mgr.DeleteObjectRequest(GetUniqueId());
+    x165d_29_ = true;
+  }
+}
+
+void CSandBoss::Deactivate(CStateManager& mgr, EStateMsg msg, float dt) {
+  if (msg == kStateMsg_Update) {
+    if (mStateMachine->GetTime() > 3.f) {
+      mgr.DeleteObjectRequest(GetUniqueId());
+    }
+  }
+}
+
+void CSandBoss::RotateToPlayer(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+    mBoneTracking.SetMaxBoneRotation(1.5707964f);
+    mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+    break;
+  case kStateMsg_Update: {
+    const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
+    if (AreSpheresUnlocked(mgr) && IsLeader(mgr)) {
+      TurnTowards(playerPos, mgr, dt);
+    }
+    UpdateTurnLocomotion(playerPos);
+    break;
+  }
+  case kStateMsg_Deactivate:
+    mBoneTracking.SetActive(false);
+    mBoneTracking.SetMaxBoneRotation(3.1415927f);
+    break;
+  }
+}
+
+void CSandBoss::SuckBall(CStateManager& mgr, EStateMsg msg, float dt) {
+  CPlayer* player = mgr.GetPlayer(0);
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    BodyController()->SetLocomotionType(pas::kLT_Internal5);
+    player->EnableLeaveMorphBall(false);
+    player->RemoveMaterial(kMT_Unknown59, mgr);
+    break;
+  case kStateMsg_Update:
+    if (PullPlayerToMouth(*player, dt)) {
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSandBoss::BallInMouth(CStateManager& mgr, EStateMsg msg, float dt) {
+  CPlayer* player = mgr.GetPlayer(0);
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    SendScriptMsgs(kSS_Entered, mgr, player->GetUniqueId(), kSM_None);
+    BodyController()->SetLocomotionType(pas::kLT_Internal6);
+    player->AttachActorToPlayer(GetUniqueId(), false);
+    break;
+  case kStateMsg_Update:
+    AttachPlayerToMouth(*player);
+    UpdateSpitOut(mgr);
+    if (mStateMachine->GetTime() >= mData.spitMorphballTime) {
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    x165d_27_ = false;
+    break;
+  }
+}
+
+void CSandBoss::DestroySphere(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    FaceDeathWaypoint(mgr);
+    SendScriptMsgs(kSS_Retreat, mgr, GetUniqueId(), kSM_None);
+    break;
+  case kStateMsg_Update:
+    if (mgr.GetPlayer(0)->GetAttachedActorId() == GetUniqueId()) {
+      AttachPlayerToMouth(*mgr.GetPlayer(0));
+    }
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Five, -1));
+    } else if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+      BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    }
+    if (mStateMachine->GetTime() < 5.f) {
+      UpdateDamageFlash(mStateMachine->GetTime());
+    }
+    break;
+  case kStateMsg_Deactivate:
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), *it, kSM_Increment));
+    }
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    x165d_24_ = false;
+    break;
+  }
+}
+
+void CSandBoss::JumpOffSphere(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x165d_28_ = true;
+    mgr.GetPlayer(0)->SetOrbitRequestForTarget(GetUniqueId(), CPlayer::EPlayerOrbitRequest(8),
+                                              mgr);
+    RemoveMaterial(kMT_Orbit, mgr);
+    break;
+  case kStateMsg_Update:
+    if (mgr.GetPlayer(0)->GetAttachedActorId() == GetUniqueId()) {
+      AttachPlayerToMouth(*mgr.GetPlayer(0));
+    }
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_One, -1));
+    } else if (BodyController()->GetCurrentStateId() == pas::kAS_Generate) {
+      BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    }
+    if (mStateMachine->GetTime() < 5.f) {
+      UpdateDamageFlash(mStateMachine->GetTime());
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    BodyController()->SetLocomotionType(pas::kLT_Crouch);
+    x165d_24_ = false;
+    x165d_28_ = false;
+    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), GetUniqueId(), kSM_Increment));
+    break;
+  }
+}
+
+void CSandBoss::SpitOutBall(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x165e_28_ = true;
+    break;
+  case kStateMsg_Update:
+    if (mgr.GetPlayer(0)->GetAttachedActorId() == GetUniqueId()) {
+      AttachPlayerToMouth(*mgr.GetPlayer(0));
+      UpdateSpitOut(mgr);
+    }
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::EGenerateType(9), -1));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    x165e_28_ = false;
+    break;
+  }
+}
+
 void CSandBoss::SetTripleChargeArmor(CStateManager& mgr, float dt) {
   for (int i = 0; i < 8; ++i) {
     mArmorStates[i] = kArmor_Attached;
@@ -935,6 +1137,199 @@ float CSandBoss::GetStampedeSpeed(const CStateManager& mgr) const {
     return mData.stampedeProperties.unknown_0xc2b98161;
   default:
     return mData.stampedeProperties.unknown_0xbed8a4ba;
+  }
+}
+
+void CSandBoss::UpdateTurnLocomotion(const CVector3f& target) {
+  const CVector3f diff = target - GetTranslation();
+  const float angle = CVector3f::GetAngleDiff(GetTransform().GetForward(), diff);
+  if (angle < 0.61086524f || angle > 2.5307274f) {
+    BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+  } else if (CVector3f::Dot(GetTransform().GetRight(), diff) > 0.f) {
+    BodyController()->SetLocomotionType(pas::kLT_Internal10);
+  } else {
+    BodyController()->SetLocomotionType(pas::kLT_Internal11);
+  }
+}
+
+void CSandBoss::UpdateDamageFlash(float time) {
+  const float t = fabs(CMath::FastCosR(3.1415927f * time));
+  mDamageColor = CColor::Lerp(CColor(0.f, 0.f, 0.f, 1.f), skDamageColor, t);
+  TakeDamage(CVector3f::Zero(), 0.f);
+}
+
+bool CSandBoss::PullPlayerToMouth(CPlayer& player, float dt) {
+  if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+    const CTransform4f xf = GetLctrTransform(mHeadSegId);
+    const CVector3f diff = xf.GetTranslation() - player.GetTranslation();
+    const float step = 60.f * dt;
+    if (diff.MagSquared() < step * step || !diff.IsMagnitudeSafe()) {
+      AttachPlayerToMouth(player);
+      return true;
+    }
+    player.Stop();
+    player.SetTranslation(player.GetTranslation() + step * diff.AsNormalized());
+  }
+  return false;
+}
+
+void CSandBoss::AttachPlayerToMouth(CPlayer& player) {
+  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  player.SetTranslation(xf.GetTranslation());
+  player.Stop();
+  x14a0_ = xf.GetRotation();
+}
+
+void CSandBoss::FaceDeathWaypoint(CStateManager& mgr) {
+  const TUniqueId id = FindConnectedObject(mgr, kSS_Dead, kSM_Attach);
+  if (const CScriptWaypoint* wp = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id))) {
+    const CVector3f pos = GetTranslation();
+    CVector3f target = wp->GetTranslation();
+    target.SetZ(pos.GetZ());
+    SetTransform(CTransform4f::LookAt(pos, target, CVector3f::Up()));
+  }
+}
+
+int CSandBoss::GetNumFiringBeams(CStateManager& mgr) {
+  int count = 0;
+  for (const SChargeBeam* it = mChargeBeams.begin(); it != mChargeBeams.end(); ++it) {
+    CPlasmaProjectile* beam = static_cast< CPlasmaProjectile* >(mgr.ObjectById(it->mBeamId));
+    if (beam != nullptr && beam->IsFiring() &&
+        beam->GetExpansionState() != CPlasmaProjectile::kES_Release) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+int CSandBoss::SelectFacingBoss(CStateManager& mgr,
+                                const rstl::reserved_vector< TUniqueId, 3 >& bosses,
+                                CVector3f target) const {
+  const int count = bosses.size();
+  float bestAngle = -3.1415927f;
+  int best = -1;
+  for (int i = 0; i < count; ++i) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[i]));
+    if (other != nullptr) {
+      const float angle = CVector3f::GetAngleDiff(target - other->GetTranslation(),
+                                                  other->GetTransform().GetForward());
+      if (angle > bestAngle) {
+        bestAngle = angle;
+        best = i;
+      }
+    }
+  }
+  return best;
+}
+
+int CSandBoss::FindLungingBoss(CStateManager& mgr,
+                               const rstl::reserved_vector< TUniqueId, 3 >& bosses) const {
+  const int count = bosses.size();
+  int ret = -1;
+  for (int i = 0; i < count; ++i) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(bosses[i]));
+    if (other != nullptr && other->x165c_29_) {
+      ret = i;
+      break;
+    }
+  }
+  return ret;
+}
+
+void CSandBoss::TurnTowards(const CVector3f& target, CStateManager& mgr, float dt) {
+  rstl::reserved_vector< TUniqueId, 3 > bosses;
+  GetActiveBosses(mgr, bosses);
+  switch (bosses.size()) {
+  case 3: {
+    const int idx = FindLungingBoss(mgr, bosses);
+    if (idx != -1) {
+      TurnWithBoss(target, mgr, bosses[idx], dt);
+    }
+    const CVector3f pos = target;
+    bosses.erase(bosses.begin() + SelectFacingBoss(mgr, bosses, pos));
+    TurnBetweenBosses(target, mgr, bosses[0], bosses[1], dt);
+    break;
+  }
+  case 2: {
+    const int idx = FindLungingBoss(mgr, bosses);
+    if (idx != -1) {
+      TurnWithBoss(target, mgr, bosses[idx], dt);
+    }
+    TurnBetweenBosses(target, mgr, bosses[0], bosses[1], dt);
+    break;
+  }
+  default:
+    FaceTarget(target, dt);
+    break;
+  }
+}
+
+void CSandBoss::TurnBetweenBosses(const CVector3f& target, CStateManager& mgr, TUniqueId id1,
+                                  TUniqueId id2, float dt) {
+  const CSandBoss* boss1 = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(id1));
+  const CSandBoss* boss2 = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(id2));
+  if (boss1 != nullptr && boss2 != nullptr) {
+    const CVector3f pos = GetTranslation();
+    CVector3f diff = target - pos;
+    diff.SetZ(0.f);
+    const CVector3f right = boss1->GetTransform().GetRight();
+    const CVector3f sum = boss1->GetTransform().GetForward() + boss2->GetTransform().GetForward();
+    const CVector3f dir = sum.IsMagnitudeSafe() ? sum.AsNormalized() : right;
+    float angle = CVector3f::GetAngleDiff(dir, diff);
+    if (angle > 0.17453292f) {
+      if (CVector3f::Dot(CVector3f(sum.GetY(), -sum.GetX(), sum.GetZ()), diff) > 0.f) {
+        angle = -angle;
+      }
+      const CVector3f rotated = GetTransform().Rotate(
+          CVector3f(CMath::FastCosR(1.5707964f + angle), CMath::FastSinR(angle), 0.f));
+      FaceTarget(pos + diff.Magnitude() * rotated, dt);
+    }
+  }
+}
+
+void CSandBoss::FaceTarget(const CVector3f& target, float dt) {
+  if (dt > 0.f) {
+    const CVector3f diff = target - GetTranslation();
+    if (diff.IsMagnitudeSafe()) {
+      BodyController()->FaceDirection(diff.AsNormalized(), dt);
+    }
+  }
+}
+
+void CSandBoss::TurnWithBoss(const CVector3f& target, CStateManager& mgr, TUniqueId id,
+                             float dt) {
+  if (const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(id))) {
+    const CVector3f pos = GetTranslation();
+    CVector3f diff = target - pos;
+    diff.SetZ(0.f);
+    float angle = CVector3f::GetAngleDiff(other->GetTransform().GetForward(), diff);
+    if (angle > 0.17453292f) {
+      if (CVector3f::Dot(other->GetTransform().GetRight(), diff) > 0.f) {
+        angle = -angle;
+      }
+      const CVector3f rotated = GetTransform().Rotate(
+          CVector3f(CMath::FastCosR(1.5707964f + angle), CMath::FastSinR(angle), 0.f));
+      FaceTarget(pos + diff.Magnitude() * rotated, dt);
+    }
+  }
+}
+
+void CSandBoss::SyncAttackOrder(CStateManager& mgr, int offset) {
+  int minOrder = mAttackOrder;
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr && other != this && other->x165d_24_) {
+      if (other->mAttackOrder < minOrder) {
+        minOrder = other->mAttackOrder;
+      }
+    }
+  }
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr && other->x165d_24_) {
+      other->mAttackOrder = minOrder + offset;
+      other->ResetAttackTimes(mgr, 0.f);
+    }
   }
 }
 
