@@ -2087,7 +2087,9 @@ MetroidPrime/Player/CPlayerOptions.cpp:
 
 MetroidPrime/ScriptObjects/CScriptRepulsor.cpp:
 	.text       start:0x802276A8 end:0x80227ACC
+	.rodata     start:0x803AD318 end:0x803AD320
 	.data       start:0x803B84F8 end:0x803B8578
+	.sdata2     start:0x8041DAD0 end:0x8041DAD8
 
 MetroidPrime/Enemies/SRezbit_FuncPtrs.cpp:
 	.text       start:0x80227ACC end:0x80227B00
