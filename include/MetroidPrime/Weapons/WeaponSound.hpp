@@ -11,7 +11,7 @@ class CPlayer;
 CSfxHandle AddEmitter(const CActor& actor, ushort sfx, bool useAcoustics, bool looped,
                       short priority, uchar maxVolume, uchar minVolume, float maxDistance,
                       float distanceCompensation);
-CSfxHandle PlaySfxForPlayer(CPlayer* player, ushort sfx, short pan, int area, bool underwater,
+CSfxHandle PlaySfxForPlayer(CPlayer* player, const ushort sfx, short pan, int area, bool underwater,
                             bool looped);
 
 #endif // _WEAPONSOUND
