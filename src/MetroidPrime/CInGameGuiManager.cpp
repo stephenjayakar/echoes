@@ -69,6 +69,7 @@ struct SDumpableTextureInfo {
 };
 
 struct CTextureScoreGreaterThan {
+  CTextureScoreGreaterThan() {}
   bool operator()(const SDumpableTextureInfo& a, const SDumpableTextureInfo& b) const {
     return a.mScore < b.mScore;
   }
@@ -750,6 +751,7 @@ void CInGameGuiManager::DestroyAreaTextures(const CStateManager& mgr) {
       continue;
     }
     const CGameArea& area = *world.GetArea(areaId);
+    area.GetTokenCount();
     for (int j = 0; j < area.GetTokenCount(); ++j) {
       const rstl::pair< CAssetId, uint >& asset = area.GetAssetID(j);
       if (IsTextureInPauseScreen(asset.first)) {
@@ -765,13 +767,15 @@ void CInGameGuiManager::DestroyAreaTextures(const CStateManager& mgr) {
           CTexture& texture = **token;
           if (texture.GetTexelFormat() != kTF_C4) {
             if (texture.GetNumberOfMipMaps() < 2 && texture.GetBitmapDataStatus() == 0) {
+              const int memory = texture.GetMemoryAllocated();
               if (candidates.size() != candidates.capacity()) {
-                candidates.push_back_unsafe(
-                    SDumpableTextureInfo(texture.GetMemoryAllocated(), asset.first, token));
+                candidates.push_back_unsafe(SDumpableTextureInfo(memory, asset.first, token));
               }
-            } else if (fallbackCandidates.size() != fallbackCandidates.capacity()) {
-              fallbackCandidates.push_back_unsafe(
-                  SDumpableTextureInfo(texture.GetMemoryAllocated(), asset.first, token));
+            } else {
+              const int memory = texture.GetMemoryAllocated();
+              if (fallbackCandidates.size() != fallbackCandidates.capacity()) {
+                fallbackCandidates.push_back_unsafe(SDumpableTextureInfo(memory, asset.first, token));
+              }
             }
           }
         }
@@ -803,12 +807,15 @@ void CInGameGuiManager::DestroyAreaTextures(const CStateManager& mgr) {
   rstl::sort(candidates.begin(), candidates.end(), CTextureScoreGreaterThan());
   CFrameDelayedKiller::StallAndFlushAllAllocations();
   CTexture::sCurrentFrameCount = INT_MAX;
-  CResLoader& loader = gpResourceFactory->GetResLoader();
   rstl::vector< SDumpableTextureInfo >* groups[] = {&candidates, &fallbackCandidates};
+  CResLoader& loader = gpResourceFactory->GetResLoader();
   for (uint i = 0; i < 2; ++i) {
     rstl::vector< SDumpableTextureInfo >& group = *groups[i];
-    for (rstl::vector< SDumpableTextureInfo >::iterator it = group.begin();
-         it != group.end() && memoryFreed < 0x180000; ++it) {
+    for (rstl::vector< SDumpableTextureInfo >::iterator it = group.begin(); it != group.end();
+         ++it) {
+      if (memoryFreed >= 0x180000) {
+        break;
+      }
       TToken< CTexture >& token = it->mToken;
       CTexture& texture = **token;
       bool transferred = false;
