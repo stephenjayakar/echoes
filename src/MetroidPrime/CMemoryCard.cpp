@@ -208,7 +208,8 @@ rstl::pair< CAssetId, TAreaId > CMemoryCard::GetAreaAndWorldIdForSaveId(uint sav
     const rstl::vector< uint >& areas = it->second.mAreaIds;
     rstl::vector< uint >::const_iterator area = rstl::find(areas.begin(), areas.end(), saveId);
     if (area != areas.end()) {
-      return rstl::pair< CAssetId, TAreaId >(it->first, TAreaId(area - areas.begin()));
+      return rstl::pair< CAssetId, TAreaId >(it->first,
+                                             TAreaId(rstl::distance(areas.begin(), area)));
     }
   }
   return rstl::pair< CAssetId, TAreaId >(kInvalidAssetId, kInvalidAreaId);
