@@ -25,7 +25,7 @@ public:
   int GetPriority() const { return mPriority; }
   float GetTimer() const { return mTimer; }
   void SetTimer(float timer) { mTimer = timer; }
-  bool HasSenders() const { return !mSenders.empty(); }
+  bool HasSenders() const { return mSenders.size() != 0u; }
   bool GetForceRemoval() const { return mForceRemoval; }
   void SetForceRemoval(bool force) { mForceRemoval = force; }
 

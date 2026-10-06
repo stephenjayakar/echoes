@@ -24,7 +24,7 @@ CHintState* CHintManager::GetBestHintState() {
 const CHintState* CHintManager::GetHintState(TUniqueId hint) const {
   for (rstl::vector< SHint >::const_iterator it = mHints.begin(); it != mHints.end(); ++it) {
     if (it->mState.GetHintId() == hint) {
-      return &it->mState;
+      return &(*it).mState;
     }
   }
   return nullptr;
