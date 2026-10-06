@@ -1505,6 +1505,13 @@ config.libs = [
         ],
     ),
     Rel(
+        "Parasite",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CParasite.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "ScriptCannonBall",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptCannonBall.cpp"),
