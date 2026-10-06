@@ -45,11 +45,12 @@ CDamageVulnerability* CAi::DamageVulnerability() { return &mDamageVulnerability;
 void CAi::TakeDamage(const CVector3f&, float) {}
 
 void CAi::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_AreaLoaded) {
-    CMaterialList include = GetMaterialFilter().GetIncludeList();
-    include.Add(kMT_AIBlock);
-    SetMaterialFilter(
-        CMaterialFilter::MakeIncludeExclude(include, GetMaterialFilter().GetExcludeList()));
+  switch (msg.GetMessage()) {
+  case kSM_AreaLoaded:
+    SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
+        GetMaterialFilter().GetIncludeList().Union(CMaterialList(kMT_AIBlock)),
+        GetMaterialFilter().GetExcludeList()));
+    break;
   }
   CActor::AcceptScriptMsg(mgr, msg);
 }
