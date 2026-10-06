@@ -128,7 +128,7 @@ void CScriptControlHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& m
 // Guessed helper name, based on the loader's nonzero-command conversion.
 static void AppendCommand(CControlMapper::ECommands command, int state,
                           CScriptControlHint::TCommandStates& commands) {
-  if (command != CControlMapper::kC_None) {
+  if (static_cast< uint >(command) != CControlMapper::kC_None) {
     commands.push_back(rstl::pair< CControlMapper::ECommands, int >(command, state));
   }
 }
