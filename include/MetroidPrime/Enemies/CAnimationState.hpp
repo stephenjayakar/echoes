@@ -21,6 +21,7 @@ public:
   bool CanIssueCommand(const CBodyController& controller, pas::EAnimationState state);
 
   bool IsOver() const { return mState == kAS_Over; }
+  EState GetState() const { return mState; }
   void SetState(EState state) { mState = state; } // Guessed name.
 
 private:

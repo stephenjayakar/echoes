@@ -1484,6 +1484,13 @@ config.libs = [
         ],
     },
     Rel(
+        "ChozoGhost",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CChozoGhost.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "DestructibleBarrier",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),

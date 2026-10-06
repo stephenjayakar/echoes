@@ -256,6 +256,10 @@ public:
 
   CBodyController* BodyController() { return mBodyController.get(); }
 
+  TStateMachineState< CPatterned >& StateMachineState() {
+    return static_cast< TStateMachineState< CPatterned >& >(*mStateMachine);
+  }
+
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 
   CAiKnockBackMgr& KnockBackController() { return mKnockBackController; }
