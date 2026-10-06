@@ -6,6 +6,7 @@
 #include "Kyoto/Graphics/CColor.hpp"
 #include "Kyoto/Math/CVector3f.hpp"
 #include "Kyoto/TToken.hpp"
+#include "rstl/locked_cache_allocator.hpp"
 #include "rstl/reserved_vector.hpp"
 #include "rstl/vector.hpp"
 
@@ -34,6 +35,7 @@ public:
     float mSurfDrawDepth;
     float mOutlineDrawDepth;
   };
+  typedef rstl::vector< CMapAreaBFSInfo, rstl::locked_cache_allocator > TBFSInfoVector;
 
   class CMapObjectSortInfo {
   public:
@@ -140,13 +142,12 @@ public:
             float darkWorldBlend, bool inMapScreen) const;
 
 private:
-  bool IsMapAreaInBFSInfoVector(const CMapAreaData* area,
-                                const rstl::vector< CMapAreaBFSInfo >& vec) const;
+  bool IsMapAreaInBFSInfoVector(const CMapAreaData* area, const TBFSInfoVector& vec) const;
   void MoveMapAreaToList(CMapAreaData* data, EMapAreaList list);
   void DoBFS(const IWorld& world, int startArea, int areaCount, float surfDepth, float outlineDepth,
-             bool checkLoad, rstl::vector< CMapAreaBFSInfo >& bfsInfos) const;
+             bool checkLoad, TBFSInfoVector& bfsInfos) const;
   void DrawAreas(const CMapWorldDrawParms& parms, int selArea,
-                 const rstl::vector< CMapAreaBFSInfo >& bfsInfos, float darkWorldBlend,
+                 const TBFSInfoVector& bfsInfos, float darkWorldBlend,
                  bool inMapScreen) const;
   void ClearTraversedFlags() const;
 

@@ -143,8 +143,8 @@ CMapWorld::~CMapWorld() {
 CMapArea* CMapWorld::GetMapArea(int aid) const { return mAreas[aid].GetMapArea(); }
 
 bool CMapWorld::IsMapAreaInBFSInfoVector(const CMapAreaData* area,
-                                         const rstl::vector< CMapAreaBFSInfo >& vec) const {
-  for (rstl::vector< CMapAreaBFSInfo >::const_iterator it = vec.begin(); it != vec.end(); ++it) {
+                                         const TBFSInfoVector& vec) const {
+  for (TBFSInfoVector::const_iterator it = vec.begin(); it != vec.end(); ++it) {
     if (area == &mAreas[it->GetAreaIndex()]) {
       return true;
     }
@@ -154,7 +154,7 @@ bool CMapWorld::IsMapAreaInBFSInfoVector(const CMapAreaData* area,
 
 void CMapWorld::SetWhichMapAreasLoaded(const IWorld& wld, int start, int count) {
   ClearTraversedFlags();
-  rstl::vector< CMapAreaBFSInfo > bfsInfos;
+  TBFSInfoVector bfsInfos(rstl::locked_cache_allocator(1));
   bfsInfos.reserve(mAreas.size());
   DoBFS(wld, start, count, 9999.f, 9999.f, false, bfsInfos);
   for (int i = 0; i < 2; ++i) {
@@ -168,7 +168,7 @@ void CMapWorld::SetWhichMapAreasLoaded(const IWorld& wld, int start, int count) 
       data = next;
     }
   }
-  for (rstl::vector< CMapAreaBFSInfo >::const_iterator it = bfsInfos.begin(); it != bfsInfos.end();
+  for (TBFSInfoVector::const_iterator it = bfsInfos.begin(); it != bfsInfos.end();
        ++it) {
     CMapAreaData& data = mAreas[it->GetAreaIndex()];
     data.Lock();
@@ -214,7 +214,7 @@ void CMapWorld::MoveMapAreaToList(CMapAreaData* data, EMapAreaList list) {
 
 int CMapWorld::GetCurrentMapAreaDepth(const IWorld& wld, int aid) const {
   ClearTraversedFlags();
-  rstl::vector< CMapAreaBFSInfo > bfsInfos;
+  TBFSInfoVector bfsInfos(rstl::locked_cache_allocator(1));
   bfsInfos.reserve(mAreas.size());
   DoBFS(wld, aid, 9999, 9999.f, 9999.f, false, bfsInfos);
   if (bfsInfos.empty()) {
@@ -248,7 +248,7 @@ void CMapWorld::Draw(const CMapWorldDrawParms& parms, int curArea, int otherArea
   ClearTraversedFlags();
   const IWorld& wld = parms.GetWorld();
   int areaDepth = CMath::CeilingF(rstl::max_val(depth1, depth2));
-  rstl::vector< CMapAreaBFSInfo > bfsInfos;
+  TBFSInfoVector bfsInfos(rstl::locked_cache_allocator(1));
   bfsInfos.reserve(mAreas.size());
   if (curArea != otherArea) {
     mTraversed[otherArea] = true;
@@ -274,7 +274,7 @@ void CMapWorld::Draw(const CMapWorldDrawParms& parms, int curArea, int otherArea
 
 void CMapWorld::DoBFS(const IWorld& wld, int startArea, int areaCount, float surfDepth,
                       float outlineDepth, bool checkLoad,
-                      rstl::vector< CMapAreaBFSInfo >& bfsInfos) const {
+                      TBFSInfoVector& bfsInfos) const {
   if (areaCount > 0 && IsMapAreaValid(wld, startArea, checkLoad)) {
     int idx = bfsInfos.size();
     bfsInfos.push_back(CMapAreaBFSInfo(startArea, 1, surfDepth, outlineDepth));
@@ -314,7 +314,7 @@ bool CMapWorld::IsMapAreaValid(const IWorld& wld, const int areaIdx, bool checkL
 }
 
 void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
-                          const rstl::vector< CMapAreaBFSInfo >& bfsInfos, float darkWorldBlend,
+                          const TBFSInfoVector& bfsInfos, float darkWorldBlend,
                           bool inMapScreen) const {
   gpRender->SetBlendMode_AlphaBlended();
   CGraphics::SetLineWidth(1.f, kTO_One);
@@ -823,4 +823,29 @@ static Circle2 MinCircle(int count, const CVector2f* points) {
   }
   result.Radius() = CMath::SqrtF(result.GetRadius());
   return result;
+}
+
+// Same inline body as CCollisionCache.cpp; emitted here as a local weak copy.
+inline void rstl::locked_cache_allocator::Allocate(void*& out, int size) {
+  if (size == 0) {
+    out = 0;
+    return;
+  }
+  ++mAllocationCount;
+  if (mPreferHeap) {
+    if (mAllocationCount == 2)
+      mPreviousHeapAllocation = true;
+    else
+      mHeapAllocation = true;
+    out = CMemory::Alloc(size, IAllocator::kHI_RoundUpLen);
+  } else {
+    out = AllocateLockedCache32(size);
+    if (mHeapAfterCacheAttempt)
+      mPreferHeap = true;
+    if (out == 0) {
+      --mAllocationCount;
+      mPreferHeap = true;
+      Allocate(out, size);
+    }
+  }
 }
