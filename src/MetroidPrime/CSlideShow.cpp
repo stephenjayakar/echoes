@@ -85,17 +85,25 @@ static void DrawTexture(const rstl::auto_ptr< TToken< CTexture > >& token, const
   const float width = texture.GetWidth();
   const float height = texture.GetHeight();
   const CViewport& viewport = CGraphics::GetViewport();
-  const int left = viewportOffset != nullptr ? int(viewportOffset->GetX()) : viewport.mLeft;
-  const int top = viewportOffset != nullptr ? int(viewportOffset->GetY()) : viewport.mTop;
-  const int vpWidth = viewportSize != nullptr ? int(viewportSize->GetX()) : viewport.mWidth;
-  const int vpHeight = viewportSize != nullptr ? int(viewportSize->GetY()) : viewport.mHeight;
+  int left = viewport.mLeft;
+  int top = viewport.mTop;
+  int vpWidth = viewport.mWidth;
+  int vpHeight = viewport.mHeight;
+  if (viewportOffset != nullptr) {
+    left = int(viewportOffset->GetX());
+    top = int(viewportOffset->GetY());
+  }
+  if (viewportSize != nullptr) {
+    vpWidth = int(viewportSize->GetX());
+    vpHeight = int(viewportSize->GetY());
+  }
   CGraphics::SetBlendMode(kBM_Blend, kBF_SrcAlpha, kBF_InvSrcAlpha, kLO_Clear);
   CGraphics::SetOrtho(left, left + vpWidth, top + vpHeight, top, -1.f, 1.f);
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGraphics::SetModelMatrix(CTransform4f::Translate(offset));
   CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvModulate);
   CGraphics::SetTevOp(kTS_Stage1, CGraphics::kEnvPassthru);
-  texture.Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+  texture.Load(GX_TEXMAP0, CTexture::kCM_Clamp);
   CGraphics::StreamBegin(kP_Quads);
   CGraphics::StreamColor(color);
   CGraphics::StreamTexcoord(0.f, 0.f);
