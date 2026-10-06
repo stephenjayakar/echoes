@@ -71,10 +71,9 @@ void CPatterned::PathFind(CStateManager& mgr, EStateMsg msg, float) {
 }
 
 void CPatterned::fn_801524fc(CStateManager& mgr) {
-  CPathFindSearch* search = GetSearchPath();
-  if (search->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
+  if (GetSearchPath()->Search(GetTranslation(), mDestPos) == CPathFindSearch::kR_Success) {
     mReflectedDestPos = GetTranslation();
-    SetDestPos(search->GetPoint());
+    SetDestPos(GetSearchPath()->GetPoint());
     mInPosition = false;
     ApproachDest(mgr);
   }
@@ -83,12 +82,15 @@ void CPatterned::fn_801524fc(CStateManager& mgr) {
 bool CPatterned::OffLine(CStateManager&, const CTriggerData& data) const {
   const CVector3f fromStart = GetTranslation() - mReflectedDestPos;
   CVector3f segment = mDestPos - mReflectedDestPos;
-  float distanceSquared = fromStart.MagSquared();
-  if (CVector3f::Dot(segment, fromStart) > 0.f) {
+  float distanceSquared;
+  if (CVector3f::Dot(segment, fromStart) <= 0.f) {
+    distanceSquared = fromStart.MagSquared();
+  } else {
     segment.Normalize();
     const CVector3f fromEnd = GetTranslation() - mDestPos;
     const float along = CVector3f::Dot(segment, fromStart);
-    distanceSquared = (fromStart - along * segment).MagSquared();
+    const CVector3f perp = fromStart - along * segment;
+    distanceSquared = perp.MagSquared();
     if (CVector3f::Dot(segment, fromEnd) > 0.f) {
       distanceSquared = fromEnd.MagSquared();
     }
