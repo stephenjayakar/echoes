@@ -226,7 +226,7 @@ void CScriptSpecialFunction::RenderSilhouette(const CStateManager& mgr) const {
     return;
   }
 
-  CCubeRenderer* renderer = gpRender;
+  CCubeRenderer* const renderer = gpRender;
   renderer->AllocatePhazonSuitMaskTexture();
   renderer->CopyScreenTex(3, true, CGraphics::GetDolphinSpareBuffer(), GX_TF_RGB565, false);
   CGX::SetDstAlpha(true, 0xff);
@@ -490,7 +490,7 @@ void CScriptSpecialFunction::AcceptBossEnergyBar(CStateManager& mgr, const CScri
 
 void CScriptSpecialFunction::AcceptEndGame(CStateManager& mgr, const CScriptMsg& msg) {
   if (msg.GetMessage() == kSM_Action) {
-    gpGameState->GetGameMode().EndGame(mIntParm1, mgr);
+    static_cast< const CGameState* >(gpGameState)->GetGameMode().EndGame(mIntParm1, mgr);
   }
 }
 
@@ -681,7 +681,7 @@ void CScriptSpecialFunction::fn_80107a58(CStateManager& mgr, const CScriptMsg& m
   if (msg.GetMessage() == kSM_Action) {
     uint player = mIntParm1;
     if (player < mgr.GetNumPlayers()) {
-      gpGameState->GetGameMode().RespawnPlayer(mgr, player);
+      static_cast< const CGameState* >(gpGameState)->GetGameMode().RespawnPlayer(mgr, player);
     }
   }
 }
@@ -692,7 +692,7 @@ void CScriptSpecialFunction::AcceptPlayerSpawnPoint(CStateManager& mgr, const CS
     if (player < mgr.GetNumPlayers()) {
       TUniqueId spawn = FindConnectedObject(mgr, kSS_Play, kSM_Activate);
       if (TCastToConstPtr< CScriptSpawnPoint >(mgr.GetObjectById(spawn))) {
-        gpGameState->GetGameMode().SetSpawnPoint(mIntParm1, spawn);
+        static_cast< const CGameState* >(gpGameState)->GetGameMode().SetSpawnPoint(mIntParm1, spawn);
       }
     }
   }
@@ -1532,7 +1532,7 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       }
       const rstl::optional_object< float >& volume = mVolumeAverage.GetAverage();
       float pitch = movingForward ? value4 : 1.f;
-      AddOrUpdateEmitter(pitch, 0.f, 1.f, mSfxHandle, sfx1, GetTranslation(),
+      AddOrUpdateEmitter(pitch, 200.f, 1.f, mSfxHandle, sfx1, GetTranslation(),
                          static_cast< uchar >(volume.data()));
     }
   } else {
@@ -1850,7 +1850,8 @@ void CScriptSpecialFunction::ThinkConnectedEffectPlane(float dt, CStateManager& 
 void CScriptSpecialFunction::ThinkSilhouette(float dt, CStateManager& mgr) {
   if (mTargetSilhouetteStrength > mSilhouetteStrength) {
     mSilhouetteStrength += dt / mValue2;
-    mSilhouetteStrength = mSilhouetteStrength < mTargetSilhouetteStrength ? mSilhouetteStrength : mTargetSilhouetteStrength;
+    const float target = mTargetSilhouetteStrength;
+    mSilhouetteStrength = mSilhouetteStrength < target ? mSilhouetteStrength : target;
   } else if (mTargetSilhouetteStrength < mSilhouetteStrength) {
     mSilhouetteStrength -= dt / mValue2;
     mSilhouetteStrength = mTargetSilhouetteStrength < mSilhouetteStrength ? mSilhouetteStrength : mTargetSilhouetteStrength;

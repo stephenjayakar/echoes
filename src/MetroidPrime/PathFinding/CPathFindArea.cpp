@@ -320,7 +320,7 @@ bool CPFArea::PointPathExists(const CPFPoint* source, const CPFPoint* destinatio
   return PointPathExists(source - mPoints.data(), destination - mPoints.data());
 }
 
-CPFArea::~CPFArea() {}
+inline CPFArea::~CPFArea() {}
 
 CFactoryFnReturn FPathFindAreaFactory(const SObjectTag& tag, const rstl::auto_ptr< uchar >& data,
                                       int size, const CVParamTransfer& xfer) {

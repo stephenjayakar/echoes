@@ -16,11 +16,13 @@
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/Cameras/CBallCamera.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrDoor.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptDock.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 static const CColor skLockedColor = CColor::Grey();
-static const CColor skResetColor(uchar(0), uchar(255), uchar(255), uchar(255));
+static const CColor skResetColor = CColor(uchar(0), uchar(255), uchar(255), uchar(255));
 
 int CScriptDoor::FindAnimation(const CPASAnimParmData& parms) const {
   int ret = -1;
@@ -665,6 +667,51 @@ void CScriptDoor::ResetDoor(CStateManager& mgr) {
   mColorDirty = true;
   mHasReset = true;
   mgr.MapWorldInfo()->SetDoorVisited(mgr.GetEditorIdForUniqueId(GetUniqueId()), true);
+}
+
+CEntity* LoadDoor(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrDoor sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrDoor.inc"
+  const rstl::optional_object< CModelData > model =
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.animationInformation, false);
+  if (!model.valid()) {
+    return nullptr;
+  }
+
+  const CAABox bounds =
+      sldrThis.collisionBox == CVector3f::Zero()
+          ? CAABox(model->GetBounds(LdrToTransform4f(sldrThis.editorProperties).GetRotation()))
+          : LoadCAABox(mgr, TAreaId(info.GetAreaId()), sldrThis.editorProperties.transform.scale,
+                       LdrToTransform4f(sldrThis.editorProperties), sldrThis.collisionBox,
+                       sldrThis.collisionOffset);
+
+  rstl::optional_object< CModelData > shellModel;
+  rstl::optional_object< CModelData > blueShellModel;
+  if (sldrThis.shellModel != kInvalidAssetId) {
+    shellModel =
+        CModelData(CStaticRes(sldrThis.shellModel, sldrThis.editorProperties.transform.scale));
+  }
+  if (sldrThis.blueShellModel != kInvalidAssetId) {
+    blueShellModel =
+        CModelData(CStaticRes(sldrThis.blueShellModel, sldrThis.editorProperties.transform.scale));
+  }
+
+  rstl::optional_object< TLockedToken< CTexture > > burnTexture;
+  if (sldrThis.burnTexture != kInvalidAssetId) {
+    burnTexture = TLockedToken< CTexture >(
+        gpSimplePool->GetObj(SObjectTag('TXTR', sldrThis.burnTexture)));
+  }
+
+  return rs_new CScriptDoor(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      *model, shellModel, blueShellModel, burnTexture, sldrThis.shellColor,
+      LdrToHealthInfo(sldrThis.health), LdrToDamageVulnerability(sldrThis.vulnerability),
+      LdrToActorParameters(sldrThis.actorInformation), sldrThis.altScannable.scannableInfo0,
+      sldrThis.orbitOffset, bounds, sldrThis.isOpen, sldrThis.isLocked, sldrThis.openAnimationTime,
+      sldrThis.closeAnimationTime, sldrThis.closeDelay, sldrThis.shieldFadeOutTime,
+      sldrThis.shieldFadeInTime, sldrThis.morphBallTunnel, sldrThis.horizontal);
 }
 
 CScriptDoor::~CScriptDoor() {}
