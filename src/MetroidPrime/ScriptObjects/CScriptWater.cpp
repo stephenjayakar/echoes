@@ -471,19 +471,19 @@ void CScriptWater::PreRender(CStateManager& mgr) {
 void CScriptWater::Render(const CStateManager& mgr) const {
   if (GetActive() && !GetPreRenderClipped()) {
     GetActorLights()->ActivateLights();
-    const CAABox& bounds = mSurfaceBounds;
-    const float zOffset = 0.5f * (bounds.GetMaxPoint().GetZ() + bounds.GetMinPoint().GetZ()) -
-                          GetTranslation().GetZ();
-    const CAABox localBounds = bounds.GetTransformedAABox(CTransform4f::Translate(
+    const float zOffset =
+        0.5f * (mSurfaceBounds.GetMaxPoint().GetZ() + mSurfaceBounds.GetMinPoint().GetZ()) -
+        GetTranslation().GetZ();
+    const CAABox localBounds = mSurfaceBounds.GetTransformedAABox(CTransform4f::Translate(
         -GetTranslation().GetX(), -GetTranslation().GetY(), -GetTranslation().GetZ() - zOffset));
+    const CVector2f uvExtent = GetFluidUVExtent(localBounds);
     CTransform4f xf = GetTransform();
     xf.AddTranslationZ(zOffset);
-    const CVector2f uvExtent = GetFluidUVExtent(localBounds);
     const CAABox renderBounds(CVector3f::Zero(), CVector3f(uvExtent.GetX(), uvExtent.GetY(), 1.f));
-    xf.AddTranslation(
-        CVector3f(localBounds.GetMinPoint().GetX(), localBounds.GetMinPoint().GetY(), 0.f));
+    xf.AddTranslationX(localBounds.GetMinPoint().GetX());
+    xf.AddTranslationY(localBounds.GetMinPoint().GetY());
     const CTransform4f scale = CTransform4f::Scale(mSurfaceScale.GetX(), mSurfaceScale.GetY(), 1.f);
-    xf = xf * scale;
+    xf *= scale;
     const CTransform4f areaXf = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetTM() * scale;
     mFluidPlane->Render(mgr, mAlpha, renderBounds, xf, areaXf, GetUniqueId(), mTileIntersects.get(),
                         mGridDimX, mGridDimY);
@@ -494,8 +494,8 @@ void CScriptWater::Render(const CStateManager& mgr) const {
         const CAABox fogBounds = GetTriggerBoundsWR();
         const CVector3f& min = fogBounds.GetMinPoint();
         const CVector3f& max = fogBounds.GetMaxPoint();
-        const CAABox fogBox(CVector3f(min.GetX(), min.GetY(), max.GetZ()),
-                            CVector3f(max.GetX(), max.GetY(), max.GetZ() + fogLevel));
+        const CAABox fogBox = CAABox(CVector3f(min.GetX(), min.GetY(), max.GetZ()),
+                                     CVector3f(max.GetX(), max.GetY(), max.GetZ() + fogLevel));
         const CTransform4f modelXf =
             CTransform4f::Translate(fogBox.GetCenterPoint()) *
             CTransform4f::Scale((fogBox.GetMaxPoint() - fogBox.GetMinPoint()) * 0.5f);

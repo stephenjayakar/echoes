@@ -144,6 +144,8 @@ public:
     m13 += vec.GetY();
     m23 += vec.GetZ();
   }
+  void AddTranslationX(float x) { m03 += x; }
+  void AddTranslationY(float y) { m13 += y; }
   void AddTranslationZ(float z) { m23 += z; }
 
   CTransform4f& operator*=(const CTransform4f& other) {
