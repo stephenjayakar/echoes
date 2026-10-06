@@ -23,11 +23,12 @@
 
 static CMaterialList skDebrisMaterials(kMT_Unknown59, kMT_Debris);
 
-static float debris_frand(CStateManager& mgr) {
-  return (1.f / 16383.5f) * static_cast< short >(mgr.Random()->Next() % 32767) - 1.f;
+static inline float debris_frand(CStateManager& mgr) {
+  return (1.f / 16383.5f) * CCast::StoF(static_cast< short >(mgr.Random()->Next() % 32767)) -
+         1.f;
 }
 
-static float debris_frand_range(CStateManager& mgr, float min, float max) {
+static inline float debris_frand_range(CStateManager& mgr, float min, float max) {
   return (max - min) * mgr.Random()->Float() + min;
 }
 
@@ -392,29 +393,28 @@ rstl::optional_object< CAABox > CScriptDebris::GetTouchBounds() const {
 
 void CScriptDebris::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   switch (msg.GetMessage()) {
-  case kSM_Delete:
-    if (!mKeepGeneratedObject && mGeneratedObject != kInvalidUniqueId) {
-      mgr.DeleteObjectRequest(mGeneratedObject);
-      mGeneratedObject = kInvalidUniqueId;
-    }
-    break;
-  case kSM_Unlock:
-    mGeneratedObject = kInvalidUniqueId;
-    mgr.DeleteObjectRequest(GetUniqueId());
-    break;
   case kSM_Activate:
     if (!GetActive()) {
       if (!mDebrisExtended) {
         const float mass = GetMass();
-        const float z = mass * mVelocity.GetZ() * CMath::AbsF(debris_frand(mgr)) + mZImpulse;
-        const float y = mass * mVelocity.GetY() * debris_frand(mgr);
-        const float x = mass * mVelocity.GetX() * debris_frand(mgr);
+        const float zRand = debris_frand(mgr);
+        const float z = mass * mVelocity.GetZ() * CMath::AbsF(zRand) + mZImpulse;
+        const float yRand = debris_frand(mgr);
+        const float yScale = mass * mVelocity.GetY();
+        const float y = yScale * yRand;
+        const float xRand = debris_frand(mgr);
+        const float xScale = mass * mVelocity.GetX();
+        const float x = xScale * xRand;
         const CVector3f impulse = GetTransform().GetColumn(kDZ) + CVector3f(x, y, z);
 
         CAxisAngle angularImpulse = CAxisAngle::Identity();
-        if (mRandomAngImpulse && mgr.Random()->Next() % 100 < 50) {
-          angularImpulse = CAxisAngle(CVector3f(45.f * debris_frand(mgr), 15.f * debris_frand(mgr),
-                                                35.f * debris_frand(mgr)));
+        if (mRandomAngImpulse) {
+          if (mgr.Random()->Next() % 100 < 50) {
+            angularImpulse = CAxisAngle(CVector3f(45.f * debris_frand(mgr), 15.f * debris_frand(mgr),
+                                                  35.f * debris_frand(mgr)));
+          } else {
+            angularImpulse = CAxisAngle::Identity();
+          }
         }
         ApplyImpulseWR(impulse, angularImpulse);
       } else {
@@ -424,7 +424,8 @@ void CScriptDebris::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
         const CAxisAngle angularImpulse(debris_cone(mgr, angularCone, mAngMinMag, mAngMaxMag));
         const CQuaternion rotation =
             CQuaternion::ShortestRotationArc(CVector3f::Up(), mMovementDirection);
-        ApplyImpulseOR(rotation.Transform(impulse), angularImpulse);
+        const CVector3f rotatedImpulse = rotation.Transform(impulse);
+        ApplyImpulseOR(rotatedImpulse, angularImpulse);
         mDuration = debris_frand_range(mgr, mMinDuration, mMaxDuration);
       }
 
@@ -435,40 +436,59 @@ void CScriptDebris::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
         mParticleGen1->SetParticleEmission(true);
       }
 
-      const rstl::vector< SConnection >& connections = GetConnectionList();
-      for (int i = 0; i < connections.size(); ++i) {
-        const SConnection& connection = connections[i];
-        if (connection.state != kSS_Generate || connection.msg != kSM_Activate) {
+      // The Generate connection state here is 'GRNT' (see kGeneratorConnectionState in
+      // CScriptGenerator), not kSS_Generate ('GENR').
+      for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+           it != GetConnectionList().end(); ++it) {
+        if (it->state != static_cast< EScriptObjectState >(0x47524e54) ||
+            it->msg != kSM_Activate) {
           continue;
         }
 
-        const CScriptObjectLoaderHelper::SGeneratedObject generated =
-            mgr.ScriptObjectLoaderHelper().GenerateScriptObject(connection.objId, mgr);
+        const CScriptObjectLoaderHelper::SGeneratedObject& generated =
+            mgr.ScriptObjectLoaderHelper().GenerateScriptObject(it->objId, mgr);
+        const TUniqueId generatedId = generated.mUniqueId;
         CActor* actor = TCastToPtr< CActor >(generated.mEntity);
-        if (actor) {
-          mGeneratedObject = generated.mUniqueId;
-          actor->SetTranslation(GetTranslation());
-
-          const CAABox& baseBounds = GetBaseBoundingBox();
-          if (close_enough(baseBounds.GetMaxPoint() - baseBounds.GetMinPoint(), CVector3f::Zero(),
-                           0.0001f)) {
-            const CAABox bounds = actor->GetModelData()->GetBounds();
-            SetCollisionPrimitive(CCollidableAABox(bounds, skDebrisMaterials));
-            const rstl::optional_object< CAABox > touchBounds = actor->GetTouchBounds();
-            SetBoundingBox(touchBounds ? *touchBounds : bounds);
-          }
-
-          mgr.SendScriptMsg(actor, GetUniqueId(), kSM_Activate);
-          break;
+        if (!actor) {
+          mgr.DeleteObjectRequest(generatedId);
+          continue;
         }
-        mgr.DeleteObjectRequest(generated.mUniqueId);
+
+        mGeneratedObject = generatedId;
+        actor->SetTranslation(GetTranslation());
+
+        if (close_enough(GetBaseBoundingBox().GetMaxPoint() - GetBaseBoundingBox().GetMinPoint(),
+                         CVector3f::Zero(), 0.0001f)) {
+          SetCollisionPrimitive(
+              CCollidableAABox(actor->GetModelData()->GetBounds(), skDebrisMaterials));
+          if (actor->GetTouchBounds()) {
+            SetBoundingBox(*actor->GetTouchBounds());
+          } else {
+            SetBoundingBox(actor->GetModelData()->GetBounds());
+          }
+        }
+
+        mgr.SendScriptMsg(actor, GetUniqueId(), kSM_Activate);
+        break;
       }
     }
     break;
   case kSM_Landed:
     if (!mNoBounce) {
-      ApplyImpulseWR(-mRestitution * GetConstantForceWR(), -mRestitution * GetAngularMomentumWR());
+      const CVector3f linImpulse = -mRestitution * GetConstantForceWR();
+      const CAxisAngle angImpulse = -mRestitution * GetAngularMomentumWR();
+      ApplyImpulseWR(linImpulse, angImpulse);
     }
+    break;
+  case kSM_Delete:
+    if (!mKeepGeneratedObject && mGeneratedObject != kInvalidUniqueId) {
+      mgr.DeleteObjectRequest(mGeneratedObject);
+      mGeneratedObject = kInvalidUniqueId;
+    }
+    break;
+  case kSM_Unlock:
+    mGeneratedObject = kInvalidUniqueId;
+    mgr.DeleteObjectRequest(GetUniqueId());
     break;
   default:
     break;
