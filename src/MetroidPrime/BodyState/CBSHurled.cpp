@@ -151,21 +151,27 @@ pas::EAnimationState CBSHurled::UpdateBody(float dt, CBodyController& bc, CState
 void CBSHurled::Shutdown(CBodyController& bc) {}
 
 bool CBSHurled::ShouldStartLand(float dt, CBodyController& bc) const {
+  bool ret = true;
   CPatterned* actor = TCastToPtr< CPatterned >(&bc.GetOwner());
-  if (!actor || actor->IsOnGround()) {
-    return true;
+  if (actor) {
+    ret = false;
+    if (actor->IsOnGround()) {
+      ret = true;
+    } else {
+      const bool moved = !close_enough(actor->GetTranslation(), mLastTranslation, 0.0001f);
+      if (!moved &&
+          actor->GetVelocityWR().GetZ() < 0.f) {
+        mLandedDur += dt;
+        if (mLandedDur >= 0.25f) {
+          ret = true;
+        }
+      } else {
+        mLandedDur = 0.f;
+      }
+      mLastTranslation = actor->GetTranslation();
+    }
   }
-
-  bool shouldStartLand = false;
-  if (close_enough(actor->GetTranslation(), mLastTranslation, 0.0001f) &&
-      actor->GetVelocityWR().GetZ() < 0.f) {
-    mLandedDur += dt;
-    shouldStartLand = mLandedDur >= 0.25f;
-  } else {
-    mLandedDur = 0.f;
-  }
-  mLastTranslation = actor->GetTranslation();
-  return shouldStartLand;
+  return ret;
 }
 
 bool CBSHurled::ShouldStartStrikeWall(CBodyController& bc) const {

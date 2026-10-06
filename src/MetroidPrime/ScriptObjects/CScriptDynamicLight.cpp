@@ -171,7 +171,8 @@ void CScriptDynamicLight::UpdateSpline(float dt) {
     if (mSplineTime >= mSpline.GetPositionSpline().GetDuration()) {
       mSplineTime = mSplineLoops ? 0.f : mSpline.GetPositionSpline().GetDuration();
     }
-    SetTranslation(mSpline.GetPositionByTime(mSplineTime));
+    const CVector3f position = mSpline.GetPositionByTime(mSplineTime);
+    SetTranslation(position);
   }
 }
 
