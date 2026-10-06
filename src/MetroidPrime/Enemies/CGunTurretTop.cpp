@@ -244,6 +244,8 @@ void CGunTurretTop::PowerDown(CStateManager& mgr, EStateMsg msg, float dt) {
     AnimationData()->AddAdditiveAnimation(mAdditiveAnim, 1.f - (t < 1.f ? t : 1.f), true, false);
     break;
   }
+  case kStateMsg_Deactivate:
+    break;
   }
 }
 

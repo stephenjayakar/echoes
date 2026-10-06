@@ -1113,7 +1113,8 @@ bool CGunTurretBase::InDetectionHeight(const CActor& actor, float up, float down
 }
 
 rstl::optional_object< CAABox > CGunTurretBase::GetTouchBounds() const {
-  return mCollisionPrimitive.GetBox().GetTransformedAABox(GetTransform());
+  return rstl::optional_object< CAABox >(
+      mCollisionPrimitive.GetBox().GetTransformedAABox(GetTransform()));
 }
 
 void CGunTurretBase::RaiseGun(float dt) {
