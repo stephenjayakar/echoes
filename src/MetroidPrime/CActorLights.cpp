@@ -582,25 +582,22 @@ void CActorLights::BuildFaceLightList(const CStateManager& mgr, const CGameArea&
     if (entity == nullptr || !entity->GetActive()) {
       continue;
     }
-    const CGameLight* gameLight = TCastToConstPtr< CGameLight >(entity);
-    if (gameLight == nullptr) {
-      continue;
-    }
+    const CGameLight* const gameLight = TCastToConstPtr< CGameLight >(entity);
     const CExplosion* explosion =
         TCastToConstPtr< CExplosion >(mgr.GetObjectById(gameLight->GetParentId()));
     if (explosion == nullptr) {
       continue;
     }
 
-    const CLight originalLight = gameLight->GetLight();
+    const CLight& originalLight = gameLight->GetLight();
     CLight reflectedLight(originalLight);
-    reflectedLight.SetAttenuation(
-        gpTweakGui->GetFaceReflectionLightFalloffMultConstant() *
-            reflectedLight.GetAttenuationConstant(),
-        gpTweakGui->GetFaceReflectionLightFalloffMultLinear() *
-            reflectedLight.GetAttenuationLinear(),
-        gpTweakGui->GetFaceReflectionLightFalloffMultQuadratic() *
-            reflectedLight.GetAttenuationQuadratic());
+    const float constant = reflectedLight.GetAttenuationConstant() *
+                           gpTweakGui->GetFaceReflectionLightFalloffMultConstant();
+    const float linear = reflectedLight.GetAttenuationLinear() *
+                         gpTweakGui->GetFaceReflectionLightFalloffMultLinear();
+    const float quadratic = reflectedLight.GetAttenuationQuadratic() *
+                            gpTweakGui->GetFaceReflectionLightFalloffMultQuadratic();
+    reflectedLight.SetAttenuation(constant, linear, quadratic);
 
     CVector3f cameraToExplosion = cameraTransform.TransposeMultiply(explosion->GetTranslation());
     if (CVector3f::Dot(CVector3f::Forward(), cameraToExplosion) < 0.f) {
@@ -631,11 +628,11 @@ void CActorLights::BuildFaceLightList(const CStateManager& mgr, const CGameArea&
   }
   if (grayscale > 0.03f) {
     const float attenuation = 1.f / (0.03f / grayscale);
-    for (int i = 0; i < mDynamicLights.size(); ++i) {
-      CLight& light = mDynamicLights[i];
-      light.SetAttenuation(light.GetAttenuationConstant() * attenuation,
-                           light.GetAttenuationLinear() * attenuation,
-                           light.GetAttenuationQuadratic() * attenuation);
+    for (rstl::reserved_vector< CLight, 4 >::iterator it = mDynamicLights.begin();
+         it != mDynamicLights.end(); ++it) {
+      it->SetAttenuation(it->GetAttenuationConstant() * attenuation,
+                         it->GetAttenuationLinear() * attenuation,
+                         it->GetAttenuationQuadratic() * attenuation);
     }
   }
 }
