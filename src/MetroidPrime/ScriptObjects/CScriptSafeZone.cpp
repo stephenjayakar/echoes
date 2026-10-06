@@ -700,7 +700,7 @@ void CScriptSafeZone::RenderDarkVisorSpot(const CStateManager& mgr) const {
 }
 
 void CScriptSafeZone::ApplyRenderEffect(CStateManager& mgr) {
-  const bool inside = HasInhabitant(
+  bool inside = HasInhabitant(
       mgr.CameraManager(mgr.MaskUIdNumPlayers(mgr.mCurrentRenderPlayer->GetUniqueId()))
           ->GetCurrentCameraId(false));
   const float flash = mFlashTimer * mFlashTime;
@@ -717,24 +717,22 @@ void CScriptSafeZone::ApplyRenderEffect(CStateManager& mgr) {
     const float fov = camera->GetFov();
     const float invSin = 1.f / sinf(0.017453292f * fov);
     const CVector3f delta = GetTranslation() - camera->GetTranslation();
-    const CVector3f forward = camera->GetTransform().GetForward();
     const float invDist = CMath::FastInvSqrtF(delta.MagSquared());
-    const CVector3f dir = invDist * delta;
     const float angle =
-        (2.f * fabsf(57.295776f * acosf(CVector3f::Dot(forward, dir)))) /
-        (fov * camera->GetAspectRatio());
-    const float edge = rstl::min_val(angle, 1.f);
+        57.295776f * acosf(CVector3f::Dot(camera->GetTransform().GetForward(), invDist * delta));
+    const float edge = rstl::min_val(1.f, (2.f * fabsf(angle)) / (fov * camera->GetAspectRatio()));
     const float edgeScale = edge < 0.8f ? 1.f : 0.7f;
     const float maxScale =
         rstl::max_val(GetScale().GetX(), rstl::max_val(GetScale().GetY(), GetScale().GetZ()));
-    spotSize = invSin * (mActivation * maxScale * invDist) * edgeScale *
-               (mMobile ? 2.25f : 2.5f);
+    spotSize = invSin * (mActivation * maxScale * invDist) * edgeScale;
+    spotSize *= mMobile ? 2.25f : 2.5f;
   }
-  const CVector3f radii = mActivation * GetScale();
-  const uchar alpha = CCast::ToUint8(CMath::Clamp(0.f, 255.f * pulse, 255.f));
-  const uchar insideAlpha = CCast::ToUint8(CMath::Clamp(0.f, 127.f * mInsideAlpha, 255.f));
+  const CVector3f& radii = mActivation * GetScale();
+  const float alpha = CMath::Clamp(0.f, 255.f * pulse, 255.f);
+  const float insideAlpha = CMath::Clamp(0.f, 127.f * mInsideAlpha, 255.f);
   mgr.AddDarkWorldSphereToRenderer(
-      GetTranslation(), radii, alpha, insideAlpha, inside, spotSize, mCurrentInfo->mScroll1,
+      GetTranslation(), radii, CCast::ToUint8(alpha), CCast::ToUint8(insideAlpha), inside,
+      spotSize, mCurrentInfo->mScroll1,
       mCurrentInfo->mScroll2, mCurrentInfo->mTexScale1, mCurrentInfo->mTexScale2,
       **mCurrentInfo->mEnvironment, **mCurrentInfo->mCloud1, **mCurrentInfo->mCloud2,
       mCurrentInfo->mColor, mCurrentInfo->mAdditiveColor, GetShape() == kST_Cylinder);
