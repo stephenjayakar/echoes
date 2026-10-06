@@ -123,7 +123,7 @@ rstl::optional_object< CVector3i > CBarrierChunkGrid::GetChunkAt(const CVector3f
   if (CollisionUtil::AABoxPointSqrDist(pos, mBounds, &closest) > radius * radius) {
     return rstl::optional_object< CVector3i >();
   }
-  CVector3f local = CVector3f::ByElementMultiply(closest, mInvChunkSize);
+  const CVector3f& local = CVector3f::ByElementMultiply(closest, mInvChunkSize);
   return CVector3i(rstl::min_val(rstl::max_val(int(local.GetX()), 0), mDims.GetX() - 1),
                    rstl::min_val(rstl::max_val(int(local.GetY()), 0), mDims.GetY() - 1),
                    rstl::min_val(rstl::max_val(int(local.GetZ()), 0), mDims.GetZ() - 1));
@@ -277,9 +277,9 @@ COBBTree::CNode* CBarrierChunkGrid::BuildBoxNode(COBBTree::SIndexData& data, con
 
 COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
                                                  const CVector3i& row) const {
+  rstl::vector< ushort > surfaces;
   const float* health =
       &mChunkHealths[row.GetY() * mDims.GetX() + mDims.GetX() * (row.GetZ() * mDims.GetY())];
-  rstl::vector< ushort > surfaces;
   bool alive = *health > 0.f;
   int start = alive ? 0 : 0x7fffffff;
   int end = -1;
