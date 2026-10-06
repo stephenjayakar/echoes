@@ -265,11 +265,13 @@ void CSplashScreen::Draw() const {
   const CTextColor unselected(dim, dim, dim, 255);
   text.AddColor(kCT_Foreground, selected);
   if (mProgressivePhase == kPP_Selection && mSplashTimeout <= 0.5f) {
+    const wchar_t* yes = skProgressiveYes;
+    const wchar_t* no = skProgressiveNo;
     text.AddString(rstl::wstring_l(skProgressiveQuestion));
     text.AddColor(kCT_Foreground, mProgressiveMode ? selected : unselected);
-    text.AddString(rstl::wstring_l(skProgressiveYes));
+    text.AddString(rstl::wstring_l(yes));
     text.AddColor(kCT_Foreground, mProgressiveMode ? unselected : selected);
-    text.AddString(rstl::wstring_l(skProgressiveNo));
+    text.AddString(rstl::wstring_l(no));
   } else if (mProgressivePhase == kPP_Confirmation) {
     sProgressiveModePrompt = false;
     text.AddString(mProgressiveMode ? rstl::wstring_l(skProgressiveEnabled)
