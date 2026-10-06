@@ -741,7 +741,7 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
   CVector3f floorNormal = floorCollision ? *options.mFloorPlaneNormal : CVector3f::Zero();
 
   while (remainingDt > 0.f) {
-    float collideDt = remainingDt;
+    float collideDt;
     CMotionState motion = actor.PredictMotion_Internal(remainingDt);
     const float translationMag = motion.GetTranslation().Magnitude();
     const CVector3f direction =
@@ -760,6 +760,8 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
         result.mCollision = info;
       }
       collideDt = remainingDt * static_cast< float >(distance / translationMag);
+    } else {
+      collideDt = remainingDt;
     }
 
     const float moveDistance =
@@ -780,10 +782,10 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
 
       if (clipCollision) {
         if (floorCollision) {
-          if (RemoveNormalComponent(floorNormal, direction, collisionNormal, collisionFloorDot)) {
-            collisionNormal.Normalize();
-          } else {
+          if (!RemoveNormalComponent(floorNormal, direction, collisionNormal, collisionFloorDot)) {
             RemovePositiveZComponentFromNormal(collisionNormal);
+          } else {
+            collisionNormal.Normalize();
           }
         } else {
           RemovePositiveZComponentFromNormal(collisionNormal);
@@ -812,19 +814,22 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
         velocity.SetZ(0.f);
       }
       if (velocity.GetZ() > options.mMaxPositiveVerticalVelocity) {
-        velocity *= options.mMaxPositiveVerticalVelocity / velocity.GetZ();
+        float scale = options.mMaxPositiveVerticalVelocity / velocity.GetZ();
+        velocity.SetX(velocity.GetX() * scale);
+        velocity.SetY(velocity.GetY() * scale);
+        velocity.SetZ(velocity.GetZ() * scale);
       }
 
       if (options.mDampForceAndMomentum) {
-        const CVector3f force = actor.GetForceWR();
+        CVector3f force = actor.GetForceWR();
         if (force.CanBeNormalized()) {
-          actor.SetForceWR(
-              CollisionDamping(force, force.AsNormalized(), collisionNormal, 0.f, 1.f));
+          force = CollisionDamping(force, force.AsNormalized(), collisionNormal, 0.f, 1.f);
+          actor.SetForceWR(force);
         }
-        const CVector3f momentum = actor.GetMomentumWR();
+        CVector3f momentum = actor.GetMomentumWR();
         if (momentum.CanBeNormalized()) {
-          actor.SetMomentumWR(
-              CollisionDamping(momentum, momentum.AsNormalized(), collisionNormal, 0.f, 1.f));
+          momentum = CollisionDamping(momentum, momentum.AsNormalized(), collisionNormal, 0.f, 1.f);
+          actor.SetMomentumWR(momentum);
         }
       }
 
