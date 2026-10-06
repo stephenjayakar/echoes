@@ -1093,7 +1093,7 @@ void CSandBoss::SuckAir(CStateManager& mgr, EStateMsg msg, float dt) {
           const CTransform4f xf = GetLctrTransform(mArmorSegIds[0]);
           const CVector3f diff = player->GetTranslation() - xf.GetTranslation();
           const float mag = diff.Magnitude();
-          if (!(fabs(mag - 0.f) < 0.00001f)) {
+          if (!CMath::IsEpsilon(mag, 0.f, 0.00001f)) {
             player->ApplyImpulseWR(dt * ((150.f * player->GetMass()) * ((1.f / mag) * -diff)),
                                    CAxisAngle::Identity());
             player->UseCollisionImpulses();

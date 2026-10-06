@@ -26,13 +26,11 @@ struct SLdrSandBossStampedeData {
   CAssetId stampedeSandFountainFx; // 0x686489fd
 };
 
-inline SLdrSandBossStampedeData::SLdrSandBossStampedeData() : stampedeArmorExplosion(kInvalidAssetId), stampedeDamage(), stampedeSandFountainFx(kInvalidAssetId) {
+inline SLdrSandBossStampedeData::SLdrSandBossStampedeData() : stampedeArmorExplosion(kInvalidAssetId), sound_StampedeArmorExplode(-1), sound_StampedeArmorExplodePain(-1), stampedeDamage(), stampedeSandFountainFx(kInvalidAssetId) {
   unknown_0xbed8a4ba = 1.5f;
   unknown_0xc2b98161 = 2.5f;
   unknown_0x5fb66017 = 3.0f;
   breakStampedeHP = 150.0f;
-  sound_StampedeArmorExplode = 0;
-  sound_StampedeArmorExplodePain = 0;
   stampedeDamage.dI_WeaponType = 11;
   stampedeDamage.dI_Damage = 20.0f;
   stampedeDamage.dI_Radius = 13.0f;
@@ -111,7 +109,7 @@ struct SLdrSandBossChargeBeamData {
   float darkBeamAttackTimeVariance; // 0x74c702b3
 };
 
-inline SLdrSandBossChargeBeamData::SLdrSandBossChargeBeamData() : damage() {
+inline SLdrSandBossChargeBeamData::SLdrSandBossChargeBeamData() : damage(), sound_ChargeBeam(-1) {
   damage.dI_WeaponType = 11;
   damage.dI_Damage = 0.5f;
   damage.dI_KnockBackPower = 10.0f;
@@ -125,7 +123,6 @@ inline SLdrSandBossChargeBeamData::SLdrSandBossChargeBeamData() : damage() {
   chargeBeamAttackTimeVariance = 1.0f;
   turnSpeed = 10.0f;
   unknown_0x47cde539 = 0.0f;
-  sound_ChargeBeam = 0;
   unknown_0x8d4f3b88 = 1;
   minDarkBeamAttackTime = 3.0f;
   darkBeamAttackTimeVariance = 1.0f;
@@ -216,6 +213,7 @@ struct SLdrUnknownStruct41 {
 };
 
 inline SLdrUnknownStruct41::SLdrUnknownStruct41() : doubleCharge(), tripleCharge(), chargeBeamInfo() {
+  chargeBeamInfo.unknown_0xff713aad = 0;
   chargeBeamInfo.length = 500.0f;
   chargeBeamInfo.radius = 1.0f;
   chargeBeamInfo.expansionSpeed = 4.0f;
@@ -223,8 +221,9 @@ inline SLdrUnknownStruct41::SLdrUnknownStruct41() : doubleCharge(), tripleCharge
   chargeBeamInfo.pulseSpeed = 20.0f;
   chargeBeamInfo.shutdownTime = 0.25f;
   chargeBeamInfo.pulseEffectScale = 2.0f;
-  chargeBeamInfo.innerColor = CColor(0.49803901f, 0.49803901f, 0.49803901f, 0.49803901f);
-  chargeBeamInfo.outerColor = CColor(0.60000002f, 0.60000002f, 0.0f, 0.49803901f);
+  chargeBeamInfo.travelSpeed = 150.0f;
+  chargeBeamInfo.innerColor = CColor(0.5f, 0.5f, 0.5f, 0.5f);
+  chargeBeamInfo.outerColor = CColor(0.6f, 0.6f, 0.0f, 0.5f);
 }
 
 inline SLdrUnknownStruct41::~SLdrUnknownStruct41() {}
@@ -269,9 +268,7 @@ struct SLdrSandBossArmorData {
   int sound_ArmorImpact; // 0xdcc2bf11
 };
 
-inline SLdrSandBossArmorData::SLdrSandBossArmorData() : headArmor(kInvalidAssetId), armorPiece2(kInvalidAssetId), armorPiece3(kInvalidAssetId), armorPiece4(kInvalidAssetId), armorPiece5(kInvalidAssetId), armorPiece6(kInvalidAssetId), armorPiece7(kInvalidAssetId), tailArmor(kInvalidAssetId) {
-  sound_ArmorImpact = 0;
-}
+inline SLdrSandBossArmorData::SLdrSandBossArmorData() : headArmor(kInvalidAssetId), armorPiece2(kInvalidAssetId), armorPiece3(kInvalidAssetId), armorPiece4(kInvalidAssetId), armorPiece5(kInvalidAssetId), armorPiece6(kInvalidAssetId), armorPiece7(kInvalidAssetId), tailArmor(kInvalidAssetId), sound_ArmorImpact(-1) {}
 
 inline SLdrSandBossArmorData::~SLdrSandBossArmorData() {}
 
@@ -518,6 +515,8 @@ inline SLdrSandBoss::SLdrSandBoss() : editorProperties(), patterned(), actorInfo
   patterned.health.health = 150.0f;
   patterned.health.hI_KnockBackResistance = 2.0f;
   patterned.creatureSize = 2;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
 }
 
 inline SLdrSandBoss::~SLdrSandBoss() {}
