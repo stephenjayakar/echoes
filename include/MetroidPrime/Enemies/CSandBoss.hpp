@@ -11,6 +11,7 @@
 #include "MetroidPrime/Weapons/CPlasmaProjectile.hpp"
 #include "MetroidPrime/Weapons/CProjectileInfo.hpp"
 
+#include "rstl/pair.hpp"
 #include "rstl/reserved_vector.hpp"
 #include "rstl/single_ptr.hpp"
 #include "rstl/vector.hpp"
@@ -19,6 +20,9 @@ class CCollisionActorManager;
 class CScannableObjectInfo;
 class CPlayer;
 class CScriptSafeZone;
+
+// Guessed name; a stampede cover point and its squared distance to the player.
+typedef rstl::pair< TUniqueId, float > SStampedePoint;
 
 // Guessed name; one charge beam fired by the boss.
 struct SChargeBeam {
@@ -166,7 +170,7 @@ public:
   void FindOtherBosses(CStateManager& mgr);
   void OnCollisionActorHit(CStateManager& mgr, TUniqueId id);
   void OnCollisionActorDamage(CStateManager& mgr, TUniqueId id);
-  void UpdateArmorColor(float dt, CStateManager& mgr);
+  void UpdateTimers(float dt, CStateManager& mgr);
   void UpdateStampede(CStateManager& mgr, float dt);
   void UpdateCinematicState(CStateManager& mgr);
   bool QueryDoubleCharge(CStateManager& mgr);
@@ -216,6 +220,8 @@ public:
   void SyncCollisionActorHealth(CStateManager& mgr);
   void PlayArmorExplosion(CStateManager& mgr, const CTransform4f& xf);
   void PushBombs(CStateManager& mgr, const CVector3f& dir);
+  void OnHeadArmorHit(CStateManager& mgr, const CVector3f& pos, const CVector3f& dir,
+                      float damage);
   void SetArmorVisible(const rstl::string& locator, bool visible);
   void CrackSphere(CStateManager& mgr);
   void FireDarkBeam(CStateManager& mgr, float dt);
@@ -263,7 +269,7 @@ private:
   rstl::single_ptr< TLockedToken< CScannableObjectInfo > > mScanInfo; // Guessed name.
   int mSyncState;
   int mCinematicState;
-  int xdf8_;
+  int mCurrentCinematic; // Guessed name.
   int xdfc_;
   CProjectileInfo mDarkBeamInfo;   // Guessed name.
   CProjectileInfo mChargeBeamInfo; // Guessed name.
@@ -302,7 +308,7 @@ private:
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mAttachedArmorModels; // Guessed name.
   rstl::reserved_vector< rstl::optional_object< CModelData >, 8 > mStampedeArmorModels; // Guessed name.
   rstl::reserved_vector< EArmorState, 8 > mArmorStates;                                   // Guessed name.
-  rstl::vector< int > x1478_;
+  rstl::vector< SStampedePoint > x1478_; // Guessed name: candidate stampede points.
   TLockedToken< CSkinnedModel > mNormalSkinnedModel;   // Guessed name.
   TLockedToken< CSkinnedModel > mTailArmorSkinnedModel; // Guessed name.
   CTransform4f x14a0_;

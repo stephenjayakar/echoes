@@ -24,6 +24,7 @@
 #include "MetroidPrime/Player/CPlayerState.hpp"
 #include "MetroidPrime/Weapons/CBomb.hpp"
 #include "MetroidPrime/CObjectList.hpp"
+#include "rstl/algorithm.hpp"
 #include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/Cameras/CCameraShakerManager.hpp"
@@ -54,6 +55,15 @@ static const struct {
 };
 static const char* const skHeadJoint = "Head_1";
 static CVector3f skJawsTouchBounds(4.5f, 4.5f, 1.5f); // Guessed name.
+// Guessed name; percent chance per round to pick one of the nearest stampede points.
+static const float skNearStampedePointChance[3] = {70.f, 50.f, 33.f};
+// Guessed name; orders stampede points by distance.
+struct SStampedePointSorter {
+  bool operator()(const SStampedePoint& a, const SStampedePoint& b) const {
+    return a.second < b.second;
+  }
+};
+static SStampedePointSorter skStampedePointSorter;
 
 CSandBossChargeBeam::CSandBossChargeBeam(const TToken< CWeaponDescription >& description,
                                          const CBeamInfo& beamInfo, TUniqueId uid,
@@ -107,7 +117,7 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , mScanInfo(nullptr)
 , mSyncState(0)
 , mCinematicState(0)
-, xdf8_(0)
+, mCurrentCinematic(0)
 , xdfc_(-1)
 , mDarkBeamInfo(data.darkBeamProjectile, LdrToDamageInfo(data.darkBeamDamage))
 , mChargeBeamInfo(data.unknown_0x7619e561.chargeBeamInfo.weaponSystem, CDamageInfo())
@@ -454,7 +464,7 @@ void CSandBoss::Think(float dt, CStateManager& mgr) {
   CPatterned::Think(dt, mgr);
   mCollisionActorManager->Update(dt, mgr, CCollisionActorManager::kUO_ObjectSpace);
   mBoneTracking.Think(dt);
-  UpdateArmorColor(dt, mgr);
+  UpdateTimers(dt, mgr);
   UpdateChargeBeams(mgr, dt);
   UpdateCinematicState(mgr);
 }
@@ -1288,6 +1298,54 @@ void CSandBoss::SnapJaws(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
+void CSandBoss::SelectStampedePoint(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    ReleaseCoverPoint(mgr, xe8e_, true);
+    x1478_.clear();
+    break;
+  case kStateMsg_Update:
+    if (xe8e_ == kInvalidUniqueId) {
+      const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
+      CObjectList& list = mgr.ObjectListById(kOL_AiWaypoint);
+      for (int index = list.GetFirstObjectIndex(); index != -1;
+           index = list.GetNextObjectIndex(index)) {
+        CScriptCoverPoint* cover = TCastToPtr< CScriptCoverPoint >(list[index]);
+        if (cover != nullptr && cover->GetActive() && !cover->GetInUse(GetUniqueId()) &&
+            cover->GetCurrentAreaId() == GetCurrentAreaId() &&
+            cover->GetUniqueId() != xe90_) {
+          CVector3f diff = cover->GetTranslation() - playerPos;
+          const TUniqueId wpId = cover->FindConnectedObject(mgr, kSS_Arrived, kSM_Next);
+          if (const CScriptAIWaypoint* wp =
+                  TCastToConstPtr< CScriptAIWaypoint >(mgr.GetObjectById(wpId))) {
+            diff = wp->GetTranslation() - playerPos;
+          }
+          x1478_.push_back(SStampedePoint(cover->GetUniqueId(), diff.MagSquared()));
+        }
+      }
+      if (x1478_.size() != 0) {
+        rstl::sort(x1478_.begin(), x1478_.end(), skStampedePointSorter);
+        int hi = x1478_.size() - 1;
+        const int quarter = x1478_.size() / 4;
+        int lo = 0;
+        const bool near = mgr.Random()->Range(0.f, 100.f) <= skNearStampedePointChance[mRound];
+        if (near) {
+          hi = quarter;
+        }
+        if (!near) {
+          lo = quarter;
+        }
+        const TUniqueId id = x1478_[mgr.Random()->Range(lo, hi)].first;
+        if (CScriptCoverPoint* cover = static_cast< CScriptCoverPoint* >(mgr.ObjectById(id))) {
+          SetCoverPoint(cover, xe8e_);
+          xe90_ = xe8e_;
+        }
+      }
+    }
+    break;
+  }
+}
+
 void CSandBoss::SeekStampedePoint(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
@@ -1477,6 +1535,25 @@ void CSandBoss::PreventSyncAttacks(CStateManager& mgr, float dt) { x165e_27_ = f
 void CSandBoss::Deactivate(CStateManager& mgr, float dt) { x165c_27_ = true; }
 
 void CSandBoss::EndStampede(CStateManager& mgr, float dt) { x165c_27_ = false; }
+
+void CSandBoss::PlayHeadArmorExplosion(CStateManager& mgr, float dt) {
+  const CTransform4f xf = GetLctrTransform(mHeadSegId);
+  if (mHeadArmorExplosion) {
+    CExplosion* explosion = rs_new CExplosion(
+        *mHeadArmorExplosion, mgr.AllocateUniqueId(),
+        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), "ArmorExplosionFx",
+        xf, 0, GetModelData()->GetScale(), CColor::White(), -1);
+    if (explosion != nullptr) {
+      mgr.AddObject(explosion);
+    }
+  }
+  if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(xe80_))) {
+    CTransform4f wpXf = GetTransform();
+    wpXf.SetTranslation(xf.GetTranslation());
+    wp->SetTransform(wpXf);
+    SendScriptMsgs(kSS_InternalState02, mgr, GetUniqueId(), kSM_None);
+  }
+}
 
 void CSandBoss::ResetHeadArmorHP(CStateManager& mgr, float dt) { mHeadArmorHP = mData.headArmorHP; }
 
@@ -2556,6 +2633,118 @@ void CSandBoss::PushBombs(CStateManager& mgr, const CVector3f& dir) {
     if (CBomb* bomb = TCastToPtr< CBomb >(mgr.ObjectById(*it))) {
       bomb->SetVelocityWR(20.f * dir);
     }
+  }
+}
+
+void CSandBoss::UpdateTimers(float dt, CStateManager& mgr) {
+  mDarkBeamTimer -= dt;
+  mChargeBeamTimer -= dt;
+  UpdateDamageFlashColor(dt);
+  mStampedeTimer += dt;
+  xf34_ += dt;
+}
+
+void CSandBoss::UpdateCinematicState(CStateManager& mgr) {
+  int numStampede = 0;
+  int numStunned = 0;
+  int numChoking = 0;
+  int numNormal = 0;
+  int numExitSphere = 0;
+  const CSandBoss* leader = nullptr;
+  for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+    CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+    if (other != nullptr) {
+      if (leader == nullptr || other->mData.commandIndex < leader->mData.commandIndex) {
+        leader = other;
+      }
+      switch (other->mCinematicState) {
+      case kCS_Stampede:
+        ++numStampede;
+        break;
+      case kCS_Normal:
+        ++numNormal;
+        break;
+      case kCS_Stunned:
+        ++numStunned;
+        break;
+      case kCS_Choking:
+        ++numChoking;
+        break;
+      case kCS_ExitSphere:
+        ++numExitSphere;
+        break;
+      }
+    }
+  }
+  if (leader == this) {
+    if (numExitSphere > 0) {
+      if (mCurrentCinematic != kCS_ExitSphere) {
+        mCurrentCinematic = kCS_ExitSphere;
+      }
+    } else if (numChoking > 0) {
+      if (mCurrentCinematic != kCS_Choking) {
+        mCurrentCinematic = kCS_Choking;
+      }
+    } else if (numStunned > 0) {
+      if (mCurrentCinematic != kCS_Stunned) {
+        SendScriptMsgs(kSS_AIS3, mgr, GetUniqueId(), kSM_None);
+        mCurrentCinematic = kCS_Stunned;
+      }
+    } else if (numStampede > 0) {
+      if (mCurrentCinematic != kCS_Stampede) {
+        SendScriptMsgs(kSS_AIS1, mgr, GetUniqueId(), kSM_None);
+        mCurrentCinematic = kCS_Stampede;
+      }
+    } else if (numNormal > 0 && mCurrentCinematic != kCS_Normal) {
+      SendScriptMsgs(kSS_AIS2, mgr, GetUniqueId(), kSM_None);
+      mCurrentCinematic = kCS_Normal;
+    }
+  } else if (leader != nullptr) {
+    mCurrentCinematic = leader->mCurrentCinematic;
+  }
+}
+
+void CSandBoss::OnHeadArmorHit(CStateManager& mgr, const CVector3f& pos, const CVector3f& dir,
+                               float damage) {
+  if (mgr.GetPlayer(0)->GetAttachedActorId() == GetUniqueId()) {
+    if (!x165e_28_) {
+      TakeDamage(dir, damage);
+      if (!x165d_25_) {
+        if (CActor* target = static_cast< CActor* >(mgr.ObjectById(xe86_))) {
+          const float hp = target->GetHealthInfo()->GetHP();
+          target->HealthInfo()->SetHP(hp - 1.f);
+        }
+      }
+      x165d_25_ = true;
+    }
+  } else if (!x165d_26_ && mHeadArmorHP > 0.f) {
+    xf10_ = 0.33f;
+    mHeadArmorHP -= damage;
+    if (mHeadArmorHP <= 0.f) {
+      PlayHeadArmorExplosion(mgr, 0.f);
+    } else {
+      BodyController()->CommandMgr().DeliverCmd(CBCAdditiveFlinchCmd(1.f));
+    }
+    CSfxManager::AddEmitter(mData.attachedArmor.sound_ArmorImpact, pos, 127,
+                            GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+  }
+}
+
+void CSandBoss::OnCollisionActorDamage(CStateManager& mgr, TUniqueId id) {
+  if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+    const TUniqueId attacker = act->GetLastTouchedObject();
+    CHealthInfo* actHealth = act->HealthInfo();
+    const float initialHP = HealthInfo()->GetInitialHP();
+    if (const CWeapon* weapon = TCastToConstPtr< CWeapon >(mgr.GetObjectById(attacker))) {
+      const float damage = initialHP - actHealth->GetHP();
+      const CVector3f dir = weapon->GetTransform().GetForward();
+      if (x165d_24_ && xe8c_ == id) {
+        OnHeadArmorHit(mgr, weapon->GetTranslation(), dir, damage);
+      } else if (x165c_27_) {
+        OnStampedeArmorHit(mgr, weapon->GetTranslation(), dir, damage);
+      }
+    }
+    actHealth->SetHP(initialHP);
   }
 }
 
