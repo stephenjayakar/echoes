@@ -61,12 +61,39 @@ struct SLdrElitePirate {
   SLdrIngPossessionData ingPossessionData; // 0xe61748ed
 };
 
-inline SLdrElitePirate::SLdrElitePirate() : editorProperties(), patterned(), actorInformation(), meleeDamage(), shieldedModel(kInvalidAssetId), shieldedSkinRules(kInvalidAssetId), darkShield(kInvalidAssetId), darkShieldPop(kInvalidAssetId), lightShield(kInvalidAssetId), lightShieldPop(kInvalidAssetId), singleShockWaveInfo(), doubleShockWaveInfo(), rocket(kInvalidAssetId), rocketDamage(), rocketLauncherActorInfo(), rocketLauncherAnimInfo(), unknown_0x7e6e0d38(), visorElectricEffect(kInvalidAssetId), ingPossessionData() {
-  patterned.minAttackRange = 6.0f;
-  patterned.maxAttackRange = 11.0f;
+inline SLdrElitePirate::SLdrElitePirate()
+: editorProperties()
+, patterned()
+, actorInformation()
+, meleeDamage()
+, shieldedModel(kInvalidAssetId)
+, shieldedSkinRules(kInvalidAssetId)
+, darkShield(kInvalidAssetId)
+, darkShieldSound(-1)
+, darkShieldPop(kInvalidAssetId)
+, lightShield(kInvalidAssetId)
+, lightShieldSound(-1)
+, lightShieldPop(kInvalidAssetId)
+, singleShockWaveInfo()
+, doubleShockWaveInfo()
+, rocket(kInvalidAssetId)
+, rocketDamage()
+, alwaysFF(-1)
+, alwaysFF_0x23f5e1ee(-1)
+, rocketLauncherActorInfo()
+, rocketLauncherAnimInfo()
+, unknown_0x7e6e0d38()
+, visorElectricEffect(kInvalidAssetId)
+, sound_VisorElectric(-1)
+, ingPossessionData() {
+  editorProperties.unknown_0x5d298a43 = 3;
   patterned.averageAttackTime = 3.5f;
   patterned.attackTimeVariation = 2.0f;
+  patterned.health.hI_KnockBackResistance = 2.0f;
   patterned.creatureSize = 2;
+  patterned.echoParameters.isEchoEmitter = true;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
   maxMeleeRange = 9.0f;
   minShockwaveRange = 9.0f;
   maxShockwaveRange = 35.0f;
@@ -74,8 +101,6 @@ inline SLdrElitePirate::SLdrElitePirate() : editorProperties(), patterned(), act
   maxRocketRange = 80.0f;
   unknown_0x5236c2b6 = 50.0f;
   unknown_0x01eaab17 = 50.0f;
-  darkShieldSound = 0;
-  lightShieldSound = 0;
   tauntInterval = 8.0f;
   tauntVariance = 3.0f;
   unknown_0x28b39197 = 1.0f;
@@ -91,9 +116,10 @@ inline SLdrElitePirate::SLdrElitePirate() : editorProperties(), patterned(), act
   energyAbsorbDuration = 3.0f;
   energyAbsorbVariance = 1.0f;
   energyAttractionForce = 50.0f;
-  alwaysFF = -1;
-  alwaysFF_0x23f5e1ee = -1;
-  sound_VisorElectric = 0;
+  rocketLauncherActorInfo.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  rocketLauncherActorInfo.visor.visorFlags = 0x0000000fu;
+  ingPossessionData.ingPossessedHealth.health = 150.0f;
+  ingPossessionData.ingPossessedHealth.hI_KnockBackResistance = 2.0f;
 }
 
 inline SLdrElitePirate::~SLdrElitePirate() {}

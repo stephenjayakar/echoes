@@ -70,8 +70,6 @@ const char* const CElitePirate::skpRightClawLCTR = "R_Palm_LCTR";
 const char* const CElitePirate::skpLeftClawLCTR = "L_Palm_LCTR";
 const char* const CElitePirate::skpGrenadeLauncherLCTR = "lockon_target_LCTR";
 const char* const CElitePirate::skpRightBallLCTR = "R_ball";
-const CVector3f CElitePirate::skExtendedClawBounds(2.f, 2.f, 2.f);
-const CVector3f CElitePirate::skLocalShieldBounds(4.f, 4.f, 2.f);
 
 CElitePirateData::CElitePirateData(
     CAssetId stateMachine, int initialAnim, const CDamageInfo& meleeDamage, float maxMeleeRange,
@@ -163,7 +161,7 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
 , mTime(0.f)
 , mStuckTime(0.f)
 , mLastObstacleTime(0.f)
-, mClaimedRegion(-1)
+, mClaimedRegion(0)
 , mPathFindSearch(nullptr, (pInfo.GetIngPossessionData().isAnEncounter ? 0x200 : 0) + 1,
                   pInfo.GetPathfindingIndex(), 1.f, 1.f, 0, CPFRegion::kRP_Center)
 , mTargetDestPos(CVector3f::Zero())
@@ -216,10 +214,9 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
     mLocomotionType = pas::kLT_Internal12;
   }
   if (mData.GetShieldedModel() != kInvalidAssetId) {
-    mShield.mModel = TLockedToken< CSkinnedModel >(rs_new CSkinnedModel(
-        TLockedToken< CModel >(gpSimplePool->GetObj(SObjectTag('CMDL', mData.GetShieldedModel()))),
-        TLockedToken< CSkinRules >(
-            gpSimplePool->GetObj(SObjectTag('CSKR', mData.GetShieldedSkinRules()))),
+    mShield.mModel = rstl::optional_object< TLockedToken< CSkinnedModel > >(rs_new CSkinnedModel(
+        gpSimplePool->GetObj(SObjectTag('CMDL', mData.GetShieldedModel())),
+        gpSimplePool->GetObj(SObjectTag('CSKR', mData.GetShieldedSkinRules())),
         GetAnimationData()->GetModelData()->GetLayoutInfo()));
   }
 }
@@ -280,6 +277,9 @@ static CPatterned::StateMachine::SCodeFunction skCodes[] = {
     CODE(SelectTarget),
     CODE(PickAttackType),
 };
+
+const CVector3f CElitePirate::skExtendedClawBounds(1.5f, 1.5f, 1.5f);
+const CVector3f CElitePirate::skLocalShieldBounds(4.f, 4.f, 2.f);
 
 void CElitePirate::SetupStateMachineFunctions(CStateManager& mgr) {
   InitializeStateMachine(mgr);
@@ -621,9 +621,10 @@ void CElitePirate::RenderShield() const {
   if (0.f != mShield.mAlpha || 0.f != mInvulnAlpha) {
     gpRender->SetModelMatrix(GetTransform() * CTransform4f::Scale(GetModelData()->GetScale()));
     CColor color = CColor::White();
-    float alpha;
+    CColor drawColor;
     if (mInvulnAlpha > 0.f) {
-      alpha = (1.f + sin(8.f * mTime)) * 0.5f * mInvulnAlpha;
+      const float pulse = (1.f + sinf(8.f * mTime)) / 2.f;
+      drawColor = color.WithAlphaOf(mInvulnAlpha * (0.25f + (0.4f - 0.25f) * pulse));
     } else {
       float speed;
       switch (mShield.mType) {
@@ -637,13 +638,17 @@ void CElitePirate::RenderShield() const {
       default:
         return;
       }
-      alpha = (1.f + sin(speed * mTime)) * 0.5f;
-      if (1.f != mShield.mAlpha) {
-        alpha *= mShield.mAlpha;
+      const float pulse = (1.f + sinf(mTime * speed)) / 2.f;
+      float alpha = mShield.mAlpha;
+      if (1.f == alpha) {
+        alpha = 0.6f + (1.f - 0.6f) * pulse;
       }
+      drawColor = color.WithAlphaOf(alpha);
     }
-    color.SetAlpha(alpha);
-    GetAnimationData()->Render(***mShield.mModel, CModelFlags(CModelFlags::kT_Blend, 0, static_cast< CModelFlags::EFlags >(3), color));
+    const CAnimData* animData = GetAnimationData();
+    animData->Render(***mShield.mModel, CModelFlags(CModelFlags::kT_Blend, 0,
+                                                     static_cast< CModelFlags::EFlags >(3),
+                                                     drawColor));
   }
 }
 
