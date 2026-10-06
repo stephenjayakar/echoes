@@ -1033,7 +1033,9 @@ void CElementGen::Render() {
         if (size == 0.f) {
           size = 1.f;
           mLoadedGenDesc->mSIZE->GetValue(1, size);
-          zeroSize = size == 0.f;
+          if (size == 0.f) {
+            zeroSize = true;
+          }
         }
       }
       if (!zeroSize && mLoadedGenDesc->mRDOP) {
