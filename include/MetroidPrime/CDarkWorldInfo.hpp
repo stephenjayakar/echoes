@@ -11,10 +11,15 @@ class CTexture;
 
 // Guessed name. Shared dark-world volume parameters copied into transitions.
 struct CDarkWorldInfo {
-  ushort x0_[5]; // Meanings and identifier types remain unresolved.
-  uint xc_;
+  // Meanings and identifier types remain unresolved; copied as separate halfwords.
+  ushort x0_;
+  ushort x2_;
+  ushort x4_;
+  ushort x6_;
+  ushort x8_;
+  float xc_;
   rstl::optional_object< TLockedToken< CModel > > x10_;
-  uint x20_;
+  float x20_;
   CVector2f mScroll1;
   CVector2f mScroll2;
   CVector2f mTexScale1;

@@ -8,7 +8,7 @@
 #include "Kyoto/Math/CQuaternion.hpp"
 #include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CFluidPlaneCPU.hpp"
-#include "MetroidPrime/CHintManager.hpp"
+#include "MetroidPrime/CCameraHintManager.hpp"
 #include "MetroidPrime/CMain.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Cameras/CBallCamera.hpp"
@@ -28,6 +28,7 @@
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/Player/CPlayerState.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCamera.hpp"
+#include "rstl/algorithm.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPathCamera.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptSpindleCamera.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptSurfaceCamera.hpp"
@@ -36,6 +37,11 @@
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/Tweaks/CTweakPlayer.hpp"
 #include "MetroidPrime/Weapons/CWeapon.hpp"
+
+float CCameraManager::sFirstPersonFOV = 55.f;
+float CCameraManager::sThirdPersonFOV = 60.f;
+float CCameraManager::sNearPlane = 0.2f;
+float CCameraManager::sFarPlane = 750.f;
 
 CCameraManager::CCameraManager(TUniqueId curCamera, int playerIndex)
 : mPlayerIndex(playerIndex)
@@ -53,9 +59,9 @@ CCameraManager::CCameraManager(TUniqueId curCamera, int playerIndex)
 , mFogDensitySpeed(0.f)
 , mFogDensityFactorTarget(1.f)
 , mFluidFogTime(0.f)
-, mCameraHintManager(rs_new CHintManager(playerIndex, rstl::string("Camera Hint Manager")))
+, mCameraHintManager(rs_new CCameraHintManager(playerIndex, rstl::string_l("Camera Hint Manager")))
 , mCameraShakeManager(rs_new CCameraShakerManager(playerIndex))
-, mFirstPersonFov(55.f)
+, mFirstPersonFov(sFirstPersonFOV)
 , mCameraHistory(CTransform4f::Identity())
 , mScreenFlashTimer(0.f)
 , mFluidFilterHandle(0)
@@ -70,11 +76,11 @@ float CCameraManager::GetFirstPersonFOV() const { return mFirstPersonFov; }
 
 void CCameraManager::SetFirstPersonFOV(float fov) { mFirstPersonFov = fov; }
 
-float CCameraManager::GetDefaultThirdPersonVerticalFOV() { return 60.f; }
+float CCameraManager::GetDefaultThirdPersonVerticalFOV() { return sThirdPersonFOV; }
 
-float CCameraManager::GetDefaultFirstPersonNearClipDistance() { return 0.2f; }
+float CCameraManager::GetDefaultFirstPersonNearClipDistance() { return sNearPlane; }
 
-float CCameraManager::GetDefaultFirstPersonFarClipDistance() { return 750.f; }
+float CCameraManager::GetDefaultFirstPersonFarClipDistance() { return sFarPlane; }
 
 float CCameraManager::GetDefaultAspectRatio() { return 1.42f; }
 
@@ -285,7 +291,11 @@ float CCameraManager::GetWaterFarDistance(CStateManager& mgr, const CScriptWater
 
 void CCameraManager::SetWaterFogScale(float target, float speed) {
   mFogDensityFactorTarget = target;
-  mFogDensitySpeed = target < mFogDensityFactor ? -speed : speed;
+  if (mFogDensityFactorTarget < mFogDensityFactor) {
+    mFogDensitySpeed = -speed;
+  } else {
+    mFogDensitySpeed = speed;
+  }
 }
 
 void CCameraManager::TransferCameraTriggers(CGameCamera& from, CGameCamera& to,
@@ -454,10 +464,13 @@ bool CCameraManager::IsBallCameraTransitioning(const CStateManager& mgr) const {
     return false;
   }
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
-  const CMorphBall::EBallState state = player.GetMorphBall()->GetBallState();
-  return state == CMorphBall::kBS_ScrewAttack || state == CMorphBall::kBS_ScrewAttackWallJump ||
-         (player.GetMorphballTransitionState() == CPlayer::kMS_Morphing &&
-          player.GetSpawnedMorphballState() == CPlayer::kMS_Morphed);
+  if (player.GetMorphBall()->GetBallState() == CMorphBall::kBS_ScrewAttack ||
+      player.GetMorphBall()->GetBallState() == CMorphBall::kBS_ScrewAttackWallJump ||
+      (player.GetMorphballTransitionState() == CPlayer::kMS_Morphing &&
+       player.GetSpawnedMorphballState() == CPlayer::kMS_Morphed)) {
+    return true;
+  }
+  return false;
 }
 
 void CCameraManager::SetPlayerCamera(CStateManager& mgr, TUniqueId uid) {
@@ -468,12 +481,14 @@ void CCameraManager::SetPlayerCamera(CStateManager& mgr, TUniqueId uid) {
   if (camera && camera->GetActive()) {
     SetCurrentCameraId(uid, mgr);
   } else {
-    const CPlayer::EPlayerMorphBallState state =
-        mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState();
-    if (state == CPlayer::kMS_Unmorphing || state == CPlayer::kMS_Unmorphed) {
+    switch (mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState()) {
+    case CPlayer::kMS_Unmorphing:
+    case CPlayer::kMS_Unmorphed:
       SetCurrentCameraId(mFpCamera->GetUniqueId(), mgr);
-    } else {
+      break;
+    default:
       SetCurrentCameraId(mBallCamera->GetUniqueId(), mgr);
+      break;
     }
   }
   UpdateCameraTriggers(GetCurrentCameraId(false), mgr);
@@ -495,14 +510,15 @@ void CCameraManager::SetupInterpolation(const CTransform4f& xf, TUniqueId from, 
 void CCameraManager::CinematicCut(CStateManager& mgr) {
   if (IsInCinematicCamera()) {
     mBallCamera->TeleportCamera(mCinematicCamera->GetTransform(), mgr);
-    mBallCamera->InterpolateFOV(mCinematicCamera->GetFov(), 1.f, 0.f, mBallCamera->GetUniqueId(),
-                                mgr);
+    const CCinematicCamera* cine = mCinematicCamera;
+    mBallCamera->InterpolateFOV(cine->GetFov(), 1.f, 0.f, mBallCamera->GetUniqueId(), mgr);
     StopCinematics(mgr);
   }
 }
 
 void CCameraManager::SetPathCamera(TUniqueId uid, CStateManager& mgr) {
-  if (mPathCamera && (!mPathCamera->GetActive() || mPathCamera->GetScriptCameraId() != uid)) {
+  if (mPathCamera && (!mPathCamera->GetActive() ||
+                      (mPathCamera->GetActive() && mPathCamera->GetScriptCameraId() != uid))) {
     if (TCastToConstPtr< CScriptPathCamera >(mgr.GetObjectById(uid))) {
       mPathCamera->SetActive(true);
       mPathCamera->SetScriptCameraId(uid);
@@ -518,7 +534,7 @@ void CCameraManager::ClearPathCamera() {
 }
 
 void CCameraManager::SetSpindleCamera(TUniqueId uid, CStateManager& mgr) {
-  if (!mSpindleCamera->GetActive() || mSpindleCamera->GetScriptCameraId() != uid) {
+  if (!mSpindleCamera->GetActive() || (mSpindleCamera->GetActive() && mSpindleCamera->GetScriptCameraId() != uid)) {
     if (TCastToPtr< CScriptSpindleCamera >(mgr.ObjectById(uid))) {
       mSpindleCamera->SetActive(true);
       mSpindleCamera->SetScriptCameraId(uid);
@@ -534,7 +550,7 @@ void CCameraManager::ClearSpindleCamera() {
 }
 
 void CCameraManager::SetFixedCamera(TUniqueId uid, const CTransform4f& xf, CStateManager& mgr) {
-  if (!mFixedCamera->GetActive() || mFixedCamera->GetScriptCameraId() != uid) {
+  if (!mFixedCamera->GetActive() || (mFixedCamera->GetActive() && mFixedCamera->GetScriptCameraId() != uid)) {
     mFixedCamera->SetActive(true);
     mFixedCamera->SetScriptCameraId(uid);
     mFixedCamera->Reset(xf, mgr);
@@ -546,7 +562,8 @@ void CCameraManager::ClearFixedCamera() { mFixedCamera->SetActive(false); }
 
 void CCameraManager::SetSurfaceCamera(TUniqueId uid, CStateManager& mgr) {
   if (mSurfaceCamera &&
-      (!mSurfaceCamera->GetActive() || mSurfaceCamera->GetScriptCameraId() != uid)) {
+      (!mSurfaceCamera->GetActive() ||
+       (mSurfaceCamera->GetActive() && mSurfaceCamera->GetScriptCameraId() != uid))) {
     if (TCastToConstPtr< CScriptSurfaceCamera >(mgr.GetObjectById(uid))) {
       mSurfaceCamera->SetActive(true);
       mSurfaceCamera->SetScriptCameraId(uid);
@@ -572,13 +589,13 @@ void CCameraManager::AddCamera(TUniqueId uid, CStateManager& mgr) {
   if (!TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid))) {
     return;
   }
-  for (rstl::vector< TUniqueId >::const_iterator it = mCameras.begin(); it != mCameras.end();
-       ++it) {
-    if (*it == uid) {
-      return;
+  rstl::vector< TUniqueId >::iterator it = rstl::find(mCameras.begin(), mCameras.end(), uid);
+  if (it == mCameras.end()) {
+    if (mCameras.size() == mCameras.capacity()) {
+      mCameras.reserve(mCameras.size() + 1);
     }
+    mCameras.push_back_unsafe(uid);
   }
-  mCameras.insert(mCameras.end(), uid);
 }
 
 void CCameraManager::SCameraHistory::Push(const CTransform4f& xf) {
@@ -623,15 +640,16 @@ void CCameraManager::Reset(TUniqueId uid, CStateManager& mgr) {
   mCameraHintManager->Reset(mgr);
   mCameraShakeManager->Reset();
   SetCinematicCameraId(mgr, kInvalidUniqueId);
-  mFirstPersonFov = 55.f;
-  SetAspectRatio(GetDefaultAspectRatio(), mgr);
+  mFirstPersonFov = sFirstPersonFOV;
+  SetAspectRatio(1.42f, mgr);
   if (TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid))) {
     SetCurrentCameraId(uid, mgr);
   } else {
     SetCurrentCameraId(mFpCamera->GetUniqueId(), mgr);
   }
+  CCameraFilterPass& filter = mgr.CameraFilterPass(mPlayerIndex, 4);
   mFog.DisableFog();
-  mgr.CameraFilterPass(mPlayerIndex, 4).DisableFilter(0.f);
+  filter.DisableFilter(0.f);
   mInWater = false;
   CSfxManager::RemoveLowPassFilter(mFluidFilterHandle);
   mFluidFilterHandle = 0;
@@ -657,14 +675,11 @@ rstl::optional_object< CTransform4f > CCameraManager::SCameraHistory::Last() con
 }
 
 const CTransform4f& CCameraManager::GetLastCameraTransform() const {
-  // Return stable history storage; the target appears to return a destroyed optional's payload.
-  if (mCameraHistory.Size() == 0) {
-    return CTransform4f::Identity();
+  // The original returns a reference into a destroyed temporary optional.
+  if (mCameraHistory.Size() != 0 && mCameraHistory.Last().valid()) {
+    return mCameraHistory.Last().data();
   }
-  const CTransform4f* last = mCameraHistory.mEnd == mCameraHistory.mTransforms.begin()
-                                 ? mCameraHistory.mTransforms.end()
-                                 : mCameraHistory.mEnd;
-  return *--last;
+  return CTransform4f::Identity();
 }
 
 void CCameraManager::TransferCameraState(CGameCamera& from, CGameCamera& to, CStateManager& mgr) {

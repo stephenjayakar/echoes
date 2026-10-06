@@ -26,7 +26,7 @@ public:
   virtual void Fire(const CTransform4f& xf, CStateManager& mgr, bool flag) = 0;
 
   void SetMaxLength(float length);
-  void CauseDamage(bool damage) { mEnableTouchDamage = damage; }
+  void CauseDamage(const bool damage) { mEnableTouchDamage = damage; }
   EDamageType GetDamageType() const { return mDamageType; }
   const CVector3f& GetCurrentPos() const { return mCollisionPoint; }
   const CVector3f& GetSurfaceNormal() const { return mCollisionNormal; }

@@ -78,7 +78,7 @@ CWorldTransManager::CWorldTransManager()
 , mPanning(64)
 , mTransType(kTT_Disabled)
 , mTextStartTime(0.f)
-, mAudioStream(rstl::string_l(""))
+, mAudioStream()
 , mTextElapsedTime(0.f)
 , mIntroTextFadeTimer(0.f)
 , mPortalFade(0.f)
@@ -377,8 +377,6 @@ void CWorldTransManager::UpdateLights(float dt) {
     return;
   }
 
-  rstl::vector< CLight >& lights = mModelData->mLights;
-  lights.clear();
   CColor pointColor = CColor::White();
   CColor movingColor = CColor::White();
   if (mLongShaft) {
@@ -389,6 +387,8 @@ void CWorldTransManager::UpdateLights(float dt) {
     movingColor = sDarkMovingLightColor;
   }
 
+  rstl::vector< CLight >& lights = mModelData->mLights;
+  lights.clear();
   const CVector3f lightPos(0.f, 1.2f, 0.f);
   CLight light = CLight::BuildPoint(lightPos, pointColor);
   light.SetAttenuation(0.f, 0.f, 0.1f);
@@ -398,22 +398,22 @@ void CWorldTransManager::UpdateLights(float dt) {
 
   float intensity = 1.f;
   if (!mGoingUp && mLightHeight - mLightOffset < 2.f) {
-    intensity = (mLightHeight - mLightOffset) * 0.5f;
+    intensity = (mLightHeight - mLightOffset) / 2.f;
   } else if (mGoingUp && mLightOffset < 2.f) {
-    intensity = mLightOffset * 0.5f;
+    intensity = mLightOffset / 2.f;
   }
   if (intensity < 1.f) {
     CLight wrappedLight = light;
     wrappedLight.SetPosition(lightPos +
                              CVector3f(0.f, 0.f, mGoingUp ? mLightHeight : -mLightHeight));
     wrappedLight.SetColor(CColor::Lerp(CColor::Black(), pointColor, 1.f - intensity));
-    lights.push_back(wrappedLight);
+    lights.push_back_unsafe(wrappedLight);
     movingLight.SetColor(CColor::Lerp(CColor::Black(), movingColor, intensity));
   }
-  lights.push_back(movingLight);
+  lights.push_back_unsafe(movingLight);
   movingLight.SetPosition(
       CVector3f(movingLight.GetPosition().GetX(), -1.2f, movingLight.GetPosition().GetZ()));
-  lights.push_back(movingLight);
+  lights.push_back_unsafe(movingLight);
 }
 
 float CWorldTransManager::GetCameraFov(int pass) const {
@@ -434,10 +434,12 @@ CTransform4f CWorldTransManager::GetCameraTransform(int pass) const {
       const float rotationT = CMath::Clamp(0.f, mCurTime / 25.f, 100.f);
       const float translationT = CMath::Clamp(0.f, mCurTime / 10.f, 1.f);
       const CRelAngle angle = CRelAngle::FromDegrees(360.f * rotationT + 180.f - 90.f);
-      return CTransform4f::RotateZ(angle) *
-             CTransform4f::Translate(mModelData->mShakeResult.GetX(),
-                                     -3.5f * (1.f - translationT) - 3.5f,
-                                     2.f + mModelData->mShakeResult.GetY());
+      const CTransform4f xf =
+          CTransform4f::RotateZ(angle) *
+          CTransform4f::Translate(mModelData->mShakeResult.GetX(),
+                                  -3.5f * (1.f - translationT) + -3.5f,
+                                  mModelData->mShakeResult.GetY() + 2.f);
+      return xf;
     }
     spline = &*mFirstPassCamera;
     time = mCurTime;
@@ -447,16 +449,20 @@ CTransform4f CWorldTransManager::GetCameraTransform(int pass) const {
           CMath::Clamp(0.f, (4.f + (mCurTime - mModelData->mDissolveStartTime)) / 5.f, 1.f);
       const CRelAngle angle = CRelAngle::FromDegrees(48.f * t + 180.f - 24.f);
       const CVector3f& scale = mModelData->mSamusRes.GetScale();
-      return CTransform4f::RotateZ(angle) * CTransform4f::Translate(-0.1f * scale.GetX(),
-                                                                    -0.5f * scale.GetY(),
-                                                                    1.5f * scale.GetZ());
+      const CTransform4f xf =
+          CTransform4f::RotateZ(angle) *
+          CTransform4f::Translate(
+              CVector3f(-0.1f * scale.GetX(), -0.5f * scale.GetY(), 1.5f * scale.GetZ()));
+      return xf;
     }
     spline = &*mSecondPassCamera;
     time = mCurTime - mModelData->mDissolveStartTime;
   }
 
-  const CVector3f position = mCameraTransform * spline->GetPositionByTime(time);
-  const CVector3f lookAt = mCameraTransform * spline->GetLookAtByTime(time);
+  CVector3f position = spline->GetPositionByTime(time);
+  CVector3f lookAt = spline->GetLookAtByTime(time);
+  position = mCameraTransform * position;
+  lookAt = mCameraTransform * lookAt;
   return CTransform4f::LookAt(position, lookAt, CVector3f::Up());
 }
 
@@ -525,13 +531,14 @@ void CWorldTransManager::DrawSecondPass() const {
 }
 
 void CWorldTransManager::DrawEnabled() const {
-  if (mModelData.null()) {
+  const SModelDatas* data = mModelData.get();
+  if (data == nullptr) {
     return;
   }
   gpRender->SetRequestRGBA6(true);
-  if (mCurTime <= mModelData->mDissolveStartTime) {
+  if (mCurTime <= data->mDissolveStartTime) {
     DrawFirstPass();
-  } else if (mCurTime > mModelData->mDissolveStartTime) {
+  } else if (mCurTime > data->mDissolveStartTime) {
     DrawSecondPass();
   }
   CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Multiply, CCameraFilterPass::kFS_CinemaBars,
@@ -546,8 +553,9 @@ void CWorldTransManager::DrawEnabled() const {
     alpha = 1.f - (mModelData->mTransCompleteTime - mCurTime) / 0.25f;
   }
   if (alpha > 0.f) {
+    const CColor color(0.f, 0.f, 0.f, alpha);
     CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen,
-                                  CColor(0.f, 0.f, 0.f, alpha), nullptr, 1.f);
+                                  color, nullptr, 1.f);
   }
   CGraphics::SetIsBeginSceneClearFb(true);
 }

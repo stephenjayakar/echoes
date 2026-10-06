@@ -132,8 +132,8 @@ void CInGameQuitScreen::FinishedLoading() {
   SChoice quitChoice(mReadyFrame->FindWidget("model_quit_left"),
                      mReadyFrame->FindWidget("model_quit_right"), mQuitChoiceText);
   quitChoice.mOptions.reserve(2);
-  quitChoice.mOptions.push_back(rstl::wstring(gpStringTable->GetString("No")));
-  quitChoice.mOptions.push_back(rstl::wstring(gpStringTable->GetString("Yes")));
+  quitChoice.mOptions.push_back_unsafe(rstl::wstring(gpStringTable->GetString("No")));
+  quitChoice.mOptions.push_back_unsafe(rstl::wstring(gpStringTable->GetString("Yes")));
   mChoices.push_back(quitChoice);
 
   mMusicChoiceText = static_cast< CGuiTextPane* >(mReadyFrame->FindWidget("textpane_song_choice"));
@@ -152,14 +152,14 @@ void CInGameQuitScreen::FinishedLoading() {
     const CEnvironmentVariable* variable = gpGameState->SystemOptions().FindEnvironmentVariable(
         CBasics::Stringize("UnlockMusic%d", track));
     if (variable != nullptr) {
-      unlocked = variable->GetMaximum() == variable->GetValue();
+      unlocked = variable->GetValue() == variable->GetMaximum();
     }
     if (unlocked) {
       if (track == currentTrack) {
         musicChoice.mSelection = musicChoice.mOptions.size();
         mPreviousMusicSelection = musicChoice.mOptions.size();
       }
-      musicChoice.mOptions.push_back(
+      musicChoice.mOptions.push_back_unsafe(
           rstl::wstring(gpStringTable->GetString(CBasics::Stringize("MusicSelection%d", track))));
     }
   }
@@ -170,23 +170,22 @@ void CInGameQuitScreen::FinishedLoading() {
 }
 
 void CInGameQuitScreen::SetColors() {
-  const CColor selected(0xc8c8c8ff);
-  const CColor unselected(0x323232ff);
+  const CColor selected(uchar(200), uchar(200), uchar(200), uchar(255));
+  const CColor unselected(uchar(50), uchar(50), uchar(50), uchar(255));
+  const int selection = mChoiceTable->GetUserSelection();
   for (int i = 0; i < 2; ++i) {
-    mChoiceTable->GetWorkerWidget(i)->SetColor(i == mChoiceTable->GetUserSelection() ? selected
-                                                                                     : unselected);
+    CGuiWidget* widget = mChoiceTable->GetWorkerWidget(i);
+    widget->SetColor(i == selection ? selected : unselected);
   }
 }
 
 void CInGameQuitScreen::UpdateChoiceText() {
-  const CColor enabled(0xffffffff);
-  const CColor disabled(0x323232ff);
-  for (int i = 0; i < mChoices.size(); ++i) {
-    SChoice& choice = mChoices[i];
-    choice.mLeftArrow->SetColor(choice.mSelection == 0 ? disabled : enabled);
-    choice.mRightArrow->SetColor(choice.mSelection == choice.mOptions.size() - 1 ? disabled
-                                                                                 : enabled);
-    choice.mTextPane->TextSupport().SetText(choice.mOptions[choice.mSelection], false);
+  const CColor enabled(uchar(255), uchar(255), uchar(255), uchar(255));
+  const CColor disabled(uchar(50), uchar(50), uchar(50), uchar(255));
+  for (rstl::reserved_vector< SChoice, 2 >::iterator it = mChoices.begin(); it != mChoices.end(); ++it) {
+    it->mLeftArrow->SetColor(it->mSelection == 0 ? disabled : enabled);
+    it->mRightArrow->SetColor(it->mSelection == it->mOptions.size() - 1 ? disabled : enabled);
+    it->mTextPane->TextSupport().SetText(it->mOptions[it->mSelection], false);
   }
 }
 
