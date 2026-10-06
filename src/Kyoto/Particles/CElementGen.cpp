@@ -1004,14 +1004,16 @@ void CElementGen::Render() {
   CStopwatch stopwatch;
   mBackupLightActive = CGraphics::GetLightMask();
   CGraphics::DisableAllLights();
-  for (int i = 0; i < mActivePartChildren.size(); ++i) {
-    if (mActivePartChildren[i]->ShouldDraw()) {
-      mActivePartChildren[i]->Render();
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+       it != mActivePartChildren.end(); ++it) {
+    CParticleGen* child = *it;
+    if (child->ShouldDraw()) {
+      child->Render();
     }
   }
 
   CParticleGlobals::SParticleSystem system('PART', this);
-  if (!mParticles.empty() && ShouldDraw()) {
+  if (mParticles.size() > 0 && ShouldDraw()) {
     if (mLoadedGenDesc->mPMDL || mLoadedGenDesc->mPMUS) {
       RenderModels();
     }
