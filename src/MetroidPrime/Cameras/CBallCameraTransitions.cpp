@@ -15,10 +15,11 @@
 #include "MetroidPrime/TCastTo.hpp"
 
 namespace {
-const CMaterialList skTransitionInclude(kMT_Unknown59);
-const CMaterialFilter skTransitionFilter = CMaterialFilter::MakeIncludeExclude(
-    skTransitionInclude,
-    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough));
+const CMaterialList skTransitionInclude = CMaterialList(kMT_Unknown59);
+const CMaterialList skTransitionExclude =
+    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough);
+const CMaterialFilter skTransitionFilter =
+    CMaterialFilter::MakeIncludeExclude(skTransitionInclude, skTransitionExclude);
 } // namespace
 
 bool CBallCamera::CheckFailsafeFromMorphBallState(CStateManager& mgr) {
