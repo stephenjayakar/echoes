@@ -194,14 +194,14 @@ void CFluidPlaneCPU::RenderDistortion(float time, const CTransform4f& xf,
   rstl::vector< CVector3f > polygon;
   polygon.reserve(4);
   const CVector3f position = xf.GetTranslation();
-  const float surfaceZ = bounds.GetMaxPoint().GetZ() - (0.5f * bounds.GetDepth() - position.GetZ());
-  polygon.push_back(CVector3f(bounds.GetMinPoint().GetX() + position.GetX(),
+  const float surfaceZ = bounds.GetMaxPoint().GetZ() + (position.GetZ() - 0.5f * bounds.GetDepth());
+  polygon.push_back_unsafe(CVector3f(bounds.GetMinPoint().GetX() + position.GetX(),
                               bounds.GetMaxPoint().GetY() + position.GetY(), surfaceZ));
-  polygon.push_back(CVector3f(bounds.GetMaxPoint().GetX() + position.GetX(),
+  polygon.push_back_unsafe(CVector3f(bounds.GetMaxPoint().GetX() + position.GetX(),
                               bounds.GetMaxPoint().GetY() + position.GetY(), surfaceZ));
-  polygon.push_back(CVector3f(bounds.GetMaxPoint().GetX() + position.GetX(),
+  polygon.push_back_unsafe(CVector3f(bounds.GetMaxPoint().GetX() + position.GetX(),
                               bounds.GetMinPoint().GetY() + position.GetY(), surfaceZ));
-  polygon.push_back(CVector3f(bounds.GetMinPoint().GetX() + position.GetX(),
+  polygon.push_back_unsafe(CVector3f(bounds.GetMinPoint().GetX() + position.GetX(),
                               bounds.GetMinPoint().GetY() + position.GetY(), surfaceZ));
   rstl::vector< CVector3f > clipped;
   clipped.reserve(6);
@@ -224,11 +224,13 @@ void CFluidPlaneCPU::RenderDistortion(float time, const CTransform4f& xf,
   CGX::SetTevIndirect(GX_TEVSTAGE0, GX_INDTEXSTAGE0, GX_ITF_8, GX_ITB_STU, GX_ITM_0, GX_ITW_OFF,
                       GX_ITW_OFF, GX_FALSE, GX_FALSE, GX_ITBA_OFF);
 
-  float strength = 0.f;
+  float strength;
   const float distance = CMath::AbsF(CGraphics::GetViewPoint().GetZ() - xf.GetTranslation().GetZ());
   if (distance < 15.f) {
     const float angle = M_PIF / 2.f * (distance / 15.f);
     strength = 0.03f * (CMath::FastCosR(angle) * CMath::FastCosR(angle));
+  } else {
+    strength = 0.f;
   }
   float indMtx[2][3] = {};
   indMtx[0][0] = strength;
@@ -248,7 +250,7 @@ void CFluidPlaneCPU::RenderDistortion(float time, const CTransform4f& xf,
   CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
   GXSetCullMode(GX_CULL_NONE);
   gpRender->SetModelMatrix(CTransform4f::Identity());
-  if (clipped.size() > 2) {
+  if (clipped.size() >= 3) {
     CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, clipped.size());
     for (rstl::vector< CVector3f >::const_iterator it = clipped.begin(); it != clipped.end();
          ++it) {
@@ -280,12 +282,12 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
   const float uvTime = mgr.GetFluidPlaneManager()->GetUVTime();
   const bool hasLightmap = HasLightMap();
   bool hasDoubleLightmap = false;
-  const int envMapType =
+  const bool envMapType =
       mgr.GetCurrentRenderCameraManager()->GetCurrentCamera(mgr, true)->GetFluidCount() != 0
-          ? 0
+          ? false
           : HasEnvMap();
   const CAABox transformed =
-      CAABox(CVector3f::Zero(), CVector3f(1.f, 1.f, 1.f)).GetTransformedAABox(xf);
+      CAABox(CVector3f::Zero(), CVector3f::One()).GetTransformedAABox(xf);
   const float width = transformed.GetWidth();
   const float height = transformed.GetHeight();
   gpRender->SetModelMatrix(xf);
@@ -329,16 +331,29 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
     lightChannel = GX_COLOR_NULL;
   }
 
-  GXTexMapID texMapIds[8];
-  GXTexCoordID texCoordIds[8];
+  GXTexMapID texMapIds[7];
+  GXTexCoordID texCoordIds[7];
   const CTexture& zeroTexture = CCubeRenderer::That()->GetBlackTexture();
-  (mColorWarpMap.valid() ? **mColorWarpMap : &zeroTexture)->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-  texMapIds[1] = GX_TEXMAP0;
-  (HasGlossMap() ? **mGlossMap : &zeroTexture)->Load(GX_TEXMAP1, CTexture::kCM_Repeat);
-  texMapIds[2] = GX_TEXMAP1;
-  (mColorMap.valid() ? **mColorMap : &zeroTexture)->Load(GX_TEXMAP2, CTexture::kCM_Repeat);
-  texMapIds[0] = GX_TEXMAP2;
-  int nextTexMap = 3;
+  int nextTexMap = 0;
+  int nextCoord = 0;
+  if (mColorWarpMap.valid()) {
+    (*mColorWarpMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  } else {
+    zeroTexture.Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  }
+  texMapIds[1] = static_cast< GXTexMapID >(nextTexMap++);
+  if (HasGlossMap()) {
+    (*mGlossMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  } else {
+    zeroTexture.Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  }
+  texMapIds[2] = static_cast< GXTexMapID >(nextTexMap++);
+  if (mColorMap.valid()) {
+    (*mColorMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  } else {
+    zeroTexture.Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+  }
+  texMapIds[0] = static_cast< GXTexMapID >(nextTexMap++);
   if (envMapType != 0) {
     texMapIds[6] = static_cast< GXTexMapID >(nextTexMap);
     (*mEnvMap)->Load(static_cast< GXTexMapID >(nextTexMap++), CTexture::kCM_Repeat);
@@ -352,7 +367,7 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
   glossMtx1[0][3] = uvOffsets[2][0];
   glossMtx1[1][1] = height * glossScale1;
   glossMtx1[1][3] = uvOffsets[2][1];
-  texCoordIds[2] = GX_TEXCOORD0;
+  texCoordIds[2] = static_cast< GXTexCoordID >(nextCoord++);
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_POS, GX_TEXMTX0, GX_FALSE, GX_PTIDENTITY);
   GXLoadTexMtxImm(glossMtx1, GX_TEXMTX0, GX_MTX2x4);
 
@@ -362,7 +377,7 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
   glossMtx2[0][3] = uvOffsets[3][0];
   glossMtx2[1][1] = glossScale2 * height;
   glossMtx2[1][3] = uvOffsets[3][1];
-  texCoordIds[3] = GX_TEXCOORD1;
+  texCoordIds[3] = static_cast< GXTexCoordID >(nextCoord++);
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_POS, static_cast< GXTexMtx >(32), GX_FALSE,
                       GX_PTIDENTITY);
   GXLoadTexMtxImm(glossMtx2, 32, GX_MTX2x4);
@@ -373,7 +388,7 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
   colorMtx[0][3] = uvOffsets[0][0];
   colorMtx[1][1] = colorScale * height;
   colorMtx[1][3] = uvOffsets[0][1];
-  texCoordIds[0] = GX_TEXCOORD2;
+  texCoordIds[0] = static_cast< GXTexCoordID >(nextCoord++);
   CGX::SetTexCoordGen(GX_TEXCOORD2, GX_TG_MTX2x4, GX_TG_POS, static_cast< GXTexMtx >(34), GX_FALSE,
                       GX_PTIDENTITY);
   GXLoadTexMtxImm(colorMtx, 34, GX_MTX2x4);
@@ -384,11 +399,10 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
   warpMtx[0][3] = uvOffsets[1][0];
   warpMtx[1][1] = warpScale * height;
   warpMtx[1][3] = uvOffsets[1][1];
-  texCoordIds[1] = GX_TEXCOORD3;
+  texCoordIds[1] = static_cast< GXTexCoordID >(nextCoord++);
   CGX::SetTexCoordGen(GX_TEXCOORD3, GX_TG_MTX2x4, GX_TG_POS, static_cast< GXTexMtx >(36), GX_FALSE,
                       GX_PTIDENTITY);
   GXLoadTexMtxImm(warpMtx, 36, GX_MTX2x4);
-  int nextCoord = 4;
   uint texMtx = 38;
   const float indMtx[2][3] = {{0.25f, 0.f, 0.f}, {0.f, 0.25f, 0.f}};
   GXSetIndTexMtx(GX_ITM_0, indMtx, 1);
@@ -415,7 +429,7 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
         mgr.GetWorld()->GetArea(mgr.GetNextAreaId())->GetPostConstructed()->mWorldLightingLevel;
     const CScriptWater* nextWater = water->GetNextConnectedWater(mgr);
     if (close_enough(water->GetMorphFactor(), 0.f) || nextWater == nullptr ||
-        !nextWater->GetFluidPlane().HasLightMap()) {
+        (nextWater != nullptr && !nextWater->GetFluidPlane().HasLightMap())) {
       texMapIds[4] = static_cast< GXTexMapID >(nextTexMap);
       (*mLightMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
       CalculateLightmapMtx(areaXf, xf, bounds, texMtx, mUVScale, mUVOffset);
@@ -423,11 +437,13 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
       CGX::SetTexCoordGen(static_cast< GXTexCoordID >(nextCoord++), GX_TG_MTX2x4, GX_TG_POS,
                           static_cast< GXTexMtx >(texMtx), GX_FALSE, GX_PTIDENTITY);
     } else if (nextWater != nullptr && nextWater->GetFluidPlane().HasLightMap()) {
-      const CFluidPlaneCPU& next = nextWater->GetFluidPlane();
-      if (close_enough(water->GetMorphFactor(), 1.f) || mLightMapId == next.mLightMapId) {
+      if (close_enough(water->GetMorphFactor(), 1.f) ||
+          mLightMapId == nextWater->GetFluidPlane().mLightMapId) {
         texMapIds[4] = static_cast< GXTexMapID >(nextTexMap);
-        (*next.mLightMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
-        next.CalculateLightmapMtx(areaXf, xf, bounds, texMtx, mUVScale, mUVOffset);
+        (*nextWater->GetFluidPlane().mLightMap)
+            ->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+        nextWater->GetFluidPlane().CalculateLightmapMtx(areaXf, xf, bounds, texMtx, mUVScale,
+                                                        mUVOffset);
         texCoordIds[4] = static_cast< GXTexCoordID >(nextCoord);
         CGX::SetTexCoordGen(static_cast< GXTexCoordID >(nextCoord++), GX_TG_MTX2x4, GX_TG_POS,
                             static_cast< GXTexMtx >(texMtx), GX_FALSE, GX_PTIDENTITY);
@@ -439,8 +455,10 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
         CGX::SetTexCoordGen(static_cast< GXTexCoordID >(nextCoord++), GX_TG_MTX2x4, GX_TG_POS,
                             static_cast< GXTexMtx >(texMtx), GX_FALSE, GX_PTIDENTITY);
         texMapIds[5] = static_cast< GXTexMapID >(nextTexMap);
-        (*next.mLightMap)->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
-        next.CalculateLightmapMtx(areaXf, xf, bounds, texMtx + 2, mUVScale, mUVOffset);
+        (*nextWater->GetFluidPlane().mLightMap)
+            ->Load(static_cast< GXTexMapID >(nextTexMap), CTexture::kCM_Repeat);
+        nextWater->GetFluidPlane().CalculateLightmapMtx(areaXf, xf, bounds, texMtx + 2, mUVScale,
+                                                        mUVOffset);
         texCoordIds[5] = static_cast< GXTexCoordID >(nextCoord);
         CGX::SetTexCoordGen(static_cast< GXTexCoordID >(nextCoord++), GX_TG_MTX2x4, GX_TG_POS,
                             static_cast< GXTexMtx >(texMtx + 2), GX_FALSE, GX_PTIDENTITY);
@@ -450,14 +468,18 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
         hasDoubleLightmap = true;
       }
     }
-    const float light = lightmapAlpha * darkLevel;
-    CGX::SetTevKColor(GX_KCOLOR2, CColor(light, light, light, 1.f).GetGXColor());
+    lightmapAlpha *= darkLevel;
+    CGX::SetTevKColor(GX_KCOLOR2,
+                      CColor(lightmapAlpha, lightmapAlpha, lightmapAlpha, 1.f).GetGXColor());
   }
 
-  const CVector3f normal = xf.TransposeRotate(CVector3f::Up());
+  const CVector3f normal = xf.TransposeRotate(CVector3f(0.f, 0.f, 1.f));
   const CVector3f forward =
-      CGraphics::GetViewMatrix().GetQuickInverse().TransposeRotate(CVector3f::Forward());
-  const float viewDot = CMath::AbsF(CVector3f::Dot(normal, forward));
+      CGraphics::GetViewMatrix().GetQuickInverse().TransposeRotate(CVector3f(0.f, 1.f, 0.f));
+  float viewDot = CVector3f::Dot(normal, forward);
+  if (viewDot < 0.f) {
+    viewDot = -viewDot;
+  }
   const float gloss = (1.f - viewDot) * (mGlossAngle - mGlossFlat) + mGlossFlat;
   CGX::SetTevKColor(GX_KCOLOR0,
                     CColor(gloss, gloss, gloss, envMapType == 2 ? 1.f : alpha).GetGXColor());
@@ -503,14 +525,15 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
                      GX_COLOR_NULL);
     CGX::SetTevColorIn(static_cast< GXTevStageID >(stage), GX_CC_ZERO, GX_CC_TEXC, GX_CC_KONST,
                        GX_CC_ZERO);
-    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage++), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
+    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
                        GX_TRUE, GX_TEVPREV);
-    CGX::SetTevOrder(static_cast< GXTevStageID >(stage), texCoordIds[3], texMapIds[2],
+    CGX::SetTevOrder(static_cast< GXTevStageID >(++stage), texCoordIds[3], texMapIds[2],
                      GX_COLOR_NULL);
     CGX::SetTevColorIn(static_cast< GXTevStageID >(stage), GX_CC_ZERO, GX_CC_TEXC, GX_CC_CPREV,
-                       envMapType == 0 && HasColorMap() ? GX_CC_C1 : GX_CC_ZERO);
-    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage++), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2,
+                       envMapType != 0 ? GX_CC_ZERO : HasColorMap() ? GX_CC_C1 : GX_CC_ZERO);
+    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2,
                        GX_TRUE, GX_TEVPREV);
+    ++stage;
   }
   if (envMapType != 0) {
     CGX::SetTevOrder(static_cast< GXTevStageID >(stage), texCoordIds[6], texMapIds[6],
@@ -518,8 +541,9 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
     const GXTevColorArg color = HasColorMap() ? GX_CC_C1 : GX_CC_ZERO;
     CGX::SetTevColorIn(static_cast< GXTevStageID >(stage), GX_CC_ZERO, GX_CC_TEXC,
                        HasGlossMap() ? GX_CC_CPREV : GX_CC_ONE, color);
-    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage++), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
+    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
                        GX_TRUE, GX_TEVPREV);
+    ++stage;
   }
   if (hasLightmap) {
     CGX::SetTevOrder(static_cast< GXTevStageID >(stage), GX_TEXCOORD_NULL, GX_TEXMAP_NULL,
@@ -528,8 +552,9 @@ void CFluidPlaneCPU::RenderSetup(const CStateManager& mgr, float alpha, const CT
                                 : HasColorMap()                  ? GX_CC_C1
                                                                  : GX_CC_ONE;
     CGX::SetTevColorIn(static_cast< GXTevStageID >(stage), GX_CC_ZERO, color, GX_CC_C2, GX_CC_ZERO);
-    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage++), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
+    CGX::SetTevColorOp(static_cast< GXTevStageID >(stage), GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1,
                        GX_TRUE, GX_TEVPREV);
+    ++stage;
   }
   CGX::SetNumTevStages(stage);
   const GXTevStageID last = static_cast< GXTevStageID >(stage - 1);

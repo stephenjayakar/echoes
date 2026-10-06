@@ -925,7 +925,7 @@ MetroidPrime/Weapons/CBeamProjectile.cpp:
 
 MetroidPrime/CFluidPlaneCPU.cpp:
 	.text       start:0x80131DF8 end:0x801344A8
-	.rodata     start:0x803A9090 end:0x803A9170
+	.rodata     start:0x803A9090 end:0x803A9178
 	.data       start:0x803B5028 end:0x803B5040
 
 MetroidPrime/ScriptObjects/CScriptRoomAcoustics.cpp:
