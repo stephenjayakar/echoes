@@ -27,7 +27,7 @@ static const CMaterialFilter kPathLineOfSightFilter = CMaterialFilter::MakeInclu
 
 CPathCamera::CPathCamera(TUniqueId uid, const CTransform4f& xf, bool active, int index,
                          int controllerIdx)
-: CGameCamera(uid, rstl::string("Path Camera"),
+: CGameCamera(uid, rstl::string_l("Path Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, active), xf,
               CCameraManager::GetDefaultThirdPersonVerticalFOV(),
               CCameraManager::GetDefaultFirstPersonNearClipDistance(),

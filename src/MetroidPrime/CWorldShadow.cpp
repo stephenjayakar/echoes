@@ -32,8 +32,13 @@ CWorldShadow::~CWorldShadow() {
 bool CWorldShadow::CanRender(const CStateManager& mgr) {
   if (mgr.IsMultiplayer())
     return false;
-  return !mgr.GetIsDarkWorld() &&
-         mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Combat;
+  if (!mgr.GetIsDarkWorld()) {
+    switch (mgr.GetPlayerState()->GetActiveVisor(mgr)) {
+    case CPlayerState::kPV_Combat:
+      return true;
+    }
+  }
+  return false;
 }
 
 void CWorldShadow::BuildLightShadowTexture(const CStateManager& mgr, TAreaId areaId,

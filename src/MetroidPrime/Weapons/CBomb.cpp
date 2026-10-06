@@ -78,13 +78,16 @@ void CBomb::Explode(CStateManager& mgr, const rstl::optional_object< CVector3f >
 }
 
 void CBomb::Touch(CActor& actor, CStateManager& mgr) {
-  if (mIsNotDetonated && !mBeingDragged) {
-    if (actor.GetUniqueId() != GetOwnerId() &&
-        mTriggerMaterials.SharesMaterials(actor.GetMaterialList())) {
-      if (CollisionUtil::AABoxSphereIntersection(*actor.GetTouchBounds(),
-                                                 CSphere(GetTranslation(), mTriggerRadius))) {
-        mFuseTime = -1.f;
-        mDisableFuse = false;
+  if (mIsNotDetonated) {
+    switch (mBeingDragged) {
+    case false:
+      if (actor.GetUniqueId() != GetOwnerId() &&
+          mTriggerMaterials.SharesMaterials(actor.GetMaterialList())) {
+        if (CollisionUtil::AABoxSphereIntersection(*actor.GetTouchBounds(),
+                                                   CSphere(GetTranslation(), mTriggerRadius))) {
+          mFuseTime = -1.f;
+          mDisableFuse = false;
+        }
       }
     }
   }
