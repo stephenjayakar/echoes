@@ -319,15 +319,38 @@ CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnim
 
 CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnimTime& time,
                                             const rstl::ncrc_ptr< CAnimTreeNode >& tree) const {
-  // TODO: Search the supplied tree's int POIs and reset the transient cache afterward.
+  const int count = tree->GetInt32POIList(time, sInt32TransientCacheData, 16, 0, 64);
+  for (int i = 0; i < count; ++i) {
+    const CInt32POINode& node = sInt32TransientCacheData[i];
+    if (node.GetPoiType() == kPT_UserEvent && node.GetValue() == type) {
+      const CCharAnimTime result = node.GetTime();
+      for (; i < count; ++i) {
+        sInt32TransientCacheData[i] =
+            CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f), -1, false, 1.f, -1, 0, 0,
+                          rstl::string_l("root"));
+      }
+      return result;
+    }
+    sInt32TransientCacheData[i] = CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f),
+                                                -1, false, 1.f, -1, 0, 0, rstl::string_l("root"));
+  }
   return CCharAnimTime::Infinity();
 }
 
 // Guessed name.
 int CAnimData::CountUserEvents(EUserEventType type, const CCharAnimTime& time,
                                const rstl::ncrc_ptr< CAnimTreeNode >& tree) const {
-  // TODO: Count matching int POIs and reset the transient cache afterward.
-  return 0;
+  const int count = tree->GetInt32POIList(time, sInt32TransientCacheData, 16, 0, 64);
+  int result = 0;
+  for (int i = 0; i < count; ++i) {
+    if (sInt32TransientCacheData[i].GetPoiType() == kPT_UserEvent &&
+        type == sInt32TransientCacheData[i].GetValue()) {
+      ++result;
+    }
+    sInt32TransientCacheData[i] = CInt32POINode(0xffffffff, kPT_EmptyInt32, CCharAnimTime(0.f), -1, false, 1.f, -1, 0, 0,
+                         rstl::string_l("root"));
+  }
+  return result;
 }
 
 rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() const { return mAnimMgr; }
