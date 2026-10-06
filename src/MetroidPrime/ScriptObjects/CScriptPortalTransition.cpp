@@ -170,7 +170,7 @@ CPortalTransition::CPortalTransition(
 
   if (mFirstEffectDescription) {
     mFirstEffect = CElementGen::ConstructChildParticleSystem(
-        *mFirstEffectDescription, mFirstEffectDescription->GetTag().GetType(), 0,
+        *mFirstEffectDescription, mFirstEffectDescription->GetTag().type, 0,
         CElementGen::kOSF_One, false, true, firstEffectTransform.GetTranslation(),
         firstEffectTransform.GetRotation(), CVector3f::Zero(), CTransform4f::Identity(),
         firstEffectScale,
@@ -178,7 +178,7 @@ CPortalTransition::CPortalTransition(
   }
   if (mSecondEffectDescription) {
     mSecondEffect = CElementGen::ConstructChildParticleSystem(
-        *mSecondEffectDescription, mSecondEffectDescription->GetTag().GetType(), 0,
+        *mSecondEffectDescription, mSecondEffectDescription->GetTag().type, 0,
         CElementGen::kOSF_One, false, true, CVector3f::Zero(), CTransform4f::Identity(),
         secondEffectTransform.GetTranslation(), secondEffectTransform.GetRotation(),
         secondEffectScale,
