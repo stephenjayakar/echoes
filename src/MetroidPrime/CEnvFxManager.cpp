@@ -1177,8 +1177,8 @@ void CEnvFxManager::SetupRainTevs() {
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_TEXC);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_RASA, GX_CA_KONST, GX_CA_ZERO);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
-  const GXColor color = CColor(1.f, 1.f, 1.f, 0.15f).GetGXColor();
-  CGX::SetTevKColor(GX_KCOLOR0, color);
+  const CColor color = CColor(1.f, 1.f, 1.f, 0.15f);
+  CGX::SetTevKColor(GX_KCOLOR0, color.GetGXColor());
   (*mTxtrEnvGradient)->Load(GX_TEXMAP0, CTexture::kCM_Clamp);
 }
 
