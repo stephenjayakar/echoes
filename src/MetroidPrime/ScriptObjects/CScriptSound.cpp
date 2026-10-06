@@ -25,7 +25,7 @@
 bool CScriptSound::sFirstInFrame;
 
 static int ScaleByMusicVolume(int volume) {
-  const float musicVolume = float(int(gpGameState->GameOptions().GetMusicVolume()));
+  const float musicVolume = CCast::LtoF(gpGameState->GameOptions().GetMusicVolume());
   CMayaSpline& volumeCurve = gpTweakGame->GetMusicVolumeSpline();
   const float musicScale = volumeCurve.EvaluateAt(musicVolume);
   return CCast::FtoS(float(volume * musicScale) / 127.f);
