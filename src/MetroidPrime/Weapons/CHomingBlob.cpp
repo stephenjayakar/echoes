@@ -190,4 +190,12 @@ rstl::optional_object< CAABox > CHomingBlob::GetTouchBounds() const {
   return rstl::optional_object_null();
 }
 
-void CHomingBlob::Touch(CActor& actor, CStateManager& mgr) {}
+void CHomingBlob::Touch(CActor& actor, CStateManager& mgr) {
+  if (mElapsedTime > x220_) {
+    return;
+  }
+  if (actor.GetUniqueId() == GetOwnerId()) {
+    // Native returns early for the owner; the remaining handling has no effect.
+    return;
+  }
+}
