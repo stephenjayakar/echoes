@@ -1213,7 +1213,7 @@ void CMorphBall::RenderDamageEffects(const CStateManager& mgr,
     CTransform4f modelXf =
         transform * CTransform4f::Translate(CVector3f(randX * translateMag, randY * translateMag,
                                                       randZ * translateMag));
-    mBallModel->RenderSolid(CModelData::kWM_Normal, modelXf, false, flags);
+    mLowPolyBallModel->RenderSolid(CModelData::kWM_Normal, modelXf, false, flags);
   }
 }
 
