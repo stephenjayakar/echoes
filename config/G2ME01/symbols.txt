@@ -720,7 +720,7 @@ SetEffectState__9CAnimDataFRCQ24rstl66basic_string<c,Q24rstl14char_traits<c>,Q24
 GetFirstParticleEffect__9CAnimDataFRCQ24rstl66basic_string<c,Q24rstl14char_traits<c>,Q24rstl17rmemory_allocator> = .text:0x80027948; // type:function size:0x84 align:4
 InitializeEffects__9CAnimDataFR13CStateManager7TAreaIdRC9CVector3f = .text:0x800279CC; // type:function size:0x11C
 fn_80027AE8 = .text:0x80027AE8; // type:function size:0x5C align:4
-fn_80027B44 = .text:0x80027B44; // type:function size:0x24
+Touch__9CAnimDataFRC13CSkinnedModeli = .text:0x80027B44; // type:function size:0x24
 CountUserEventsForAnimation__9CAnimDataCFi14EUserEventType = .text:0x80027B68; // type:function size:0xE0 align:4
 GetAnimationManager__9CAnimDataCFv = .text:0x80027C48; // type:function size:0x24
 CountUserEvents__9CAnimDataCF14EUserEventTypeRC13CCharAnimTimeRCQ24rstl25ncrc_ptr<13CAnimTreeNode> = .text:0x80027C6C; // type:function size:0x13C align:4
@@ -744,7 +744,7 @@ GetAnimationDuration__9CAnimDataCFi = .text:0x8002915C; // type:function size:0x
 GetAnimSysContext__9CAnimDataCFv = .text:0x800293C4; // type:function size:0x24
 __dt__Q24rstl72set<10CPrimitive,Q24rstl18less<10CPrimitive>,Q24rstl17rmemory_allocator>Fv = .text:0x800293E8; // type:function size:0x74
 RecalcPoseBuilder__9CAnimDataCFPC13CCharAnimTime = .text:0x8002945C; // type:function size:0x160
-fn_800295BC = .text:0x800295BC; // type:function size:0x24 align:4
+RenderAuxiliary__9CAnimDataCFRC14CFrustumPlanes = .text:0x800295BC; // type:function size:0x24 align:4
 Render__9CAnimDataCFRC13CSkinnedModelRC11CModelFlags = .text:0x800295E0; // type:function size:0x54 align:4
 SetupRender__9CAnimDataCFv = .text:0x80029634; // type:function size:0x20
 PreRender__9CAnimDataFv = .text:0x80029654; // type:function size:0x20 align:4

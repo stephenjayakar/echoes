@@ -264,7 +264,7 @@ void CModelData::Touch(EWhichModel which, int shaderIdx) const {
     return;
   }
   if (HasAnimation()) {
-    PickAnimatedModel(which).GetModel()->Touch(shaderIdx);
+    CAnimData::Touch(PickAnimatedModel(which), shaderIdx);
   } else {
     PickStaticModel(which)->Touch(shaderIdx);
   }
@@ -295,7 +295,7 @@ void CModelData::Touch() const {
 
 void CModelData::RenderParticles(const CFrustumPlanes& planes) const {
   if (HasAnimation()) {
-    mAnimData->GetParticleDB().AddToRendererClipped(planes);
+    mAnimData->RenderAuxiliary(planes);
   }
 }
 
