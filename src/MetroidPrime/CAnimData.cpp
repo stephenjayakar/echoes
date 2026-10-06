@@ -1,5 +1,6 @@
 #include "MetroidPrime/CAnimData.hpp"
 
+#include "Kyoto/Animation/CAnimMathUtils.hpp"
 #include "Kyoto/Animation/CAnimSysContext.hpp"
 #include "Kyoto/Animation/CAnimTreeNode.hpp"
 #include "Kyoto/Animation/CAnimationManager.hpp"
@@ -246,8 +247,26 @@ void CAnimData::RenderAuxiliary(const CFrustumPlanes& planes) const {
 }
 
 void CAnimData::RecalcPoseBuilder(const CCharAnimTime* time) const {
-  // TODO: Sample the root into joint storage, add additive segments and build the linear pose.
-  // The inherited IAnimReader virtual interface must be recovered before dispatching here.
+  CAnimMathUtils::sUseFastSlerp = x2ad_25_;
+  const CCharLayoutInfo& layout = **mLayoutData;
+  rstl::optional_object< CJointData_LinearStorage > localStorage;
+  CJointData_LinearStorage* storage = mJointData.get();
+  if (storage == nullptr) {
+    storage = new (localStorage.prepare_emplace()) CJointData_LinearStorage(
+        layout.GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Pool);
+  } else {
+    storage->ResetFlags();
+  }
+  if (mAnimatedScale) {
+    storage->SetHasScales(true);
+  }
+  if (time == nullptr) {
+    mAnimRoot->VGetSegData(layout, *storage);
+  } else {
+    mAnimRoot->VGetSegData(layout, *storage, *time);
+  }
+  AddAdditiveSegData(*storage);
+  mPose.BuildPose(layout, *storage);
 }
 
 rstl::ncrc_ptr< CAnimSysContext > CAnimData::GetAnimSysContext() const { return mAnimCtx; }

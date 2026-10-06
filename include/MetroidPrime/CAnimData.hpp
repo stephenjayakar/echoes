@@ -237,7 +237,7 @@ private:
   mutable uchar mPoseBuilt : 1;
   uchar mAnimatedScale : 1;
   bool mUniformScale : 1;
-  uchar x2ad_25_ : 1;
+  bool x2ad_25_ : 1;
   mutable CPoseAsTransforms_Linear mPose;
   mutable CHierarchyPoseBuilder mPoseBuilder;
   mutable rstl::auto_ptr< CJointData_LinearStorage > mJointData;
