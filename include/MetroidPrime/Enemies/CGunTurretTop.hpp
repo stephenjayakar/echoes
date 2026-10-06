@@ -65,6 +65,7 @@ public:
   void Revive(CStateManager& mgr);
   void SetShouldAttack(bool attack) { mShouldAttack = attack; }
   void SetShouldPatrol(bool patrol) { mShouldPatrol = patrol; }
+  void SetTarget(const CVector3f& target) { mTarget = target; }
   int GetState() const { return mState; }
   CAssetId GetChargeEffect(bool pirate) const { return pirate ? mPirateChargeEffect : mGFChargeEffect; }
   CAABox GetModelBounds() const;

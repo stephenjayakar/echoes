@@ -10,8 +10,10 @@
 
 #include "Collision/CCollidableAABox.hpp"
 #include "Kyoto/Math/CQuaternion.hpp"
+#include "Kyoto/Audio/CSfxHandle.hpp"
 #include "Kyoto/TToken.hpp"
 
+class CCollisionResponseData;
 class CGenDescription;
 class CGunTurretTop;
 
@@ -20,17 +22,16 @@ public:
   // Guessed names; the pole/base half of a pirate/GF gun turret.
   enum EState {
     kS_Sleep,
-    kS_Spawn,
     kS_Patrol,
     kS_Attack,
+    kS_AttackExit,
+    kS_Spawn,
     kS_Withdraw,
-    kS_Flinch,
+    kS_OpenDoor,
+    kS_CloseDoor,
     kS_IntoPan,
     kS_PanLeft,
     kS_PanRight,
-    kS_AttackExit,
-    kS_OpenDoor,
-    kS_CloseDoor,
   };
 
   CGunTurretBase(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
@@ -108,18 +109,29 @@ public:
   float GetSfxFallOff() const { return mSfxFallOff; }
   float GetSfxMaxDistance() const { return mSfxMaxDistance; }
   CAABox GetModelBounds() const;
+  int GetRenderAlpha(const CStateManager& mgr) const;
 
   static const char* const skConnectLocator;
 
 private:
+  void PlaySfx(int sfx, CStateManager& mgr) {
+    ProcessSoundEvent(sfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
+  }
   float GetClosestCameraDistanceSq(CStateManager& mgr) const;
   CVector3f GetGunFirePosition(CStateManager& mgr) const;
+  bool InRange(const CActor& actor, float range) const;
   void LaunchProjectile(CStateManager& mgr);
   void ResetAttack(CStateManager& mgr);
   void UpdateAttack(CStateManager& mgr, float dt);
-  void LowerGunPartial(float dt);
-  void RaiseGunPartial(float dt);
+  CActor* FindTarget(CStateManager& mgr);
+  void UpdateGunOrientation(CStateManager& mgr, const CSegId& seg, bool aim, float dt);
+  void UpdateGunPose(CStateManager& mgr, float dt);
+  void LowerGun(float dt);
+  void RaiseGun(float dt);
   bool InDetectionHeight(const CActor& actor, float up, float down) const;
+  bool PlayerInRange(CStateManager& mgr, float range) const;
 
   float mDetectionRange;
   float mMaxAttackRange;
@@ -150,7 +162,7 @@ private:
   float mShotTimer;
   uint mShotCount;
   bool mIsPirateTurret;
-  TCachedToken< CGenDescription > mCrsc;
+  TCachedToken< CCollisionResponseData > mCrsc;
   CAssetId mPirateProjectile;
   rstl::optional_object< TLockedToken< CGenDescription > > mPirateProjectileEffect;
   CProjectileInfo mProjectileInfo;
@@ -167,8 +179,8 @@ private:
   float mMaxPitchAngleUp;
   float mMaxPitchAngleDown;
   float xfc03_;
-  float mLowerSpeed;
   float mRaiseSpeed;
+  float mDestroyedLowerSpeed;
   float mAttackDelay;
   float mPatrolDelay;
   float mWithdrawDelay;
@@ -194,26 +206,26 @@ private:
   ushort mPoleSparksSfx;
   float mDetectionHeightUp;
   float mDetectionHeightDown;
-  bool x94c_;
-  bool x94d_;
-  float x950_;
-  bool x954_;
-  float x958_;
+  bool mCanCharge;
+  bool mCharging;
+  float mChargeTime;
+  bool mFirstShot;
+  float mLeashTimer;
   float x95c_;
   float mAttackLeashTime;
   float mAttackLeashTimer;
-  int x968_;
-  int x96c_;
-  TUniqueId x970_;
+  bool mTargetIsNonPlayer;
+  CSfxHandle mChargeSfx;
+  TUniqueId mShellWaypointId;
   CCollidableAABox mCollisionPrimitive;
   int mAdditiveAnim;
-  float mMaxLowerAmount;
-  float mLowerAmount;
+  float mMaxRaise;
+  float mRaise;
   float mSfxFallOff;
   float mSfxMaxDistance;
   CAABox x9b4_;
-  bool x9cc_24_ : 1;
-  bool x9cc_25_ : 1;
+  bool mAlert : 1;
+  bool mOccluded : 1;
 };
 CHECK_SIZEOF(CGunTurretBase, 0x9d0)
 

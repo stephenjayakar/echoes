@@ -488,6 +488,11 @@ public:
     mKnockBack = cmd;
   }
 
+  void DeliverCmd(const CBCGenerateCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGenerate = cmd;
+  }
+
   void DeliverCmd(const CBCHurledCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mHurled = cmd;

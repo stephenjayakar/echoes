@@ -13,6 +13,10 @@ class CImpactVisorEffect {
 public:
   // Guessed name
   struct SParticleEffect {
+    SParticleEffect(const rstl::optional_object< TLockedToken< CGenDescription > >& particle,
+                    TSfxId sound, bool sendCollideMessage)
+    : mParticle(particle), mSound(sound), mSendCollideMessage(sendCollideMessage) {}
+
     rstl::optional_object< TLockedToken< CGenDescription > > mParticle;
     TSfxId mSound;
     bool mSendCollideMessage : 1;
@@ -29,6 +33,23 @@ public:
   };
 
   CImpactVisorEffect();
+  CImpactVisorEffect(const rstl::optional_object< SParticleEffect >& particleEffect,
+                     const rstl::optional_object< SBlurEffect >& blurEffect,
+                     const rstl::optional_object< rstl::pair< int, float > >& lowPassFilter)
+  : mParticleEffect(particleEffect)
+  , mBlurEffect(blurEffect)
+  , mLowPassFilter(lowPassFilter)
+  , mForcedVisor(static_cast< CPlayerState::EPlayerVisor >(-1))
+  , mForcedVisorDuration(0.f) {}
+
+  // Guessed name; an impact effect that only spawns a particle and plays a sound.
+  static CImpactVisorEffect
+  ParticleEffect(const rstl::optional_object< TLockedToken< CGenDescription > >& particle,
+                 TSfxId sound, bool sendCollideMessage) {
+    return CImpactVisorEffect(SParticleEffect(particle, sound, sendCollideMessage),
+                              rstl::optional_object< SBlurEffect >(),
+                              rstl::optional_object< rstl::pair< int, float > >());
+  }
 
   const rstl::optional_object< SParticleEffect >& GetParticleEffect() const {
     return mParticleEffect;
