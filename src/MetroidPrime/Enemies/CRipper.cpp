@@ -1,6 +1,7 @@
 #include "MetroidPrime/Enemies/CRipper.hpp"
 
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CDamageVulnerability.hpp"
 #include "MetroidPrime/CEntityInfo.hpp"
 #include "MetroidPrime/CKnockBackInfo.hpp"
