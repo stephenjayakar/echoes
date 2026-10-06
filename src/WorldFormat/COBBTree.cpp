@@ -132,10 +132,11 @@ uint COBBTree::CNode::GetMemoryUsage() const {
 void COBBTree::CNode::SetAllocator(CSimpleAllocator* allocator) { spAllocator = allocator; }
 
 void* COBBTree::CNode::operator new(size_t size, const char* file, int line) {
-  if (!spAllocator) {
+  if (spAllocator == nullptr) {
     return rs_new char[size];
+  } else {
+    return spAllocator->Alloc(size);
   }
-  return spAllocator->Alloc(size);
 }
 
 void COBBTree::CNode::operator delete(void* ptr, size_t size) {
