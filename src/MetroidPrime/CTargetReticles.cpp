@@ -655,7 +655,10 @@ void CCompoundTargetReticle::DrawGrappleGroup(const CMatrix3f& rotation, const C
     return;
   }
   const_cast< TCachedToken< CModel >& >(mGrapple).IsLoaded();
-  if (mGrapple.GetObject() == nullptr || mPreviousState == kRS_Scan) {
+  if (mGrapple.GetObject() == nullptr) {
+    return;
+  }
+  if (mPreviousState == kRS_Scan) {
     return;
   }
 
