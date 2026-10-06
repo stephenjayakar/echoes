@@ -81,8 +81,8 @@ void CCubeRenderer::DrawGeometry(int areaId, const char* name, const SGeometryTa
     area = &*areaIt;
   }
   if (area) {
-    const rstl::vector< CMetroidModelInstance >* geometry = area->mGeometry;
-    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->mModels.get();
+    const rstl::vector< CMetroidModelInstance >* geometry = area->GetModelVector();
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->GetModelList();
     for (int modelIndex = 0; modelIndex < geometry->size(); ++modelIndex) {
       const CMetroidModelInstance& instance = (*geometry)[modelIndex];
       const CCubeModel* model = (*models)[modelIndex].get();
@@ -790,8 +790,8 @@ void CCubeRenderer::DrawSortedGeometry(int mode, int areaId) {
     area = &*it;
   }
   if (area != nullptr) {
-    const rstl::vector< CMetroidModelInstance >* geometry = area->mGeometry;
-    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->mModels.get();
+    const rstl::vector< CMetroidModelInstance >* geometry = area->GetModelVector();
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->GetModelList();
     for (int modelIndex = 0; modelIndex < geometry->size(); ++modelIndex) {
       const CMetroidModelInstance& instance = (*geometry)[modelIndex];
       const CCubeModel* model = (*models)[modelIndex].get();
@@ -2042,9 +2042,9 @@ void CCubeRenderer::DrawEchoVisorGeometry(float pulsePhase, float bigRingScale,
     if (areaId != -1 && areaId != area->mAreaId) {
       continue;
     }
-    const rstl::vector< SAreaSurface >& surfaces = *area->mSurfaces;
-    const rstl::vector< CMetroidModelInstance >& geometry = *area->mGeometry;
-    const rstl::vector< rstl::auto_ptr< CCubeModel > >& models = *area->mModels;
+    const rstl::vector< SAreaSurface >& surfaces = *area->GetSurfaces();
+    const rstl::vector< CMetroidModelInstance >& geometry = *area->GetModelVector();
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >& models = *area->GetModelList();
     for (int i = 0; i < surfaces.size(); ++i) {
       const SAreaSurface& surface = surfaces[i];
       const short modelIndex = surface.mModelIndex;
@@ -3921,27 +3921,32 @@ CAABox CCubeRenderer::GetAreaModelBounds(int areaId, int modelId) {
 void CCubeRenderer::DrawVisibleAreaGeometry(int areaId, const CPVSVisSet& pvs,
                                             const CFrustumPlanes& frustum, const CAABox& bounds) {
   rstl::list< CAreaListItem >::iterator area = FindArea(areaId);
-  if (area == mAreaListItems.end()) {
-    return;
-  }
-  for (int i = 0; i < area->mSurfaces->size() - 1; ++i) {
-    const SAreaSurface& areaSurface = (*area->mSurfaces)[i + 1];
-    if (pvs.GetVisible(i) != kVSS_EndOfTree && areaSurface.mBounds.DoBoundsOverlap(bounds) &&
-        frustum.BoxInFrustumPlanes(areaSurface.mBounds)) {
-      const int modelIndex = areaSurface.mModelIndex;
-      const int groupIndex = areaSurface.mSurfaceGroupIndex;
-      if (modelIndex != -1 && groupIndex != -1) {
-        const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
-        const CCubeModel& model = *(*area->mModels)[modelIndex];
-        model.SetArraysCurrent();
-        const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
-        const ushort count = groups.GetSurfaceCount(groupIndex);
-        const ushort* indices = groups.GetSurfaceIndices(groupIndex);
-        for (ushort j = 0; j < count; ++j) {
-          const CCubeSurface surface(instance.GetSurfaces()[indices[j]]);
-          const CAABox surfaceBounds = surface.GetBounds();
-          if (bounds.DoBoundsOverlap(surfaceBounds) && frustum.BoxInFrustumPlanes(surfaceBounds)) {
-            model.DrawSurfaceFlat(surface);
+  if (area != mAreaListItems.end()) {
+    const rstl::vector< CMetroidModelInstance >* geometry = area->GetModelVector();
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* models = area->GetModelList();
+    const rstl::vector< SAreaSurface >* surfaces = area->GetSurfaces();
+    for (int i = 0; i < surfaces->size() - 1; ++i) {
+      if (pvs.GetVisible(i) != kVSS_EndOfTree) {
+        const SAreaSurface& areaSurface = (*surfaces)[i + 1];
+        if (areaSurface.mBounds.DoBoundsOverlap(bounds) &&
+            frustum.BoxInFrustumPlanes(areaSurface.mBounds)) {
+          const int modelIndex = areaSurface.mModelIndex;
+          const int groupIndex = areaSurface.mSurfaceGroupIndex;
+          if (modelIndex != -1 && groupIndex != -1) {
+            const CCubeModel* model = (*models)[modelIndex].get();
+            const CMetroidModelInstance& instance = (*geometry)[modelIndex];
+            const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
+            model->SetArraysCurrent();
+            const ushort count = groups.GetSurfaceCount(groupIndex);
+            const ushort* indices = groups.GetSurfaceIndices(groupIndex);
+            for (ushort j = 0; j < count; ++j) {
+              const CCubeSurface surface(instance.GetSurfaces()[indices[j]]);
+              const CAABox surfaceBounds = surface.GetBounds();
+              if (bounds.DoBoundsOverlap(surfaceBounds) &&
+                  frustum.BoxInFrustumPlanes(surfaceBounds)) {
+                model->DrawSurfaceFlat(surface);
+              }
+            }
           }
         }
       }

@@ -44,6 +44,12 @@ public:
                   const rstl::auto_ptr< rstl::vector< rstl::auto_ptr< CCubeModel > > >& models,
                   int areaId);
 
+    const rstl::vector< CMetroidModelInstance >* GetModelVector() const { return mGeometry; }
+    const rstl::vector< SAreaSurface >* GetSurfaces() const { return mSurfaces; } // Guessed name
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >* GetModelList() const {
+      return mModels.get();
+    }
+
     const rstl::vector< CMetroidModelInstance >* mGeometry;
     const CAreaRenderOctTree* mOctTree;
     const rstl::vector< SAreaSurface >* mSurfaces;
