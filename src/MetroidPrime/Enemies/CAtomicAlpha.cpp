@@ -131,7 +131,7 @@ void CAtomicAlpha::Render(const CStateManager& mgr) const {
   }
   CPatterned::Render(mgr);
 
-  const float damageLerp = rstl::min_val(mDamageCooldownTimer / skDamageHitTime, 1.f);
+  const float damageLerp = rstl::min_val(1.f, mDamageCooldownTimer / skDamageHitTime);
   CModelFlags flags = CModelFlags::Normal();
   if (damageLerp > 0.f) {
     flags = CModelFlags::ColorModulate(CColor::Lerp(CColor::White(), CColor::Red(), damageLerp));
@@ -150,7 +150,8 @@ void CAtomicAlpha::Render(const CStateManager& mgr) const {
   }
 
   if (damageLerp > 0.f) {
-    GetModelData()->RenderSolid(
+    const CModelData* modelData = GetModelData();
+    modelData->RenderSolid(
         CModelData::GetRenderingModel(mgr), GetTransform(), false,
         CModelFlags::AdditiveRGB(CColor::Lerp(CColor::Black(), CColor::Red(), damageLerp))
             .DepthCompareUpdate(true, false));
