@@ -72,8 +72,12 @@ void CScriptConditionalRelay::AcceptScriptMsg(CStateManager& mgr, const CScriptM
   const TUniqueId originator = msg.GetOriginator();
   const EScriptObjectMessage message = msg.GetMessage();
   CEntity::AcceptScriptMsg(mgr, msg);
-  if (message == kSM_SetToZero) {
+  switch (message) {
+  case kSM_SetToZero:
     OnSetToZero(mgr, originator);
+    break;
+  default:
+    break;
   }
 }
 

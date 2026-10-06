@@ -467,7 +467,11 @@ void CGraphics::ConfigureFrameBuffer() {
   GXSetDispCopyYScale(static_cast< float >(mRenderModeObj.xfbHeight) / mRenderModeObj.efbHeight);
   GXSetCopyFilter(mRenderModeObj.aa, mRenderModeObj.sample_pattern, GX_ENABLE,
                   mRenderModeObj.vfilter);
-  GXSetPixelFmt(mRenderModeObj.aa ? GX_PF_RGB565_Z16 : GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+  if (mRenderModeObj.aa) {
+    GXSetPixelFmt(GX_PF_RGB565_Z16, GX_ZC_LINEAR);
+  } else {
+    GXSetPixelFmt(GX_PF_RGB8_Z24, GX_ZC_LINEAR);
+  }
   GXSetDispCopyGamma(GX_GM_1_0);
   GXCopyDisp(mpCurrenFrameBuf, true);
   VIFlush();
