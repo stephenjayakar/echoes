@@ -1816,9 +1816,11 @@ void CPlayer::UpdateGrappleArmTransform(const CVector3f& offset, CStateManager& 
 
 CVector3f CPlayer::GetCameraForwardPoint() const {
   const CVector3f eyePosition = GetEyePosition();
-  float distance = 10.f;
+  float distance;
   if (mOrbitState == kOS_OrbitObject) {
     distance = (mOrbitPoint - eyePosition).Magnitude();
+  } else {
+    distance = 10.f;
   }
   return eyePosition + distance * GetFirstPersonCameraTransform().GetForward();
 }
