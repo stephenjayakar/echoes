@@ -343,8 +343,8 @@ void CScriptWater::Think(float dt, CStateManager& mgr) {
     }
   } else if (mAlphaIn) {
     mAlpha += dt * mFluidPlane->GetAlpha() * mAlphaInRecip;
-    mFogBias += dt * mOrigFogBias * mAlphaInRecip;
-    mFogMagnitude += dt * mOrigFogMagnitude * mAlphaInRecip;
+    mFogBias -= dt * mOrigFogBias * mAlphaInRecip;
+    mFogMagnitude -= dt * mOrigFogMagnitude * mAlphaInRecip;
     if (mAlpha > mFluidPlane->GetAlpha()) {
       mAlpha = mFluidPlane->GetAlpha();
       mFogBias = mOrigFogBias;
@@ -367,15 +367,18 @@ void CScriptWater::Think(float dt, CStateManager& mgr) {
         stillMorphing = false;
       }
     }
-    SetTranslation(CVector3f::Lerp(mPositionOrig, mPositionMorphed, mMorphFactor));
-    mDamageInfo.SetDamage((1.f - mMorphFactor) * mDamageOrig + mMorphFactor * mDamageMorphed);
-    const CVector3f extent = CVector3f::Lerp(mExtentOrig, mExtentMorphed, mMorphFactor);
-    mBounds = CAABox(-0.5f * extent, 0.5f * extent);
+    const CVector3f morphPart = mPositionMorphed * mMorphFactor;
+    const CVector3f origPart = mPositionOrig * (1.f - mMorphFactor);
+    SetTranslation(origPart + morphPart);
+    mDamageInfo.SetDamage(mDamageOrig * (1.f - mMorphFactor) + mDamageMorphed * mMorphFactor);
+    const CVector3f extent = mExtentOrig * (1.f - mMorphFactor) + mExtentMorphed * mMorphFactor;
+    const CAABox bounds = CAABox(-0.5f * extent, 0.5f * extent);
+    mBounds = bounds;
     CalculateRenderBounds();
-    if (stillMorphing) {
-      SetupGrid(false);
-    } else {
+    if (!stillMorphing) {
       SetMorphing(false);
+    } else {
+      SetupGrid(false);
     }
   }
   SetupGridClipping(mgr, 4);
