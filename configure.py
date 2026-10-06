@@ -1484,6 +1484,12 @@ config.libs = [
         ],
     },
     Rel(
+        "DestructibleBarrier",
+        [
+            Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),
+        ],
+    ),
+    Rel(
         "ForgottenObject",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptForgottenObject.cpp"),

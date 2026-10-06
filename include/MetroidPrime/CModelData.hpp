@@ -61,7 +61,9 @@ public:
   CModelData();
   CModelData(const CAnimRes&);
   CModelData(const CStaticRes&);
+#ifndef CMODELDATA_WEAK_COPY
   CModelData(const CModelData& other);
+#endif
   ~CModelData();
 
   CAdvancementDeltas AdvanceAnimation(float dt, CStateManager& mgr, TAreaId aid, bool advTree,
@@ -128,6 +130,8 @@ public:
   void SetAmbientColor(const CColor& color) { mAmbientColor = color; }
   // Guessed name.
   void SetRenderFullEchoModel(bool enabled) { mRenderFullEchoModel = enabled; }
+  // Guessed name.
+  void SetRenderUnsortedParts(bool enabled) { mRenderUnsortedParts = enabled; }
 
   CVector3f GetScale() const { return mScale; }
   void SetScale(const CVector3f& scale);
@@ -136,7 +140,12 @@ public:
   bool IsAnimating() const;
   float GetAnimationDuration(int anim) const;
   void EnableLooping(bool enable);
+#ifdef CMODELDATA_WEAK_COPY
+  // Script RELs carry their own weak copies of the implicit copy constructor and this helper.
+  static CModelData CModelDataNull() { return CModelData(); }
+#else
   static CModelData CModelDataNull();
+#endif
   static EWhichModel GetRenderingModel(const CStateManager& mgr);
   static EWhichModel GetRenderingModel(const CStateManager& mgr, const CPlayerState& playerState);
 

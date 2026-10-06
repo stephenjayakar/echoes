@@ -5,10 +5,13 @@ class CVector3i {
 public:
   CVector3i(int x, int y, int z);
   int operator[](int index) const { return (&mX)[index]; }
+  int& operator[](int index) { return (&mX)[index]; }
   
   int GetX() const { return mX; }
   int GetY() const { return mY; }
   int GetZ() const { return mZ; }
+
+  static const CVector3i& Zero() { return sZeroVector; }
 
 private:
   int mX;
