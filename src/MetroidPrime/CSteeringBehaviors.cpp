@@ -138,7 +138,8 @@ bool CSteeringBehaviors::ProjectLinearIntersection(const CVector3f& origin, floa
       intersection = position + velocity * time + 0.5f * time * time * acceleration;
     }
   }
-  return found;
+  const bool result = found;
+  return result;
 }
 
 bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, float speed, float dt,
@@ -148,14 +149,14 @@ bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, flo
                                                     CVector3f& intersection) {
   if (speed > 0.f) {
     if (velocity.CanBeNormalized()) {
-      CVector3f radial((position - orbitPoint).DropZ());
+      CVector3f radial((position - orbitPoint).ToVec2f(), 0.f);
       if (radial.CanBeNormalized()) {
         CVector3f currentPosition = position;
         CVector3f currentVelocity = velocity;
         CVector3f delta = currentPosition - origin;
         float travelTime = delta.Magnitude() / speed;
         float elapsed = 0.f;
-        float previousRemaining = FLT_MAX;
+        float previousRemaining = 3.4028235e38f;
         float remaining = travelTime - elapsed;
         CVector3f radialUnit = radial.AsNormalized();
         CVector3f tangent = CVector3f::Cross(radialUnit, CVector3f::Up());
@@ -170,7 +171,7 @@ bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, flo
 
           currentPosition += dt * currentVelocity;
           previousRemaining = remaining;
-          radial = (currentPosition - orbitPoint).DropZ();
+          radial = CVector3f((currentPosition - orbitPoint).ToVec2f(), 0.f);
           if (!radial.CanBeNormalized()) {
             break;
           }
@@ -202,14 +203,14 @@ bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, flo
                                                     CVector3f& intersection) {
   bool found = false;
   if (speed > 0.f) {
-    CVector3f radial((position - orbitPoint).DropZ());
+    CVector3f radial((position - orbitPoint).ToVec2f(), 0.f);
     if (velocity.CanBeNormalized() && radial.CanBeNormalized()) {
       CVector3f currentPosition = position;
       CVector3f currentVelocity = velocity;
       CVector3f delta = currentPosition - origin;
       float travelTime = delta.Magnitude() / speed;
       float elapsed = 0.f;
-      float previousRemaining = FLT_MAX;
+      float previousRemaining = 3.4028235e38f;
       float remaining = travelTime - elapsed;
       CVector3f radialUnit = radial.AsNormalized();
       CVector3f tangent = CVector3f::Cross(radialUnit, CVector3f::Up());
@@ -229,7 +230,7 @@ bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, flo
         travelTime = delta.Magnitude() / speed;
         elapsed += dt;
         remaining = travelTime - elapsed;
-        radial = (currentPosition - orbitPoint).DropZ();
+        radial = CVector3f((currentPosition - orbitPoint).ToVec2f(), 0.f);
         if (!radial.CanBeNormalized()) {
           break;
         }
@@ -245,7 +246,8 @@ bool CSteeringBehaviors::ProjectOrbitalIntersection(const CVector3f& origin, flo
     }
   }
 
-  return found;
+  const bool result = found;
+  return result;
 }
 
 CVector3f CSteeringBehaviors::ProjectOrbitalPosition(const CVector3f& position,
@@ -254,7 +256,7 @@ CVector3f CSteeringBehaviors::ProjectOrbitalPosition(const CVector3f& position,
                                                      float preThinkDt) {
   CVector3f currentPosition = position;
   if (velocity.CanBeNormalized()) {
-    CVector3f radial((position - orbitPoint).DropZ());
+    CVector3f radial((position - orbitPoint).ToVec2f(), 0.f);
     if (radial.CanBeNormalized()) {
       CVector3f currentVelocity = velocity;
       float elapsed = 0.f;
@@ -265,7 +267,7 @@ CVector3f CSteeringBehaviors::ProjectOrbitalPosition(const CVector3f& position,
 
       while (elapsed < dt) {
         currentPosition += preThinkDt * currentVelocity;
-        radial = (currentPosition - orbitPoint).DropZ();
+        radial = CVector3f((currentPosition - orbitPoint).ToVec2f(), 0.f);
         if (radial.CanBeNormalized()) {
           radialUnit = radial.AsNormalized();
           CVector3f tangent = CVector3f::Cross(radialUnit, CVector3f::Up());

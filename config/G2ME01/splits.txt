@@ -697,6 +697,7 @@ MetroidPrime/BodyState/CBSLoopReaction.cpp:
 
 MetroidPrime/CSteeringBehaviors.cpp:
 	.text       start:0x800F90C0 end:0x800FA754
+	.sdata2     start:0x8041B980 end:0x8041B9B8
 
 MetroidPrime/BodyState/CBSGroundHit.cpp:
 	.text       start:0x800FA754 end:0x800FAC18
