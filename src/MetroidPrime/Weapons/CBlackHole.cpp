@@ -2,6 +2,7 @@
 
 #include "MetroidPrime/CGameLight.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetaRender/IRenderer.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
@@ -100,15 +101,18 @@ void CBlackHole::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     mOrigDamageInfo.SetRadius(mRadius);
 
     if (mFlags & kF_CreationSound) {
-      CSfxManager::AddEmitter(mgr.ReturnFirstIfSingleElseSecond(0x1fda, 0x25aa), GetTranslation(),
-                             GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+      static const ushort kCreationSfx[2] = {0x1fda, 0x25aa};
+      CSfxManager::AddEmitter(mgr.ReturnFirstIfSingleElseSecond(kCreationSfx[0], kCreationSfx[1]),
+                             GetTranslation(), GetCurrentAreaId().Value(), true, false,
+                             CSfxManager::kMedPriority);
       mgr.InformListeners(GetTranslation(), kLNT_BombExplode);
     }
     if (!mParticleGen.null() && mParticleGen->SystemHasLight()) {
       mLightId = mgr.AllocateUniqueId();
+      const CAssetId sourceId = mSourceId;
       mgr.AddObject(rs_new CGameLight(mLightId, GetCurrentAreaId(), GetActive(), rstl::string_l(""),
                                       GetTransform(), GetUniqueId(), mParticleGen->GetLight(),
-                                      mSourceId, 1, 0.f));
+                                      sourceId, 1, 0.f));
     }
     break;
   case kSM_Delete:
@@ -117,7 +121,7 @@ void CBlackHole::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       mgr.DeleteObjectRequest(mLightId);
       mLightId = kInvalidUniqueId;
     }
-    // TODO: clear the unresolved player-effect flag through a supported player accessor.
+    mgr.Player(0)->SetHoldScreenFilterAlpha(false);
     break;
   default:
     break;
