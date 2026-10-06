@@ -307,8 +307,10 @@ void CAnimData::SetPlaybackRate(float rate) { mSpeedScale = rate; }
 void CAnimData::MultiplyPlaybackRate(float scale) { mSpeedScale *= scale; }
 
 CCharAnimTime CAnimData::GetTimeOfUserEventForAnimation(int anim, EUserEventType type) const {
-  // TODO: Build the selected animation tree and query its user-event time.
-  return CCharAnimTime::Infinity();
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::ncrc_ptr< CAnimTreeNode > tree =
+      GetAnimationManager()->GetAnimationTree(animIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+  return GetTimeOfUserEvent(type, CCharAnimTime(GetAnimationDuration(anim)), tree);
 }
 
 CCharAnimTime CAnimData::GetTimeOfUserEvent(EUserEventType type, const CCharAnimTime& time) const {
@@ -332,8 +334,10 @@ rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() const { retur
 
 // Guessed name.
 int CAnimData::CountUserEventsForAnimation(int anim, EUserEventType type) const {
-  // TODO: Build the selected animation and count events over its duration.
-  return 0;
+  const uint animIdx = mCharInfo.GetAnimationIndexList()[anim];
+  const rstl::ncrc_ptr< CAnimTreeNode > tree =
+      GetAnimationManager()->GetAnimationTree(animIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+  return CountUserEvents(type, CCharAnimTime(GetAnimationDuration(anim)), tree);
 }
 
 void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
