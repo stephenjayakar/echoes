@@ -145,6 +145,7 @@ private:
   void UpdateBeamEffect(float dt, CStateManager& mgr);
   void UpdateStuckTimer(float dt, CStateManager& mgr);
   void UpdateAlertEffect(CStateManager& mgr);
+  void ReorientUpright(float dt);
   pas::EStepDirection FindDodgeDirection(CStateManager& mgr);
   bool IsDodgeClear(CStateManager& mgr, const CVector3f& dir, float dist);
   void MoveTo(const CVector3f& pos, float dt);

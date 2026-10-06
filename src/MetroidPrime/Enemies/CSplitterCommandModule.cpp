@@ -4,6 +4,7 @@
 #include "Collision/CMaterialFilter.hpp"
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
+#include "Kyoto/Math/CQuaternion.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
@@ -790,6 +791,25 @@ void CSplitterCommandModule::LaserSweep(CStateManager& mgr, EStateMsg msg, float
   }
 }
 
+void CSplitterCommandModule::LostChassisReaction(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    xf6a_26_ = true;
+    break;
+  case kStateMsg_Update:
+    ReorientUpright(dt);
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_KnockBack)) {
+      BodyController()->CommandMgr().DeliverCmd(
+          CBCKnockBackCmd(GetTransform().GetForward(), pas::kS_Two));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
 void CSplitterCommandModule::SeekMainChassis(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
@@ -1071,6 +1091,30 @@ CParticleGenInfo* CSplitterCommandModule::GetShieldEffect() {
     return AnimationData()->GetFirstParticleEffect(name);
   }
   return nullptr;
+}
+
+void CSplitterCommandModule::ReorientUpright(float dt) {
+  if (!xf6a_26_) {
+    return;
+  }
+  const CVector3f pos = GetTranslation();
+  const float maxAngle = M_2PIF * dt;
+  const CVector3f up = CVector3f::Up();
+  const CVector3f curUp = GetTransform().GetUp();
+  CVector3f flatForward = GetTransform().GetForward();
+  flatForward.SetZ(0.f);
+  if (CVector3f::GetAngleDiff(up, curUp) <= maxAngle) {
+    if (flatForward.IsNonZero()) {
+      SetTransform(CTransform4f::LookAt(pos, pos + flatForward, CVector3f::Up()));
+      xf6a_26_ = false;
+      return;
+    }
+  }
+  const CVector3f newUp =
+      CVector3f::Slerp(curUp.AsNormalized(), up.AsNormalized(), CRelAngle::FromRadians(maxAngle));
+  const CQuaternion arc = CQuaternion::ShortestRotationArc(curUp, newUp);
+  const CQuaternion rot = CQuaternion::FromMatrix(GetTransform()) * arc;
+  SetTransform(rot.BuildTransform4f(pos));
 }
 
 pas::EStepDirection CSplitterCommandModule::FindDodgeDirection(CStateManager& mgr) {
