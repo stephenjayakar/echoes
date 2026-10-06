@@ -1295,14 +1295,21 @@ CEntity* REL_LoadFrontEndDataNetwork(CStateManager& mgr, CInputStream& input, CE
   SLdrFrontEndDataNetwork sldrThis;
 #include "MetroidPrime/ScriptLoader/SLdrFrontEndDataNetwork.inc"
 
+  const bool isRoot = sldrThis.isRoot;
+  const bool unknown_0x77f59f4a = sldrThis.unknown_0x77f59f4a;
+  const bool unknown_0x29c0cb7f = sldrThis.unknown_0x29c0cb7f;
+  const bool isProxy = sldrThis.isProxy;
+  const bool isLocked = sldrThis.isLocked;
+  const CAssetId hotDotTexture = sldrThis.hotDotTexture;
+  const CAssetId hotDotHaloTexture = sldrThis.hotDotHaloTexture;
   return rs_new CScriptFrontEndDataNetwork(
       mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
       LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
       sldrThis.transitionShrinkSpline, sldrThis.transitionMoveSpline,
-      sldrThis.transitionExpandSpline, sldrThis.transitionMoveInSpline, sldrThis.isRoot,
-      sldrThis.unknown_0x77f59f4a, sldrThis.unknown_0x29c0cb7f, sldrThis.isProxy,
-      sldrThis.canBeSelected, sldrThis.isLocked, sldrThis.unknown_0x8b8fa0fe,
-      sldrThis.unknown_0xd0f2d612, sldrThis.hotDotTexture, sldrThis.hotDotHaloTexture,
+      sldrThis.transitionExpandSpline, sldrThis.transitionMoveInSpline, isRoot,
+      unknown_0x77f59f4a, unknown_0x29c0cb7f, isProxy,
+      sldrThis.canBeSelected, isLocked, sldrThis.unknown_0x8b8fa0fe,
+      sldrThis.unknown_0xd0f2d612, hotDotTexture, hotDotHaloTexture,
       sldrThis.hotDotAButtonTexture, sldrThis.selectedColor, sldrThis.unselectedMinColor,
       sldrThis.unselectedMaxColor, sldrThis.disabledColor, sldrThis.rotationSound,
       sldrThis.rotationSoundVolume, sldrThis.transitionShrinkTime, sldrThis.transitionMoveTime,
