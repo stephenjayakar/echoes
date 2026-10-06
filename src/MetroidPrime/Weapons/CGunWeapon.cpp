@@ -34,31 +34,16 @@
 extern "C" const char* const lbl_8041D3BC; // "Power_Anim_DGRP"
 extern "C" const char* const lbl_8041D3C0; // "VariaArm"
 
-static const char* const skWeaponNames[] = {
-    "PowerBeam", "PowerBall",  "IceBeam",    "IceBall",
-    "WaveBeam",  "WaveBall_1", "PlasmaBeam", "PlasmaBall",
-};
-static const char* const skMuzzleNames[] = {
-    "PowerMuzzle", "PowerCharge", "IceMuzzle",    "IceCharge",
-    "WaveMuzzle",  "WaveCharge",  "PlasmaMuzzle", "PlasmaCharge",
-};
-static const char* const skFrozenNames[] = {
-    "powerFrozen", "Ice2nd_2", "iceFrozen",    "Ice2nd_2",
-    "waveFrozen",  "Ice2nd_2", "plasmaFrozen", "Ice2nd_2",
-};
-static const char* const skDependencyNames[] = {"Power_DGRP", "Ice_DGRP", "Wave_DGRP",
-                                                "Plasma_DGRP"};
-static const char* const skBeamNames[] = {"Power", "Ice", "Wave", "Plasma"};
+// Asset-name tables defined in another TU (unsplit .rodata).
+extern const char* const skWeaponNames[8];
+extern const char* const skMuzzleNames[8];
+extern const char* const skFrozenNames[8];
+extern const char* const skDependencyNames[4];
+extern const char* const skBeamNames[4];
+extern const char* const skBeamXferNames[4];
 
-static const char* const skBeamXferNames[] = {
-    "PowerXfer",
-    "IceXfer",
-    "WaveXfer",
-    "PlasmaXfer",
-};
-
-const char* CGunWeapon::skMuzzleLocator = "LBEAM";
-const char* CGunWeapon::skElbowLocator = "elbow";
+const char* const CGunWeapon::skMuzzleLocator = "LBEAM";
+const char* const CGunWeapon::skElbowLocator = "elbow";
 
 CPlayerState::EBeamId GetWeaponIndex(EWeaponType type) {
   switch (type) {
