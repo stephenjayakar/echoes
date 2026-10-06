@@ -777,25 +777,27 @@ void CElitePirate::LaunchRocket(CStateManager& mgr) {
         dir.SetZ(0.f);
         if (dir.CanBeNormalized() == true) {
           dir.Normalize();
+          const CVector3f right(dir.GetY(), -dir.GetX(), 0.f);
+          const CVector3f left(-dir.GetY(), dir.GetX(), 0.f);
           const bool raised =
               GetNearbyHintType(mgr) == CScriptAIHint::kHT_GrenadeLauncherRaisedAim;
           const float scale = raised ? 1.5f : 1.f;
-          const CVector3f offsets[3] = {
-              CVector3f(scale * (3.2f * -dir.GetY()), scale * (3.2f * dir.GetX()), scale * 0.f),
-              CVector3f(scale * (1.2f * -dir.GetY()), scale * (1.2f * dir.GetX()), scale * 0.f),
-              CVector3f(scale * (1.2f * dir.GetY()), scale * (1.2f * -dir.GetX()), scale * 0.f),
+          const CVector3f offsets[4] = {
+              scale * CVector3f(1.2f * left.GetX(), 1.2f * left.GetY(), 0.f),
+              scale * CVector3f(3.2f * left.GetX(), 3.2f * left.GetY(), 0.f),
+              scale * CVector3f(3.2f * right.GetX(), 3.2f * right.GetY(), 0.f),
+              scale * CVector3f(1.2f * right.GetX(), 1.2f * right.GetY(), 0.f),
           };
           CVector3f aim = player->GetAimPosition(mgr, 0.f) + offsets[mRocket.mFired - 1];
           if (raised == true) {
-            aim.SetZ(aim.GetZ() + mgr.Random()->Range(6.f, 12.f));
+            const float zOff = mgr.Random()->Range(6.f, 12.f);
+            aim.SetZ(aim.GetZ() + zOff);
             xf = CTransform4f::LookAt(xf.GetTranslation(), aim, CVector3f::Up());
             target = mgr.GetPlayer(0)->GetUniqueId();
           } else {
             xf = CTransform4f::LookAt(xf.GetTranslation(), aim, CVector3f::Up());
             target = kInvalidUniqueId;
           }
-        } else {
-          target = kInvalidUniqueId;
         }
         break;
       }

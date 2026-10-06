@@ -23,8 +23,8 @@ __ct__Q24rstl29optional_object<10CModelData>FRCQ24rstl29optional_object<10CModel
 construct<10CModelData>__4rstlFPvRC10CModelData = .text:0x00000CE8; // type:function size:0x20
 construct__Q24rstl35construction_policy<10CModelData,0>FPvRC10CModelData = .text:0x00000D08; // type:function size:0x28
 __ct__10CModelDataFRC10CModelData = .text:0x00000D30; // type:function size:0x13C
-fn_15_E6C = .text:0x00000E6C; // type:function size:0x6C
-fn_15_ED8 = .text:0x00000ED8; // type:function size:0x54
+__dt__Q24rstl40optional_object<21TLockedToken<6CModel>>Fv = .text:0x00000E6C; // type:function size:0x6C
+__dt__15TToken<6CModel>Fv = .text:0x00000ED8; // type:function size:0x54
 __dt__Q24rstl20auto_ptr<9CAnimData>Fv = .text:0x00000F2C; // type:function size:0x64
 __dt__Q24rstl29optional_object<10CModelData>Fv = .text:0x00000F90; // type:function size:0x60
 __dt__15SLdrElitePirateFv = .text:0x00000FF0; // type:function size:0xD0
@@ -232,7 +232,7 @@ TryCommand<16CBCLocomotionCmd>__10CPatternedF9EStateMsgQ23pas15EAnimationStateRC
 TryCommand<11CBCTauntCmd>__10CPatternedF9EStateMsgQ23pas15EAnimationStateRC11CBCTauntCmd = .text:0x0000BEA0; // type:function size:0xCC
 reserve__Q24rstl63vector<26CJointCollisionDescription,Q24rstl17rmemory_allocator>Fi = .text:0x0000BF6C; // type:function size:0xC0
 uninitialized_copy<Q24rstl146pointer_iterator<26CJointCollisionDescription,Q24rstl63vector<26CJointCollisionDescription,Q24rstl17rmemory_allocator>,Q24rstl17rmemory_allocator>,P26CJointCollisionDescription>__4rstlFQ24rstl146pointer_iterator<26CJointCollisionDescription,Q24rstl63vector<26CJointCollisionDescription,Q24rstl17rmemory_allocator>,Q24rstl17rmemory_allocator>Q24rstl146pointer_iterator<26CJointCollisionDescription,Q24rstl63vector<26CJointCollisionDescription,Q24rstl17rmemory_allocator>,Q24rstl17rmemory_allocator>P26CJointCollisionDescription = .text:0x0000C02C; // type:function size:0x68
-fn_15_C094 = .text:0x0000C094; // type:function size:0x3C
+__ct__Q24rstl24optional_object<6CAABox>FRC6CAABox = .text:0x0000C094; // type:function size:0x3C
 __sinit_CElitePirate_cpp = .text:0x0000C0D0; // type:function size:0x808
 _unresolved = .text:0x0000C8D8; // type:function size:0xC4 scope:global
 _epilog = .text:0x0000C99C; // type:function size:0x24 scope:global
