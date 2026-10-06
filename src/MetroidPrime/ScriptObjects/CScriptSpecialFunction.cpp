@@ -1958,8 +1958,8 @@ void CScriptSpecialFunction::ThinkObjectFollowJoint(float dt, CStateManager& mgr
   }
 
   if (followerAct != kInvalidUniqueId && followedAct != kInvalidUniqueId) {
-    const CActor* followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
-    CActor* follower = TCastToPtr< CActor >(mgr.ObjectById(followerAct));
+    const CActor* const followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
+    CActor* const follower = TCastToPtr< CActor >(mgr.ObjectById(followerAct));
     if (followed && follower) {
       const CCharLayoutInfo* layout =
           followed->GetModelData()->GetAnimationData()->GetCharLayoutInfo();
