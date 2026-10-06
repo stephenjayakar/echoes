@@ -2363,9 +2363,11 @@ void CSandBoss::OnStampedeArmorHit(CStateManager& mgr, const CVector3f& pos,
     if (mStampedeHP <= 0.f) {
       BodyController()->CommandMgr().DeliverCmd(
           CBCAdditiveReactionCmd(pas::EAdditiveReactionType(5), 1.f, false));
+    } else {
+      CSfxManager::AddEmitter(mData.stampedeArmor.sound_ArmorImpact, pos, 127,
+                              GetCurrentAreaId().Value(), true, false,
+                              CSfxManager::kMedPriority);
     }
-    CSfxManager::AddEmitter(mData.stampedeArmor.sound_ArmorImpact, pos, 127,
-                            GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
   }
 }
 
@@ -2489,15 +2491,15 @@ void CSandBoss::SyncCollisionActorHealth(CStateManager& mgr) {
 
 void CSandBoss::FindOtherBosses(CStateManager& mgr) {
   xe8a_ = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
-  xef8_ = FindConnectedObject(mgr, kSS_Play, kSM_Attach);
+  xef8_ = FindConnectedObject(mgr, kSS_Play, kSM_Play);
   xe86_ = FindConnectedObject(mgr, kSS_Modify, kSM_Activate);
   xe80_ = FindConnectedObject(mgr, kSS_InternalState02, kSM_Follow);
   xe82_ = FindConnectedObject(mgr, kSS_InternalState01, kSM_Follow);
   xe84_ = FindConnectedObject(mgr, kSS_InternalState00, kSM_Follow);
-  CObjectList& list = mgr.ObjectListById(kOL_ListeningAi);
+  const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
   for (int index = list.GetFirstObjectIndex(); index != -1;
        index = list.GetNextObjectIndex(index)) {
-    if (CSandBoss* boss = TCastToPtr< CSandBoss >(list[index])) {
+    if (const CSandBoss* boss = TCastToConstPtr< CSandBoss >(list[index])) {
       if (boss->GetCurrentAreaId() == GetCurrentAreaId()) {
         mOtherBosses.push_back(boss->GetUniqueId());
       }
@@ -2547,11 +2549,12 @@ void CSandBoss::SetArmorVisible(const rstl::string& locator, bool visible) {
       } else {
         AnimationData()->SetSkinnedModel(mNormalSkinnedModel);
       }
-    }
-    for (int i = 0; i < 8; ++i) {
-      if (locator == rstl::string_l(skSpineJoints[i])) {
-        mArmorStates[i] = visible ? kArmor_Attached : kArmor_None;
-        break;
+    } else {
+      for (int i = 0; i < 8; ++i) {
+        if (locator == rstl::string_l(skSpineJoints[i])) {
+          mArmorStates[i] = visible ? kArmor_Attached : kArmor_None;
+          break;
+        }
       }
     }
   }
