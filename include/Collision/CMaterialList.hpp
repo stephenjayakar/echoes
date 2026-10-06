@@ -121,10 +121,7 @@ public:
   void Add(const CMaterialList& material) { mValue |= material.mValue; }
   void Remove(EMaterialTypes material) { mValue &= ~(u64(1) << material); }
   void Remove(const CMaterialList& material) { mValue &= ~material.mValue; }
-  const CMaterialList& Union(const CMaterialList& other) {
-    mValue |= other.mValue;
-    return *this;
-  }
+  CMaterialList Union(const CMaterialList& other) const { return CMaterialList(mValue | other.mValue); }
   bool HasMaterial(EMaterialTypes material) const {
     return (mValue & (u64(1) << material)) ? true : false;
   }

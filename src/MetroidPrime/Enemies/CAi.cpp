@@ -13,7 +13,7 @@ CAi::CAi(TUniqueId uid, const rstl::string& name, const CEntityInfo& info, uint 
          const CMaterialList& materials, CAssetId stateMachine, CAssetId stateMachine2,
          const CActorParameters& params, float stepUp, float stepDown)
 : CPhysicsActor(uid, name, info, castFlags | 8, xf, modelData,
-                CMaterialList(kMT_AIBlock, kMT_CameraPassthrough).Union(materials), bounds,
+                materials.Union(CMaterialList(kMT_AIBlock, kMT_CameraPassthrough)), bounds,
                 SMoverData(mass), params, StepData(stepUp, stepDown, 0))
 , mHealthInfo(health)
 , mDamageVulnerability(vulnerability) {

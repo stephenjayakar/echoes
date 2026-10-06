@@ -61,7 +61,7 @@ CBouncyGrenade::CBouncyGrenade(TUniqueId uid, const rstl::string& name, const CE
     mMaterialsToRemove = *extraMaterials;
   }
   const float mass = GetMass();
-  SetMomentumWR(CVector3f(0.f, 0.f, -CPhysicsActor::GravityConstant() * mass));
+  SetMomentumWR(CVector3f(0.f, 0.f, -kDefaultGravityAccel * mass));
   SetVelocityWR(velocity * xf.GetForward());
   mElementGenExplodeCombat->SetParticleEmission(false);
   mElementGenExplodeXRay->SetParticleEmission(false);
