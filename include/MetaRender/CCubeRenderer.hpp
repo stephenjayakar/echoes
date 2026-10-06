@@ -303,8 +303,10 @@ public:
   static CCubeRenderer* That() { return sRenderer; }
 
 private:
+  struct SGeometryTag {};
   template < bool Special, bool Alpha >
-  void DrawGeometry(int areaId);
+  void DrawGeometry(int areaId, const char* name, const SGeometryTag&, const SGeometryTag&,
+                    const SGeometryTag&, const SGeometryTag&, const SGeometryTag&);
 
   IFactory& mFactory;
   IObjectStore& mObjStore;

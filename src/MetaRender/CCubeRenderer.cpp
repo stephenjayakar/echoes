@@ -63,7 +63,9 @@ void InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bou
 } // namespace Buckets
 
 template < bool Special, bool Alpha >
-void CCubeRenderer::DrawGeometry(int areaId) {
+void CCubeRenderer::DrawGeometry(int areaId, const char* name, const SGeometryTag&,
+                                 const SGeometryTag&, const SGeometryTag&, const SGeometryTag&,
+                                 const SGeometryTag&) {
   SetupRendererStates(true);
   uchar lastAlpha = 0;
   if (Alpha) {
@@ -3780,13 +3782,25 @@ void CCubeRenderer::PrepareWorldRendering(
   }
 }
 
-void CCubeRenderer::DrawUnsortedGeometry(int areaId) { DrawGeometry< false, false >(areaId); }
+void CCubeRenderer::DrawUnsortedGeometry(int areaId) {
+  DrawGeometry< false, false >(areaId, "DrawUnsortedGeometry", SGeometryTag(), SGeometryTag(),
+                               SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawUnsortedGeometryAlpha(int areaId) { DrawGeometry< false, true >(areaId); }
+void CCubeRenderer::DrawUnsortedGeometryAlpha(int areaId) {
+  DrawGeometry< false, true >(areaId, "DrawGeometryScan", SGeometryTag(), SGeometryTag(),
+                              SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawSpecialGeometry(int areaId) { DrawGeometry< true, false >(areaId); }
+void CCubeRenderer::DrawSpecialGeometry(int areaId) {
+  DrawGeometry< true, false >(areaId, "DrawTranslastGeometry", SGeometryTag(), SGeometryTag(),
+                              SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawSpecialGeometryAlpha(int areaId) { DrawGeometry< true, true >(areaId); }
+void CCubeRenderer::DrawSpecialGeometryAlpha(int areaId) {
+  DrawGeometry< true, true >(areaId, "DrawGeometryScanTranslast", SGeometryTag(), SGeometryTag(),
+                             SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
 void CCubeRenderer::DrawAreaModel(int areaId, int modelId, const CModelFlags& flags) {
   rstl::list< CAreaListItem >::iterator area = FindArea(areaId);
