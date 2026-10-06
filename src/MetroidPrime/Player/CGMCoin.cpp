@@ -47,7 +47,10 @@ void CGMCoin::Update(float dt, CStateManager& mgr) {
 void CGMCoin::RespawnPlayer(CStateManager& mgr, uint playerIndex) {
   CGMMultiplayer::RespawnPlayer(mgr, playerIndex);
   CPlayerState& state = *mgr.PlayerState(playerIndex);
-  const int deaths = rstl::min_val(state.GetPowerUp(CPlayerState::kIT_DiedCount).mAmount, 6);
+  int deaths = state.GetPowerUp(CPlayerState::kIT_DiedCount).mAmount;
+  if (deaths >= 7) {
+    deaths = 6;
+  }
   state.PowerUp(CPlayerState::kIT_CoinCounter).mAmount = sRespawnCoins[deaths];
 }
 

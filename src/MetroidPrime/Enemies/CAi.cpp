@@ -59,19 +59,19 @@ void CAi::FluidFXThink(EFluidState, CScriptWater&, CStateManager&) {
 }
 
 CStateMachine* CAi::GetStateMachine() {
-  if (!mStateMachine->IsLoaded()) {
-    return nullptr;
+  if (mStateMachine->IsLoaded()) {
+    TToken< CStateMachine > token(*mStateMachine);
+    return *token;
   }
-  TToken< CStateMachine > token(*mStateMachine);
-  return *token;
+  return nullptr;
 }
 
 CGenericFSM2* CAi::GetStateMachine2() {
-  if (!mStateMachine->IsLoaded()) {
-    return nullptr;
+  if (mStateMachine->IsLoaded()) {
+    TToken< CGenericFSM2 > token(*mStateMachine);
+    return *token;
   }
-  TToken< CGenericFSM2 > token(*mStateMachine);
-  return *token;
+  return nullptr;
 }
 
 EWeaponCollisionResponseTypes CAi::GetCollisionResponseType(const CVector3f&, const CVector3f&,

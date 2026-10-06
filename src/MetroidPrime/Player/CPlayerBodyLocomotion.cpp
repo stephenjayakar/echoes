@@ -65,9 +65,10 @@ void CPlayerBodyController::SLocomotionState::Update(float dt, CStateManager& mg
     mPrimeTime += dt;
   }
 
+  const int mode = mLocomotionMode;
   const int previousMode = mPreviousLocomotionMode;
-  mPreviousLocomotionMode = mLocomotionMode;
-  UpdateAnimation(controller, previousMode != mLocomotionMode);
+  mPreviousLocomotionMode = mode;
+  UpdateAnimation(controller, mode != previousMode);
 }
 
 void CPlayerBodyController::SLocomotionState::Shutdown(CPlayerBodyController& controller) {

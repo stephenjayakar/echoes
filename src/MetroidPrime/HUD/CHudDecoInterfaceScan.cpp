@@ -3,8 +3,10 @@
 #include "GuiSys/CGuiFrame.hpp"
 #include "GuiSys/CGuiFrameLoader.hpp"
 #include "Kyoto/Streams/CInputStream.hpp"
+#include "Kyoto/Streams/CMemoryInStream.hpp"
 #include "MetroidPrime/CActor.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Player/CScanDisplay.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "rstl/pair.hpp"
 
@@ -65,9 +67,7 @@ CHudDecoInterfaceScan::CHudDecoInterfaceScan(const CStateManager& mgr, CGuiFrame
   // TODO: create the layout-specific flat-frame loader and CScanDisplay; read the initial tweak.
 }
 
-CHudDecoInterfaceScan::~CHudDecoInterfaceScan() {
-  // TODO: destroy the owned CScanDisplay once its complete shared declaration is available.
-}
+CHudDecoInterfaceScan::~CHudDecoInterfaceScan() {}
 
 void CHudDecoInterfaceScan::InitializeFlatFrame(const CStateManager&) {
   // TODO: bind scan/history widgets, copy the HUD camera and initialize colors and meter settings.
@@ -104,16 +104,15 @@ void CHudDecoInterfaceScan::StartHierarchyLoad() {
 }
 
 bool CHudDecoInterfaceScan::CheckHierarchyLoadComplete() {
-  if (mHierarchyRequest.null()) {
-    return true;
+  if (!mHierarchyRequest.null()) {
+    if (!mHierarchyRequest->IsComplete()) {
+      return false;
+    }
+    CMemoryInStream in(mHierarchyBuffer.get(), mHierarchyBufferLength);
+    ReadHierarchy(in);
+    mHierarchyBuffer = rstl::auto_ptr< uchar >();
+    mHierarchyRequest = rstl::auto_ptr< CDvdRequest >();
   }
-  if (!mHierarchyRequest->IsComplete()) {
-    return false;
-  }
-  CInputStream in(mHierarchyBuffer.get(), mHierarchyBufferLength);
-  ReadHierarchy(in);
-  mHierarchyBuffer = rstl::auto_ptr< uchar >();
-  mHierarchyRequest = rstl::auto_ptr< CDvdRequest >();
   return true;
 }
 
