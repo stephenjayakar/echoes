@@ -114,14 +114,14 @@ rstl::optional_object< SBarrierSection > CBarrierChunkGrid::SplitOffTop() {
     SBarrierSection section(grid, spawnPos, pivot, split);
     return section;
   }
-  return rstl::optional_object_null();
+  return rstl::optional_object< SBarrierSection >();
 }
 
 rstl::optional_object< CVector3i > CBarrierChunkGrid::GetChunkAt(const CVector3f& pos,
                                                                 float radius) const {
   CVector3f closest = pos;
   if (CollisionUtil::AABoxPointSqrDist(pos, mBounds, &closest) > radius * radius) {
-    return rstl::optional_object_null();
+    return rstl::optional_object< CVector3i >();
   }
   CVector3f local = CVector3f::ByElementMultiply(closest, mInvChunkSize);
   return CVector3i(rstl::min_val(rstl::max_val(int(local.GetX()), 0), mDims.GetX() - 1),
@@ -286,12 +286,7 @@ COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
   CVector3i runMin(0, row.GetY(), row.GetZ());
   CVector3i runSize(0, 1, 1);
   for (int x = 0; x <= mDims.GetX(); ++x) {
-    bool cur;
-    if (x == mDims.GetX()) {
-      cur = !alive;
-    } else {
-      cur = *health > 0.f;
-    }
+    bool cur = x == mDims.GetX() ? !alive : *health > 0.f;
     if (cur != alive) {
       alive = cur;
       if (cur) {
@@ -308,16 +303,15 @@ COBBTree::CNode* CBarrierChunkGrid::BuildRowNode(COBBTree::SIndexData& data,
         AddBoxGeometry(data, surfaces, center, extent);
       }
     }
-    ++health;
     ++runSize[0];
+    ++health;
   }
 
   if (end == -1) {
     return nullptr;
   }
 
-  const CVector3f extent(float(end - start) * mChunkSize.GetX(), 1.f * mChunkSize.GetY(),
-                         1.f * mChunkSize.GetZ());
+  const CVector3f extent = CVector3f(float(end - start), 1.f, 1.f) * mChunkSize;
   const CVector3f center =
       CVector3f(start * mChunkSize.GetX(), row.GetY() * mChunkSize.GetY(),
                 row.GetZ() * mChunkSize.GetZ()) +
@@ -376,7 +370,7 @@ void CBarrierChunkGrid::Render(const CTransform4f& xfIn, const CModelFlags& flag
     const int dimY = mDims.GetY();
     for (int y = 0; y < dimY; ++y) {
       const float yOff = y * mChunkSize.GetY();
-      if (dimX == mRowCounts[y + z * dimY] && fullRow) {
+      if (mDims.GetX() == mRowCounts[y + z * dimY] && fullRow) {
         xf.SetTranslation(xf.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(0.f, yOff, zOff)) + origin);
         CGraphics::SetModelMatrix(xf);
         fullRow->Draw(flags);
@@ -509,8 +503,8 @@ CScriptDestructibleBarrier::~CScriptDestructibleBarrier() {}
 void CScriptDestructibleBarrier::UpdateTransforms() {
   mRenderXf = GetTransform();
   CVector3f center = mGrid.GetBounds().GetCenterPoint();
-  mRenderXf.SetTranslation(mRenderXf.GetTranslation() -
-                           CVector3f(center.GetX(), center.GetY(), mLowerOffset));
+  const CVector3f& offset = CVector3f(center.GetX(), center.GetY(), mLowerOffset);
+  mRenderXf.SetTranslation(mRenderXf.GetTranslation() - offset);
   mInvRenderXf = mRenderXf.GetQuickInverse();
   mTouchBounds = mGrid.GetBounds().GetTransformedAABox(mRenderXf);
   SetOtherBounds(mTouchBounds);
@@ -536,7 +530,7 @@ rstl::optional_object< CAABox > CScriptDestructibleBarrier::GetTouchBounds() con
   if (GetActive()) {
     return mTouchBounds;
   }
-  return rstl::optional_object_null();
+  return rstl::optional_object< CAABox >();
 }
 
 void CScriptDestructibleBarrier::Touch(CActor& actor, CStateManager& mgr) {
