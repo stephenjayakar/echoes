@@ -1210,7 +1210,7 @@ void CCompoundTargetReticle::DrawCrosshairs(const CMatrix3f& rotation,
       return;
     }
 
-    CColor color = gpTweakTargeting->GetCrosshairsColor();
+    const CColor& color = gpTweakTargeting->GetCrosshairsColor();
     gpRender->SetModelMatrix(CTransform4f(rotation, mTargetPosition) *
                              CTransform4f::Scale(mCrosshairsDrawScale));
     model->Draw(CModelFlags::Additive(color.WithAlphaModulatedBy(mCrosshairsDrawScale))
@@ -1507,11 +1507,12 @@ CVector3f CCompoundTargetReticle::CalculatePositionWorld(const CActor& actor,
 CVector3f CCompoundTargetReticle::CalculateOrbitZoneReticlePosition(const CStateManager& mgr,
                                                                     bool lag) const {
   const CGameCamera& camera = *mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true);
+  const CPlayer* player = mgr.GetPlayer(mPlayerIndex);
   float halfFov = camera.GetFov() * 0.5f;
   float halfHeight = static_cast< float >(
-      mgr.GetPlayer(mPlayerIndex)->GetTweakPlayer()->GetOrbitZoneHeight(CPlayer::kZI_Targeting));
+      player->GetTweakPlayer()->GetOrbitZoneHeight(CPlayer::kZI_Targeting));
   float distance = 224.f / halfHeight;
-  distance /= CMath::SlowTangentR(halfFov * (1.f / 360.f) * (2.f * M_PIF));
+  distance /= static_cast< float >(tan(halfFov * (1.f / 360.f) * (2.f * M_PIF)));
 
   CTransform4f cameraXf = mgr.GetCameraManager(mPlayerIndex)->GetCurrentCameraTransform(mgr, true);
   CVector3f forward = cameraXf.GetForward();
@@ -1530,20 +1531,20 @@ float CCompoundTargetReticle::CalculateClampedScale(CVector3f position, float sc
                                                     float clampMax, const CStateManager& mgr,
                                                     int playerIndex) {
   float layoutScale = skViewportLayoutScale[mgr.GetViewportLayoutIndex()];
-  clampMin *= layoutScale;
-  clampMax *= layoutScale;
+  const float minScale = layoutScale * clampMin;
+  const float maxScale = layoutScale * clampMax;
   const CCameraManager* cameraManager = mgr.GetCameraManager(playerIndex);
   const CGameCamera& camera = *cameraManager->GetCurrentCamera(mgr, true);
   CTransform4f cameraXf = cameraManager->GetCurrentCameraTransform(mgr, true);
-  CVector3f viewSpace =
-      camera.GetTransform().TransposeRotate(position - camera.GetTransform().GetTranslation());
+  const CTransform4f& camXf = camera.GetTransform();
+  CVector3f viewSpace = camXf.TransposeRotate(position - camXf.GetTranslation());
   float projectedX = camera.GetPerspectiveMatrix().MultiplyOneOverW(viewSpace).GetX();
   float pixelScale = camera.GetPerspectiveMatrix()
                          .MultiplyOneOverW(viewSpace + CVector3f(scale, 0.f, 0.f))
                          .GetX() -
                      projectedX;
   pixelScale *= 640.f * layoutScale;
-  return scale * (CMath::Clamp(clampMin, pixelScale, clampMax) / pixelScale);
+  return scale * (CMath::Clamp(minScale, pixelScale, maxScale) / pixelScale);
 }
 
 CTargetReticleRenderState::CTargetReticleRenderState(TUniqueId target, float radius,
