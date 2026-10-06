@@ -21,6 +21,8 @@
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrBrizgee.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrCrystallite.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrParasite.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptDynamicLight.hpp"
@@ -90,7 +92,7 @@ CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor
 , mForwardMoveWeight(forwardMoveWeight)
 , mPlayerSeparationDist(playerSeparationDist)
 , mPlayerSeparationWeight(playerSeparationWeight)
-, mUnmorphedRadius(pInfo.GetHeight() * 0.5f)
+, mUnmorphedRadius(pInfo.GetHeight() / 2.f)
 , mHaltDelay(haltDelay)
 , mIceZoomerJointHP(iceZoomerJointHP)
 , x990_(CVector3f::Zero())
@@ -1191,14 +1193,114 @@ void CParasite::SetupStateMachine(CStateManager& mgr) {
   stateMachine->SetStateFunctions(skStates, ARRAY_SIZE(skStates));
 }
 
-void CParasite::UpdateShell(CStateManager& mgr, int state) {}
+void CParasite::UpdateShell(CStateManager& mgr, int state) {
+  x9c0_ = state;
+  x9c4_ = rstl::min_val(state, GetModelData()->GetNumShaders() - 1);
+  switch (state) {
+  case 0:
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Activate);
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Decrement);
+    mgr.SendScriptMsg(x9bc_, GetUniqueId(), kSM_Activate);
+    break;
+  case 1:
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Decrement);
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Deactivate);
+    mgr.SendScriptMsg(x9bc_, GetUniqueId(), kSM_Deactivate);
+    mOculusShotAt = true;
+    break;
+  case 2:
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Activate);
+    mgr.SendScriptMsg(x9ba_, GetUniqueId(), kSM_Increment);
+    mgr.SendScriptMsg(x9bc_, GetUniqueId(), kSM_Activate);
+    mOculusShotAt = true;
+    break;
+  }
+}
 
-CEntity* LoadParasite(CStateManager& mgr, CInputStream& input, CEntityInfo& info) { return nullptr; }
+CEntity* LoadParasite(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrParasite sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrParasite.inc"
 
-CEntity* LoadBrizgee(CStateManager& mgr, CInputStream& input, CEntityInfo& info) { return nullptr; }
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+
+  return rs_new CParasite(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      static_cast< CPatterned::EFlavorType >(sldrThis.flavor),
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      *modelData, LdrToPatternedInfo(sldrThis.patterned, nullptr), static_cast< EBodyType >(6),
+      sldrThis.telegraphDistance, sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed,
+      sldrThis.floorTurnSpeed, sldrThis.downTurnSpeed, sldrThis.stuckTime, sldrThis.stickyReach,
+      sldrThis.behaviorInfluenceRadius, sldrThis.separationDistance, sldrThis.separationPriority,
+      sldrThis.alignmentPriority, sldrThis.cohesionPriority, sldrThis.pathFollowingPriority,
+      sldrThis.forwardMovingPriority, sldrThis.playerAvoidanceDistance,
+      sldrThis.playerAvoidancePriority, sldrThis.parasiteVisibleDistance, 0.f,
+      sldrThis.initiallyPaused, CWallWalker::kWT_Parasite, CDamageVulnerability::NormalVulnerabilty(),
+      CDamageInfo(CWeaponMode(kWT_Power), 0.f, 0.f, 0.f, false, false),
+      CSfxManager::kInternalInvalidSfxId, CSfxManager::kInternalInvalidSfxId,
+      CSfxManager::kInternalInvalidSfxId, kInvalidAssetId, kInvalidAssetId, 0.f, 1.f, CDamageInfo(),
+      LdrToActorParameters(sldrThis.actorInformation));
+}
+
+CEntity* LoadBrizgee(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrBrizgee sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrBrizgee.inc"
+
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+
+  return rs_new CParasite(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name, CPatterned::kFT_Zero,
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      *modelData, LdrToPatternedInfo(sldrThis.patterned, nullptr), static_cast< EBodyType >(6), 10.f,
+      sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed, sldrThis.floorTurnSpeed,
+      sldrThis.downTurnSpeed, 0.2f, 0.4f, 6.f, 2.6f, 1.f, 0.8f, 0.7f, 0.9f,
+      sldrThis.forwardMovingPriority, 1.3f, 0.2f, sldrThis.visibleDistance,
+      sldrThis.shellOffSpeedMultiplier, false, CWallWalker::kWT_IceZoomer,
+      LdrToDamageVulnerability(sldrThis.shellVulnerability),
+      LdrToDamageInfo(sldrThis.shellContactDamage), sldrThis.shellBreakSound,
+      sldrThis.playerPoisonSound, sldrThis.poisonHitSound, sldrThis.noShellModel,
+      sldrThis.noShellSkin, sldrThis.shellHealth, 1.f, LdrToDamageInfo(sldrThis.poisonDamage),
+      LdrToActorParameters(sldrThis.actorInformation));
+}
 
 CEntity* LoadCrystallite(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
-  return nullptr;
+  SLdrCrystallite sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrCrystallite.inc"
+
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+
+  const CDamageInfo contactDamage = LdrToDamageInfo(sldrThis.patterned.contactDamage);
+  CDamageVulnerability vulnerability(LdrToDamageVulnerability(sldrThis.patterned.vulnerability));
+  vulnerability.SetVulnerability(
+      6, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
+  vulnerability.SetComboVulnerability(
+      0, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
+
+  return rs_new CParasite(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name, CPatterned::kFT_Zero,
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      *modelData, LdrToPatternedInfo(sldrThis.patterned, nullptr), static_cast< EBodyType >(6), 10.f,
+      sldrThis.waypointApproachDistance, sldrThis.wallTurnSpeed, sldrThis.floorTurnSpeed,
+      sldrThis.downTurnSpeed, 0.2f, 0.4f, 6.f, 2.6f, 1.f, 0.8f, 0.7f, 0.9f,
+      sldrThis.forwardMovingPriority, 1.3f, 0.2f, sldrThis.visibleDistance, sldrThis.stunTime,
+      false, static_cast< CWallWalker::EType >(10), vulnerability, contactDamage,
+      CSfxManager::kInternalInvalidSfxId, CSfxManager::kInternalInvalidSfxId,
+      CSfxManager::kInternalInvalidSfxId, kInvalidAssetId, kInvalidAssetId, 0.f, 1.f,
+      contactDamage, LdrToActorParameters(sldrThis.actorInformation));
 }
 
 static void SetFuncPtrs() {
