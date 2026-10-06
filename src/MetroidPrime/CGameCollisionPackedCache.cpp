@@ -90,9 +90,13 @@ void CGameCollision::BuildCollisionCache(const CStateManager& mgr, CCollisionCac
   if (cache.GetDynamicGeometryMode() != 0) {
     for (rstl::reserved_vector< TUniqueId, 1024 >::iterator id = nearList.begin();
          id != nearList.end();) {
-      if (CacheActorGeometry(mgr, cache, mgr.GetObjectById(*id)) &&
-          policy == kCUP_RemoveCachedNearListIds) {
-        id = nearList.erase(id);
+      const CEntity* entity = mgr.GetObjectById(*id);
+      if (CacheActorGeometry(mgr, cache, entity)) {
+        if (policy == kCUP_RemoveCachedNearListIds) {
+          id = nearList.erase(id);
+        } else {
+          ++id;
+        }
       } else {
         ++id;
       }
@@ -240,7 +244,10 @@ bool CGameCollision::DetectCollisionBoolean_Cached(
       DetectStaticCollisionBoolean_Cached(mgr, cache, primitive, transform, filter)) {
     return true;
   }
-  return DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr);
+  if (DetectDynamicCollisionBoolean(primitive, transform, nearList, mgr)) {
+    return true;
+  }
+  return false;
 }
 
 bool CGameCollision::DetectCollision_Cached(

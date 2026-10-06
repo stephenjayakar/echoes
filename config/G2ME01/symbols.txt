@@ -3616,7 +3616,7 @@ CancelBoosting__10CMorphBallFv = .text:0x800C65B8; // type:function size:0x60
 LeaveBoosting__10CMorphBallFv = .text:0x800C6618; // type:function size:0x4C
 EnterBoosting__10CMorphBallFR13CStateManagerb = .text:0x800C6664; // type:function size:0x514 align:4
 ComputeBoostBallMovement__10CMorphBallFRC11CFinalInputR13CStateManagerf = .text:0x800C6B78; // type:function size:0xAFC
-fn_800C7674 = .text:0x800C7674; // type:function size:0x78
+erase__Q24rstl32reserved_vector<9TUniqueId,1024>FP9TUniqueId = .text:0x800C7674; // type:function size:0x78 scope:weak
 SetScrewAttackActive__10CMorphBallFb = .text:0x800C76EC; // type:function size:0x10 align:4
 ApplyScrewAttackDamage__10CMorphBallFfR13CStateManager = .text:0x800C76FC; // type:function size:0x38C
 UpdateScrewAttackRecovery__10CMorphBallFf = .text:0x800C7A88; // type:function size:0x530
@@ -4991,7 +4991,7 @@ DetectCollision_Cached__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCache
 DetectCollisionBoolean_Cached__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCacheRC19CCollisionPrimitiveRC12CTransform4fRC15CMaterialFilterRCQ24rstl32reserved_vector<9TUniqueId,1024> = .text:0x801272D8; // type:function size:0xB0
 DetectCollisionBoolean__14CGameCollisionFRC13CStateManagerRC19CCollisionPrimitiveRC12CTransform4fRC15CMaterialFilterRCQ24rstl32reserved_vector<9TUniqueId,1024> = .text:0x80127388; // type:function size:0xB0
 BuildAreaCollisionCache__14CGameCollisionFRC13CStateManagerR19CAreaCollisionCache = .text:0x80127438; // type:function size:0x104
-fn_8012753C = .text:0x8012753C; // type:function size:0x48
+GetRootNode__12CAreaOctTreeCFv = .text:0x8012753C; // type:function size:0x48 scope:weak
 RayStaticIntersection__14CGameCollisionFRC13CStateManagerRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x80127584; // type:function size:0x288
 RayStaticLineOfSightTest__14CGameCollisionFRC9CGameAreaRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x8012780C; // type:function size:0x118 align:4
 RayStaticLineOfSightTest__14CGameCollisionFRC13CStateManagerRC9CVector3fRC9CVector3ffRC15CMaterialFilter = .text:0x80127924; // type:function size:0x134
