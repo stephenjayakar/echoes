@@ -844,7 +844,9 @@ MetroidPrime/ScriptObjects/CScriptBallTrigger.cpp:
 MetroidPrime/Weapons/CPlasmaProjectile.cpp:
 	.text       start:0x80119598 end:0x8011BFA8
 	.ctors      start:0x803A5520 end:0x803A5524
+	.rodata     start:0x803A8D08 end:0x803A8D68
 	.sbss       start:0x80419160 end:0x80419168
+	.sdata2     start:0x8041BCE8 end:0x8041BD58
 
 MetroidPrime/Player/CPlayerOrbit.cpp:
 	.text       start:0x8011BFA8 end:0x80123510

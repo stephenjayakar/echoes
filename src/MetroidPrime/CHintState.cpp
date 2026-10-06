@@ -50,7 +50,7 @@ void CHintState::RemoveSender(TUniqueId sender, CStateManager& mgr) {
   }
 }
 
-bool CHintState::ProcessInput(const CFinalInput& input, const CControlMapper& mapper,
+uchar CHintState::ProcessInput(const CFinalInput& input, const CControlMapper& mapper,
                               CStateManager& mgr) {
   if (mBreakType == CGameHint::kBHT_None) {
     return false;

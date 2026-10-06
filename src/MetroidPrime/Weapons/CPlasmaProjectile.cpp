@@ -575,6 +575,6 @@ void CPlasmaProjectile::UpdateLights(float expansion, float dt, CStateManager& m
 }
 
 void CPlasmaProjectile::SetInitialDamage(float damage) {
-  mInitialDamage = damage;
   mInitialDamageEnabled = damage > 0.f;
+  mInitialDamage = damage;
 }
