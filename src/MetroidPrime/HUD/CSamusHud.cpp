@@ -919,10 +919,10 @@ void CSamusHud::UpdateFreeLook(float dt, const CStateManager& mgr) {
 }
 
 void CSamusHud::UpdateStaticInterference(float dt, const CStateManager& mgr) {
-  const CPlayerState& state = *mgr.GetPlayerState(mPlayerIndex);
-  float interference = state.StaticInterference().GetTotalInterference();
+  float interference = mgr.GetPlayerState(mPlayerIndex)->StaticInterference().GetTotalInterference();
   const float oldInterference = mStaticInterference;
-  if (mgr.IsMultiplayer() && state.GetItemCapacity(CPlayerState::kIT_HackedEffect) > 0) {
+  if (mgr.IsMultiplayer() &&
+      mgr.GetPlayerState(mPlayerIndex)->GetItemCapacity(CPlayerState::kIT_HackedEffect) > 0) {
     interference += 0.2f;
   }
   if (mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState() != CPlayer::kMS_Unmorphed) {
@@ -938,10 +938,8 @@ void CSamusHud::UpdateStaticInterference(float dt, const CStateManager& mgr) {
   UpdateStaticSfx(mgr, mStaticSoundHigh, mStaticCycleHigh,
                   mgr.ReturnFirstIfSingleElseSecond(0x275, 0x265d), dt, oldInterference, 0.5f);
   if (mStaticInterference > 0.f) {
-    CColor color = CColor::White();
-    color.SetAlpha(mStaticInterference);
     mStaticFilter.SetFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_RandomStatic, 0.f,
-                            color, kInvalidAssetId);
+                            CColor::White().WithAlphaOf(mStaticInterference), kInvalidAssetId);
   } else {
     mStaticFilter.DisableFilter(0.f);
   }
