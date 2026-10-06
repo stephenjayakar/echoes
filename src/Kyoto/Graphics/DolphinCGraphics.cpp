@@ -1735,7 +1735,7 @@ void CGraphics::SetUseStreamVertexDelay(bool enabled) { sUseStreamVertexDelay = 
 
 CGraphicsSys::CGraphicsSys(const COsContext& osContext, const CMemorySys& memorySys,
                            bool progressive) {
-  if (!mGraphicsInitialized) {
+  if (mGraphicsInitialized != true) {
     mGraphicsInitialized = CGraphics::Startup(osContext, progressive);
   }
 }

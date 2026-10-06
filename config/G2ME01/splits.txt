@@ -347,7 +347,7 @@ MetroidPrime/CTargetReticles.cpp:
 	.text       start:0x800ABE1C end:0x800B30A8
 	.ctors      start:0x803A54E0 end:0x803A54E4
 	.bss        start:0x803DA940 end:0x803DA960
-	.sdata2     start:0x8041B0A0 end:0x8041B0A8
+	.sdata2     start:0x8041B0A0 end:0x8041B1B0
 
 MetroidPrime/CWeaponMgr.cpp:
 	.text       start:0x800B30A8 end:0x800B389C

@@ -66,7 +66,8 @@ static float offshoot_func(float amplitude, float angularScale, float time) {
 }
 
 static float calculate_premultiplied_overshoot_offset(float overshoot) {
-  return 2.f * (M_PIF - static_cast< float >(asin(1.f / overshoot)));
+  const float angle = static_cast< float >(asin(1.f / overshoot));
+  return 2.f * (M_PIF - angle);
 }
 
 CCompoundTargetReticle::SOuterItemInfo::SOuterItemInfo(const char* modelName)
@@ -632,7 +633,7 @@ void CCompoundTargetReticle::Draw(const CStateManager& mgr, bool hideLockOn) con
     if (!hideLockOn) {
       DrawCurrLockOnGroup(rotation, mgr);
       DrawSeeker(rotation, mgr);
-      DrawCrosshairs(rotation);
+      DrawCrosshairs(rotation, mgr);
       DrawScanTargetGroup(rotation, mgr);
       DrawNextLockOnGroup(rotation, mgr);
       DrawOrbitZoneGroup(rotation, mgr);
@@ -1195,7 +1196,8 @@ void CCompoundTargetReticle::DrawSeeker(const CMatrix3f& rotation, const CStateM
   }
 }
 
-void CCompoundTargetReticle::DrawCrosshairs(const CMatrix3f& rotation) const {
+void CCompoundTargetReticle::DrawCrosshairs(const CMatrix3f& rotation,
+                                            const CStateManager& mgr) const {
   if (mNoDrawTicks <= 0 && mCrosshairsDrawScale > 0.f) {
     const_cast< TCachedToken< CModel >& >(mCrosshairs).IsLoaded();
     CModel* const model = mCrosshairs.GetObject();
