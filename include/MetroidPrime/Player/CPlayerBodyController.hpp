@@ -81,7 +81,7 @@ public:
 
   bool IsDeathReactionOver() const { return (mReactionFlags & kRF_DeathReactionOver) != 0; }
 
-  bool IsDeathReactionActive() const { return (mReactionFlags & kRF_DeathReactionActive) != 0; }
+  bool IsDeathReactionActive() const { return (mReactionFlags >> 6) & 1; }
 
 private:
   enum EAnimationFlags {
