@@ -673,7 +673,8 @@ bool CMayaSpline::IsSegmentConstant(int knotIndex) const {
   }
   CVector2f tangentA = CVector2f::Zero();
   CVector2f tangentB = CVector2f::Zero();
-  mKnots[knotIndex].GetTangents(nullptr, &mKnots[knotIndex + 1], tangentA, tangentB);
+  const CMayaSplineKnot* next = &mKnots[knotIndex + 1];
+  mKnots[knotIndex].GetTangents(nullptr, next, tangentA, tangentB);
   if (CMath::IsEpsilon(mKnots[knotIndex].GetAmplitude(), 0.f, 1.e-5f) && tangentB.GetY() < 0.f) {
     tangentB.SetY(0.f);
   }
@@ -682,7 +683,8 @@ bool CMayaSpline::IsSegmentConstant(int knotIndex) const {
   }
   CVector2f nextTangentA = CVector2f::Zero();
   CVector2f nextTangentB = CVector2f::Zero();
-  mKnots[knotIndex + 1].GetTangents(&mKnots[knotIndex], nullptr, nextTangentA, nextTangentB);
+  const CMayaSplineKnot* prev = &mKnots[knotIndex];
+  mKnots[knotIndex + 1].GetTangents(prev, nullptr, nextTangentA, nextTangentB);
   if (CMath::IsEpsilon(mKnots[knotIndex + 1].GetAmplitude(), 0.f, 1.e-5f) &&
       nextTangentA.GetY() > 0.f) {
     nextTangentA.SetY(0.f);
