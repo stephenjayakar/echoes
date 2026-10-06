@@ -39,8 +39,8 @@ CScriptWater::CScriptWater(
     float glossFlat, float unknown1, float unknown2, float unknown3, const CFluidUVMotion& uvMotion,
     const CColor& splashColor, const CColor& insideFogColor, CAssetId splashParticle1,
     CAssetId splashParticle2, CAssetId splashParticle3, CAssetId visorRunoffParticle,
-    CAssetId unmorphVisorRunoffParticle, TSfxId visorRunoffSfx, TSfxId unmorphVisorRunoffSfx,
-    TSfxId splashSfx1, TSfxId splashSfx2, TSfxId splashSfx3, const CColor& fogColor, float fogBias,
+    CAssetId unmorphVisorRunoffParticle, int visorRunoffSfx, int unmorphVisorRunoffSfx,
+    int splashSfx1, int splashSfx2, int splashSfx3, const CColor& fogColor, float fogBias,
     float fogMagnitude, float fogSpeed, float viscosity, bool displaySurface, float unknownScale,
     const CVector2f& uvScale, const CVector2f& uvOffset, const CVector2f& surfaceScale,
     bool useDynamicLights, float unknown4, float unknown5, float unknown6, float unknown7,
@@ -720,13 +720,12 @@ CEntity* LoadWater(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
 #include "MetroidPrime/ScriptLoader/SLdrWater.inc"
 
   const CVector3f halfExtent = 0.5f * sldrThis.editorProperties.transform.scale;
-  const CAABox bounds(-halfExtent, halfExtent);
-  const CFluidUVMotion uvMotion(
+  const CAABox bounds = CAABox(-halfExtent, halfExtent);
+  const CFluidUVMotion uvMotion = CFluidUVMotion(
       sldrThis.flowSpeed, M_2PIF * sldrThis.flowOrientation / 360.f - M_2PIF,
       LdrToFluidLayerMotion(sldrThis.flowColor), LdrToFluidLayerMotion(sldrThis.flowColorWarp),
       LdrToFluidLayerMotion(sldrThis.flowGloss1), LdrToFluidLayerMotion(sldrThis.flowGloss2),
       LdrToFluidLayerMotion(sldrThis.flowRefractWarp));
-  const CFluidUVMotion uvMotionCopy(uvMotion);
   return rs_new CScriptWater(
       mgr, mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
       LdrToEntityInfo(info, sldrThis.editorProperties),
@@ -737,14 +736,14 @@ CEntity* LoadWater(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
       sldrThis.colorMap, sldrThis.baseColor, sldrThis.colorWarpMap, sldrThis.glossMap,
       sldrThis.envMap, sldrThis.envMapSize, sldrThis.refractWarpMap, sldrThis.foamMap,
       sldrThis.alphaMap, sldrThis.alpha, sldrThis.glossFlat, sldrThis.glossTopDown,
-      sldrThis.refractWarpFlat, sldrThis.refractWarpTopDown, uvMotionCopy, sldrThis.splashColor,
+      sldrThis.refractWarpFlat, sldrThis.refractWarpTopDown, uvMotion, sldrThis.splashColor,
       sldrThis.underwaterFogColor, sldrThis.splash_Small, sldrThis.splash_Medium,
       sldrThis.splash_Big, sldrThis.visorRunoff, sldrThis.visorRunoffBall,
-      static_cast< TSfxId >(sldrThis.sound_SoundRunoff),
-      static_cast< TSfxId >(sldrThis.sound_SoundRunoffBall),
-      static_cast< TSfxId >(sldrThis.sound_Splash_Small),
-      static_cast< TSfxId >(sldrThis.sound_Splash_Medium),
-      static_cast< TSfxId >(sldrThis.sound_Splash_Big), sldrThis.fogColor, sldrThis.fogHeight,
+      sldrThis.sound_SoundRunoff,
+      sldrThis.sound_SoundRunoffBall,
+      sldrThis.sound_Splash_Small,
+      sldrThis.sound_Splash_Medium,
+      sldrThis.sound_Splash_Big, sldrThis.fogColor, sldrThis.fogHeight,
       sldrThis.fogBobHeight, sldrThis.fogBobFreq, sldrThis.viscosity, sldrThis.renderSurface,
       sldrThis.lightMapResolution, CVector2f(sldrThis.lightMapScaleX, sldrThis.lightMapScaleY),
       CVector2f(sldrThis.lightMapOffsetX, sldrThis.lightMapOffsetY),
