@@ -176,7 +176,9 @@ void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CA
 namespace Buckets {
 struct planeSorter {
   bool operator()(ushort a, ushort b) const {
-    return (*sPlaneObjectData)[a].GetDistance() < (*sPlaneObjectData)[b].GetDistance();
+    const CDrawablePlaneObject& planeA = (*sPlaneObjectData)[a];
+    const CDrawablePlaneObject& planeB = (*sPlaneObjectData)[b];
+    return planeA.GetDistance() < planeB.GetDistance();
   }
 };
 
@@ -644,7 +646,7 @@ void CCubeRenderer::AddDrawable(const void* obj, const CVector3f& pos, const CAA
   }
 }
 
-void CCubeRenderer::SetupRendererStates(bool depthWrite) {
+void CCubeRenderer::SetupRendererStates(const bool depthWrite) {
   CGraphics::DisableAllLights();
   CGraphics::SetModelMatrix(CTransform4f::Identity());
   CGraphics::SetAmbientColor(CColor(0));
