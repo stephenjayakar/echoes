@@ -9,6 +9,7 @@
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CActorLights.hpp"
 #include "MetroidPrime/CAnimData.hpp"
+#include "MetroidPrime/CKnockBackInfo.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/Player/CPlayerState.hpp"
@@ -22,7 +23,6 @@
 #include "MetroidPrime/Weapons/CImpactVisorEffect.hpp"
 #include "REL/REL_Setup.h"
 
-#include <float.h>
 
 const rstl::string CChozoGhost::skSpeedSwooshName = rstl::string_l("SpeedSwoosh");
 
@@ -151,14 +151,14 @@ CChozoGhost::CChozoGhost(
   mProjectileInfo1.Token().Lock();
   mProjectileInfo2.Token().Lock();
 
-  const CPASAnimParmData jumpAnimParms(static_cast< pas::EAnimationState >(13),
+  const CPASAnimParmData jumpAnimParms(pas::kAS_Jump,
                                        CPASAnimParm::FromEnum(3), CPASAnimParm::FromEnum(0));
   x668_ = GetModelData()->GetScale().GetZ() * GetAnimationDistance(jumpAnimParms);
-  const CPASAnimParmData slideAnimParms(static_cast< pas::EAnimationState >(15),
+  const CPASAnimParmData slideAnimParms(pas::kAS_Slide,
                                         CPASAnimParm::FromEnum(1),
                                         CPASAnimParm::FromReal32(90.f));
   x66c_ = GetModelData()->GetScale().GetY() * GetAnimationDistance(slideAnimParms);
-  const CPASAnimParmData meleeAnimParms(static_cast< pas::EAnimationState >(7),
+  const CPASAnimParmData meleeAnimParms(pas::kAS_MeleeAttack,
                                         CPASAnimParm::FromEnum(2), CPASAnimParm::FromEnum(1));
   x670_ = GetModelData()->GetScale().GetZ() * GetAnimationDistance(meleeAnimParms);
 
@@ -250,7 +250,7 @@ uchar CChozoGhost::GetModelAlphau8(const CStateManager& mgr) const {
     ret = mColor.GetAlphau8();
   }
 
-  return ret;
+  return ret & 0xFF;
 }
 
 void CChozoGhost::PreRender(CStateManager& mgr) {
@@ -310,7 +310,99 @@ void CChozoGhost::FloatToLevel(const float f1, const float dt) {
 
 bool CChozoGhost::IsOnGround() const { return mOnGround; }
 
-void CChozoGhost::FindBestAnchor(CStateManager& mgr) {}
+static EMaterialTypes AnchorFloorMaterial = kMT_Floor;
+
+void CChozoGhost::FindBestAnchor(CStateManager& mgr) {
+  float bestScore = 3.4028235e38f;
+  mPlayerInLeashRange = false;
+  CScriptCoverPoint* target = nullptr;
+  CObjectList& waypoints = mgr.ObjectListById(kOL_AiWaypoint);
+  const int random = mgr.Random()->Next() % 100;
+  const int range = random < mNearChance ? 0 : (random < mNearChance + mMidChance ? 1 : 2);
+  float nearWeight = 10.f * x658_;
+  float midWeight = nearWeight;
+  float farWeight = nearWeight;
+  switch (range) {
+  case 0:
+    farWeight *= 10.f;
+    midWeight *= 5.f;
+    break;
+  case 1:
+    nearWeight *= 10.f;
+    farWeight *= 5.f;
+    break;
+  case 2:
+    nearWeight *= 10.f;
+    midWeight *= 5.f;
+    break;
+  }
+  for (int i = waypoints.GetFirstObjectIndex(); i != -1; i = waypoints.GetNextObjectIndex(i)) {
+    if (CScriptCoverPoint* cover = TCastToPtr< CScriptCoverPoint >(waypoints[i])) {
+      if (cover->GetActive() && !cover->GetInUse(kInvalidUniqueId) &&
+          cover->GetCurrentAreaId() == GetCurrentAreaId()) {
+        const float distance = (cover->GetTranslation() - GetTranslation()).Magnitude();
+        if (!(distance < 2.f * x66c_)) {
+          float score = rstl::max_val(x654_ - distance, 0.f);
+          CVector3f delta = cover->GetTranslation() - mgr.GetPlayer(0)->GetTranslation();
+          const float playerDistance = delta.Magnitude();
+          if (!(playerDistance < mMinAttackRange)) {
+            if (CMath::AbsF(delta.GetZ()) / playerDistance > 0.2f) {
+              score += (20.f * x658_) * (CMath::AbsF(delta.GetZ()) / playerDistance - 0.2f);
+            }
+            if (playerDistance < x654_) {
+              score += nearWeight;
+              if (score < bestScore) {
+                delta *= 1.f / playerDistance;
+                score += (10.f * x658_) *
+                         (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(),
+                                               delta));
+              }
+            } else if (playerDistance < x658_) {
+              score += midWeight;
+              if (score < bestScore) {
+                delta *= 1.f / playerDistance;
+                score += (10.f * x658_) *
+                         (1.f - CVector3f::Dot(mgr.GetPlayer(0)->GetTransform().GetForward(),
+                                               delta));
+              }
+            } else {
+              score += farWeight;
+            }
+            if (score < bestScore) {
+              score += x658_ * mgr.Random()->Float();
+              if (score < bestScore) {
+                bestScore = score;
+                target = cover;
+                mPlayerInLeashRange = playerDistance > mLeashRadius;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if (target) {
+    mDestObj = target->GetUniqueId();
+    SetDestPos(target->GetTranslation());
+    ReleaseCoverPoint(mgr, mCoverPoint, true);
+    SetCoverPoint(target, mCoverPoint);
+  } else if (mgr.GetPlayer(0)->GetCurrentAreaId() == GetCurrentAreaId()) {
+    mDestObj = mgr.GetPlayer(0)->GetUniqueId();
+    CVector3f destPos =
+        mgr.GetPlayer(0)->GetTranslation() -
+        x654_ * (mgr.GetPlayer(0)->GetTranslation() - GetTranslation()).AsNormalized();
+    const CRayCastResult result = mgr.RayStaticIntersection(
+        destPos, CVector3f::Down(), 8.f,
+        CMaterialFilter::MakeInclude(CMaterialList(AnchorFloorMaterial)));
+    if (result.IsValid()) {
+      destPos = result.GetPoint();
+    }
+    SetDestPos(destPos);
+  } else {
+    mDestObj = kInvalidUniqueId;
+    mDestPos = GetTranslation();
+  }
+}
 
 const CChozoGhost::CBehaveChance& CChozoGhost::ChooseBehaveChanceRange(CStateManager& mgr) const {
   const float dist = (GetTranslation() - mgr.GetPlayer(0)->GetTranslation()).Magnitude();
@@ -324,17 +416,133 @@ const CChozoGhost::CBehaveChance& CChozoGhost::ChooseBehaveChanceRange(CStateMan
   return mBehaveChance3;
 }
 
-void CChozoGhost::SetWarpPosition(CStateManager& mgr, const CVector3f& dir) {}
+static EMaterialTypes WarpSolidMaterial = kMT_Unknown59;
 
-void CChozoGhost::InActive(CStateManager& mgr, EStateMsg msg, float arg) {}
-
-bool CChozoGhost::AIStage(CStateManager& mgr, const CTriggerData& data) const {
-  return static_cast< int >(data.GetFloat()) == x63c_;
+void CChozoGhost::SetWarpPosition(CStateManager& mgr, const CVector3f& dir) {
+  const CVector3f center = GetBoundingBox().GetCenterPoint();
+  float distance = 8.f;
+  const CRayCastResult result =
+      mgr.RayStaticIntersection(center + distance * dir, -dir, distance,
+                                CMaterialFilter::MakeInclude(CMaterialList(WarpSolidMaterial)));
+  if (result.IsValid()) {
+    mSpaceWarpPosition = result.GetPoint();
+  } else {
+    mSpaceWarpPosition = center + dir;
+  }
 }
 
-void CChozoGhost::Growth(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::InActive(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    if (!mBodyController->GetIsActive()) {
+      mBodyController->Activate(mgr, pas::kAS_Invalid);
+    }
 
-void CChozoGhost::Generate(CStateManager& mgr, EStateMsg msg, float arg) {}
+    if (x63c_ == 3) {
+      mBodyController->SetLocomotionType(pas::kLT_Crouch);
+      mColor.SetAlpha(1.f);
+    } else {
+      mBodyController->SetLocomotionType(pas::kLT_Relaxed);
+      mColor.SetAlpha(0.f);
+    }
+    RemoveMaterial(kMT_Unknown59, mgr);
+    SetMomentumWR(CVector3f::Zero());
+    x665_24_ = true;
+  } break;
+  case kStateMsg_Update:
+    break;
+  default:
+    break;
+  }
+}
+
+bool CChozoGhost::AIStage(CStateManager& mgr, const CTriggerData& data) const {
+  const float arg = data.GetFloat();
+  return static_cast< int >(arg) == x63c_;
+}
+
+void CChozoGhost::Growth(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mStateMachine->SetDelay(mFadeOutDelay);
+    mBodyController->SetLocomotionType(pas::kLT_Crouch);
+    mAlphaDelta = 1.f;
+    mFadedIn = true;
+    if (mFadeOutDelay > 0.f) {
+      mSpaceWarpTime = mFadeOutDelay;
+      SetWarpPosition(mgr, CVector3f::Up());
+    }
+  } break;
+  case kStateMsg_Update:
+    break;
+  case kStateMsg_Deactivate:
+    x665_24_ = false;
+    mBoneTracking.SetActive(true);
+    mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+    break;
+  }
+}
+
+static EMaterialTypes GenerateFloorMaterial = kMT_Floor;
+
+void CChozoGhost::Generate(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mStateMachine->SetDelay(mFadeOutDelay);
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    mOnGround = false;
+    const CRayCastResult result =
+        mgr.RayStaticIntersection(GetTranslation(), CVector3f::Down(), 100.f,
+                                  CMaterialFilter::MakeInclude(CMaterialList(GenerateFloorMaterial)));
+    if (result.IsValid()) {
+      mFloorLevel = result.GetPoint().GetZ();
+    } else {
+      mFloorLevel = mgr.GetPlayer(0)->GetTranslation().GetZ();
+    }
+
+    mAlphaDelta = 1.f;
+    mFadedIn = true;
+
+    if (mFadeOutDelay > 0.f) {
+      mSpaceWarpTime = mFadeOutDelay;
+      SetWarpPosition(mgr, CVector3f::Down());
+    }
+  } break;
+  case kStateMsg_Update: {
+    if (mAnimationState.CanIssueCommand(*mBodyController, pas::kAS_Jump)) {
+      mBodyController->CommandMgr().DeliverCmd(
+          CBCJumpCmd(mDestPos, pas::kJT_Normal, pas::kJS_IntoJump, 0, CBCJumpCmd::kFF_AmbushJump));
+    }
+    switch (mAnimationState.GetState()) {
+    case CAnimationState::kAS_Repeat: {
+      mBodyController->SetLocomotionType(pas::kLT_Crouch);
+      if (mOnGround) {
+        break;
+      }
+
+      if (GetTranslation().GetZ() < mFloorLevel + x668_) {
+        CVector3f newPos = GetTranslation();
+        newPos.SetZ(mFloorLevel + x668_);
+        SetTranslation(newPos);
+        mOnGround = true;
+      }
+    } break;
+    case CAnimationState::kAS_Over: {
+      mBoneTracking.SetActive(true);
+      mBoneTracking.SetTarget(mgr.GetPlayer(0)->GetUniqueId());
+      FloatToLevel(mFloorLevel, arg);
+    } break;
+    default:
+      break;
+    }
+  } break;
+  case kStateMsg_Deactivate: {
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    x665_24_ = false;
+    mOnGround = false;
+  } break;
+  }
+}
 
 void CChozoGhost::WallDetach(CStateManager& mgr, EStateMsg msg, float arg) {}
 
@@ -355,19 +563,158 @@ bool CChozoGhost::ShouldAttack(CStateManager& mgr, const CTriggerData& data) con
   return mBehaveType == kBT_Attack;
 }
 
-void CChozoGhost::Attack(CStateManager& mgr, EStateMsg msg, float arg) {}
+static EMaterialTypes AttackSolidMaterial = kMT_Unknown59;
 
-void CChozoGhost::Land(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::Attack(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    CScriptTeamAiMgr::StartAttack(CScriptTeamAiMgr::kAT_Projectile, mgr, mTeamMgr, GetUniqueId());
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    switch (x6d8_) {
+    case 1:
+      mAttackType = 3;
+      break;
+    case 2:
+      mAttackType = 4;
+      break;
+    case 3:
+      mAttackType = 5;
+      break;
+    }
+    if (x665_25_) {
+      const CRayCastResult result = mgr.RayStaticIntersection(
+          GetTranslation() + 0.5f * CVector3f::Up(), CVector3f::Up(), x670_,
+          CMaterialFilter::MakeInclude(CMaterialList(AttackSolidMaterial)));
+      if (!result.IsValid()) {
+        mAttackType = 2;
+        KnockBackController().EnableAnimReaction(CKnockBackMgr::kAR_KnockBack, false);
+      }
+    }
+    SetMomentumWR(CVector3f::Zero());
+    SetConstantForceWR(CVector3f::Zero());
+    break;
+  }
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*mBodyController, pas::kAS_MeleeAttack)) {
+      mBodyController->CommandMgr().DeliverCmd(
+          CBCMeleeAttackCmd(static_cast< pas::ESeverity >(mAttackType)));
+    }
+    mBodyController->CommandMgr().SetTargetVector(mgr.GetPlayer(0)->GetTranslation() -
+                                                  GetTranslation());
+    if (mAttackType != 2) {
+      FloatToLevel(mFloorLevel, arg);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    mShouldSwoosh = false;
+    KnockBackController().EnableAnimReaction(CKnockBackMgr::kAR_KnockBack, true);
+    CScriptTeamAiMgr::EndAttack(CScriptTeamAiMgr::kAT_Projectile, mgr, mTeamMgr, GetUniqueId(),
+                                true);
+    break;
+  }
+}
 
-void CChozoGhost::Shuffle(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::Land(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Update: {
+    FloatToLevel(mFloorLevel, arg);
+    if (CMath::AbsF(mFloorLevel - GetTranslation().GetZ()) < 0.05f) {
+      StateMachineState().SetCodeTrigger();
+    }
+    break;
+  }
+  }
+}
+
+void CChozoGhost::Shuffle(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    const CBehaveChance& chance = ChooseBehaveChanceRange(mgr);
+    const CTeamAiRole* role = CScriptTeamAiMgr::GetTeamAiRole(mgr, mTeamMgr, GetUniqueId());
+    if (role && (role->GetTeamAiRole() != CTeamAiRole::kTAR_Projectile ||
+                 !CScriptTeamAiMgr::CanStartAttack(CScriptTeamAiMgr::kAT_Projectile, mgr, mTeamMgr,
+                                                   GetUniqueId()))) {
+      mBehaveType = kBT_Attack;
+    }
+    mBehaveType = ChooseBehaveChanceRange(mgr).GetBehave(mBehaveType, mgr);
+    switch (mBehaveType) {
+    case kBT_Lurk:
+      mLurkDelay = chance.GetLurkTime();
+      break;
+    case kBT_Attack:
+      x665_25_ = mgr.Random()->Float() < chance.GetChargeAttack();
+      x6d8_ = mgr.Random()->Next() % chance.GetNumBolts() + 1;
+      break;
+    default:
+      break;
+    }
+    x664_31_ = false;
+    mPlayerInLeashRange = false;
+    break;
+  }
+  }
+}
 
 bool CChozoGhost::ShouldTaunt(CStateManager& mgr, const CTriggerData& data) const {
   return mBehaveType == kBT_Taunt;
 }
 
-void CChozoGhost::Taunt(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::Taunt(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*mBodyController, pas::kAS_Taunt)) {
+      mBodyController->CommandMgr().DeliverCmd(CBCTauntCmd(pas::kTT_Zero));
+    }
+    FloatToLevel(mFloorLevel, arg);
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    mShouldSwoosh = false;
+    break;
+  }
+}
 
-void CChozoGhost::Hurled(CStateManager& mgr, EStateMsg msg, float arg) {}
+static EMaterialTypes HurledFloorMaterial = kMT_Floor;
+
+void CChozoGhost::Hurled(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mVerticalMovement = false;
+    mOnGround = false;
+    x665_24_ = true;
+    break;
+  case kStateMsg_Update:
+    mAlphaDelta = 2.f;
+    if (!mOnGround) {
+      if (GetVelocityWR().GetZ() < 0.f) {
+        const CRayCastResult result = mgr.RayStaticIntersection(
+            GetTranslation() + CVector3f::Up(), CVector3f::Down(), 2.f,
+            CMaterialFilter::MakeInclude(CMaterialList(HurledFloorMaterial)));
+        if (result.IsValid() && result.GetTime() < 1.05f) {
+          mOnGround = true;
+          SetMomentumWR(CVector3f::Zero());
+          SetVelocityWR(CVector3f(GetVelocityWR().GetX(), GetVelocityWR().GetY(), 0.f));
+          mFloorLevel = result.GetPoint().GetZ();
+          StateMachineState().SetCodeTrigger();
+        }
+      }
+      if (!mOnGround && mStateMachine->GetTime() > mHurlRecoverTime) {
+        mBodyController->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
+        mBodyController->SetLocomotionType(pas::kLT_Lurk);
+        StateMachineState().SetCodeTrigger();
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mVerticalMovement = true;
+    SetMomentumWR(CVector3f::Zero());
+    break;
+  }
+}
 
 void CChozoGhost::Lurk(CStateManager& mgr, EStateMsg msg, float arg) {
   switch (msg) {
@@ -396,7 +743,27 @@ bool CChozoGhost::AggressionCheck(CStateManager& mgr, const CTriggerData& data) 
   return mAggressive;
 }
 
-void CChozoGhost::Deactivate(CStateManager& mgr, EStateMsg msg, float arg) {}
+void CChozoGhost::Deactivate(CStateManager& mgr, EStateMsg msg, float arg) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mBoneTracking.SetActive(false);
+    ReleaseCoverPoint(mgr, mCoverPoint, true);
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    x665_24_ = true;
+    break;
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*mBodyController, pas::kAS_Generate)) {
+      mBodyController->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_One, -1));
+    }
+    if (mAnimationState.GetState() == CAnimationState::kAS_Repeat) {
+      mBodyController->SetLocomotionType(pas::kLT_Relaxed);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
 
 void CChozoGhost::Dead(CStateManager& mgr, EStateMsg msg, float arg) {
   switch (msg) {
@@ -428,7 +795,22 @@ void CChozoGhost::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
 }
 
 void CChozoGhost::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
+  if (!GetAlive()) {
+    KnockBackController().EnableAnimReaction(CKnockBackMgr::kAR_Hurled, false);
+  } else if (!KnockBackController().IsAnimReactionEnabled(CKnockBackMgr::kAR_KnockBack) &&
+             info.GetDamageInfo().GetWeaponMode().IsCharged()) {
+    KnockBackController().SetAnimReactionRange(CKnockBackMgr::kAR_Hurled, CKnockBackMgr::kAR_Fall);
+  }
   CPatterned::KnockBack(mgr, info);
+  KnockBackController().SetAnimReactionRange(CKnockBackMgr::kAR_Flinch, CKnockBackMgr::kAR_Fall);
+  if (GetAlive()) {
+    if (KnockBackController().GetAnimReaction() == CKnockBackMgr::kAR_Hurled) {
+      mStateMachine->SetState(mgr, *this, rstl::string_l("Hurled"));
+    }
+  } else {
+    Stop();
+    SetMomentumWR(CVector3f::Zero());
+  }
 }
 
 void CChozoGhost::PreThink(float dt, CStateManager& mgr) {
@@ -442,7 +824,7 @@ void CChozoGhost::Think(float dt, CStateManager& mgr) {
   }
   CPatterned::Think(dt, mgr);
   mBoneTracking.Think(dt);
-  mSpaceWarpTime = CMath::Max(0.f, mSpaceWarpTime - dt);
+  mSpaceWarpTime = rstl::max_val(mSpaceWarpTime - dt, 0.f);
   SetValidTarget(0, IsVisibleEnough(mgr));
 }
 

@@ -488,6 +488,16 @@ public:
     mKnockBack = cmd;
   }
 
+  void DeliverCmd(const CBCMeleeAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mMeleeAttack = cmd;
+  }
+
+  void DeliverCmd(const CBCGenerateCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGenerate = cmd;
+  }
+
   void DeliverCmd(const CBCHurledCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mHurled = cmd;
@@ -496,6 +506,11 @@ public:
   void DeliverCmd(const CBCSlideCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mSlide = cmd;
+  }
+
+  void DeliverCmd(const CBCTauntCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mTaunt = cmd;
   }
 
   void DeliverCmd(const CBCJumpCmd& cmd) {
