@@ -39,7 +39,7 @@ bool CMarkerGrid::GetCoords(const CVector3f& point, uint& x, uint& y, uint& z) c
     return false;
   }
 
-  const CVector3f relative = point - mBounds.GetMinPoint();
+  const CVector3f& relative = point - mBounds.GetMinPoint();
   x = relative.GetX() / mGridUnits.GetX();
   y = relative.GetY() / mGridUnits.GetY();
   z = relative.GetZ() / mGridUnits.GetZ();
@@ -290,7 +290,7 @@ void CIceImpact::Touch(CActor& actor, CStateManager& mgr) {
 }
 
 static bool pointInSphere(const CSphere& sphere, const CVector3f& point) {
-  const CVector3f delta = sphere.GetCenter() - point;
+  const CVector3f& delta = sphere.GetCenter() - point;
   return delta.MagSquared() <= sphere.GetRadius() * sphere.GetRadius();
 }
 
