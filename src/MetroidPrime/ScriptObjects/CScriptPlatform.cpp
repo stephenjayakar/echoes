@@ -583,13 +583,13 @@ void CScriptPlatform::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
     for (int i = 0; i < mStaticSlaves.size(); ++i) {
       if (CScriptPlatform* platform =
               TCastToPtr< CScriptPlatform >(mgr.ObjectById(mStaticSlaves[i].mUid))) {
-        platform->x452_ = GetUniqueId();
+        platform->SetMasterPlatform(GetUniqueId());
       }
     }
     const TUniqueId waypoint = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
     if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(waypoint))) {
       mSplineController = rs_new CGameSpline(
-          mMotionSpline->GetDuration(), mMotionSpline->IsClosedLoop(), mMotionSpline->GetSpline(),
+          mMotionSpline->GetDuration(), mMotionSpline->IsClosedLoop() ? 1 : 0, mMotionSpline->GetSpline(),
           CMayaSpline(), mMotionSpline->GetType(), mMotionSpline->GetType());
       ScriptCameraSpline::Initialise(*this, kSS_Connect, kSM_Attach, kSS_CameraTarget, kSM_Follow,
                                      mgr, *mSplineController);

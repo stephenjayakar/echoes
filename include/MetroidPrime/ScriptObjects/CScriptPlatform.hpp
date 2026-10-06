@@ -103,6 +103,8 @@ public:
                                            const rstl::vector< SRiders >& riders);
   static void AddRider(rstl::vector< SRiders >& riders, TUniqueId id, const CPhysicsActor* ridee,
                        CStateManager& mgr, const rstl::optional_object< float >& decayTimer);
+  // Guessed name: the static master platform this slave is bound to.
+  void SetMasterPlatform(TUniqueId id) { x452_ = id; }
 
 private:
   float mMoveDelay;
