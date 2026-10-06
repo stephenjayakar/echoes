@@ -2110,18 +2110,18 @@ void CPlayerGun::DropBomb(EBWeapon type, CStateManager& mgr) {
 }
 
 TUniqueId CPlayerGun::DropPowerBomb(CStateManager& mgr) const {
-  CDamageInfo damage = GetPlayer(mgr)->GetDeathTime() > 0.f
-                           ? CDamageInfo(CWeaponMode(kWT_PowerBomb), 0.f, 0.f, 0.f)
-                           : gpTweakPlayerGun->GetPowerBombInfo();
+  CDamageInfo damage = GetPlayer(mgr)->GetDeathTime() <= 0.f
+                           ? gpTweakPlayerGun->GetPowerBombInfo()
+                           : CDamageInfo(CWeaponMode(kWT_PowerBomb), 0.f, 0.f, 0.f, false, false);
   damage = damage.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
   const float radius = GetPlayer(mgr)->GetMorphBall()->GetBallRadius();
   const TUniqueId id = mgr.AllocateUniqueId();
   CPowerBomb* bomb = rs_new CPowerBomb(
-      mBombEffects[kBW_PowerBomb][0], id, GetPlayer(mgr)->GetCurrentAreaId(), mPlayerUniqueId,
+      mBombEffects[kBW_PowerBomb][0], id, GetPlayer(mgr)->GetCurrentAreaId(), GetPlayerUniqueId(),
       kWT_PowerBomb, mgr.IsMultiplayer() ? CPowerBomb::kF_NoDamageDelay : 0,
       CTransform4f::Translate(GetPlayer(mgr)->GetTranslation() + CVector3f(0.f, 0.f, radius)),
       damage);
-  mgr.AddObject(bomb);
+  mgr.AddObject(*bomb);
   return id;
 }
 
