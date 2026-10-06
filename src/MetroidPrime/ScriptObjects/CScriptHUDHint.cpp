@@ -38,22 +38,36 @@ CScriptHUDHint::CScriptHUDHint(TUniqueId uid, const rstl::string& name, const CE
 
 void CScriptHUDHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
-  const EScriptObjectMessage message = msg.GetMessage();
-  if (message == kSM_Deactivate || message == kSM_Delete ||
-      (message == kSM_ToggleActive && !GetActive())) {
+  switch (msg.GetMessage()) {
+  case kSM_ToggleActive:
+    if (GetActive()) {
+      break;
+    }
+  case kSM_Deactivate:
+  case kSM_Delete: {
     const int numPlayers = mgr.GetNumPlayers();
-    for (int player = 0; player < numPlayers; ++player) {
+    for (uint player = 0; int(player) < numPlayers; ++player) {
       CPlayerState* state = mgr.PlayerState(player);
       if (state->HasId(GetUniqueId())) {
         state->RemoveId(GetUniqueId());
       }
     }
+    break;
+  }
+  default:
+    break;
   }
   if (!GetActive()) {
     return;
   }
 
-  switch (message) {
+  switch (msg.GetMessage()) {
+  case kSM_InternalMessage00:
+    mAnimationState = kAS_Forward;
+    break;
+  case kSM_InternalMessage01:
+    mAnimationState = kAS_Backward;
+    break;
   case kSM_Increment:
     if (mAnimationFrames > 0 && mAnimationPosition < mAnimationTime) {
       mAnimationPosition += mAnimationTime / mAnimationFrames;
@@ -70,20 +84,14 @@ void CScriptHUDHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) 
       }
     }
     break;
-  case kSM_InternalMessage00:
-    mAnimationState = kAS_Forward;
-    break;
-  case kSM_InternalMessage01:
-    mAnimationState = kAS_Backward;
-    break;
-  case kSM_Stop:
-    mAnimationState = kAS_Stopped;
+  case kSM_SetToZero:
+    SetAnimationToZero(mgr);
     break;
   case kSM_SetToMax:
     SetAnimationToMax(mgr);
     break;
-  case kSM_SetToZero:
-    SetAnimationToZero(mgr);
+  case kSM_Stop:
+    mAnimationState = kAS_Stopped;
     break;
   default:
     break;
