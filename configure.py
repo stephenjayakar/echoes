@@ -1496,6 +1496,12 @@ config.libs = [
         ],
     ),
     Rel(
+        "SwarmBasics",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSwarmBasics.cpp"),
+        ],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),

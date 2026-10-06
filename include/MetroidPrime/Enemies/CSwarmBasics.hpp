@@ -125,6 +125,9 @@ public:
                                                   uint maxEmitters, ushort sfx,
                                                   ELoopedSoundType type);
 
+  void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
+  void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
+
   int GetBoidCount() const { return mBoids.size(); }
   const CVector3f& GetLastKilledOffset() const { return mLastKilledOffset; }
   int GetCurrentLockOnId() const { return mLockOnIndex; }
@@ -180,7 +183,14 @@ private:
   int mNumBoids;
   int mMaxCreatedBoids;
   int mCreatedBoids;
-  ushort x4f0_;
+  bool x4f0_24_ : 1;
+  bool x4f0_25_ : 1;
+  bool x4f0_26_ : 1;
+  bool x4f0_27_ : 1;
+  bool x4f0_28_ : 1;
+  bool x4f0_29_ : 1;
+  bool x4f0_30_ : 1;
+  bool x4f0_31_ : 1;
   float x4f4_;
   ushort mLocomotionLoopedSound;
   ushort mAttackLoopedSound;
@@ -194,8 +204,8 @@ private:
   uchar mMaxAttackEmitters;
   int x528_;
   int x52c_;
-  int x530_;
-  int x534_;
+  int x530_; // Death messages sent this frame.
+  int x534_; // Death messages deferred to later frames.
   float mFreezeDuration;
   rstl::auto_ptr< CUnknownBuffer > x53c_;
   uint x544_;
