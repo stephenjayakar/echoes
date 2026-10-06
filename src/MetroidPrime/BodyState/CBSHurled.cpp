@@ -44,7 +44,8 @@ void CBSHurled::Start(CBodyController& bc, CStateManager& mgr) {
   bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
 
   const CPASAnimState* hurledState = db.GetAnimState(pas::kAS_Hurled);
-  mAnimSeries = hurledState->GetAnimParmData(best.second, 0).GetInt32Value();
+  const CPASAnimParm seriesParm = hurledState->GetAnimParmData(best.second, 0);
+  mAnimSeries = seriesParm.GetInt32Value();
 
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&owner)) {
     mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, owner.GetUniqueId(),
@@ -56,9 +57,8 @@ void CBSHurled::Start(CBodyController& bc, CStateManager& mgr) {
     }
   }
 
-  const float animAngle =
-      CRelAngle::FromDegrees(hurledState->GetAnimParmData(best.second, 1).GetReal32Value())
-          .AsRadians();
+  const CPASAnimParm angleParm = hurledState->GetAnimParmData(best.second, 1);
+  const float animAngle = CRelAngle::FromDegrees(angleParm.GetReal32Value()).AsRadians();
   const float delta = CMath::ClampRadians(angle - animAngle);
   const float minAngle = rstl::min_val(delta, CMath::ClampRadians(animAngle - angle));
   const float flippedAngle = delta > M_PIF ? -minAngle : minAngle;
