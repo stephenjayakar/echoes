@@ -231,11 +231,10 @@ CAdvancementDeltas CActor::UpdateAnimation(float dt, CStateManager& mgr, bool ad
 
 void CActor::StopLoopedSounds() {
   for (uint i = 0; i < mLoopingSoundCount; ++i) {
-    TLoopingSound& sound = mLoopingSounds[i];
-    if (const CSfxHandle& handle = sound.second.mHandle) {
+    if (const CSfxHandle& handle = mLoopingSounds[i].second.mHandle) {
       CSfxManager::RemoveEmitter(handle);
-      sound.first = InvalidSfxId;
-      sound.second = SSound(CSfxHandle(), CSegId::Invalid(), false);
+      mLoopingSounds[i].first = InvalidSfxId;
+      mLoopingSounds[i].second = SSound(CSfxHandle(), CSegId::Invalid(), false);
     }
   }
   mLoopingSoundCount = 0;
@@ -931,28 +930,28 @@ void CActor::UpdateSfxEmitters(CStateManager& mgr) {
   uint i = 0;
   const uint count = mNonLoopingSounds.size();
   for (; i < count; ++i) {
-    const SSound& sound = mNonLoopingSounds[i];
-    const CSegId& locator = sound.mLocator;
+    const CSegId& locator = mNonLoopingSounds[i].mLocator;
     const CVector3f soundPosition =
         locator.val() == 0 ? position
                            : (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
     uint volume = mMaxVol;
-    if (sound.mUseEchoVolume) {
+    if (mNonLoopingSounds[i].mUseEchoVolume) {
       volume = GetVisorSoundVolume(mgr);
     }
-    CSfxManager::UpdateEmitter(sound.mHandle, soundPosition, CVector3f::Zero(), volume);
+    CSfxManager::UpdateEmitter(mNonLoopingSounds[i].mHandle, soundPosition, CVector3f::Zero(),
+                               volume);
   }
   for (i = 0; i < mLoopingSoundCount; ++i) {
-    const TLoopingSound& sound = mLoopingSounds[i];
-    const CSegId& locator = sound.second.mLocator;
+    const CSegId& locator = mLoopingSounds[i].second.mLocator;
     const CVector3f soundPosition =
         locator.val() == 0 ? position
                            : (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
     uint volume = mMaxVol;
-    if (sound.second.mUseEchoVolume) {
+    if (mLoopingSounds[i].second.mUseEchoVolume) {
       volume = GetVisorSoundVolume(mgr);
     }
-    CSfxManager::UpdateEmitter(sound.second.mHandle, soundPosition, CVector3f::Zero(), volume);
+    CSfxManager::UpdateEmitter(mLoopingSounds[i].second.mHandle, soundPosition, CVector3f::Zero(),
+                               volume);
   }
 }
 
