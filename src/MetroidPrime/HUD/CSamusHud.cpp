@@ -1002,16 +1002,14 @@ void CSamusHud::UpdateEnergy(float dt, const CStateManager& mgr, bool init) {
       mEnergyLow = energyLow;
     }
     for (int i = 0; i < mFilledEnergyTanks.size(); ++i) {
-      CGuiWidget* filled = mFilledEnergyTanks[i];
-      CGuiWidget* empty = mEmptyEnergyTanks[i];
-      if (filled != nullptr && empty != nullptr) {
+      if (mFilledEnergyTanks[i] != nullptr && mEmptyEnergyTanks[i] != nullptr) {
         if (i < numEnergyTanks) {
           const bool full = i < filledTanks;
-          filled->SetVisibility(full, kTM_Children);
-          empty->SetVisibility(!full, kTM_Children);
+          mFilledEnergyTanks[i]->SetVisibility(full, kTM_Children);
+          mEmptyEnergyTanks[i]->SetVisibility(!full, kTM_Children);
         } else {
-          filled->SetVisibility(false, kTM_Children);
-          empty->SetVisibility(false, kTM_Children);
+          mFilledEnergyTanks[i]->SetVisibility(false, kTM_Children);
+          mEmptyEnergyTanks[i]->SetVisibility(false, kTM_Children);
         }
       }
     }
