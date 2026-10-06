@@ -2285,8 +2285,6 @@ rstl::pair< int, int > CAutoMapper::FindClosestVisibleWorld(const CVector3f& poi
   return rstl::pair< int, int >(closestWorld, closestArea);
 }
 
-bool rstl::operator==(const rstl::string& lhs, const char* rhs) { return lhs.compare(rhs) == 0; }
-
 CVector2i CAutoMapper::GetMiniMapViewportSize() {
   const float scaleX = static_cast< float >(CGraphics::GetViewport().mWidth) / 640.f;
   const float scaleY = static_cast< float >(CGraphics::GetViewport().mHeight) / 480.f;
