@@ -141,7 +141,8 @@ void CScriptSpecialFunction::AddToRenderer(const CStateManager& mgr) const {
 void CScriptSpecialFunction::PreRenderFogVolume(CStateManager& mgr) {
   CVector3f max = GetTranslation() + mVectorParm;
   max.SetZ(max.GetZ() + mValue1);
-  SetInFrustum(mgr.GetFrustumPlanes().BoxInFrustumPlanes(CAABox(GetTranslation() - mVectorParm, max)));
+  const CAABox box(GetTranslation() - mVectorParm, max);
+  SetInFrustum(mgr.GetFrustumPlanes().BoxInFrustumPlanes(box));
 }
 
 void CScriptSpecialFunction::PreRenderViewFrustumTester(CStateManager& mgr) {
