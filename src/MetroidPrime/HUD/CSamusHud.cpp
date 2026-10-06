@@ -1926,11 +1926,11 @@ void CSamusHud::UpdateStateTransition(float dt, const CStateManager& mgr) {
       return;
     }
   case kTS_Loading:
-    if (!mPendingHudFrame.null()) {
-      if (!mPendingHudFrame->IsFinishedLoading()) {
+    if (CGuiFrameLoader* loader = mPendingHudFrame.get()) {
+      if (!loader->IsFinishedLoading()) {
         return;
       }
-      mHudFrame = mPendingHudFrame->CreateFrame();
+      mHudFrame = loader->CreateFrame();
       mLoadedHudFrame = mHudFrame.get();
       mPendingHudFrame = nullptr;
       mPreviousState = mNextState;
@@ -1973,7 +1973,7 @@ void CSamusHud::UpdateStateTransition(float dt, const CStateManager& mgr) {
       mTransitionState = kTS_Idle;
     }
     break;
-  default:
+  case kTS_Idle:
     break;
   }
 }
