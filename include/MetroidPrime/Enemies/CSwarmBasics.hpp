@@ -197,6 +197,8 @@ public:
   CVector3f ProjectVectorToPlane(const CVector3f& point, const CVector3f& normal);
   static CTransform4f ShortestRotationArcWrapped(const CVector3f& a, const CVector3f& b,
                                                  const CRelAngle& angle);
+  void HardwareLight(const CStateManager& mgr, const CAABox& bounds) const;
+  CColor SoftwareLight(const CStateManager& mgr, const CAABox& bounds) const;
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 

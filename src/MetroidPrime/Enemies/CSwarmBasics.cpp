@@ -50,6 +50,11 @@
 #include "MetroidPrime/CSafeZoneManager.hpp"
 #include "WorldFormat/CAreaOctTree.hpp"
 
+#include "Kyoto/Graphics/CGraphics.hpp"
+#include "Kyoto/Graphics/CLight.hpp"
+#include "MetroidPrime/CActorLights.hpp"
+#include "rstl/math.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
@@ -638,6 +643,36 @@ CAABox CSwarmBasics::BoxForPosition(int x, int y, int z, float margin) const {
                     CVector3f(margin, margin, margin));
 }
 
+void CSwarmBasics::HardwareLight(const CStateManager& mgr, const CAABox& bounds) const {
+  CActorLights lights(8, CVector3f::Zero(), 4, 4);
+  lights.SetNeedsRelight(true);
+  lights.SetCastShadows(false);
+  lights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()), bounds);
+  lights.BuildDynamicLightList(mgr, bounds);
+  lights.ActivateLights();
+}
+
+CColor CSwarmBasics::SoftwareLight(const CStateManager& mgr, const CAABox& bounds) const {
+  CActorLights lights(8, CVector3f::Zero(), 4, 4);
+  lights.SetNeedsRelight(true);
+  lights.SetCastShadows(false);
+  lights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()), bounds);
+  lights.BuildDynamicLightList(mgr, bounds);
+  CColor result = lights.GetAmbientColor();
+  const CVector3f center = bounds.GetCenterPoint();
+  for (uint i = 0; i < lights.GetActiveLightCount(); ++i) {
+    const CLight& light = lights.GetLight(i);
+    const float distance = (light.GetPosition() - center).Magnitude();
+    const float attenuation =
+        rstl::min_val(1.f, 1.f / (distance * (distance * light.GetAttenuationQuadratic()) +
+                                 (distance * light.GetAttenuationLinear() +
+                                  light.GetAttenuationConstant())));
+    result = CColor::Add(result, CColor::Lerp(CColor::Black(), light.GetColor(),
+                                              CMath::Clamp(0.f, 0.8f * attenuation, 1.f)));
+  }
+  return result;
+}
+
 void CSwarmBasics::PreRender(CStateManager& mgr) {
   bool active = false;
   if (x4f0_27_) {
@@ -715,6 +750,86 @@ void CSwarmBasics::AddToRenderer(const CStateManager& mgr) const {
         EnsureRendered(mgr);
       }
     }
+  }
+}
+
+void CSwarmBasics::Render(const CStateManager& mgr) const {
+  const int alpha = GetRenderAlphaBufferAlpha(mgr);
+  if (alpha != -1) {
+    gpRender->SetDestinationAlpha(alpha);
+  }
+  const bool enableLighting = x4f0_24_;
+  const bool useSoftwareLight = x4f0_25_;
+  CGraphics::DisableAllLights();
+  if (!enableLighting) {
+    gpRender->SetAmbientColor(CColor(0.5f, 0.5f, 0.5f, 1.f));
+  }
+  if (mDisplayList.get()) {
+    mDisplayList->SetMaterialCurrent(CModelFlags::Normal());
+  }
+  const uint lights = CGraphics::GetLightMask();
+  CGX::SetChanCtrl(CGX::Channel0,
+                   (lights && enableLighting && !useSoftwareLight) ? GX_TRUE : GX_FALSE, GX_SRC_REG,
+                   GX_SRC_REG, static_cast< GXLightID >(lights), lights ? GX_DF_CLAMP : GX_DF_NONE,
+                   lights ? GX_AF_SPOT : GX_AF_NONE);
+  CGX::SetChanAmbColor(CGX::Channel0, CColor::White().GetGXColor());
+  for (int x = 0; x < 5; ++x) {
+    int rowIndex = x;
+    for (int y = 0; y < 5; ++y, rowIndex += 5) {
+      for (int z = 0; z < 5; ++z) {
+        const int index = rowIndex + z * 25;
+        CBoid* boid = mPartitionedBoidLists[index];
+        if (boid != nullptr) {
+          if (enableLighting) {
+            const CAABox bounds = BoxForPosition(x, y, z, 0.f);
+            if (useSoftwareLight) {
+              if ((index & 3) == (mThinkCounter & 3)) {
+                const CColor color = SoftwareLight(mgr, bounds);
+                for (CBoid* it = boid; it != nullptr; it = it->mNext) {
+                  if (it->GetActive()) {
+                    it->mAmbientLighting = CColor::Lerp(it->mAmbientLighting, color, 0.3f);
+                  }
+                }
+              }
+            } else {
+              HardwareLight(mgr, bounds);
+            }
+          }
+          for (; boid != nullptr; boid = boid->mNext) {
+            if (boid->mInFrustum && boid->mActive) {
+              RenderBoid(boid);
+            }
+          }
+        }
+      }
+    }
+  }
+  CBoid* boid = mOutlierBoidList;
+  int index = 0;
+  for (; boid != nullptr; boid = boid->mNext) {
+    ++index;
+    if (boid->mInFrustum && boid->mActive) {
+      if (enableLighting) {
+        const CVector3f pos = boid->GetTranslation();
+        const CVector3f extent(mBoidRadius, mBoidRadius, mBoidRadius);
+        const CAABox bounds = CAABox(pos - extent, pos + extent);
+        if (useSoftwareLight) {
+          if ((index & 3) == (mThinkCounter & 3)) {
+            const CColor color = SoftwareLight(mgr, bounds);
+            if (boid->GetActive()) {
+              boid->mAmbientLighting = CColor::Lerp(boid->mAmbientLighting, color, 0.3f);
+            }
+          }
+        } else {
+          HardwareLight(mgr, bounds);
+        }
+      }
+      RenderBoid(boid);
+    }
+  }
+  CGraphics::DisableAllLights();
+  if (alpha != -1) {
+    gpRender->DisableDestinationAlpha();
   }
 }
 
