@@ -632,8 +632,8 @@ void CGunWeapon::LoadAnimations() {
 }
 
 bool CGunWeapon::IsAnimsLoaded() const {
-  for (int i = 0; i < mAnims.size(); ++i) {
-    if (!mAnims[i].IsLoaded()) {
+  for (rstl::vector< CToken >::const_iterator it = mAnims.begin(); it != mAnims.end(); ++it) {
+    if (!it->IsLoaded()) {
       return false;
     }
   }
@@ -645,7 +645,10 @@ void CGunWeapon::LockTokens() {
   NWeaponTypes::lock_tokens(mDeps);
 }
 
-void CGunWeapon::UnlockTokens() { NWeaponTypes::unlock_tokens(mDeps); }
+void CGunWeapon::UnlockTokens() {
+  mArmModel.Unlock();
+  NWeaponTypes::unlock_tokens(mDeps);
+}
 
 void CGunWeapon::ReleaseResources(CStateManager& mgr) {
   if (!mgr.IsMultiplayer()) {
@@ -697,11 +700,14 @@ void CGunWeapon::UnLoadFidget() {
 }
 
 bool CGunWeapon::IsFidgetLoaded() {
-  return !mGunController.null() && mGunController->IsFidgetLoaded();
+  if (mGunController.null()) {
+    return false;
+  }
+  return mGunController->IsFidgetLoaded();
 }
 
 void CGunWeapon::AsyncLoadSuitArm() {
-  mSuitArmModelData.clear();
+  mSuitArmModelData = rstl::optional_object< CModelData >();
   mArmModel.Lock();
   mSuitArmLocked = true;
 }
