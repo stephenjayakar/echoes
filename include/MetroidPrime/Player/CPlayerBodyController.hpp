@@ -58,16 +58,16 @@ public:
 
   float GetCurrentAnimationDuration() const { return mAnimationDuration; }
 
-  bool IsUnfreezing() const { return (mAnimationFlags & kAF_Unfreezing) != 0; }
+  bool IsUnfreezing() const { return (mAnimationFlags >> 1) & 1; }
 
   int GetLocomotionMode() const { return mLocomotion.mLocomotionMode; }
 
   // Reconstructed accessors for the existing native animation masks.
-  bool IsMoving() const { return (mAnimationFlags & kAF_Moving) != 0; }
-  bool IsFastLocomotion() const { return (mAnimationFlags & kAF_FastLocomotion) != 0; }
-  bool IsLocomotionActive() const { return (mAnimationFlags & kAF_LocomotionActive) != 0; }
+  bool IsMoving() const { return (mAnimationFlags >> 5) & 1; }
+  bool IsFastLocomotion() const { return (mAnimationFlags >> 4) & 1; }
+  bool IsLocomotionActive() const { return (mAnimationFlags >> 3) & 1; }
   bool IsMorphTransitionActive() const {
-    return (mAnimationFlags & kAF_MorphTransitionActive) != 0;
+    return mAnimationFlags & 1;
   }
   void SetLocomotionMode(int mode) { mLocomotion.SetLocomotionMode(mode); }
 
@@ -79,9 +79,9 @@ public:
   void SelectAnimation(const CPASAnimParmData& parameters, CRandom16& random);
   bool IsAnimationLooping() const;
 
-  bool IsDeathReactionOver() const { return (mReactionFlags & kRF_DeathReactionOver) != 0; }
+  bool IsDeathReactionOver() const { return (mReactionFlags >> 7) & 1; }
 
-  bool IsDeathReactionActive() const { return (mReactionFlags & kRF_DeathReactionActive) != 0; }
+  bool IsDeathReactionActive() const { return (mReactionFlags >> 6) & 1; }
 
 private:
   enum EAnimationFlags {
