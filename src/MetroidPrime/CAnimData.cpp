@@ -430,14 +430,16 @@ void CAnimData::SetEffectComponentExternalParam(const rstl::string& name, int in
 void CAnimData::SetPhase(float phase) { mAnimRoot->VSetPhase(phase); }
 
 void CAnimData::SetKeepJSPose(bool keep) {
-  if (!keep) {
+  if (keep) {
+    if (mJointData.null()) {
+      mJointData = rstl::auto_ptr< CJointData_LinearStorage >(rs_new CJointData_LinearStorage(
+          mLayoutData->GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Heap));
+      mJointData->SetZeroRotation();
+      mJointData->ResetScales();
+      mJointData->SetReferenceOffsets(**mLayoutData);
+    }
+  } else {
     mJointData = rstl::auto_ptr< CJointData_LinearStorage >();
-  } else if (mJointData.null()) {
-    mJointData = rstl::auto_ptr< CJointData_LinearStorage >(rs_new CJointData_LinearStorage(
-        mLayoutData->GetBodyPartSegIds().GetCount(), CJointData_LinearStorage::kAF_Heap));
-    mJointData->SetZeroRotation();
-    mJointData->ResetScales();
-    mJointData->SetReferenceOffsets(**mLayoutData);
   }
 }
 
