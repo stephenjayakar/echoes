@@ -461,6 +461,7 @@ MetroidPrime/ScriptObjects/CScriptDamageableTrigger.cpp:
 MetroidPrime/ScriptObjects/CScriptDebris.cpp:
 	.text       start:0x800D1060 end:0x800D50B8
 	.ctors      start:0x803A54FC end:0x803A5500
+	.rodata     start:0x803A89D0 end:0x803A89D8
 	.data       start:0x803B3708 end:0x803B37A0
 	.sdata      start:0x80418170 end:0x804181D8
 	.sbss       start:0x804190C8 end:0x804190D0
@@ -1378,6 +1379,7 @@ MetroidPrime/CStateManagerScriptMsgArray.cpp:
 MetroidPrime/Cameras/CBallCamera.cpp:
 	.text       start:0x8019E76C end:0x801A8B78
 	.ctors      start:0x803A5560 end:0x803A5564
+	.rodata     start:0x803AA558 end:0x803AA570
 	.data       start:0x803B6478 end:0x803B6580
 	.bss        start:0x803DB488 end:0x803DB4A0
 

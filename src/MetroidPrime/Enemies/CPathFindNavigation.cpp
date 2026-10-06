@@ -100,7 +100,8 @@ void CPathFindNavigation::ApproachDest(CStateManager& mgr, CPatterned& actor) {
       actor.BodyController()->CommandMgr().SetTargetVector(face);
     }
   } else {
+    const CTransform4f& xf = actor.GetTransform();
     actor.BodyController()->CommandMgr().DeliverCmd(
-        CBCLocomotionCmd(actor.GetTransform().GetForward(), CVector3f::Zero(), 1.f));
+        CBCLocomotionCmd(xf.GetForward(), CVector3f::Zero(), 1.f));
   }
 }
