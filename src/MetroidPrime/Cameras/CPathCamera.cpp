@@ -160,58 +160,65 @@ float CPathCamera::CalculatePositionDistance(float dt, const CStateManager& mgr)
   }
 
   CScriptCameraSpline& spline = camera->GetSpline();
-  const float length = spline.GetLength();
-  if (close_enough(length, 0.f)) {
+  if (close_enough(spline.GetLength(), 0.f)) {
     return 0.f;
   }
 
   float extent = camera->GetDistance();
   if (camera->GetFlags() & 4) {
+    float distance = 0.f;
     const CVector3f pathPosition = spline.GetPositionByLength(mPlayerDistance, GetTransform(), mgr);
     CVector3f toPlayer = Player(const_cast< CStateManager& >(mgr)).GetBallPosition() - pathPosition;
     toPlayer.SetZ(0.f);
-    const float distance = toPlayer.IsMagnitudeSafe() ? toPlayer.Magnitude() : 0.f;
+    if (toPlayer.IsMagnitudeSafe()) {
+      distance = toPlayer.Magnitude();
+    }
     const float control = camera->GetPerpendicularDistanceControlSpline().EvaluateAt(distance);
     extent *= 1.f - CMath::Clamp(0.f, control, 1.f);
   }
 
   float newDistance;
-  const bool closedLoop = spline.GetPositionSpline().IsClosedLoop();
-  if (closedLoop) {
+  if (spline.GetPositionSpline().IsClosedLoop()) {
     const float positive = spline.ValidateLength(mPlayerDistance + extent);
     const float negative = spline.ValidateLength(mPlayerDistance - extent);
     const float distance = CMath::AbsF(mPositionDistance - mPlayerDistance);
+    const float remaining = spline.GetLength() - distance;
     if (mPositionDistance > mPlayerDistance) {
-      newDistance = distance <= length - distance ? positive : negative;
+      newDistance = distance <= remaining ? positive : negative;
     } else {
-      newDistance = distance <= length - distance ? negative : positive;
+      newDistance = distance <= remaining ? negative : positive;
     }
+  } else if (mPositionDistance > mPlayerDistance) {
+    newDistance = spline.ValidateLength(mPlayerDistance + extent);
   } else {
-    newDistance = spline.ValidateLength(
-        mPositionDistance > mPlayerDistance ? mPlayerDistance + extent : mPlayerDistance - extent);
+    newDistance = spline.ValidateLength(mPlayerDistance - extent);
   }
 
   if (camera->GetFlags() & 1) {
-    return newDistance;
-  }
-
-  float step;
-  if (closedLoop) {
+  } else if (spline.GetPositionSpline().IsClosedLoop()) {
     const float distance = CMath::AbsF(newDistance - mPositionDistance);
-    const float nearest = rstl::min_val(distance, length - distance);
-    step = CMath::Limit(nearest / camera->GetDampenDistance(), 1.f) * (mSpeed * dt);
-    if (mPositionDistance > newDistance) {
-      if (distance <= length - distance) {
-        step = -step;
-      }
-    } else if (distance > length - distance) {
-      step = -step;
+    float nearest = distance;
+    if (distance > spline.GetLength() - distance) {
+      nearest = spline.GetLength() - distance;
     }
+    float step = (mSpeed * dt) * CMath::Limit(nearest / camera->GetDampenDistance(), 1.f);
+    const float offset = CMath::AbsF(mPositionDistance - newDistance);
+    const float remaining = spline.GetLength() - offset;
+    if (mPositionDistance > newDistance) {
+      if (offset <= remaining) {
+        step *= -1.f;
+      }
+    } else if (offset > remaining) {
+      step *= -1.f;
+    }
+    newDistance = spline.ValidateLength(mPositionDistance + step);
   } else {
-    step = CMath::Limit((newDistance - mPositionDistance) / camera->GetDampenDistance(), 1.f) *
-           (mSpeed * dt);
+    const float step = (mSpeed * dt) * CMath::Limit((newDistance - mPositionDistance) /
+                                                       camera->GetDampenDistance(),
+                                                   1.f);
+    newDistance = spline.ValidateLength(mPositionDistance + step);
   }
-  return spline.ValidateLength(mPositionDistance + step);
+  return newDistance;
 }
 
 CVector3f CPathCamera::MoveAlongSpline(float dt, CStateManager& mgr) {
