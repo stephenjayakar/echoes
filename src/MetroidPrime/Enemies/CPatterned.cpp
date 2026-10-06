@@ -1547,8 +1547,13 @@ void CPatterned::AddParticleEffect(CStateManager& mgr, const CTransform4f& xf, f
   }
 }
 
+bool CPatterned::IsScanVisorSelfRender() const { return false; }
+
 CAABox CPatterned::GetScanVisorRenderBounds(const CStateManager&) const {
   return CAABox::Identity();
 }
+
+void CPatterned::ScanVisorRender(const CStateManager&, const CTransform4f&,
+                                 const CModelFlags&) const {}
 
 CPatterned::~CPatterned() {}

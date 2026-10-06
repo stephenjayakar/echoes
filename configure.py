@@ -1563,6 +1563,13 @@ config.libs = [
         ],
         extra_cflags=["-pool off"],
     ),
+    Rel(
+        "WallWalker",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CWallWalker.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
 ]
 
 

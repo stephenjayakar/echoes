@@ -488,6 +488,11 @@ public:
     mKnockBack = cmd;
   }
 
+  void DeliverCmd(const CBCProjectileAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mProjectileAttack = cmd;
+  }
+
   void DeliverCmd(const CBCGenerateCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mGenerate = cmd;
@@ -506,6 +511,11 @@ public:
   void DeliverCmd(const CBCJumpCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mJump = cmd;
+  }
+
+  void DeliverCmd(const CBCAdditiveFlinchCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveFlinch = cmd;
   }
 
   void DeliverCmd(const CBCAdditiveReactionCmd& cmd) {
