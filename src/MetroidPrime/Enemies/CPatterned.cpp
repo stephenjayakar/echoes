@@ -497,8 +497,12 @@ void CPatterned::RenderSystemsToBeDrawnLast(const CStateManager&, uint mask, uin
   }
 }
 
-void CPatterned::fn_80074e54(const CModelFlags&) const {
-  // TODO: Draw the animation's ice model with the adjusted model flags.
+void CPatterned::fn_80074e54(const CModelFlags& flags) const {
+  const CAnimData* animData = GetAnimationData();
+  const CModelFlags iceFlags = flags.UseShaderSet(0);
+  if (animData->GetIceModel().valid()) {
+    animData->Render(**animData->GetIceModel().data(), iceFlags);
+  }
 }
 
 void CPatterned::RenderIngSnatchingTransition(const CStateManager&) const {
