@@ -138,7 +138,7 @@ void CScriptGenerator::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg
               generatedActor->ModelData()->SetScale(scale * generatedActor->ModelData()->GetScale());
             }
           }
-          mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), kInvalidUniqueId, generated.mUniqueId,
+          mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), TUniqueId(generated.mUniqueId), kInvalidUniqueId,
                                           kSM_Activate, kSS_InvalidState));
         }
       }

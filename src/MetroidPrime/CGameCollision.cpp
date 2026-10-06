@@ -613,16 +613,16 @@ void CGameCollision::SendScriptMessages(CStateManager& mgr, CActor& actor, CActo
   }
   SendMaterialMessage(mgr, materials, actor);
   if (hasFloor) {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                     kSM_Landed, kSS_InvalidState));
     if (hasPlatform) {
       if (CScriptPlatform* platform = TCastToPtr< CScriptPlatform >(other)) {
         mgr.DeliverScriptMsg(
-            CScriptMsg(actor.GetUniqueId(), kInvalidUniqueId, platform->GetUniqueId(),
+            CScriptMsg(actor.GetUniqueId(), platform->GetUniqueId(), kInvalidUniqueId,
                        static_cast< EScriptObjectMessage >('XONP'), kSS_InvalidState));
       }
     } else {
-      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                       static_cast< EScriptObjectMessage >('XLSG'),
                                       kSS_InvalidState));
     }
@@ -638,7 +638,7 @@ void CGameCollision::SendScriptMessages(CStateManager& mgr, CActor& actor, CActo
       }
       if (hasPlatform) {
         mgr.DeliverScriptMsg(
-            CScriptMsg(other->GetUniqueId(), kInvalidUniqueId, platform->GetUniqueId(),
+            CScriptMsg(other->GetUniqueId(), platform->GetUniqueId(), kInvalidUniqueId,
                        static_cast< EScriptObjectMessage >('XONP'), kSS_InvalidState));
       }
     }
@@ -647,7 +647,7 @@ void CGameCollision::SendScriptMessages(CStateManager& mgr, CActor& actor, CActo
 
 void CGameCollision::SendMaterialMessage(CStateManager& mgr, const CMaterialList&, CActor& actor) {
   // Echoes always sends the normal-surface message here.
-  mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+  mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                   static_cast< EScriptObjectMessage >('XOND'), kSS_InvalidState));
 }
 

@@ -176,7 +176,7 @@ void CScriptTrigger::AddInhabitant(CStateManager& mgr, int playerIndex, TUniqueI
   NotifyInhabitantAdded(*actor, mgr);
 
   if (mDeactivateOnEntered) {
-    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), kInvalidUniqueId, GetUniqueId(), kSM_Deactivate,
+    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), GetUniqueId(), kInvalidUniqueId, kSM_Deactivate,
                                     kSS_InvalidState));
     if (actor->HealthInfo() && mDamageInfo.GetDamage() > 0.f) {
       const CMaterialFilter filter =
@@ -446,7 +446,7 @@ void CScriptTrigger::UpdateInhabitants(float dt, CStateManager& mgr) {
     it = next;
   }
   if (exited && mDeactivateOnExited) {
-    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), kInvalidUniqueId, GetUniqueId(), kSM_Deactivate,
+    mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), GetUniqueId(), kInvalidUniqueId, kSM_Deactivate,
                                     kSS_InvalidState));
   }
 }

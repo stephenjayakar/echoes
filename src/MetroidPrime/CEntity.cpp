@@ -7,7 +7,7 @@ rstl::vector< SConnection > CEntity::NullConnectionList;
 CEntityInfo CEntity::NullEntityInfo =
     CEntityInfo(kInvalidAreaId, NullConnectionList, true, kInvalidEditorId);
 
-CEntityInfo::CEntityInfo(TAreaId aid, const rstl::vector< SConnection >& connections, bool isActive,
+CEntityInfo::CEntityInfo(TAreaId aid, const rstl::vector< SConnection >& connections, const bool isActive,
                          TEditorId eid)
 : mAreaId(aid)
 , mConnections(connections)
@@ -61,7 +61,7 @@ void CEntity::SendScriptMsgs(EScriptObjectState state, CStateManager& mgr, TUniq
       CStateManager::TIdList::const_iterator current = search.first;
       CStateManager::TIdList::const_iterator end = search.second;
       while (current != end) {
-        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), id, current->second, it->msg, it->state));
+        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), current->second, id, it->msg, state));
         ++current;
       }
     }
