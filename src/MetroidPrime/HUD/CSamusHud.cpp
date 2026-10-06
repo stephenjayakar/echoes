@@ -730,7 +730,7 @@ CHudDecoInterfaceScan* CSamusHud::GetScanInterface(int playerIndex) {
 void CSamusHud::UpdateEnergyLow(float dt, const CStateManager& mgr) {
   const bool cineCam =
       TCastToConstPtr< CCinematicCamera >(
-          mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true)) != nullptr;
+          *mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true)) != nullptr;
   const float oldTimer = mEnergyLowTimer;
   mEnergyLowTimer = fmod(mEnergyLowTimer + dt, 0.5);
   mEnergyLowPulse =
@@ -741,12 +741,11 @@ void CSamusHud::UpdateEnergyLow(float dt, const CStateManager& mgr) {
     mEnergyLowFade = rstl::max_val(0.f, mEnergyLowFade - 2.f * dt);
   }
   if (mEnergyWarning != nullptr) {
-    CColor fontColor = gpTweakGuiColors->GetEnergyWarningColor();
-    fontColor.SetAlpha(mEnergyLowPulse * mEnergyLowFade);
-    mEnergyWarning->TextSupport().SetFontColor(fontColor);
-    CColor outlineColor = gpTweakGuiColors->GetEnergyWarningOutlineColor();
-    outlineColor.SetAlpha(mEnergyLowPulse * mEnergyLowFade);
-    mEnergyWarning->TextSupport().SetOutlineColor(outlineColor);
+    mEnergyWarning->TextSupport().SetFontColor(
+        gpTweakGuiColors->GetEnergyWarningColor().WithAlphaOf(mEnergyLowPulse * mEnergyLowFade));
+    mEnergyWarning->TextSupport().SetOutlineColor(
+        gpTweakGuiColors->GetEnergyWarningOutlineColor().WithAlphaOf(mEnergyLowPulse *
+                                                                    mEnergyLowFade));
   }
   if (!cineCam && mEnergyLow && mEnergyLowTimer < oldTimer) {
     CSfxManager::SfxStart(0x37, 127, mgr.GetPlayer(mPlayerIndex)->GetSoundPan(CPlayer::kMSP_4),
