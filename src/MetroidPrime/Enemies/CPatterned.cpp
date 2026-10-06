@@ -396,7 +396,12 @@ void CPatterned::DeathDelete(CStateManager& mgr) {
   mgr.DeleteObjectRequest(GetUniqueId());
 }
 
-CDamageInfo CPatterned::GetContactDamage() const { return mAlive ? mContactDamage : CDamageInfo(); }
+CDamageInfo CPatterned::GetContactDamage() const {
+  if (!mAlive) {
+    return CDamageInfo();
+  }
+  return mContactDamage;
+}
 
 CTransform4f CPatterned::GetLctrTransform(const rstl::string& name) const {
   return GetTransform() * GetScaledLocatorTransform(name);
@@ -463,7 +468,7 @@ CVector3f CPatterned::GetIngSnatchingNormal(float) const { return CVector3f::Up(
 CVector3f CPatterned::GetIngSnatchingPoint(float t) const {
   const CAABox bounds = GetBoundingBox();
   const float height = bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ();
-  return GetTranslation() + height * (1.f - t) * GetIngSnatchingNormal(t);
+  return GetTranslation() + height * ((1.f - t) * GetIngSnatchingNormal(t));
 }
 
 float CPatterned::GetIngSnatchingModelOverlapSize() const { return 0.f; }
