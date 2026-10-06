@@ -202,7 +202,7 @@ CWorldState::CWorldState(CAssetId worldId)
 CWorldState::CWorldState(CBitStreamReader& in, CAssetId worldId,
                          const CWorldSaveGameInfo& saveWorld)
 : mWorldId(worldId)
-, mAreaId(kInvalidAreaId)
+, mAreaId(-1)
 , mMailbox(nullptr)
 , mMapWorldInfo(nullptr)
 , mDesiredAreaAssetId(kInvalidAssetId)
@@ -211,7 +211,7 @@ CWorldState::CWorldState(CBitStreamReader& in, CAssetId worldId,
   mDesiredAreaAssetId = in.ReadBits(32);
   mMailbox = rs_new CScriptMailbox(in, saveWorld);
   mMapWorldInfo = rs_new CMapWorldInfo(in, saveWorld, mWorldId);
-  mLayerState = rs_new CWorldLayerState(in);
+  mLayerState = rs_new CWorldLayerState(in, saveWorld);
 }
 
 void CWorldState::PutTo(CBitStreamWriter& out, const CWorldSaveGameInfo& saveWorld) const {

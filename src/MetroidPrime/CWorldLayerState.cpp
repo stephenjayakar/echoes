@@ -7,7 +7,7 @@ static const rstl::string skEmptyString(rstl::string::literal_t(), "");
 
 CWorldLayerState::CWorldLayerState() {}
 
-CWorldLayerState::CWorldLayerState(CBitStreamReader& in) {
+CWorldLayerState::CWorldLayerState(CBitStreamReader& in, const CWorldSaveGameInfo&) {
   const uint count = in.ReadBits(10);
   mSaveLayers.reserve(count);
   for (uint i = 0; i < count; ++i) {

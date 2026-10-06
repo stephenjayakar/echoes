@@ -19,7 +19,7 @@ class CWorldSaveGameInfo;
 class CWorldLayerState {
 public:
   CWorldLayerState();
-  explicit CWorldLayerState(CBitStreamReader& in);
+  CWorldLayerState(CBitStreamReader& in, const CWorldSaveGameInfo& saveWorld);
 
   void PutTo(CBitStreamWriter& out, const CWorldSaveGameInfo& saveWorld) const;
   void SetLayerActive(TAreaId area, TLayerId layer, bool active);
