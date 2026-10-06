@@ -94,9 +94,9 @@ protected:
   float mForceMagnitude;
   uint mFlags;
   CAABox mBounds;
-  uint mDeactivateOnEntered : 1;
-  uint mDeactivateOnExited : 1;
-  uint x1bc_2_ : 30; // Remaining flag-word bits are unresolved.
+  bool mDeactivateOnEntered : 1;
+  bool mDeactivateOnExited : 1;
+  uchar x1bd_pad[3]; // Unresolved.
   bool mPlayerInside[4];
   bool mPlayerEnvironmentDamage[4]; // Guessed name
 };
