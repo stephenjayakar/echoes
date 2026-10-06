@@ -335,9 +335,9 @@ void CScriptWater::Think(float dt, CStateManager& mgr) {
     mFogBias -= dt * mOrigFogBias * mAlphaOutRecip;
     mFogMagnitude -= dt * mOrigFogMagnitude * mAlphaOutRecip;
     if (mAlpha <= 0.f) {
-      mAlpha = 0.f;
-      mFogBias = 0.f;
       mFogMagnitude = 0.f;
+      mFogBias = 0.f;
+      mAlpha = 0.f;
       mAlphaOut = false;
     }
   } else if (mAlphaIn) {

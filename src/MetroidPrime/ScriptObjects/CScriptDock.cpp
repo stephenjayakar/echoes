@@ -245,8 +245,9 @@ void CScriptDock::Think(float dt, CStateManager& mgr) {
 
 bool CScriptDock::HasPointCrossedDock(const CStateManager& mgr, const CVector3f& point) const {
   const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()).GetDock(mDock);
-  const rstl::reserved_vector< CVector3f, 4 >& vertices = dock.GetPlaneVertices();
-  return CPlane(vertices[0], vertices[1], vertices[2]).IsFacing(point);
+  const CVector3f* vertices = dock.GetPlaneVertices().data();
+  const CPlane plane(vertices[0], vertices[1], vertices[2]);
+  return plane.IsFacing(point);
 }
 
 CPlane CScriptDock::GetPlane(const CStateManager& mgr) const {
