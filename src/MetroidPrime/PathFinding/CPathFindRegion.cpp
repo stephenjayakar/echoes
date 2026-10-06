@@ -7,6 +7,7 @@
 #include "Kyoto/Math/CVector2f.hpp"
 
 #include <float.h>
+#include <string.h>
 
 void CPFPoint::Fixup(CPFArea& area) {
   mLinks = mNumLinks ? &area.GetPointLink(reinterpret_cast< intptr_t >(mLinks)) : nullptr;
@@ -47,9 +48,7 @@ CPFRegion::CPFRegion()
 , mRegionIdx(0)
 , mCentroid(CVector3f::Zero())
 , mBounds(CAABox::MakeMaxInvertedBox()) {
-  for (int i = 0; i < 3; ++i) {
-    mObstructionCounts[i] = 0;
-  }
+  memset(mObstructionCounts, 0, sizeof(mObstructionCounts));
 }
 
 bool CPFRegion::IsPointInside(const CVector3f& point) const {
@@ -78,23 +77,32 @@ bool CPFRegion::IsPointInside(const CVector3f& point) const {
 }
 
 bool CPFRegion::Intersects(const CAABox& box) const {
-  if (!mBounds.DoBoundsOverlap(box)) {
-    return false;
-  }
-  for (int i = 0; i < GetNumNodes(); ++i) {
-    const CPFNode& node = GetNode(i);
-    const CVector3f point = box.FurthestPointAlongVector(node.GetNormal());
-    if (CVector3f::Dot(point - node.GetPos(), node.GetNormal()) < 0.f) {
-      return false;
+  bool result = false;
+  if (mBounds.DoBoundsOverlap(box)) {
+    int i;
+    for (i = 0; i < GetNumNodes(); ++i) {
+      const CPFNode& node = GetNode(i);
+      const CVector3f point = box.FurthestPointAlongVector(node.GetNormal());
+      const CVector3f delta = point - node.GetPos();
+      if (CVector3f::Dot(delta, node.GetNormal()) < 0.f) {
+        break;
+      }
+    }
+    if (i == GetNumNodes()) {
+      const CPFNode& node = GetNode(0);
+      const CVector3f floorPoint = box.FurthestPointAlongVector(GetNormal());
+      const CVector3f floorDelta = floorPoint - node.GetPos();
+      if (CVector3f::Dot(floorDelta, GetNormal()) >= 0.f) {
+        const CVector3f up = GetHeight() * CVector3f::Up();
+        const CVector3f ceilingPoint = box.ClosestPointAlongVector(GetNormal());
+        const CVector3f ceilingDelta = ceilingPoint - node.GetPos() - up;
+        if (CVector3f::Dot(ceilingDelta, GetNormal()) <= 0.f) {
+          result = true;
+        }
+      }
     }
   }
-  const CVector3f floorPoint = box.FurthestPointAlongVector(GetNormal());
-  if (CVector3f::Dot(floorPoint - GetNode(0).GetPos(), GetNormal()) < 0.f) {
-    return false;
-  }
-  const CVector3f ceilingPoint = box.ClosestPointAlongVector(GetNormal());
-  return CVector3f::Dot(ceilingPoint - GetNode(0).GetPos() - GetHeight() * CVector3f::Up(),
-                        GetNormal()) <= 0.f;
+  return result;
 }
 
 float CPFRegion::PointHeight(const CVector3f& point) const {
