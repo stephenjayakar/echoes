@@ -846,7 +846,7 @@ __ct__Q214CCharacterInfo16CParticleResDataFRCQ214CCharacterInfo16CParticleResDat
 __ct__12CPASDatabaseFRC12CPASDatabase = .text:0x8002E388; // type:function size:0x44
 __ct__Q24rstl50vector<13CPASAnimState,Q24rstl17rmemory_allocator>FRCQ24rstl50vector<13CPASAnimState,Q24rstl17rmemory_allocator> = .text:0x8002E3CC; // type:function size:0x84 scope:weak
 uninitialized_copy_n<P13CPASAnimState,P13CPASAnimState>__4rstlFP13CPASAnimStateiP13CPASAnimState = .text:0x8002E450; // type:function size:0x68 scope:local
-construct<13CPASAnimState>__4rstlFPvRC13CPASAnimState = .text:0x8002E4B8; // type:function size:0x20 scope:local
+fn_8002E4B8 = .text:0x8002E4B8; // type:function size:0x20 scope:local
 construct__Q24rstl38construction_policy<13CPASAnimState,0>FPvRC13CPASAnimState = .text:0x8002E4D8; // type:function size:0x28 scope:weak
 __ct__13CPASAnimStateFRC13CPASAnimState = .text:0x8002E500; // type:function size:0x64 scope:weak
 __ct__Q24rstl36vector<i,Q24rstl17rmemory_allocator>FRCQ24rstl36vector<i,Q24rstl17rmemory_allocator> = .text:0x8002E564; // type:function size:0x100 scope:weak
