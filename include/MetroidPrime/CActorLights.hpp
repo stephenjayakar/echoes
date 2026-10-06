@@ -70,6 +70,7 @@ public:
     }
   }
   void SetNeedsRelight(bool v) { mDirty = v; }
+  void SetActorPositionBias(const CVector3f& bias) { mLightingPositionOffset = bias; }
 
 private:
   rstl::reserved_vector< CLight, 4 > mAreaLights;

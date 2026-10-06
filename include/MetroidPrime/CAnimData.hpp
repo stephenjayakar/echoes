@@ -93,6 +93,10 @@ public:
                               rstl::set< CPrimitive >& primsOut) const;
 
   const CCharLayoutInfo* GetCharLayoutInfo() const { return *mLayoutData; }
+  // Guessed name.
+  const rstl::optional_object< TLockedToken< CSpatialPrimitive > >& GetSpatialPrimitive() const {
+    return mSpatialPrimitive;
+  }
   CPoseAsTransforms_Linear& Pose() { return mPose; }             // Guessed name.
   const CPoseAsTransforms_Linear& Pose() const { return mPose; } // Guessed name.
   void SetPoseBuilt(bool built) { mPoseBuilt = built; }          // Guessed name.

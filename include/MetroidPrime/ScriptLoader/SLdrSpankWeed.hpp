@@ -28,6 +28,8 @@ inline SLdrSpankWeed::SLdrSpankWeed() : editorProperties(), patterned(), actorIn
   patterned.damageWaitTime = 1.0f;
   patterned.health.health = 1000000.0f;
   patterned.health.hI_KnockBackResistance = 2.0f;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
   unknown_0x5cdc877d = true;
   wakeUpRadius = 60.0f;
   searchRadius = 30.0f;

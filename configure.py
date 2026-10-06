@@ -1568,6 +1568,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "SpankWeed",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSpankWeed.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "SwarmBasics",
         [
             Object(NonMatching, "MetroidPrime/Enemies/CSwarmBasics.cpp"),

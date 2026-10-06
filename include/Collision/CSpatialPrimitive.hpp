@@ -35,6 +35,9 @@ public:
 
   explicit CSpatialPrimitive(CInputStream& in);
 
+  const rstl::vector< SSphere >& GetSpheres() const { return mSpheres; } // Guessed name.
+  const rstl::vector< SBox >& GetBoxes() const { return mBoxes; }       // Guessed name.
+
 private:
   rstl::vector< SSphere > mSpheres;
   rstl::vector< SBox > mBoxes;

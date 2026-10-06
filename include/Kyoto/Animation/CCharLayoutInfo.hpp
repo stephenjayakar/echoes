@@ -51,6 +51,8 @@ public:
 
   const CSegIdList& GetBodyPartSegIds() const { return mSegIdList; }
 
+  const rstl::map< rstl::string, CSegId >& GetNameMap() const { return mNameMap; } // Guessed name.
+
   CSegId GetOriginalParent(const CSegId& seg) const { return GetSegmentData(seg).GetParent(); }
 
   const rstl::vector< CSegId >& GetLinearParents() const { return mLinearParents; }

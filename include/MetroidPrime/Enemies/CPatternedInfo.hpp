@@ -26,6 +26,7 @@ public:
   float GetHalfExtent() const { return mHalfExtent; }
   uint GetPathfindingIndex() const { return mPathfindingIndex; }
   float GetDetectionRange() const { return mDetectionRange; }
+  float GetDetectionHeightRange() const { return mDetectionHeightRange; }
   float GetMinAttackRange() const { return mMinAttackRange; }
   float GetMaxAttackRange() const { return mMaxAttackRange; }
 
