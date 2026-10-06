@@ -736,8 +736,8 @@ void CGameCollision::SendScriptMessages(CStateManager& mgr, CActor& actor, CActo
   CMaterialList materials;
   bool hasFloor = false;
   bool hasPlatform = false;
-  for (int i = 0; i < collisions.GetCount(); ++i) {
-    materials.Add(collisions[i].GetMaterialLeft());
+  for (const CCollisionInfo* it = collisions.Begin(); it != collisions.End(); ++it) {
+    materials.Add(it->GetMaterialLeft());
   }
   for (int i = 0; i < collisions.GetCount(); ++i) {
     const CCollisionInfo& collision = collisions[i];
