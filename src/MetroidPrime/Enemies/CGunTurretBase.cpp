@@ -36,8 +36,6 @@
 // Guessed name; an empty debug-draw stub in the DOL.
 void DebugDrawAABox(const CAABox& box, float r, float g, float b, float a);
 
-const char* const CGunTurretBase::skConnectLocator = "connect_LCTR";
-
 CGunTurretBase::CGunTurretBase(
     TUniqueId uid, const rstl::string& name, const CEntityInfo& info, const CTransform4f& xf,
     const CModelData& modelData, const CPatternedInfo& patternedInfo,
@@ -277,6 +275,8 @@ static CPatterned::StateMachine::SStateFunction skStates[] = {
     {"OpenDoor", static_cast< CPatterned::StateMachine::StateFunc >(&CGunTurretBase::OpenDoor)},
     {"CloseDoor", static_cast< CPatterned::StateMachine::StateFunc >(&CGunTurretBase::CloseDoor)},
 };
+
+const char* const CGunTurretBase::skConnectLocator = "connect_LCTR";
 
 static CVector3f skPanLeftVector = CMatrix3f::RotateZ(CRelAngle::FromDegrees(85.f)) * CVector3f::Forward();
 static CVector3f skPanRightVector =
@@ -1057,14 +1057,15 @@ void CGunTurretBase::LaunchProjectile(CStateManager& mgr) {
 void CGunTurretBase::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
                                      EUserEventType type, float dt) {
   switch (type) {
-  case kUE_SoundPlay:
-  case kUE_SoundStop:
-  case kUE_EffectOn:
-    break;
   case kUE_EffectOff:
     if (mGunDestroyed) {
       AnimationData()->SetEffectState(rstl::string_l("sparks"), false, mgr);
     }
+    break;
+  case kUE_SoundPlay:
+  case kUE_SoundStop:
+    return;
+  case kUE_EffectOn:
     break;
   }
 }
