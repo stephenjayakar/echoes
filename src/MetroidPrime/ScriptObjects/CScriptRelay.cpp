@@ -5,7 +5,7 @@
 #include "MetroidPrime/ScriptLoader/SLdrRelay.hpp"
 
 CScriptRelay::CScriptRelay(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
-                           bool oneShot)
+                           const bool oneShot)
 : CEntity(uid, info, name, 0), mOriginator(kInvalidUniqueId), mOneShot(oneShot) {}
 
 void CScriptRelay::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {

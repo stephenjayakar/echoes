@@ -12,7 +12,7 @@
 
 CScriptLayerController::CScriptLayerController(TUniqueId uid, const rstl::string& name,
                                                const CEntityInfo& info, uint areaSaveId, int layer,
-                                               bool isDynamic)
+                                               const bool isDynamic)
 : CEntity(uid, info, name, 0)
 , mAreaSaveId(areaSaveId)
 , mLayerId(layer)
