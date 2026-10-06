@@ -437,7 +437,7 @@ void CPatterned::Render(const CStateManager& mgr) const {
 }
 
 bool CPatterned::IsBeingSnatched() const {
-  return mIngPossessionBlend > 0.f && mIngPossessionBlend < 1.f && mIngModel.valid();
+  return mIngPossessionBlend > 0.f && mIngPossessionBlend < 1.f && mIngModel.valid() == true;
 }
 
 void CPatterned::RenderSystemsToBeDrawnFirst(const CStateManager&, uint, uint) const {
