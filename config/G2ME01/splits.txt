@@ -2358,6 +2358,7 @@ WorldFormat/CAreaBspTree.cpp:
 
 WorldFormat/CAreaOctTree.cpp:
 	.text       start:0x80247704 end:0x80247CC0
+	.sdata2     start:0x8041DD40 end:0x8041DD48
 
 WorldFormat/CMetroidAreaCollider.cpp:
 	.text       start:0x80247CC0 end:0x8024DAFC
