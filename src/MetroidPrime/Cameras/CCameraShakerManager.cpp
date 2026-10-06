@@ -89,7 +89,7 @@ int CCameraShakerManager::AddCameraShaker(const CCameraShakerData& data, CStateM
     shakeData.UpdateThresholdTimes();
   }
   const SShaker shaker(mNextId++, mPlayerIndex, shakeData, playSound, useThresholdTimes);
-  if (!mPendingRumble) {
+  if (mPendingRumble != true) {
     mPendingRumble = true;
     mRumbleCooldown = 0.5f;
   }
@@ -109,10 +109,10 @@ void CCameraShakerManager::UpdateCameraShaker(int id, const CCameraShakerData& d
 }
 
 void CCameraShakerManager::RemoveCameraShaker(int id) {
-  for (rstl::reserved_vector< SShaker, 8 >::iterator it = mShakers.begin(); it != mShakers.end();
-       ++it) {
-    if (it->mId == id) {
-      mShakers.erase(it);
+  for (rstl::reserved_vector< SShaker, 8 >::iterator it = mShakers.begin(); it != mShakers.end();) {
+    rstl::reserved_vector< SShaker, 8 >::iterator cur = it++;
+    if (id == cur->mId) {
+      mShakers.erase(cur);
       return;
     }
   }

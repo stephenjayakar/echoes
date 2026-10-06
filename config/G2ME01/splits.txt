@@ -2469,8 +2469,10 @@ Weapons/CDecalDescription.cpp:
 MetaRender/CCubeRenderer.cpp:
 	.text       start:0x80262D3C end:0x80273FAC
 	.ctors      start:0x803A55B4 end:0x803A55B8
+	.rodata     start:0x803ADD90 end:0x803AE4B8
 	.data       start:0x803B8C10 end:0x803B8D60
 	.sbss       start:0x80419748 end:0x8041974C
+	.sdata2     start:0x8041DEB8 end:0x8041E010
 
 MetaRender/AmbientLightScale.cpp:
 	.text       start:0x80273FAC end:0x80273FB8
@@ -2553,6 +2555,7 @@ GuiSys/CGuiTextPane.cpp:
 
 Kyoto/Text/CGuiTextSupport.cpp:
 	.text       start:0x8027AE64 end:0x8027D7B0
+	.sdata2     start:0x8041E0B0 end:0x8041E0F0
 
 GuiSys/CGuiWidget.cpp:
 	.text       start:0x8027D7B0 end:0x8027E1E4

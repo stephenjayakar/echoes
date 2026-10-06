@@ -234,7 +234,7 @@ public:
   static void LoadScrollingTextureMatrix(uint matrix, const CVector2f& scroll,
                                          const CVector2f& scale);
   // Guessed name
-  static void LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix, const CTransform4f& xf,
+  static bool LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix, const CTransform4f& xf,
                                            bool alternate);
   // Guessed name
   static void PopulateNoiseTexCoords(float time, rstl::reserved_vector< CVector2f, 9 >& coords);

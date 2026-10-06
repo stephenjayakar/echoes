@@ -68,7 +68,7 @@ private:
   void GetSpawnablePickups(CStateManager& mgr,
                            rstl::vector< rstl::pair< int, TEditorId > >& pickups,
                            TUniqueId targetId);
-  CHealthInfo* GetTargetHealthInfo(CStateManager& mgr, TUniqueId targetId) const;
+  const CHealthInfo* GetTargetHealthInfo(CStateManager& mgr, TUniqueId targetId) const;
   void GetTargets(CStateManager& mgr, TUniqueId sender, rstl::vector< TUniqueId >& targets) const;
 
   CVector3f mOffset;

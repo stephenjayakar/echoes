@@ -164,12 +164,13 @@ void Buckets::Insert(const CVector3f& pos, const CAABox& bounds, EDrawableType t
 void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bounds,
                                 bool invertTest, const CPlane& plane, bool zOnly,
                                 EDrawableType type, const void* data) {
-  if (sPlaneObjectData->size() == sPlaneObjectData->capacity()) {
+  PlaneList& planes = *sPlaneObjectData;
+  if (planes.size() == planes.capacity()) {
     return;
   }
 
-  sPlaneObjectData->push_back(CDrawablePlaneObject(type, closeDistance, farDistance, bounds,
-                                                   invertTest, plane, zOnly, data));
+  planes.push_back(CDrawablePlaneObject(type, closeDistance, farDistance, bounds, invertTest, plane,
+                                        zOnly, data));
 }
 
 namespace Buckets {
@@ -595,12 +596,12 @@ void CCubeRenderer::BeginScene() {
 void CCubeRenderer::EndScene() {
   mPersistRGBA6 = !CGraphics::IsBeginSceneClearFb();
   CGraphics::EndScene();
-  if (mReflectionAge < 2) {
-    ++mReflectionAge;
-  } else {
+  if (mReflectionAge >= 2) {
     mReflectionTex = nullptr;
+  } else {
+    ++mReflectionAge;
   }
-  CGraphics::SetClearColor(CColor(static_cast< uchar >(0), 0, 0, 0));
+  CGraphics::SetClearColor(CColor(0));
 }
 
 void CCubeRenderer::AddParticleGen(const CParticleGen& gen) {
@@ -882,7 +883,7 @@ void CCubeRenderer::EndPrimitive() {
 void CCubeRenderer::SetAmbientColor(const CColor& color) { CGraphics::SetAmbientColor(color); }
 
 void CCubeRenderer::SetPerspective(float fovy, float width, float height, float znear, float zfar) {
-  CGraphics::SetPerspective(fovy, width / height, znear, zfar);
+  CGraphics::SetPerspective(fovy, (width / height) * CGraphics::GetPixelAspectRatio(), znear, zfar);
 }
 
 void CCubeRenderer::SetPerspective(float fovy, float aspect, float znear, float zfar) {
@@ -966,7 +967,10 @@ void CCubeRenderer::SetDebugOption(EDebugOption option, int value) {
 
 CTexture* CCubeRenderer::GetRealReflection() {
   mReflectionAge = 0;
-  return mReflectionTex.get() ? mReflectionTex.get() : &mBlackTex;
+  if (mReflectionTex.null()) {
+    return &mBlackTex;
+  }
+  return mReflectionTex.get();
 }
 
 void CCubeRenderer::CacheReflection(void (*callback)(void*, const CVector3f&), void* context,
@@ -1000,9 +1004,10 @@ void CCubeRenderer::CacheReflection(void (*callback)(void*, const CVector3f&), v
 }
 
 void CCubeRenderer::DrawSpaceWarp(const CVector3f& point, float strength) {
-  if (point.GetZ() < 1.f) {
-    _DrawSpaceWarp(point, strength);
+  if (point.GetZ() >= 1.f) {
+    return;
   }
+  _DrawSpaceWarp(point, strength);
 }
 
 void CCubeRenderer::_DrawSpaceWarp(const CVector3f& point, float strength) {
@@ -1169,7 +1174,9 @@ int CCubeRenderer::GetStaticWorldDataSize() {
   int size = 0;
   for (rstl::list< CAreaListItem >::const_iterator area = mAreaListItems.begin();
        area != mAreaListItems.end(); ++area) {
-    size += area->mTextures->size() * sizeof(TCachedToken< CTexture >);
+    if (area->mTextures.get() != nullptr) {
+      size += area->mTextures->size() * sizeof(TCachedToken< CTexture >);
+    }
   }
   return size;
 }
@@ -1293,8 +1300,8 @@ void CCubeRenderer::RenderFogVolume(const CColor& color, const CAABox& bounds,
                                     const TLockedToken< CModel >* model,
                                     const CSkinnedModel* skinnedModel) {
   if (!mDisableFog) {
-    mFogVolumes.push_back(
-        CFogVolumeListItem(CGraphics::GetModelMatrix(), color, bounds, model, skinnedModel));
+    mFogVolumes.push_back(CFogVolumeListItem(CGraphics::GetModelMatrix(), CColor(color), bounds,
+                                             model, skinnedModel));
   }
 }
 
@@ -1663,9 +1670,10 @@ void CCubeRenderer::PostRenderFogs() {
   mFogVolumes.sort(fog_sorter());
   for (rstl::list< CFogVolumeListItem >::iterator fog = mFogVolumes.begin();
        fog != mFogVolumes.end(); ++fog) {
-    CGraphics::SetModelMatrix(fog->mTransform);
-    ReallyRenderFogVolume(fog->mColor, fog->mBounds, fog->mModel ? **fog->mModel : nullptr,
-                          fog->mSkinnedModel);
+    const CFogVolumeListItem& item = *fog;
+    CGraphics::SetModelMatrix(item.mTransform);
+    ReallyRenderFogVolume(item.mColor, item.mBounds, item.mModel ? **item.mModel : nullptr,
+                          item.mSkinnedModel);
   }
   mFogVolumes.clear();
 }
@@ -1737,14 +1745,12 @@ void CCubeRenderer::DrawModelDisintegrate(const SModelRenderData& model, const C
 void CCubeRenderer::DrawModelFlat(const SModelRenderData& model, const CModelFlags& flags,
                                   bool unsortedOnly) {
   const char blendMode = static_cast< char >(flags.GetTrans());
-  if (blendMode < 7) {
-    if (blendMode < 5) {
-      CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
-    } else {
-      CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
-    }
-  } else {
+  if (blendMode > 6) {
     CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_ONE, GX_LO_CLEAR);
+  } else if (blendMode > 4) {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_SRCALPHA, GX_BL_INVSRCALPHA, GX_LO_CLEAR);
+  } else {
+    CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
   }
   const uint otherFlags = flags.GetOtherFlags();
   CGX::SetZMode(true, (otherFlags & CModelFlags::kF_DepthCompare) ? GX_LEQUAL : GX_ALWAYS,
@@ -1903,10 +1909,14 @@ int CCubeRenderer::DrawScanSurface(int areaSurfaceIndex, const CCubeModel& model
                                    ushort group, bool intersects) {
   const ushort count = groups.GetSurfaceCount(group);
   const ushort* indices = groups.GetSurfaceIndices(group);
-  const int result = intersects ? 2 : 1;
+  int result = 1;
+  if (intersects) {
+    result = 2;
+  }
   for (int i = 0; i < count; ++i) {
     const CCubeSurface surface(model.GetModelInstance().Surfaces()[indices[i]]);
-    if (!(model.GetMaterial(surface).GetFlags() & kStateFlag_DepthSorting)) {
+    if (!(model.GetMaterialByIndex(surface.GetMaterialIndex()).GetFlags() &
+          kStateFlag_DepthSorting)) {
       model.DrawSurfaceFlat(surface);
     }
   }
@@ -2006,11 +2016,11 @@ uchar CCubeRenderer::FindOrAddLightSet(uint lightSet) {
       return static_cast< uchar >(i);
     }
   }
-  if (mLightSets.size() == mLightSets.capacity()) {
-    return 0;
+  if (mLightSets.size() < mLightSets.capacity()) {
+    mLightSets.push_back(lightSet);
+    return static_cast< uchar >(mLightSets.size() - 1);
   }
-  mLightSets.push_back(lightSet);
-  return static_cast< uchar >(mLightSets.size() - 1);
+  return 0;
 }
 
 void CCubeRenderer::FindOverlappingWorldModels(rstl::vector< uint >& models, const CAABox& bounds) {
@@ -2653,9 +2663,15 @@ void CCubeRenderer::AllocatePhazonSuitMaskTexture() {
   mSilhouetteMaskCountdown = 2;
 }
 
+// The unit scale survives inlining; MWCC only folds it when written directly.
+static inline float GetFractionalPart(float value, float unit) {
+  const float whole = static_cast< int >(value * unit);
+  return value - whole * unit;
+}
+
 float CCubeRenderer::GetRandomInterpolation(float time, float period, int seed) {
   const float scaledTime = time / period;
-  const float fraction = scaledTime - static_cast< int >(scaledTime);
+  const float fraction = GetFractionalPart(scaledTime, 1.f);
   const uint frame = static_cast< uint >(scaledTime - fraction);
   CRandom16 first(seed + frame);
   CRandom16 second(seed + frame + 1);
@@ -2796,9 +2812,9 @@ void CCubeRenderer::fn_802679DC(const void* unused, const SModelRenderData& mode
   model.DrawFlat(flags, true, true);
 }
 
-void CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
+bool CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
                                                  const CTransform4f& xf, bool alternate) {
-  CTransform4f textureTransform = xf * CGraphics::GetModelMatrix();
+  CTransform4f textureTransform = xf.MultiplyIgnoreTranslation(CGraphics::GetModelMatrix());
   textureTransform.SetTranslation(CVector3f::Zero());
   GXLoadTexMtxImm(textureTransform.GetCStyleMatrix(), matrix, GX_MTX3x4);
   static const float environmentMatrix[3][4] = {
@@ -2812,6 +2828,7 @@ void CCubeRenderer::LoadEnvironmentTextureMatrix(uint matrix, uint postMatrix,
       {0.f, 0.f, 0.f, 1.f},
   };
   GXLoadTexMtxImm(alternate ? alternateMatrix : environmentMatrix, postMatrix, GX_MTX3x4);
+  return true;
 }
 
 void CCubeRenderer::LoadScrollingTextureMatrix(uint matrix, const CVector2f& scroll,
@@ -3940,8 +3957,8 @@ void CCubeRenderer::DrawModelWithTextureMask(const SModelRenderData& model, cons
 
 void CCubeRenderer::CopyTextureRegion(void* dest, int format, int left, int top, int width,
                                       int height) {
-  const uint copyWidth = static_cast< uint >(width) < 8 ? 8 : width & 0xfffe;
-  const uint copyHeight = static_cast< uint >(height) < 8 ? 8 : height & 0xfffe;
+  ushort copyWidth = static_cast< uint >(width) < 8 ? 8 : width & 0xfffe;
+  ushort copyHeight = static_cast< uint >(height) < 8 ? 8 : height & 0xfffe;
   GXSetTexCopySrc(left & 0xfffe, top & 0xfffe, copyWidth, copyHeight);
   switch (format) {
   case 0:
@@ -4080,9 +4097,14 @@ void SModelRenderData::DrawFlat(const CModelFlags& flags, bool unsorted, bool so
     return;
   }
   if (mModel) {
-    const CModel::EDrawFlatFlags selection = unsorted && sorted ? CModel::kDF_All
-                                             : unsorted         ? CModel::kDF_Unsorted
-                                                                : CModel::kDF_Sorted;
+    CModel::EDrawFlatFlags selection;
+    if (unsorted && sorted) {
+      selection = CModel::kDF_All;
+    } else if (!unsorted) {
+      selection = CModel::kDF_Sorted;
+    } else {
+      selection = CModel::kDF_Unsorted;
+    }
     mModel->PreDrawModel(flags);
     mModel->DolphinDrawFlat(selection);
   } else if (mSkinnedModel) {
