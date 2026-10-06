@@ -1173,7 +1173,9 @@ int CCubeRenderer::GetStaticWorldDataSize() {
   int size = 0;
   for (rstl::list< CAreaListItem >::const_iterator area = mAreaListItems.begin();
        area != mAreaListItems.end(); ++area) {
-    size += area->mTextures->size() * sizeof(TCachedToken< CTexture >);
+    if (area->mTextures.get() != nullptr) {
+      size += area->mTextures->size() * sizeof(TCachedToken< CTexture >);
+    }
   }
   return size;
 }
@@ -2657,9 +2659,15 @@ void CCubeRenderer::AllocatePhazonSuitMaskTexture() {
   mSilhouetteMaskCountdown = 2;
 }
 
+// The unit scale survives inlining; MWCC only folds it when written directly.
+static inline float GetFractionalPart(float value, float unit) {
+  const float whole = static_cast< int >(value * unit);
+  return value - whole * unit;
+}
+
 float CCubeRenderer::GetRandomInterpolation(float time, float period, int seed) {
   const float scaledTime = time / period;
-  const float fraction = scaledTime - static_cast< int >(scaledTime);
+  const float fraction = GetFractionalPart(scaledTime, 1.f);
   const uint frame = static_cast< uint >(scaledTime - fraction);
   CRandom16 first(seed + frame);
   CRandom16 second(seed + frame + 1);

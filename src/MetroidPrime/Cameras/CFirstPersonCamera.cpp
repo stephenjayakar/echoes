@@ -414,8 +414,12 @@ const CTransform4f& CFirstPersonCamera::GetGunFollowTransform() const { return m
 
 void CFirstPersonCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CGameCamera::AcceptScriptMsg(mgr, msg);
-  if (msg.GetMessage() == kSM_AreaLoaded) {
+  switch (msg.GetMessage()) {
+  case kSM_AreaLoaded:
     mPitchId = kInvalidUniqueId;
+    break;
+  default:
+    break;
   }
 }
 
