@@ -66,9 +66,7 @@ public:
   bool IsMoving() const { return mMoving; }
   bool IsFastLocomotion() const { return mFastLocomotion; }
   bool IsLocomotionActive() const { return mLocomotionActive; }
-  bool IsMorphTransitionActive() const {
-    return mMorphTransitionActive;
-  }
+  bool IsMorphTransitionActive() const { return mMorphTransitionActive; }
   void SetLocomotionMode(int mode) { mLocomotion.SetLocomotionMode(mode); }
 
   bool IsAnimationOver() const { return mAnimationOver; }
