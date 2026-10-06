@@ -2,6 +2,7 @@
 
 #include "Kyoto/Animation/CSkinnedModel.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
+#include "Kyoto/Basics/CCast.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/Graphics/CCubeMaterial.hpp"
@@ -1017,7 +1018,7 @@ CEntity* REL_LoadFishCloud(CStateManager& mgr, CInputStream& input, CEntityInfo&
       CModelData(CStaticRes(sldrThis.fishModel, CVector3f(1.f, 1.f, 1.f))),
       CAnimRes(sldrThis.animationInformation.ancs, sldrThis.animationInformation.character_index,
                CVector3f(1.f, 1.f, 1.f), 0, true),
-      sldrThis.fishCount, sldrThis.speed, sldrThis.influenceDistance,
+      CCast::FtoL(sldrThis.fishCount), sldrThis.speed, sldrThis.influenceDistance,
       sldrThis.cohesionPriority, sldrThis.alignmentPriority, sldrThis.separationPriority,
       sldrThis.projectilePriority, sldrThis.playerPriority, sldrThis.containmentPriority,
       sldrThis.wanderPriority, sldrThis.wanderAmount, sldrThis.projectileDecayRate,
