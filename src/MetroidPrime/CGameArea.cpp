@@ -2010,13 +2010,11 @@ void CGameArea::UpdateDocks(CStateManager& mgr) {
        it != mPostConstructed->mDockIds.end(); ++it) {
     if (const CScriptDock* dock = TCastToConstPtr< CScriptDock >(mgr.GetObjectById(*it))) {
       if (dock != nearest) {
-        mgr.SendScriptMsg(
-            CScriptMsg(kInvalidUniqueId, dock->GetUniqueId(), kSM_SetToZero, kSS_InvalidState));
+        mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, dock->GetUniqueId(), kSM_SetToZero));
       }
     }
   }
-  mgr.SendScriptMsg(
-      CScriptMsg(kInvalidUniqueId, nearest->GetUniqueId(), kSM_SetToMax, kSS_InvalidState));
+  mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, nearest->GetUniqueId(), kSM_SetToMax));
 }
 
 void CGameArea::fn_80054F74() {}

@@ -177,7 +177,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     handled = true;
     EScriptObjectMessage next = mEmitting ? kSM_Deactivate : kSM_Activate;
     AcceptScriptMsg(
-        mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), next, msg.GetState(), msg.GetOriginator()));
+        mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), next, msg.GetOriginator(), msg.GetState()));
     break;
   }
   case kSM_AreaLoaded: {

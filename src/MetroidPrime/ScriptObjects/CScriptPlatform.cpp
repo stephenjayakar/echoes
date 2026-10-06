@@ -188,13 +188,12 @@ void CScriptPlatform::AddRider(rstl::vector< SRiders >& riders, TUniqueId id,
             actor->GetTranslation() - ridee->GetTranslation());
         rider.mTransform = CTransform4f::Translate(offset);
         if (ridee) {
-          mgr.DeliverScriptMsg(CScriptMsg(ridee->GetUniqueId(), actor->GetUniqueId(),
-                                          EScriptObjectMessage('XONP'), kSS_InvalidState));
+          mgr.DeliverScriptMsg(
+              CScriptMsg(ridee->GetUniqueId(), actor->GetUniqueId(), EScriptObjectMessage('XONP')));
         }
       }
     } else {
-      mgr.DeliverScriptMsg(
-          CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP'), kSS_InvalidState));
+      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP')));
     }
     riders.reserve(riders.size() + 1);
     riders.push_back_unsafe(rider);
@@ -223,8 +222,7 @@ void CScriptPlatform::DecayRiders(rstl::vector< SRiders >& riders, float dt, CSt
       if (*it->mDecayTimer <= 0.f) {
         const TUniqueId id = it->mUid;
         it = riders.erase(it);
-        mgr.DeliverScriptMsg(
-            CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP'), kSS_InvalidState));
+        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP')));
         continue;
       }
     }

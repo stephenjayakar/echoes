@@ -88,10 +88,8 @@ void CBSJump::PlayJumpLoop(CStateManager& mgr, CBodyController& bc) {
   }
 
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-    mgr.DeliverScriptMsg(
-        CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Falling, kSS_InvalidState));
-    mgr.DeliverScriptMsg(
-        CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching, kSS_InvalidState));
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Falling));
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching));
     const CVector3f velocity = actor->GetVelocityWR();
     mApplyLaunchVel = false;
     mVelocity = velocity;

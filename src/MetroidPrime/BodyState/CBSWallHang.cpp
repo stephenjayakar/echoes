@@ -79,8 +79,7 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
         }
 
         if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-          mgr.DeliverScriptMsg(
-              CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching, kSS_InvalidState));
+          mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching));
           if (const CActor* waypoint = TCastToConstPtr< CActor >(mgr.GetObjectById(mWpId))) {
             const CVector3f toWaypoint = waypoint->GetTranslation() - actor->GetTranslation();
             if (!(toWaypoint.GetZ() < 0.f)) {
@@ -151,8 +150,7 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
         }
 
         if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-          mgr.DeliverScriptMsg(
-              CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching, kSS_InvalidState));
+          mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching));
           mLaunched = false;
           if (const CActor* waypoint = TCastToConstPtr< CActor >(mgr.GetObjectById(mWpId))) {
             mLaunchVel = 15.f * waypoint->GetTransform().GetForward();

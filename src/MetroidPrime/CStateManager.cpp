@@ -1497,13 +1497,13 @@ void CStateManager::DeliverScriptMsg(const CScriptMsg& msg) {
 void CStateManager::SendScriptMsg(CEntity* target, TUniqueId sender, EScriptObjectMessage message,
                                   TUniqueId actor) {
   if (target != nullptr) {
-    SendScriptMsg(CScriptMsg(sender, target->GetUniqueId(), message, kSS_InvalidState, actor));
+    SendScriptMsg(CScriptMsg(sender, target->GetUniqueId(), message, actor));
   }
 }
 
 void CStateManager::SendScriptMsg(TUniqueId target, TUniqueId sender, EScriptObjectMessage message,
                                   TUniqueId actor) {
-  SendScriptMsg(CScriptMsg(sender, target, message, kSS_InvalidState, actor));
+  SendScriptMsg(CScriptMsg(sender, target, message, actor));
 }
 
 float CStateManager::IntegrateVisorFog(float fog) const {
@@ -1785,8 +1785,7 @@ CStateManager::~CStateManager() {
     CEntity* entity = objects[i];
     if (entity != nullptr && TCastToPtr< CPlayer >(entity) == nullptr &&
         TCastToPtr< CGameCamera >(entity) == nullptr) {
-      DeliverScriptMsg(
-          CScriptMsg(kInvalidUniqueId, entity->GetUniqueId(), kSM_Delete, kSS_InvalidState));
+      DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, entity->GetUniqueId(), kSM_Delete));
     }
   }
   for (int i = 0; i != kMaxObjects; ++i) {
@@ -1804,16 +1803,14 @@ CStateManager::~CStateManager() {
   for (rstl::list< CEntity* >::const_iterator it = cameraObjects.begin();
        it != cameraObjects.end(); ++it) {
     if (CGameCamera* camera = TCastToPtr< CGameCamera >(*it)) {
-      DeliverScriptMsg(
-          CScriptMsg(kInvalidUniqueId, camera->GetUniqueId(), kSM_Delete, kSS_InvalidState));
+      DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, camera->GetUniqueId(), kSM_Delete));
       RemoveObject(camera->GetUniqueId());
       delete camera;
     }
   }
   for (uint i = 0; i < mNumPlayers; ++i) {
     if (CPlayer* player = mPlayers[i]) {
-      DeliverScriptMsg(
-          CScriptMsg(kInvalidUniqueId, player->GetUniqueId(), kSM_Delete, kSS_InvalidState));
+      DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, player->GetUniqueId(), kSM_Delete));
       RemoveObject(player->GetUniqueId());
       delete player;
     }
@@ -1976,14 +1973,12 @@ void CStateManager::AddObject(CEntity& entity) {
     UpdateActorInSortedLists(actor);
   }
 
-  DeliverScriptMsg(
-      CScriptMsg(kInvalidUniqueId, entity.GetUniqueId(), kSM_Create, kSS_InvalidState));
+  DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, entity.GetUniqueId(), kSM_Create));
   if (entity.GetCurrentAreaId() != kInvalidAreaId && HasWorld()) {
     CGameArea* area = mWorld->Area(entity.GetCurrentAreaId());
     if (area->GetPhase() > CGameArea::kP_FinishDependencies &&
         area->GetPostConstructed()->mScriptObjectsInitialized) {
-      DeliverScriptMsg(
-          CScriptMsg(kInvalidUniqueId, entity.GetUniqueId(), kSM_AreaLoaded, kSS_InvalidState));
+      DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, entity.GetUniqueId(), kSM_AreaLoaded));
     }
   }
 }
