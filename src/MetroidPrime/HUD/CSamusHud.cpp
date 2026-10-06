@@ -939,7 +939,7 @@ void CSamusHud::UpdateStaticInterference(float dt, const CStateManager& mgr) {
 }
 
 void CSamusHud::UpdateStaticSfx(const CStateManager& mgr, CSfxHandle& sound, float& cycle,
-                                ushort soundId, float dt, float previousInterference,
+                                const ushort soundId, float dt, float previousInterference,
                                 float threshold) {
   const bool crossed = (previousInterference > threshold && mStaticInterference <= threshold) ||
                        (previousInterference <= threshold && mStaticInterference > threshold);
