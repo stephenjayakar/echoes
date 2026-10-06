@@ -32,7 +32,7 @@ CProjectileWeapon::CProjectileWeapon(const TToken< CWeaponDescription >& descrip
 , mLocalOffset(CVector3f::Zero())
 , mInterpolationOffset(CVector3f::Zero())
 , mProjOffset(CVector3f::Zero())
-, mScale(CVector3f(1.f, 1.f, 1.f))
+, mScale(CVector3f::One())
 , mLocalOffset2(CVector3f::Zero())
 , mGlobalScale(scale)
 , mVelocity(CVector3f::Zero())
@@ -74,15 +74,16 @@ CProjectileWeapon::CProjectileWeapon(const TToken< CWeaponDescription >& descrip
   CGlobalRandom random(mRandom);
   mVMD2 = mWeaponDesc->mVMD2;
   mAPSO = mWeaponDesc->mAPSO;
+  const uint flag = mFlags & 1;
 
   if (mWeaponDesc->mAPSM) {
     mAPSMGen = rs_new CElementGen(*mWeaponDesc->mAPSM, CElementGen::kMOT_Normal,
-                                  (mFlags & 1) ? CElementGen::kOSF_Two : CElementGen::kOSF_One);
+                                  flag ? CElementGen::kOSF_Two : CElementGen::kOSF_One);
     mAPSMGen->SetGlobalScale(scale);
   }
   if (mWeaponDesc->mAPS2) {
     mAPS2Gen = rs_new CElementGen(*mWeaponDesc->mAPS2, CElementGen::kMOT_Normal,
-                                  (mFlags & 1) ? CElementGen::kOSF_Two : CElementGen::kOSF_One);
+                                  flag ? CElementGen::kOSF_Two : CElementGen::kOSF_One);
     mAPS2Gen->SetGlobalScale(scale);
   }
   if (mWeaponDesc->mASW1) {
@@ -108,11 +109,11 @@ CProjectileWeapon::CProjectileWeapon(const TToken< CWeaponDescription >& descrip
   }
   if (mWeaponDesc->mIORN) {
     CTransform4f orientation = CTransform4f::Identity();
-    CVector3f angles = CVector3f::Zero();
+    CVector3f angles(0.f, 0.f, 0.f);
     mWeaponDesc->mIORN->GetValue(0, angles);
-    orientation.RotateLocalZ(CRelAngle::FromDegrees(angles.GetX()));
+    orientation.RotateLocalX(CRelAngle::FromDegrees(angles.GetX()));
     orientation.RotateLocalY(CRelAngle::FromDegrees(angles.GetY()));
-    orientation.RotateLocalX(CRelAngle::FromDegrees(angles.GetZ()));
+    orientation.RotateLocalZ(CRelAngle::FromDegrees(angles.GetZ()));
     SetRelativeOrientation(orientation);
   } else {
     SetRelativeOrientation(CTransform4f::Identity());
@@ -121,7 +122,9 @@ CProjectileWeapon::CProjectileWeapon(const TToken< CWeaponDescription >& descrip
     mModel = *mWeaponDesc->GetOHEF();
   }
 
-  mHasBillboardEffects = mWeaponDesc->mB1TX || mWeaponDesc->mB2TX || mWeaponDesc->mTTEX;
+  if (mWeaponDesc->mB1TX || mWeaponDesc->mB2TX || mWeaponDesc->mTTEX) {
+    mHasBillboardEffects = true;
+  }
   mAP11 = mWeaponDesc->mAP11;
   mAP21 = mWeaponDesc->mAP21;
   mAS11 = mWeaponDesc->mAS11;
