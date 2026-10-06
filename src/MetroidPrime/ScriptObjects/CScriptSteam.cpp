@@ -53,7 +53,7 @@ void CScriptSteam::Think(float dt, CStateManager& mgr) {
   }
 
   CScriptTrigger::Think(dt, mgr);
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     CPlayer* player = mgr.Player(i);
     if (GetPlayerInside(i) &&
         mgr.GetCameraManager(i)->GetCurrentCamera(mgr, true)->GetFluidCount() == 0) {

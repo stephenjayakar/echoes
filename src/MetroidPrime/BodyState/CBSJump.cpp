@@ -51,7 +51,8 @@ void CBSJump::Start(CBodyController& bc, CStateManager& mgr) {
   if (mWallJump) {
     const CVector3f toWall = mWaypoint1 - bc.GetOwner().GetTranslation();
     const CVector3f cross = CVector3f::Cross(toWall, CVector3f::Up());
-    mWallBounceRight = CVector3f::Dot(cross, mWaypoint2 - mWaypoint1) < 0.f;
+    const CVector3f between = mWaypoint2 - mWaypoint1;
+    mWallBounceRight = CVector3f::Dot(cross, between) < 0.f;
   }
 
   if (mState == pas::kJS_AmbushJump || mState == pas::kJS_Loop) {
@@ -67,7 +68,7 @@ void CBSJump::Start(CBodyController& bc, CStateManager& mgr) {
 
 void CBSJump::PlayJumpLoop(CStateManager& mgr, CBodyController& bc) {
   if (mState == pas::kJS_AmbushJump) {
-    const CPASAnimParmData parms(pas::kAS_Jump, CPASAnimParm::FromEnum(mState),
+    const CPASAnimParmData parms(pas::kAS_Jump, CPASAnimParm::FromEnum(pas::kJS_AmbushJump),
                                  CPASAnimParm::FromEnum(mJumpType),
                                  CPASAnimParm::FromEnum(mAnimationVariant));
     const rstl::pair< float, int > best =
@@ -91,8 +92,9 @@ void CBSJump::PlayJumpLoop(CStateManager& mgr, CBodyController& bc) {
                                     kSM_Falling, kSS_InvalidState));
     mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor->GetUniqueId(),
                                     kSM_Launching, kSS_InvalidState));
+    const CVector3f velocity = actor->GetVelocityWR();
     mApplyLaunchVel = false;
-    mVelocity = actor->GetVelocityWR();
+    mVelocity = velocity;
   }
 }
 

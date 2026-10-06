@@ -341,7 +341,7 @@ void CPlasmaProjectile::Fire(const CTransform4f& xf, CStateManager& mgr, bool fl
   mInitialDamagePending = mInitialDamageEnabled;
   if (mBeamAttributes & 1) {
     rstl::reserved_vector< CVector3f, 8 >& cache = PointCache();
-    for (int i = 0; i < cache.size(); ++i) {
+    for (int i = 0; i < cache.capacity(); ++i) {
       cache[i] = xf.GetTranslation();
     }
   }
