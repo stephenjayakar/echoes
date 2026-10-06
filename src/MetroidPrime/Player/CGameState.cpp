@@ -507,20 +507,22 @@ void CGameState::PutTo(CBitStreamWriter& out) {
   out.GetOutputStream().WriteUint8(worlds.size());
   rstl::auto_ptr< uchar > buffer(rs_new uchar[0x400]);
   for (AUTO(it, worlds.begin()); it != worlds.end(); ++it) {
+    const CAssetId worldId = it->first;
     TLockedToken< CWorldSaveGameInfo > saveWorld =
         gpSimplePool->GetObj(SObjectTag('SAVW', it->second.GetSaveWorldAssetId()));
-    CWorldState& state = StateForWorld(it->first);
+    const CWorldSaveGameInfo& saveInfo = **saveWorld;
+    CWorldState& state = StateForWorld(worldId);
     uint bitCount;
     {
       CMemoryStreamOut stream(buffer.get(), 0x400);
       CBitStreamWriter writer(stream);
-      state.PutTo(writer, **saveWorld);
+      state.PutTo(writer, saveInfo);
       stream.Flush();
       bitCount = writer.GetWrittenBits();
     }
-    out.GetOutputStream().WriteUint32(it->first);
+    out.GetOutputStream().WriteUint32(worldId);
     out.GetOutputStream().WriteUint16(bitCount);
-    state.PutTo(out, **saveWorld);
+    state.PutTo(out, saveInfo);
   }
   out.GetOutputStream().WriteUint32('GMND');
 }

@@ -1602,7 +1602,7 @@ void CPlayer::ApplyGravityBoost(float dt, CStateManager& mgr) {
 
 void CPlayer::EndGravityBoost(CStateManager& mgr) {
   CVector3f velocity = GetVelocityWR();
-  velocity.SetZ(velocity.GetZ() * GetTweakPlayer()->GetGravityBoostCancelDampening());
+  velocity[kDZ] *= GetTweakPlayer()->GetGravityBoostCancelDampening();
   SetVelocityWR(velocity);
   mGravityBoostDuration = 0.f;
   if (mGravityBoostSfx) {
