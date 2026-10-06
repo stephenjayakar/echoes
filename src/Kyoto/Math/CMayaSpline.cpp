@@ -223,6 +223,8 @@ CMayaSpline::CMayaSpline(CInputStream& in, int count)
 
 CMayaSpline::CMayaSpline() : mPreInfinity(0), mPostInfinity(0), mKnots(), mClampMode(0), mCache() {}
 
+static rstl::less< CMayaSplineKnot > sKnotLess;
+
 CMayaSpline::CMayaSpline(const rstl::vector< CMayaSplineKnot >& knots, int clampMode,
                          int preInfinity, int postInfinity, float minAmplitudeTime,
                          float maxAmplitudeTime)
@@ -233,7 +235,7 @@ CMayaSpline::CMayaSpline(const rstl::vector< CMayaSplineKnot >& knots, int clamp
 , mMinAmplitude(minAmplitudeTime)
 , mMaxAmplitude(maxAmplitudeTime)
 , mCache() {
-  rstl::sort(mKnots.begin(), mKnots.end(), rstl::less< CMayaSplineKnot >());
+  rstl::sort(mKnots.begin(), mKnots.end(), sKnotLess);
 }
 
 float CMayaSpline::EvaluateHermite(float time) const {

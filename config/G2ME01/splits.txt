@@ -3654,6 +3654,7 @@ Kyoto/Text/CCharacterExtraSpaceInstruction.cpp:
 Kyoto/Math/CMayaSpline.cpp:
 	.text       start:0x80327C10 end:0x8032AFC8
 	.sdata      start:0x80418C50 end:0x80418C68
+	.sbss       start:0x80419C50 end:0x80419C58
 	.sdata2     start:0x8041EBC0 end:0x8041EC28
 
 Kyoto/Audio/CSfxPitchBend.cpp:
