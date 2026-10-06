@@ -51,7 +51,7 @@ void CScriptActorKeyframe::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
       }
       mPlaying = true;
       mLifetime = mInitialLifetime;
-      SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Play, mgr);
     }
     break;
   default:

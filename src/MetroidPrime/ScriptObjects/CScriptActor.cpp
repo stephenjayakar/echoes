@@ -110,7 +110,7 @@ void CScriptActor::Think(float dt, CStateManager& mgr) {
       RotateToOR(deltas.GetOrientationDelta(), dt);
     }
     if (!timeRemaining && mAnimating && !loop) {
-      SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_MaxReached, mgr);
       mAnimating = false;
       Stop();
     }

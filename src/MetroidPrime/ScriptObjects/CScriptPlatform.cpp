@@ -354,7 +354,7 @@ void CScriptPlatform::PreThink(float dt, CStateManager& mgr) {
       MoveRiders(mgr, dt, GetActive(), mRiders, collidedRiders, nearList, newXf, oldXf, -mDragDelta,
                  mRotationDelta.BuildInverted());
       mDragDelta = CVector3f::Zero();
-      SendScriptMsgs(EScriptObjectState('MDFY'), mgr, kSM_None);
+      SendScriptMsgs(EScriptObjectState('MDFY'), mgr);
       mSquishedRider = true;
       AdvanceMotionTime(-dt);
     }

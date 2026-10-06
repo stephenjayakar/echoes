@@ -34,13 +34,13 @@ void CEntity::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Activate:
     if (!mActive) {
       SetActive(true);
-      SendScriptMsgs(kSS_Active, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Active, mgr);
     }
     break;
   case kSM_Deactivate:
     if (mActive) {
       SetActive(false);
-      SendScriptMsgs(kSS_Inactive, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Inactive, mgr);
     }
     break;
   case kSM_ToggleActive: {
@@ -61,7 +61,7 @@ void CEntity::SendScriptMsgs(EScriptObjectState state, CStateManager& mgr, TUniq
       CStateManager::TIdList::const_iterator current = search.first;
       CStateManager::TIdList::const_iterator end = search.second;
       while (current != end) {
-        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), current->second, it->msg, it->state, id));
+        mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), current->second, it->msg, state, id));
         ++current;
       }
     }

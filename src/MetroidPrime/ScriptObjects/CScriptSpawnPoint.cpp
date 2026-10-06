@@ -100,7 +100,7 @@ void CScriptSpawnPoint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& ms
           player->ResetPlayerState(mgr, 1);
         }
       }
-      CEntity::SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+      CEntity::SendScriptMsgs(kSS_Zero, mgr);
     }
   }
 }

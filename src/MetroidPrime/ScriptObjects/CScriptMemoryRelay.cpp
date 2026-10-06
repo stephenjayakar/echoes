@@ -17,7 +17,7 @@ void CScriptMemoryRelay::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& m
   case kSM_Activate:
     mgr.Mailbox()->AddMsg(GetEditorId());
     if (!mSkipSendActive) {
-      SendScriptMsgs(kSS_Active, mgr, kSM_None);
+      SendScriptMsgs(kSS_Active, mgr);
     }
     break;
   case kSM_Deactivate:

@@ -369,7 +369,7 @@ void CScriptDebris::Think(float dt, CStateManager& mgr) {
 
 void CScriptDebris::Touch(CActor& other, CStateManager& mgr) {
   if (mDieOnProjectile && TCastToPtr< CGameProjectile >(other)) {
-    SendScriptMsgs(kSS_Dead, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Dead, mgr);
     mgr.DeleteObjectRequest(GetUniqueId());
   }
 }

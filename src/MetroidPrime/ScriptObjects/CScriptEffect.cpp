@@ -154,7 +154,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Activate:
     handled = true;
     if (!mEmitting) {
-      SendScriptMsgs(kSS_Active, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Active, mgr);
     }
     mEmitting = true;
     if (mRebuildSystemsOnActivate && !mParticleSystem.null()) {
@@ -166,7 +166,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Deactivate:
     handled = true;
     if (mEmitting) {
-      SendScriptMsgs(kSS_Inactive, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Inactive, mgr);
     }
     if (mDestroyParticlesOnDeactivate && !mParticleSystem.null()) {
       mParticleSystem->DestroyParticles();

@@ -89,7 +89,7 @@ void CScriptActorRotate::UpdateActors(bool next, CStateManager& mgr) {
     }
   }
 
-  SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+  SendScriptMsgs(kSS_Play, mgr);
   if (!mActors.empty()) {
     StartRotation();
     if (next) {
@@ -250,7 +250,7 @@ void CScriptActorRotate::CheckEnd(CStateManager& mgr) {
   if (!(mCurrentTime >= mDuration)) {
     return;
   }
-  SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+  SendScriptMsgs(kSS_Zero, mgr);
   if ((mFlags & kF_Loop) != 0) {
     mCurrentTime -= mDuration;
   } else {

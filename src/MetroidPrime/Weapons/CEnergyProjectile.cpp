@@ -245,7 +245,7 @@ void CEnergyProjectile::ResolveCollisionWithActor(const CRayCastResult& result, 
   } else {
     mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XHIT, kInvalidUniqueId);
     mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XXDG, kInvalidUniqueId);
-    actor.SendScriptMsgs(kSS_ReflectedDamage, mgr, kInvalidUniqueId, kSM_None);
+    actor.SendScriptMsgs(kSS_ReflectedDamage, mgr);
   }
 
   if (CEnergyProjectile* projectile = TCastToPtr< CEnergyProjectile >(actor)) {

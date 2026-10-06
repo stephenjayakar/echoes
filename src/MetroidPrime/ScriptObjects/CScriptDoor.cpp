@@ -347,7 +347,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
       mgr.CameraManager(i)->BallCamera()->DoorClosed(GetUniqueId());
     }
-    SendScriptMsgs(kSS_Closed, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Closed, mgr);
     mCurrentHealth = mInitialHealth;
     break;
   case kDS_WaitingForArea:
@@ -357,7 +357,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     mIsOpen = true;
     mgr.MapWorldInfo()->SetDoorVisited(mgr.GetEditorIdForUniqueId(GetUniqueId()), true);
     mWasOpen = true;
-    SendScriptMsgs(kSS_Opened, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Opened, mgr);
     mPartnerDoorId = kInvalidUniqueId;
     if (mOpeningSenderDoorId == kInvalidUniqueId || mgr.GetNextAreaId() == GetCurrentAreaId()) {
       SetDoorAnimation(kDAT_Opening);
@@ -436,7 +436,7 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
   case kDS_Closed:
     if (mCurrentHealth.GetHP() <= 0.f && mgr.GetNextAreaId() == GetCurrentAreaId()) {
       SetDoorState(mgr, kDS_WaitingForArea);
-      SendScriptMsgs(kSS_Dead, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Dead, mgr);
     }
     break;
   case kDS_WaitingForArea: {
