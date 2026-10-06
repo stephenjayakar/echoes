@@ -41,6 +41,7 @@ public:
   void Update(float dt);
   void Draw() const;
   float GetT(bool invert) const;
+  EFilterType GetCurrentType() const { return mCurrentType; } // Guessed name.
   // Guessed names; visible screen proportions during cinema-bar transitions.
   float GetWidthScale() const;
   float GetHeightScale() const;

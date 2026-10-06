@@ -268,8 +268,8 @@ void CScriptTrigger::NotifyInhabitantAdded(CActor& actor, CStateManager& mgr) {
   }
 }
 
-void CScriptTrigger::NotifyInhabitantIdle(CActor& actor, CStateManager& mgr) {
-  InhabitantIdle(actor, mgr);
+void CScriptTrigger::NotifyInhabitantIdle(CActor& actor, CStateManager& mgr, float dt) {
+  InhabitantIdle(actor, mgr, dt);
   if (ShouldSendScriptMsgs(actor, mgr)) {
     SendScriptMsgs(kSS_Inside, mgr, actor.GetUniqueId(), kSM_None);
   }
@@ -447,7 +447,7 @@ void CScriptTrigger::UpdateInhabitants(float dt, CStateManager& mgr) {
       }
       NotifyInhabitantExited(*actor, mgr);
     } else {
-      NotifyInhabitantIdle(*actor, mgr);
+      NotifyInhabitantIdle(*actor, mgr, dt);
     }
     it = next;
   }
@@ -471,7 +471,7 @@ bool CScriptTrigger::HasInhabitant(TUniqueId id) const {
 
 void CScriptTrigger::InhabitantAdded(CActor&, CStateManager&) {}
 
-void CScriptTrigger::InhabitantIdle(CActor&, CStateManager&) {}
+void CScriptTrigger::InhabitantIdle(CActor&, CStateManager&, float) {}
 
 void CScriptTrigger::InhabitantExited(CActor&, CStateManager&) {}
 

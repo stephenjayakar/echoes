@@ -482,6 +482,14 @@ public:
   void SetIsFullThreat(bool value) { mIsFullThreat = value; }
 
   bool fn_800366e4(const CActor*) const;
+  // Name and signature from the Wii MP2 SEL export.
+  void AddDarkWorldSphereToRenderer(const CVector3f& pos, const CVector3f& scale, uchar alpha,
+                                    uchar insideAlpha, bool inside, float spotSize,
+                                    const CVector2f& scroll1, const CVector2f& scroll2,
+                                    const CVector2f& texScale1, const CVector2f& texScale2,
+                                    const CTexture& environment, const CTexture& cloud1,
+                                    const CTexture& cloud2, CColor color, CColor additiveColor,
+                                    bool cylinder) const;
 
 public:
   ushort mNextFreeIndex;

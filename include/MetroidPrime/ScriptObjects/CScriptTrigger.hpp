@@ -54,7 +54,7 @@ public:
 
   // CScriptTrigger
   virtual void InhabitantAdded(CActor& actor, CStateManager& mgr);
-  virtual void InhabitantIdle(CActor& actor, CStateManager& mgr);
+  virtual void InhabitantIdle(CActor& actor, CStateManager& mgr, float dt);
   virtual void InhabitantExited(CActor& actor, CStateManager& mgr);
   virtual void InhabitantRejected(CActor& actor, CStateManager& mgr);
   virtual bool ShouldSendScriptMsgs(CActor& actor, CStateManager& mgr) const; // Guessed name
@@ -69,7 +69,7 @@ public:
   void UpdateInhabitants(float dt, CStateManager& mgr);
   void SetPlayerInside(CStateManager& mgr, bool inside, int playerIndex); // Guessed name
   void UpdateCameraInhabitant(const TUniqueId& id, CStateManager& mgr);          // Guessed name
-  void NotifyInhabitantIdle(CActor& actor, CStateManager& mgr);           // Guessed name
+  void NotifyInhabitantIdle(CActor& actor, CStateManager& mgr, float dt);         // Guessed name
   void NotifyInhabitantAdded(CActor& actor, CStateManager& mgr);          // Guessed name
   void NotifyInhabitantExited(CActor& actor, CStateManager& mgr);         // Guessed name
   void ClearInhabitants(CStateManager& mgr);                              // Guessed name
