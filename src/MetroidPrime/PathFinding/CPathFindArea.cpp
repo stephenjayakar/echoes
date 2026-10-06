@@ -32,7 +32,9 @@ private:
   uchar* mCurrent;
 };
 
-inline uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
+extern "C" void fn_80141594(int* out, CPFMemoryStream* stream) { *out = stream->ReadInt32(); }
+
+uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
   uint index = 0;
   if (point[kDX] > mCenter[kDX]) {
     index = 1;
@@ -46,7 +48,7 @@ inline uint CPFAreaOctree::GetChildIndex(const CVector3f& point) const {
   return index;
 }
 
-inline rstl::prereserved_vector< CPFRegion* >*
+rstl::prereserved_vector< CPFRegion* >*
 CPFAreaOctree::GetRegionList(const CVector3f& point) {
   if (mIsLeaf) {
     return &mRegions;
@@ -72,7 +74,7 @@ inline void CPFAreaOctree::GetRegionListList(
 }
 
 CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
-: mBestPointDistSq(FLT_MAX)
+: mBestPointDistSq(3.4028235e38f)
 , mClosestPoint(CVector3f::Zero())
 , mCachedRegionList(nullptr)
 , mCachedRegionListPoint(CVector3f::Zero())
@@ -81,8 +83,11 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
 , mVersion(-1)
 , mData(data.release())
 , mTransform(CTransform4f::Identity()) {
+  int maxRegionNodes;
   CPFMemoryStream stream(mData.get(), size);
-  mVersion = stream.ReadInt32();
+  int version;
+  fn_80141594(&version, &stream);
+  mVersion = version;
 
   int numNodes = stream.ReadInt32();
   mNodes.set_size(numNodes);
@@ -90,13 +95,13 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
   int numLinks = stream.ReadInt32();
   mLinks.set_size(numLinks);
   mLinks.set_data(static_cast< CPFLink* >(stream.GetBlock(numLinks, sizeof(CPFLink))));
-  const int numRegions = stream.ReadInt32();
+  int numRegions = stream.ReadInt32();
   mRegions.set_size(numRegions);
   mRegions.set_data(static_cast< CPFRegion* >(stream.GetBlock(numRegions, sizeof(CPFRegion))));
   mRegionData.reserve(numRegions);
   CPFRegionData dataValue = CPFRegionData();
   mRegionData.resize(numRegions, dataValue);
-  int maxRegionNodes = 0;
+  maxRegionNodes = 0;
   int i;
   for (i = 0; i < numRegions; ++i) {
     mRegions[i].Fixup(*this, maxRegionNodes);
@@ -104,7 +109,7 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
   maxRegionNodes = maxRegionNodes > 4 ? maxRegionNodes : 4;
   mPolyPoints.reserve(maxRegionNodes);
 
-  int numWords = (numRegions * (numRegions - 1) / 2 + 31) / 32;
+  uint numWords = (numRegions * (numRegions - 1) / 2 + 31) / 32;
   mConnectionsGround.set_size(numWords);
   mConnectionsGround.set_data(static_cast< uint* >(stream.GetBlock(numWords, sizeof(uint))));
   mConnectionsFlyers.set_size(numWords);
@@ -141,11 +146,11 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
       mPointConnections.set_size(numPointWords);
       mPointConnections.set_data(
           static_cast< uint* >(stream.GetBlock(numPointWords, sizeof(uint))));
-      for (i = 0; i < numPoints; ++i) {
-        mPoints[i].Fixup(*this);
+      for (int j = 0; j < numPoints; ++j) {
+        mPoints[j].Fixup(*this);
       }
     }
-    mPointSearchState = rs_new CPFPointSearchState(mPoints.size());
+    mPointSearchState = rs_new CPFPointSearchState(numPoints);
   }
 }
 
@@ -270,7 +275,8 @@ bool CPFArea::PathExists(const CPFRegion* source, const CPFRegion* destination, 
   }
   int numRegions = GetNumRegions();
   int sourceIndex = source->GetIndex();
-  int destinationIndex = destination->GetIndex();
+  const int destIndex = destination->GetIndex();
+  int destinationIndex = destIndex;
   const rstl::prereserved_vector< uint >& connections =
       (flags & 2) ? mConnectionsFlyers : mConnectionsGround;
   int lowIndex = sourceIndex;

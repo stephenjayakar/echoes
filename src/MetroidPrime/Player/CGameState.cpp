@@ -1,5 +1,7 @@
 #include "MetroidPrime/Player/CGameState.hpp"
 
+#include "Kyoto/Basics/CBasics.hpp"
+#include "Kyoto/CResFactory.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Streams/CBitStreamReader.hpp"
 #include "Kyoto/Streams/CBitStreamWriter.hpp"
@@ -22,6 +24,7 @@
 #include "rstl/algorithm.hpp"
 #include "rstl/math.hpp"
 
+#include <stdio.h>
 #include <string.h>
 
 // Guessed names. Layer-name prefixes select which game mode owns each layer.
@@ -90,6 +93,22 @@ CEnvironmentVariable* CGameStateEnvVarManager::FindEnvironmentVariable(const cha
   return it != static_cast< const TMap& >(mVariables).end()
              ? const_cast< CEnvironmentVariable* >(&it->second)
              : nullptr;
+}
+
+void CGameStateEnvVarManager::LoadFields() {
+  if (mScope == kVS_System) {
+    AddVariable(rstl::string_l("FreezeInstructionsFirstPerson"), CEnvironmentVariable(0, 3, 0));
+    AddVariable(rstl::string_l("FreezeInstructionsMorphBall"), CEnvironmentVariable(0, 3, 0));
+    AddVariable(rstl::string_l("PowerbombPickupMessages"), CEnvironmentVariable(0, 1, 0));
+    AddVariable(rstl::string_l("PercentScans"), CEnvironmentVariable(0, 100, 0));
+    AddVariable(rstl::string_l("NormalModeCompleted"), CEnvironmentVariable(0, 1, 0));
+    AddVariable(rstl::string_l("HardModeCompleted"), CEnvironmentVariable(0, 1, 0));
+    AddVariable(rstl::string_l("AllPickupsFound"), CEnvironmentVariable(0, 1, 0));
+    AddVariable(rstl::string_l("AutoMapperPaneMode"), CEnvironmentVariable(0, 2, 1));
+    AddVariable(rstl::string_l("LogbookLegendVisible"), CEnvironmentVariable(0, 1, 1));
+    AddVariable(rstl::string_l("IngAttachedWarningCount"), CEnvironmentVariable(0, 3, 0));
+    AddVariable(rstl::string_l("SeenIntroText"), CEnvironmentVariable(0, 1, 0));
+  }
 }
 
 void CGameStateEnvVarManager::AddVariable(const rstl::string& name,
@@ -353,7 +372,8 @@ CGameState::CGameState(CBitStreamReader& in)
     const CAssetId worldId = in.GetInputStream().ReadInt32();
     int bitCount = in.GetInputStream().ReadUint16();
     if (!gpMemoryCard->HasSaveWorldMemory(worldId)) {
-      // The original also constructs an unused diagnostic string for the missing world.
+      const rstl::string message(CBasics::Stringize(
+          "Cannot find World Asset(%x) to load save data.  Skipping save game info.\n", worldId));
       while (bitCount > 0) {
         in.ReadBits(rstl::min_val(bitCount, 32));
         bitCount -= 32;
@@ -369,7 +389,13 @@ CGameState::CGameState(CBitStreamReader& in)
   for (rstl::vector< CMemoryCard::MemoryWorld >::const_iterator it = worlds.begin();
        it != worlds.end(); ++it) {
     // StateForWorld creates defaults for worlds absent from the save.
+    const int worldStateCount = mWorldStates.size();
     StateForWorld(it->first);
+    if (worldStateCount != mWorldStates.size()) {
+      rstl::string(CBasics::Stringize(
+          "Save game did not contain World Asset(%x).  Creating default world save info.\n",
+          it->first));
+    }
   }
   InitializeMemoryWorlds();
   WriteBackupBuf();
@@ -387,6 +413,35 @@ void CGameState::InitializeMemoryStates() {
   mPersistentOptions.InitializeMemoryState();
   InitializeMemoryWorlds();
   WriteBackupBuf();
+}
+
+void fn_80143E88() {
+  CMain::EnsureWorldPaksReady();
+  gpGameState->AudioGroups().clear();
+  const SObjectTag* initialWorld = gpResourceFactory->GetResourceIdByName("InitialWorld");
+  if (initialWorld != nullptr) {
+    gpGameState->SetCurrentWorldId(initialWorld->id);
+    gpGameState->SetGameMode(rs_new CGMSinglePlayer());
+  } else {
+    gpGameState->SetCurrentWorldId(gpResourceFactory->GetResourceIdByName("FrontEnd")->id);
+    gpGameState->SetGameMode(rs_new CFrontEndGameMode());
+    rstl::rc_ptr< CWorldLayerState > layers = gpGameState->CurrentWorldState().GetLayerState();
+    layers->GetAreaLayerCount(TAreaId(0));
+    const CGameState::SPreviousGameResults& results = gpGameState->PreviousGameResults();
+    const uint mode = results.mGameMode;
+    const int playerCount = results.mPlayerCount;
+    const char* const prefix = "Results";
+    const char* const coin = "Coin";
+    const char* const deathmatch = "Deathmatch";
+    char name[64] = "";
+    if (results.mShowResults && playerCount > 1) {
+      if (mode == 'DTHM') {
+        sprintf(name, "%s%s%d", prefix, deathmatch, playerCount);
+      } else if (mode == 'COIN') {
+        sprintf(name, "%s%s%d", prefix, coin, playerCount);
+      }
+    }
+  }
 }
 
 void ConfigureGameModeLayers() {
@@ -473,6 +528,44 @@ void CGameState::InitializeMemoryWorlds() {
     layers->InitializeWorldLayers(world.GetDefaultLayerStates(), world.GetLayerNames(),
                                   world.GetLayerNameOffsets());
   }
+}
+
+CGameState::GameFileStateInfo CGameState::LoadGameFileState(const void* data) {
+  CMemoryInStream memStream(data, 0x1000);
+  CBitStreamReader stream(memStream);
+  GameFileStateInfo ret;
+  stream.ReadBits(32); // GMST
+  const uint timestamp = stream.ReadBits(32);
+  ret.mHardMode = stream.ReadPackedBool();
+  stream.ReadPackedBool();
+  ret.x21_ = stream.ReadPackedBool();
+  ret.mMlvlId = stream.ReadBits(32);
+
+  const uint playTimeHigh = stream.ReadBits(32);
+  union {
+    double value;
+    u64 bits;
+  } playTime;
+  const uint playTimeLow = stream.ReadBits(32);
+  playTime.bits = playTimeHigh;
+  playTime.bits <<= 32;
+  playTime.bits |= playTimeLow;
+  ret.mPlayTime = playTime.value;
+
+  CPlayerState playerState(0, stream);
+  ret.mHealth = playerState.GetHealthInfo().GetHP();
+  ret.mEnergyTanks = playerState.GetItemCapacity(CPlayerState::kIT_EnergyTanks);
+  ret.mTimestamp = timestamp;
+  ret.mItemPercent = playerState.GetItemPercentageRatio();
+  float scanPercent;
+  if (playerState.GetTotalLogScans() == 0) {
+    scanPercent = 0.f;
+  } else {
+    scanPercent = 100.f * (static_cast< float >(playerState.GetLogScans()) /
+                           static_cast< float >(playerState.GetTotalLogScans()));
+  }
+  ret.mScanPercent = scanPercent;
+  return ret;
 }
 
 void CGameState::SerializeNewForCleanSlot(CBitStreamWriter& out, bool hardMode) {

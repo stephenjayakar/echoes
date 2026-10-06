@@ -697,6 +697,7 @@ MetroidPrime/BodyState/CBSLoopReaction.cpp:
 
 MetroidPrime/CSteeringBehaviors.cpp:
 	.text       start:0x800F90C0 end:0x800FA754
+	.sdata2     start:0x8041B980 end:0x8041B9B8
 
 MetroidPrime/BodyState/CBSGroundHit.cpp:
 	.text       start:0x800FA754 end:0x800FAC18
@@ -984,6 +985,7 @@ MetroidPrime/PathFinding/CPathFindRegion.cpp:
 
 MetroidPrime/PathFinding/CPathFindArea.cpp:
 	.text       start:0x8013FDB8 end:0x801419C4
+	.rodata     start:0x803A91C0 end:0x803A91C8
 	.sdata2     start:0x8041C188 end:0x8041C198
 
 MetroidPrime/PathFinding/CPathFindSpline.cpp:
@@ -996,7 +998,7 @@ MetroidPrime/CHealthInfo.cpp:
 MetroidPrime/Player/CGameState.cpp:
 	.text       start:0x80142188 end:0x801468C4
 	.ctors      start:0x803A5534 end:0x803A5538
-	.rodata     start:0x803A9208 end:0x803A93D0
+	.rodata     start:0x803A91C8 end:0x803A93D0
 	.bss        start:0x80410998 end:0x804109B0 align:4 common
 	.sdata      start:0x804183D8 end:0x804183E4 align:4
 	.sdata2     start:0x8041C1A8 end:0x8041C1C8
@@ -1122,6 +1124,7 @@ MetroidPrime/CEnvFxManager.cpp:
 	.text       start:0x80161FBC end:0x801685E4
 	.ctors      start:0x803A5540 end:0x803A5544
 	.sdata      start:0x8041849C end:0x804184B4
+	.sdata2     start:0x8041C510 end:0x8041C620
 
 MetroidPrime/Weapons/CEnergyProjectile.cpp:
 	.text       start:0x801685E4 end:0x8016B7B0
@@ -1500,7 +1503,10 @@ MetroidPrime/Player/CPlayerRagDoll.cpp:
 MetroidPrime/Player/CGrappleArm.cpp:
 	.text       start:0x801C316C end:0x801C6B20
 	.ctors      start:0x803A5574 end:0x803A5578
+	.rodata     start:0x803AA7A8 end:0x803AA8C8
 	.data       start:0x803B6CE0 end:0x803B6D08
+	.bss        start:0x803DB670 end:0x803DB688
+	.sdata2     start:0x8041D070 end:0x8041D0C8
 
 MetroidPrime/Player/CFidget.cpp:
 	.text       start:0x801C6B20 end:0x801C6DF0
@@ -2388,6 +2394,13 @@ WorldFormat/CAreaOctTree.cpp:
 
 WorldFormat/CMetroidAreaCollider.cpp:
 	.text       start:0x80247CC0 end:0x8024DAFC
+	.rodata     start:0x803AD848 end:0x803AD878
+	.data       start:0x803B89F8 end:0x803B8A30
+	.bss        start:0x803DE7F8 end:0x803DEE30
+	.sdata      start:0x80418948 end:0x80418950
+	.sbss       start:0x804196D8 end:0x80419708
+	.sdata2     start:0x8041DD48 end:0x8041DD88
+	.sbss2      start:0x8041F8C8 end:0x8041F8D0
 
 WorldFormat/CWorldLight.cpp:
 	.text       start:0x8024DAFC end:0x8024DE68
@@ -3069,6 +3082,7 @@ Kyoto/Text/CTextInstruction.cpp:
 
 Kyoto/Text/CTextParser.cpp:
 	.text       start:0x802B9368 end:0x802BA7E0
+	.rodata     start:0x803AEE98 end:0x803AEEB8
 
 Kyoto/Text/CWordBreakTables.cpp:
 	.text       start:0x802BA7E0 end:0x802BA95C

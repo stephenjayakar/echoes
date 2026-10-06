@@ -46,7 +46,7 @@ CSfxManager::SListener::SListener() : mActive(false) {}
 bool CSfxManager::CSfxEmitterWrapper::IsEmitter() const { return true; }
 
 CSfxManager::CBaseSfxWrapper::CBaseSfxWrapper(bool looped, short priority, CSfxHandle handle,
-                                              bool useAcoustics, int area)
+                                              const bool useAcoustics, int area)
 : mTimeRemaining(15.f)
 , mRank(0)
 , mPriority(priority)
@@ -110,7 +110,7 @@ void CSfxManager::CBaseSfxWrapper::SetIgnoreAreaLowPass(bool ignore) {
 
 CSfxManager::CSfxEmitterWrapper::CSfxEmitterWrapper(bool looped, short priority,
                                                     CAudioSys::C3DEmitterParmData& emitter,
-                                                    CSfxHandle handle, bool useAcoustics, int area)
+                                                    CSfxHandle handle, const bool useAcoustics, int area)
 : CBaseSfxWrapper(looped, priority, handle, useAcoustics, area)
 , mEmitterData(emitter)
 , mEmitterHandle(SND_ID_ERROR)
@@ -201,7 +201,7 @@ void CSfxManager::CSfxEmitterWrapper::UpdateEmitterSilent() {
 void CSfxManager::CSfxEmitterWrapper::UpdateEmitter() { mUpdatePending = true; }
 
 CSfxManager::CSfxWrapper::CSfxWrapper(bool looped, short priority, ushort sfxId, short volume,
-                                      short pan, CSfxHandle handle, bool useAcoustics, int area)
+                                      short pan, CSfxHandle handle, const bool useAcoustics, int area)
 : CBaseSfxWrapper(looped, priority, handle, useAcoustics, area)
 , mSfxId(sfxId)
 , mVoiceHandle(SND_ID_ERROR)
@@ -358,16 +358,14 @@ CSfxHandle CSfxManager::AddEmitter(CAudioSys::C3DEmitterParmData& params, int ar
   }
   emitter.mSfxId = TranslateSFXID(params.mSfxId);
   const uchar areaVolume = GetAreaVolume(area);
-  emitter.mMaxVol =
-      areaVolume == 127
-          ? emitter.mMaxVol
-          : uchar(areaVolume * (emitter.mMaxVol > 127 ? 127 : emitter.mMaxVol) / 127);
+  const uchar maxVol = emitter.mMaxVol;
+  emitter.mMaxVol = areaVolume == 127 ? maxVol : uchar(areaVolume * (maxVol > 127 ? 127 : maxVol) / 127);
   if (emitter.mSfxId == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
   }
 
-  CSfxChannel& channel = mChannels[mCurrentChannel];
   mDoUpdate = true;
+  CSfxChannel& channel = mChannels[mCurrentChannel];
   const CSfxHandle handle = LocateHandle(priority);
   if (handle) {
     CSfxEmitterWrapper* sound = AllocateCSfxEmitterWrapper(
@@ -383,8 +381,10 @@ CSfxHandle CSfxManager::AddEmitter(CAudioSys::C3DEmitterParmData& params, int ar
 // Guessed helper: applies the area volume scale to a sound volume.
 static inline uchar ScaleVolumeForArea(uchar volume, int area) {
   const uchar areaVolume = CSfxManager::GetAreaVolume(area);
-  return areaVolume == 127 ? volume
-                           : uchar(areaVolume * (volume > 127 ? 127 : volume) / 127);
+  if (areaVolume == 127) {
+    return volume;
+  }
+  return areaVolume * (volume > 127 ? 127 : volume) / 127;
 }
 
 void CSfxManager::UpdateEmitter(CSfxHandle handle, const CVector3f& position,
@@ -394,10 +394,11 @@ void CSfxManager::UpdateEmitter(CSfxHandle handle, const CVector3f& position,
   if (index < 0 || index >= channel.mSounds.size()) {
     return;
   }
-  CSfxEmitterWrapper* sound = static_cast< CSfxEmitterWrapper* >(channel.mSounds[index]);
-  if (sound == nullptr || handle != sound->GetSfxHandle() || !sound->IsPlaying()) {
+  CBaseSfxWrapper* base = channel.mSounds[index];
+  if (base == nullptr || handle != base->GetSfxHandle() || !base->IsPlaying()) {
     return;
   }
+  CSfxEmitterWrapper* sound = static_cast< CSfxEmitterWrapper* >(base);
   mDoUpdate = true;
   if (sound->IsSilent()) {
     sound->GetEmitter().mPos = position;
@@ -417,8 +418,8 @@ CSfxHandle CSfxManager::SfxStart(ushort id, short volume, short pan, int area, b
   if ((mMuted && !looped) || id == 0xffffffff || id == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
   }
-  CSfxChannel& channel = mChannels[mCurrentChannel];
   mDoUpdate = true;
+  CSfxChannel& channel = mChannels[mCurrentChannel];
   const CSfxHandle handle = LocateHandle(priority);
   if (handle) {
     id = TranslateSFXID(id);
@@ -446,11 +447,8 @@ void CSfxManager::SfxVolume(CSfxHandle handle, uchar volume) {
     return;
   }
   CSfxWrapper* sound = static_cast< CSfxWrapper* >(base);
-  const uchar areaVolume = GetAreaVolume(sound->GetArea());
-  const uchar scaled = areaVolume == 127
-                           ? volume
-                           : uchar(areaVolume * rstl::min_val(volume, uchar(127)) / 127);
-  const uchar clamped = scaled < 1 ? 1 : (scaled > 127 ? 127 : scaled);
+  const uchar scaled = ScaleVolumeForArea(volume, sound->GetArea());
+  uchar clamped = scaled < 1 ? uchar(1) : (scaled > 127 ? uchar(127) : scaled);
   sound->SetVolume(clamped);
   if (!mMuted && sound->IsPlaying()) {
     CAudioSys::SfxVolume(sound->GetVoice(), clamped);
@@ -951,9 +949,9 @@ void CSfxManager::SetActiveAreas(const rstl::reserved_vector< int, 10 >& areas, 
         effect->SetActive(false);
       }
     }
-    int bus = mStudioState.second;
+    bool bus = mStudioState.second;
     if (best->GetArea() != mStudioState.first) {
-      bus = mStudioState.second ? 0 : 1;
+      bus = mStudioState.second ? false : true;
     }
     best->SetProcessingId(
         mAuxEffectManager.AddEffect(bus, *best, CAuxEffectManager::kEC_Parallel, true));
@@ -977,7 +975,8 @@ void CSfxManager::SetActiveAreas(const rstl::reserved_vector< int, 10 >& areas, 
         }
       }
       mDoUpdate = true;
-      channel.mSounds[i]->SetInArea(inArea);
+      const bool active = inArea;
+      channel.mSounds[i]->SetInArea(active);
     }
   }
 }

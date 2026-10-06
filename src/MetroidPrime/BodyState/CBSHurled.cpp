@@ -188,11 +188,11 @@ void CBSHurled::PlayLandAnimation(CBodyController& bc, CStateManager& mgr) {
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(mState));
-  const rstl::pair< float, int > best = db.FindBestAnimation(parms, *mgr.Random(), -1);
-  bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
+  int anim = db.FindBestAnimation(parms, *mgr.Random(), -1).second;
+  bc.SetCurrentAnimation(CAnimPlaybackParms(anim, -1, 1.f, true), false, false);
 
   const CPASAnimState* hurledState = db.GetAnimState(pas::kAS_Hurled);
-  const CPASAnimParm parm = hurledState->GetAnimParmData(best.second, 3);
+  const CPASAnimParm parm = hurledState->GetAnimParmData(anim, 3);
   bc.SetFallState(static_cast< pas::EFallState >(parm.GetEnumValue()));
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
     mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
