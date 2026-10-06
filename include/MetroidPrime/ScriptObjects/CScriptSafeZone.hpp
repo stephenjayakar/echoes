@@ -100,9 +100,9 @@ private:
   void ApplyFog(CStateManager& mgr, const CSafeZoneFog& fog);
   void ApplyInsideFilter(CStateManager& mgr);
   void UpdateSafeZoneManager(CStateManager& mgr);
-  void UpdateEchoEmitter(CStateManager& mgr, float dt);
-  void UpdateInsideAlpha(float dt);
-  void UpdateFlash(float dt);
+  void UpdateEchoEmitter(float dt, CStateManager& mgr);
+  void UpdateInsideAlpha(float dt, CStateManager& mgr);
+  void UpdateFlash(float dt, CStateManager& mgr);
   void UpdateLoopSound(float dt, CStateManager& mgr);
   void SetLowPassFilter(bool enabled);
   void PlayActivateSound(CStateManager& mgr);
