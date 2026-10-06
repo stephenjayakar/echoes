@@ -1328,16 +1328,16 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
         } else {
           for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
             if (it->GetActive()) {
-              const CAABox bounds(it->GetTranslation() - extent, it->GetTranslation() + extent);
+              const CVector3f boidPos = it->GetTranslation();
+              const CAABox bounds(boidPos - extent, boidPos + extent);
               if (bounds.DoBoundsOverlap(projectileBounds)) {
                 CEnergyProjectile* energy = TCastToPtr< CEnergyProjectile >(projectile);
                 if (energy && !TCastToPtr< CLightComboProjectile >(energy)) {
                   const CVector3f pos = it->GetTranslation();
                   if (!energy->Explode(pos, -1.f * energy->GetTransform().GetForward(),
                                        kWCR_EnemyNormal, mgr, mDamageVulnerability, GetUniqueId())) {
-                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XHIT, kInvalidUniqueId);
-                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XXDG,
-                                      kInvalidUniqueId);
+                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XHIT);
+                    mgr.SendScriptMsg(this, energy->GetUniqueId(), kSM_XXDG);
                     SendScriptMsgs(kSS_ReflectedDamage, mgr);
                   } else {
                     mgr.ApplyDamageToWorld(energy->GetOwnerId(), *energy, pos,
@@ -1365,7 +1365,9 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
     const CAABox playerBounds = *player->GetTouchBounds();
     bool ballDamage = true;
     bool cannonBall = false;
-    if (player->GetMorphballTransitionState() == CPlayer::kMS_Morphed &&
+    if ((player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
+             ? player->GetMorphballTransitionState()
+             : CPlayer::kMS_Unmorphed) == CPlayer::kMS_Morphed &&
         player->GetPlayerState()->GetItemAmount(CPlayerState::kIT_CannonBall, true) != 0) {
       cannonBall = true;
     }
@@ -1375,7 +1377,8 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
     for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
       if (it->GetActive() && it->mFreezeTimer <= 0.f) {
         const CVector3f extent(radius, radius, radius);
-        const CAABox bounds = CAABox(it->GetTranslation() - extent, it->GetTranslation() + extent);
+        const CVector3f boidPos = it->GetTranslation();
+        const CAABox bounds = CAABox(boidPos - extent, boidPos + extent);
         if (playerBounds.DoBoundsOverlap(bounds) && mDamageCooldownTimer <= 0.f) {
           if (!ballDamage) {
             mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), mDamage,
@@ -1389,7 +1392,8 @@ void CSwarmBasics::Touch(CActor& actor, CStateManager& mgr) {
         }
       }
     }
-    if (ballDamage || player->GetMorphBall()->GetBallState() == CMorphBall::kBS_Boost) {
+    const bool boosting = player->GetMorphBall()->GetBallState() == CMorphBall::kBS_Boost;
+    if (ballDamage || boosting) {
       const CDamageInfo ballInfo =
           ballDamage ? gpTweakBall->GetCannonBallDamage() : gpTweakBall->GetBoostBallDamage();
       ApplyRadiusDamage(playerPos, ballInfo, mgr);
