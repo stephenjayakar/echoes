@@ -2754,16 +2754,19 @@ void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
       {GX_VA_TEX1, GX_DIRECT},
       {GX_VA_NULL, GX_NONE},
   };
+  const float time = noise.mTime;
+  const CColor noiseColor = noise.mColor;
   mRenderingSilhouette = false;
   CGX::SetDstAlpha(true, 0);
-  void* spare = CGraphics::GetDolphinSpareBuffer();
+  void* const spare = CGraphics::GetDolphinSpareBuffer();
   void* noiseData = reinterpret_cast< void* >(((mRandom.Next() + 31) & ~31) + 0x8000);
   CGX::SetZMode(false, GX_ALWAYS, false);
-  const CViewport& viewport = CGraphics::GetViewport();
+  const int width = CGraphics::GetViewport().mWidth;
+  const int height = CGraphics::GetViewport().mHeight;
   GXSetAlphaUpdate(false);
   CopyScreenTex(1, true, spare, GX_TF_RGB5A3, true);
-  CGraphics::LoadDolphinSpareTexture(viewport.mWidth / 2, viewport.mHeight / 2, GX_TF_RGB5A3,
-                                     nullptr, CGraphics::kSpareBufferTexMapID);
+  CGraphics::LoadDolphinSpareTexture(width / 2, height / 2, GX_TF_RGB5A3, nullptr,
+                                     CGraphics::kSpareBufferTexMapID);
   CGraphics::LoadDolphinSpareTexture(96, 96, GX_TF_IA4, noiseData, GX_TEXMAP0);
   GXTexObj texture;
   GXInitTexObj(&texture, noiseData, 96, 96, GX_TF_IA4, GX_CLAMP, GX_CLAMP, false);
@@ -2780,7 +2783,7 @@ void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
   CGraphics::SetModelMatrix(CTransform4f::Identity());
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGX::SetZMode(true, GX_ALWAYS, false);
-  const CColor color = CColor::Add(CColor(static_cast< uchar >(4), 2, 4, 255), noise.mColor);
+  const CColor color = CColor::Add(CColor(static_cast< uchar >(4), 2, 4, 255), noiseColor);
   CGX::SetNumTevStages(1);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_ONE, GX_CC_TEXC);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_TEXA);
@@ -2789,7 +2792,7 @@ void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
   CGX::SetTevKColor(GX_KCOLOR0, color.GetGXColor());
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
   CGX::SetNumIndStages(1);
-  const float indScale = 0.25f * GetRandomInterpolation(noise.mTime, 0.5f, 0);
+  const float indScale = 0.25f * GetRandomInterpolation(time, 0.5f, 0);
   const float matrix[2][3] = {{indScale, 0.f, 0.f}, {0.f, indScale, 0.f}};
   GXSetIndTexMtx(GX_ITM_0, matrix, -3);
   GXSetIndTexOrder(GX_INDTEXSTAGE0, GX_TEXCOORD1, GX_TEXMAP0);
@@ -2801,7 +2804,7 @@ void CCubeRenderer::DrawSilhouetteNoise(const SSilhouetteNoise& noise) {
   CGX::SetVtxDescv(vtxDesc);
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_DSTALPHA, GX_BL_INVDSTALPHA, GX_LO_CLEAR);
   rstl::reserved_vector< CVector2f, 9 > coords;
-  PopulateNoiseTexCoords(noise.mTime, coords);
+  PopulateNoiseTexCoords(time, coords);
   CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 4);
   GXPosition3f32(-1.f, 0.5f, -1.f);
   GXTexCoord2f32(0.f, 0.f);
