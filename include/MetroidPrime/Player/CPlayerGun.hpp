@@ -185,8 +185,8 @@ public:
                  const CTransform4f& elbowTransform, const CTransform4f& gunTransform,
                  const CModelFlags& armFlags, const CModelFlags& gunFlags) const;
   CVector3f ConvertToScreenSpace(const CVector3f& position, const CGameCamera& camera) const;
-  void BeginDarkVisorRender(const CStateManager& mgr) const; // Guessed name
-  void EndDarkVisorRender(const CStateManager& mgr) const;   // Guessed name
+  void BeginDarkVisorRender(CStateManager& mgr) const; // Guessed name
+  void EndDarkVisorRender(CStateManager& mgr) const;   // Guessed name
   static void DrawScreenTex(float depth);
   static void CopyScreenTex();
   CStateMachine* GetStateMachine();

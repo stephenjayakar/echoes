@@ -108,12 +108,12 @@ void CScriptCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   }
 }
 
-bool CScriptCamera::WasViewed(const CStateManager& mgr) const {
+bool CScriptCamera::WasViewed(CStateManager& mgr) const {
   return gpGameState->SystemOptions().GetCinematicState(
       rstl::pair< CAssetId, TEditorId >(mgr.GetWorld()->GetWorldAssetId(), GetEditorId()));
 }
 
-void CScriptCamera::MarkViewed(const CStateManager& mgr) const {
+void CScriptCamera::MarkViewed(CStateManager& mgr) const {
   gpGameState->SystemOptions().SetCinematicState(
       rstl::pair< CAssetId, TEditorId >(mgr.GetWorld()->GetWorldAssetId(), GetEditorId()), true);
 }

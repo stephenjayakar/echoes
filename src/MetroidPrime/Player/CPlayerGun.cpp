@@ -386,11 +386,11 @@ void CPlayerGun::RenderGun(const CStateManager& mgr, const CVector3f& cameraTran
     shadow->EnableModelProjectedShadow(gunTransform, mLights.GetShadowLightArrayIndex(), 2.15f);
   }
 
-  BeginDarkVisorRender(mgr);
+  BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
   DrawArm(mgr, cameraTranslation, armFlags);
   mCurrentBeam->Draw(drawSuitArm, mgr.MaskUIdNumPlayers(mPlayerUniqueId), mgr, gunTransform,
                      gunFlags, &mLights);
-  EndDarkVisorRender(mgr);
+  EndDarkVisorRender(const_cast< CStateManager& >(mgr));
 
   if (!mgr.IsMultiplayer()) {
     shadow->DisableModelProjectedShadow();
@@ -413,9 +413,9 @@ void CPlayerGun::RenderGunWithHologram(const CStateManager& mgr, const CVector3f
     if (mLights.HasShadowLight()) {
       shadow->EnableModelProjectedShadow(gunTransform, mLights.GetShadowLightArrayIndex(), 2.15f);
     }
-    BeginDarkVisorRender(mgr);
+    BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
     DrawArm(mgr, cameraTranslation, armFlags);
-    EndDarkVisorRender(mgr);
+    EndDarkVisorRender(const_cast< CStateManager& >(mgr));
     shadow->DisableModelProjectedShadow();
     break;
   case CGunMorph::kGS_InWipe:
@@ -447,22 +447,22 @@ void CPlayerGun::RenderGunWithHologram(const CStateManager& mgr, const CVector3f
       gpRender->SetDestinationAlpha(0);
     }
     mCurrentBeam->Draw(drawSuitArm, playerIndex, mgr, gunTransform, gunFlags, &mLights);
-    BeginDarkVisorRender(mgr);
+    BeginDarkVisorRender(const_cast< CStateManager& >(mgr));
     DrawArm(mgr, cameraTranslation, armFlags);
-    EndDarkVisorRender(mgr);
+    EndDarkVisorRender(const_cast< CStateManager& >(mgr));
     shadow->DisableModelProjectedShadow();
     break;
   }
   }
 }
 
-void CPlayerGun::BeginDarkVisorRender(const CStateManager& mgr) const {
+void CPlayerGun::BeginDarkVisorRender(CStateManager& mgr) const {
   if (mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Dark) {
     gpRender->SetDestinationAlpha(0);
   }
 }
 
-void CPlayerGun::EndDarkVisorRender(const CStateManager& mgr) const {
+void CPlayerGun::EndDarkVisorRender(CStateManager& mgr) const {
   if (mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Dark) {
     gpRender->DisableDestinationAlpha();
   }
@@ -480,7 +480,7 @@ void CPlayerGun::Render(const CStateManager& mgr, const CVector3f& cameraTransla
   gpRender->SetModelMatrix(CTransform4f::Identity());
 
   if (mChargeEffectVisible) {
-    if (mAuxMuzzleGenerators[mCurrentBeamId].get() != nullptr && mChargePhase == kCP_ChargeFx) {
+    if (mAuxMuzzleGenerators[mCurrentBeamId].get() != nullptr && mChargePhase == kCP_Charged) {
       mAuxMuzzleGenerators[mCurrentBeamId]->Render();
     }
     if (mMuzzleEffectVisTimer > 0.f ||
@@ -515,8 +515,9 @@ void CPlayerGun::Render(const CStateManager& mgr, const CVector3f& cameraTransla
   if (!mgr.IsMultiplayer()) {
     mGunMotion->Draw(mgr, gunTransform);
   }
-  const bool drawSuitArm = !mGrappleArm->IsGrappling() && mGunHolsterState == kGHS_Drawn;
-  (this->*mRender)(mgr, cameraTranslation, drawSuitArm, elbowTransform, gunTransform, flags, flags);
+  (this->*mRender)(mgr, cameraTranslation,
+                   !mGrappleArm->IsGrappling() && mGunHolsterState == kGHS_Drawn, elbowTransform,
+                   gunTransform, flags, flags);
   CElementGen* underwaterParticles =
       GetPlayer(const_cast< CStateManager& >(mgr))->GetUnderwaterParticles();
   if (underwaterParticles != nullptr && underwaterParticles->GetParticleCount() > 0) {

@@ -28,8 +28,8 @@ public:
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
 
   // Guessed names; these query/update persistent cinematic history.
-  bool WasViewed(const CStateManager& mgr) const;
-  void MarkViewed(const CStateManager& mgr) const;
+  bool WasViewed(CStateManager& mgr) const;
+  void MarkViewed(CStateManager& mgr) const;
   void TranslateSplines(const CVector3f& offset);
   void RotateSplines(const CQuaternion& rotation, const CVector3f& origin);
 
