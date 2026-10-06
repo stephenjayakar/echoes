@@ -287,11 +287,14 @@ void CScriptColorModulate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
 // Guessed name
 void CScriptColorModulate::SetExternalTime(float time) {
   if (mExternalTime) {
-    if (mControlSpline.GetKnots().empty()) {
-      const float duration = mFadeState == kFS_BtoA ? mTimeB2A : mTimeA2B;
-      mCurTime = fmod(time, duration);
-    } else {
+    if (!mControlSpline.GetKnots().empty()) {
       mCurTime = time;
+    } else {
+      float duration = mTimeA2B;
+      if (mFadeState == kFS_BtoA) {
+        duration = mTimeB2A;
+      }
+      mCurTime = fmod(time, duration);
     }
   }
 }
