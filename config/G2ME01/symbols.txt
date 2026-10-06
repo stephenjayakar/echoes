@@ -10268,7 +10268,7 @@ __ct__18CPirateEchoEmitterFPC6CActorRC9CVector3fRC15SEchoParameters6CSegId6CSegI
 LineTestExInternal__Q212CAreaOctTree4NodeCFRC5CLineRC15CMaterialFilterRQ212CAreaOctTree10SRayResultfffRC9CVector3f = .text:0x8024569C; // type:function size:0xB04
 __ct__Q212CAreaOctTree4NodeFRCQ212CAreaOctTree4Node = .text:0x802461A0; // type:function size:0x4C scope:weak
 __as__Q212CAreaOctTree10SRayResultFRCQ212CAreaOctTree10SRayResult = .text:0x802461EC; // type:function size:0x6C scope:weak
-fn_80246258 = .text:0x80246258; // type:function size:0xC4
+__as__Q24rstl36optional_object<17CCollisionSurface>FRCQ24rstl36optional_object<17CCollisionSurface> = .text:0x80246258; // type:function size:0xC4
 LineTestInternal__Q212CAreaOctTree4NodeCFRC5CLineRC15CMaterialFilterfffRC9CVector3f = .text:0x8024631C; // type:function size:0xB00
 LineTest__Q212CAreaOctTree4NodeCFRC5CLineRC15CMaterialFilterf = .text:0x80246E1C; // type:function size:0xE4
 LineTestEx__Q212CAreaOctTree4NodeCFRC5CLineRC15CMaterialFilterRQ212CAreaOctTree10SRayResultf = .text:0x80246F00; // type:function size:0xE4
