@@ -502,11 +502,10 @@ static inline GXLightID get_hw_light_index(ERglLight light) {
 
 void CGraphics::LoadLight(ERglLight light, const CLight& info) {
   GXLightID lightId = get_hw_light_index(light);
-  ELightType type = info.GetType();
   CVector3f pos = info.GetPosition();
   CVector3f dir = info.GetDirection();
 
-  switch (type) {
+  switch (info.GetType()) {
   case kLT_Spot: {
     MTXMultVec(mCameraMtx, reinterpret_cast< VecPtr >(&pos), reinterpret_cast< VecPtr >(&pos));
     GXLightObj* obj = &mLightObj[light];
