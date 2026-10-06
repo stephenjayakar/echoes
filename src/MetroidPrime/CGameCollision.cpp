@@ -777,18 +777,14 @@ float CGameCollision::GetMinExtentForCollisionPrimitive(const CCollisionPrimitiv
 void CGameCollision::ResolveCollisions(CPhysicsActor& actor, CPhysicsActor* other,
                                        const CCollisionInfoList& collisions) {
   for (int i = 0; i < collisions.GetCount(); ++i) {
-    const CCollisionInfo collision = collisions[i];
+    CCollisionInfo infoCopy(collisions[i]);
     const float restitution =
-        GetCoefficientOfRestitution(collision) + actor.GetCoefficientOfRestitutionModifier();
+        GetCoefficientOfRestitution(infoCopy) + actor.GetCoefficientOfRestitutionModifier();
     if (other != nullptr) {
-      CollideWithDynamicBodyNoRot(actor, *other, collision, restitution, false);
+      CollideWithDynamicBodyNoRot(actor, *other, infoCopy, restitution, false);
     } else {
-      const CVector3f& normal = collision.GetNormalLeft();
-      const CUnitVector3f unitNormal(normal.CanBeNormalized() ? normal.AsNormalized()
-                                                              : CVector3f::Zero(),
-                                     CUnitVector3f::kN_No);
-      CollideWithStaticBodyNoRot(actor, collision.GetMaterialLeft(), collision.GetMaterialRight(),
-                                 unitNormal, restitution, false);
+      CollideWithStaticBodyNoRot(actor, infoCopy.GetMaterialLeft(), infoCopy.GetMaterialRight(),
+                                 infoCopy.GetNormalLeft(), restitution, false);
     }
   }
 }

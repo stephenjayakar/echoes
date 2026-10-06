@@ -395,6 +395,7 @@ public:
   CMapWorldInfo* MapWorldInfo() { return mMapWorldInfo.GetPtr(); }
 
   void UpdateActorInSortedLists(CActor*);
+  rstl::optional_object< CAABox > CalculateObjectBounds(CActor& actor);
   void UpdateSortedLists(); // Prime-correlated name; updates every registered actor's bounds.
 
   bool ApplyLocalDamage(const CVector3f& pos, const CVector3f& dir, CActor& damagee, float damage,

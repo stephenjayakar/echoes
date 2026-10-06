@@ -477,27 +477,27 @@ void CEnergyProjectile::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& ms
     }
     break;
   case kSM_Create: {
-    CElementGen* particles = mProjectile.GetAttachedPS1();
-    if (particles != nullptr && particles->SystemHasLight()) {
-      CreateProjectileLight(rstl::string_l("ProjectileLight_GameProjectile"), particles->GetLight(),
-                            mgr);
+    CProjectileWeapon& projectile = mProjectile;
+    if (projectile.GetAttachedPS1() && projectile.GetAttachedPS1()->SystemHasLight()) {
+      CreateProjectileLight(rstl::string_l("ProjectileLight_GameProjectile"),
+                            projectile.GetAttachedPS1()->GetLight(), mgr);
     }
-    const TLockedToken< CWeaponDescription > description = mProjectile.GetWeaponDescription();
-    if (description->mPJFX >= 0) {
+    if (projectile.GetWeaponDescription()->mPJFX >= 0) {
       float range = 50.f;
       float falloff = 0.2f;
-      if (description->mRNGE != nullptr) {
-        description->mRNGE->GetValue(0, range);
+      uchar volume = mUseCombatVisorVolume ? mCombatVisorMaxVolume : mEchoVisorMaxVolume;
+      if (projectile.GetWeaponDescription()->mRNGE) {
+        projectile.GetWeaponDescription()->mRNGE->GetValue(0, range);
       }
-      if (description->mFOFF != nullptr) {
-        description->mFOFF->GetValue(0, falloff);
+      if (projectile.GetWeaponDescription()->mFOFF) {
+        projectile.GetWeaponDescription()->mFOFF->GetValue(0, falloff);
       }
       CAudioSys::C3DEmitterParmData params(
-          range, falloff, 9, mUseCombatVisorVolume ? mCombatVisorMaxVolume : mEchoVisorMaxVolume,
+          range, falloff, 9, volume,
           20);
       params.mPos = mProjectile.GetTranslation();
       params.mDir = mProjectile.GetVelocity();
-      params.mSfxId = description->mPJFX;
+      params.mSfxId = mProjectile.GetWeaponDescription()->mPJFX;
       mSfx = CSfxManager::AddEmitter(params, GetCurrentAreaId().Value(), true, true);
     }
     mgr.AddWeaponId(GetOwnerId(), GetType());

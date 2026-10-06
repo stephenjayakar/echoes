@@ -1210,7 +1210,7 @@ BuildColliderList__13CStateManagerCFRQ24rstl32reserved_vector<9TUniqueId,1024>RC
 BuildNearList__13CStateManagerCFRQ24rstl32reserved_vector<9TUniqueId,1024>RC6CAABoxRC15CMaterialFilterPC6CActor = .text:0x80041AE4; // type:function size:0x24
 UpdateActorInSortedLists__13CStateManagerFP6CActor = .text:0x80041B08; // type:function size:0x134
 UpdateSortedLists__13CStateManagerFv = .text:0x80041C3C; // type:function size:0x90 align:4
-fn_80041CCC = .text:0x80041CCC; // type:function size:0x194
+CalculateObjectBounds__13CStateManagerFR6CActor = .text:0x80041CCC; // type:function size:0x194
 AddObject__13CStateManagerFR7CEntity = .text:0x80041E60; // type:function size:0x274
 push_back__Q24rstl43list<9TUniqueId,Q24rstl17rmemory_allocator>FRC9TUniqueId = .text:0x800420D4; // type:function size:0x28
 do_insert_before__Q24rstl43list<9TUniqueId,Q24rstl17rmemory_allocator>FPQ34rstl43list<9TUniqueId,Q24rstl17rmemory_allocator>4nodeRC9TUniqueId = .text:0x800420FC; // type:function size:0x90
