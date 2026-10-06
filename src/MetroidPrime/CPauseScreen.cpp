@@ -1560,8 +1560,8 @@ void CPauseScreen::DrawNodeIcon(const CTransform4f& view, const CVector3f& posit
   CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvModulate);
   CGraphics::SetTevOp(kTS_Stage1, CGraphics::kEnvPassthru);
   CGraphics::SetModelMatrix(CTransform4f::Identity());
-  const CVector3f right = view.GetColumn(kDX);
   const CVector3f up = view.GetColumn(kDZ);
+  const CVector3f right = view.GetColumn(kDX);
   const float size = 0.2f * scale;
   CGraphics::StreamBegin(kP_Quads);
   CGraphics::StreamColor(color);
