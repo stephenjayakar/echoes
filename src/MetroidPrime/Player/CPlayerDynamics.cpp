@@ -1352,7 +1352,8 @@ bool CPlayer::PrepareToLeaveMorphBallState(float dt, CStateManager& mgr, EPlayer
     }
     if (mOutOfBallLookAtHint) {
       if (const CScriptPlayerHint* hint =
-              TCastToConstPtr< CScriptPlayerHint >(GetPlayerHintManager()->GetCurrentHint(mgr))) {
+              TCastToConstPtr< CScriptPlayerHint >(
+                  static_cast< const CPlayer* >(this)->GetPlayerHintManager()->GetCurrentHint(mgr))) {
         CVector3f delta = hint->GetTranslation() - GetTranslation();
         delta.SetZ(0.f);
         if (delta.CanBeNormalized()) {
@@ -1362,7 +1363,8 @@ bool CPlayer::PrepareToLeaveMorphBallState(float dt, CStateManager& mgr, EPlayer
     }
     if (IsOutOfBallLookAtHintActor()) {
       if (const CScriptPlayerHint* hint =
-              TCastToConstPtr< CScriptPlayerHint >(GetPlayerHintManager()->GetCurrentHint(mgr))) {
+              TCastToConstPtr< CScriptPlayerHint >(
+                  static_cast< const CPlayer* >(this)->GetPlayerHintManager()->GetCurrentHint(mgr))) {
         if (const CActor* actor =
                 TCastToConstPtr< CActor >(mgr.GetObjectById(hint->GetActorId()))) {
           CVector3f delta = actor->GetOrbitPosition(mgr) - GetTranslation();
@@ -1470,14 +1472,14 @@ void CPlayer::LeaveMorphBallState(CStateManager& mgr) {
   mVertFreeLookAngleVel = 0.f;
   mMorphBall->LeaveMorphBallState(mgr);
   mMorphBall->SetBallState(CMorphBall::kBS_Normal);
-  mCameraManager->TransferCameraState(*mCameraManager->BallCamera(),
-                                      *mCameraManager->FirstPersonCamera(), mgr);
+  CBallCamera& ball = *mCameraManager->BallCamera();
+  mCameraManager->TransferCameraState(ball, *mCameraManager->FirstPersonCamera(), mgr);
   mCameraManager->SetPlayerCamera(mgr, mCameraManager->GetFirstPersonCamera()->GetUniqueId());
   mCameraManager->BallCamera()->SetState(CBallCamera::kBCS_Default, mgr);
   mCameraManager->BallCamera()->SetFovAndTarget(CCameraManager::GetDefaultThirdPersonVerticalFOV());
   SetCameraState(kCS_FirstPerson, mgr);
   mCameraManager->FirstPersonCamera()->DeferBallTransitionProcessing();
-  mCameraManager->FirstPersonCamera()->PreThink(0.f, mgr);
+  mCameraManager->FirstPersonCamera()->Think(0.f, mgr);
   ForceGunOrientation(GetTransform(), mgr);
   mGun->DrawGun(mgr);
   if (!mgr.IsMultiplayer()) {

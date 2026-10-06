@@ -976,8 +976,10 @@ void CAutoMapper::ProcessMapRotateInput(const CFinalInput& input, const CStateMa
     float minCamRotateX = gpTweakAutoMapper->GetMinCamRotateX();
     float maxCamRotateX = gpTweakAutoMapper->GetMaxCamRotateX();
     const CEulerAngles eulers = CEulerAngles::FromQuaternion(mRenderState0.mCamOrientation);
-    CAbsAngle angX = CAbsAngle::FromRadians(eulers.GetX());
-    CAbsAngle angZ = CAbsAngle::FromRadians(eulers.GetZ());
+    float ez = eulers.GetZ();
+    float ex = eulers.GetX();
+    CAbsAngle angX = CAbsAngle::FromRadians(ex);
+    CAbsAngle angZ = CAbsAngle::FromRadians(ez);
 
     float dt = deltaFrames * gpTweakAutoMapper->GetRotateDegPerFrame();
 
