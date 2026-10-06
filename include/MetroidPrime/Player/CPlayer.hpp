@@ -302,6 +302,7 @@ public:
   bool CanEnterMorphBallState() const;
   bool CanLeaveMorphBallState(CStateManager& mgr, CVector3f& position) const;
   bool AttachActorToPlayer(TUniqueId actor, bool disableGun);
+  void EnableLeaveMorphBall(bool enabled) { mCanStartUnmorphTransition = enabled; } // Prime name.
   void DetachActorFromPlayer();
   void UpdateScanningState(const CFinalInput& input, CStateManager& mgr, float dt);
   bool ValidateScanning(const CFinalInput& input, CStateManager& mgr) const;

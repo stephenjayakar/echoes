@@ -1,6 +1,7 @@
 #ifndef _CPATTERNED
 #define _CPATTERNED
 
+#include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CSteeringBehaviors.hpp"
 #include "MetroidPrime/Enemies/CAi.hpp"
 #include "MetroidPrime/Enemies/CAiKnockBackMgr.hpp"
@@ -67,10 +68,10 @@ public:
              const CPatternedInfo& patternedInfo, EMovementType movement, EColliderType collider,
              EBodyType body, const CActorParameters& params);
   // CEntity
-  ~CPatterned() override;
-  CEntity* TypesMatch(int typeId) const override;
+  ~CPatterned() override {}
   void PreThink(float dt, CStateManager& mgr) override;
   void Think(float dt, CStateManager& mgr) override;
+  CEntity* TypesMatch(int typeId) const override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
 
   // CActor
@@ -134,10 +135,10 @@ public:
   virtual TUniqueId GetAttackTarget() const { return kInvalidUniqueId; }
   virtual bool IsOnGround() const { return mOnGround; }
   virtual float GetGravityConstant() const { return CPhysicsActor::GravityConstant(); }
-  virtual bool IsScanVisorSelfRender() const { return false; }
+  virtual bool IsScanVisorSelfRender() const;
   virtual CAABox GetScanVisorRenderBounds(const CStateManager&) const;
   virtual void ScanVisorRender(const CStateManager&, const CTransform4f&,
-                               const CModelFlags&) const {}
+                               const CModelFlags&) const;
   virtual const rstl::optional_object< TCachedToken< CGenDescription > >&
   GetDeathExplosionParticle() const {
     return mDeathExplosionParticle;
@@ -252,7 +253,7 @@ public:
 
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
-private:
+protected:
   TUniqueId mDestObj;
   CVector3f mDestPos;
   CVector3f mReflectedDestPos;
