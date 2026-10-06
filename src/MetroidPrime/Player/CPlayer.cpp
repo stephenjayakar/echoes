@@ -1439,7 +1439,7 @@ void CPlayer::SetCameraState(EPlayerCameraState state, CStateManager& mgr) {
   CCameraManager* cameraManager = mCameraManager;
   switch (state) {
   case kCS_FirstPerson: {
-    cameraManager->SetCurrentCameraId(cameraManager->GetFirstPersonCamera()->GetUniqueId());
+    cameraManager->SetCurrentCameraId(cameraManager->GetFirstPersonCamera()->GetUniqueId(), mgr);
     const bool ballLight =
         mgr.GetIsDarkWorld() && mPlayerState->GetItemAmount(CPlayerState::kIT_LightSuit);
     mMorphBall->SetBallLightActive(mgr, ballLight);
@@ -1448,12 +1448,12 @@ void CPlayer::SetCameraState(EPlayerCameraState state, CStateManager& mgr) {
   case kCS_MorphBall:
     if (cameraManager->GetCurrentCameraId(false) ==
         cameraManager->GetFirstPersonCamera()->GetUniqueId()) {
-      cameraManager->SetCurrentCameraId(cameraManager->BallCamera()->GetUniqueId());
+      cameraManager->SetCurrentCameraId(cameraManager->BallCamera()->GetUniqueId(), mgr);
     }
     mMorphBall->SetBallLightActive(mgr, true);
     break;
   case kCS_MorphBallTransition:
-    cameraManager->SetCurrentCameraId(cameraManager->BallCamera()->GetUniqueId());
+    cameraManager->SetCurrentCameraId(cameraManager->BallCamera()->GetUniqueId(), mgr);
     mMorphBall->SetBallLightActive(mgr, true);
     break;
   case kCS_Spawned: {

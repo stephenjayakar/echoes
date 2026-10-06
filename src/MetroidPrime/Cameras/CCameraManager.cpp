@@ -101,7 +101,7 @@ void CCameraManager::CreateCameras(CStateManager& mgr) {
   mgr.AddObject(mFpCamera);
   AddCamera(mFpCamera->GetUniqueId(), mgr);
   mgr.Player(mPlayerIndex)->SetCameraState(CPlayer::kCS_FirstPerson, mgr);
-  SetCurrentCameraId(fpId);
+  SetCurrentCameraId(fpId, mgr);
 
   const TUniqueId surfaceId = mgr.AllocateUniqueId();
   mSurfaceCamera = rs_new CSurfaceCamera(surfaceId, xf, false, mPlayerIndex, mPlayerIndex);
@@ -159,9 +159,8 @@ void CCameraManager::UpdateCameras(float dt, CStateManager& mgr) {
 }
 
 void CCameraManager::ResetCameras(CStateManager& mgr) {
-  const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
-  CTransform4f xf = player.CreateTransformFromMovementDirection();
-  xf.SetTranslation(player.GetEyePosition());
+  CTransform4f xf = mgr.GetPlayer(mPlayerIndex)->CreateTransformFromMovementDirection();
+  xf.SetTranslation(mgr.GetPlayer(mPlayerIndex)->GetEyePosition());
 
   for (int i = 0; i < mCameras.size(); ++i) {
     if (CGameCamera* camera = static_cast< CGameCamera* >(mgr.ObjectById(mCameras[i]))) {
@@ -177,7 +176,10 @@ void CCameraManager::UpdateFogState(CStateManager& mgr) {
 
 TUniqueId CCameraManager::GetCurrentCameraId(bool selector) const {
   if (IsInCinematicCamera()) {
-    return mCinematicCamera ? mCinematicCamera->GetUniqueId() : kInvalidUniqueId;
+    if (mCinematicCamera) {
+      return mCinematicCamera->GetUniqueId();
+    }
+    return kInvalidUniqueId;
   }
   return mCurCameraId;
 }
@@ -190,7 +192,7 @@ const CGameCamera* CCameraManager::GetCurrentCamera(const CStateManager& mgr, bo
   return static_cast< const CGameCamera* >(mgr.GetObjectById(GetCurrentCameraId(selector)));
 }
 
-void CCameraManager::SetCurrentCameraId(TUniqueId uid) { mCurCameraId = uid; }
+void CCameraManager::SetCurrentCameraId(TUniqueId uid, CStateManager& mgr) { mCurCameraId = uid; }
 
 void CCameraManager::UpdateAudioListener(CStateManager& mgr) {
   const CTransform4f xf = GetCurrentCameraTransform(mgr, true);
@@ -311,7 +313,7 @@ void CCameraManager::UpdateCameraTriggerOccupancy(CGameCamera& camera, CStateMan
   }
 }
 
-void CCameraManager::UpdateCameraTriggers(TUniqueId uid, CStateManager& mgr) {
+void CCameraManager::UpdateCameraTriggers(const TUniqueId& uid, CStateManager& mgr) {
   if (!TCastToPtr< CGameCamera >(mgr.ObjectById(uid))) {
     return;
   }
@@ -338,7 +340,7 @@ void CCameraManager::Update(float dt, CStateManager& mgr) {
 void CCameraManager::ProcessInput(const CFinalInput& input, CStateManager& mgr) {
   for (int i = 0; i < mCameras.size(); ++i) {
     if (CGameCamera* camera = static_cast< CGameCamera* >(mgr.ObjectById(mCameras[i]))) {
-      if (camera->GetInputIndex() == input.ControllerNumber()) {
+      if (camera->GetInputIndex() == static_cast< int >(input.ControllerNumber())) {
         camera->ProcessInput(input, mgr);
       }
     }
@@ -389,7 +391,7 @@ void CCameraManager::EnterCinematic(CStateManager& mgr) {
     } else {
       CWeapon* weapon = TCastToPtr< CWeapon >(list[index]);
       if (weapon && weapon->GetActive() &&
-          !(weapon->GetAttribField() & CWeapon::kPA_KeepInCinematic)) {
+          (weapon->GetAttribField() & CWeapon::kPA_KeepInCinematic) != CWeapon::kPA_KeepInCinematic) {
         CPatterned* patterned = TCastToPtr< CPatterned >(mgr.ObjectById(weapon->GetOwnerId()));
         CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(weapon->GetOwnerId()));
         if (patterned || player) {
@@ -420,15 +422,14 @@ void CCameraManager::SetCinematicPaused(bool paused) {
 
 CTransform4f CCameraManager::GetCurrentCameraTransform(const CStateManager& mgr,
                                                        bool selector) const {
-  return GetCurrentCamera(mgr, selector)->GetTransform() *
-         CTransform4f::Translate(mCameraShakeManager->GetTranslation(mgr));
+  const CGameCamera* camera = GetCurrentCamera(mgr, selector);
+  return camera->GetTransform() * CTransform4f::Translate(mCameraShakeManager->GetTranslation(mgr));
 }
 
 CVector3f CCameraManager::GetGlobalCameraTranslation(const CStateManager& mgr,
                                                      bool selector) const {
-  return GetCurrentCamera(mgr, selector)
-      ->GetTransform()
-      .Rotate(mCameraShakeManager->GetTranslation(mgr));
+  const CGameCamera* camera = GetCurrentCamera(mgr, selector);
+  return camera->GetTransform().Rotate(mCameraShakeManager->GetTranslation(mgr));
 }
 
 bool CCameraManager::IsInCinematicCamera() const { return mCinematicCameraId != kInvalidUniqueId; }
@@ -465,13 +466,15 @@ void CCameraManager::SetPlayerCamera(CStateManager& mgr, TUniqueId uid) {
   }
   const CGameCamera* camera = TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid));
   if (camera && camera->GetActive()) {
-    SetCurrentCameraId(uid);
+    SetCurrentCameraId(uid, mgr);
   } else {
     const CPlayer::EPlayerMorphBallState state =
         mgr.GetPlayer(mPlayerIndex)->GetMorphballTransitionState();
-    SetCurrentCameraId(state == CPlayer::kMS_Unmorphed || state == CPlayer::kMS_Unmorphing
-                           ? mFpCamera->GetUniqueId()
-                           : mBallCamera->GetUniqueId());
+    if (state == CPlayer::kMS_Unmorphing || state == CPlayer::kMS_Unmorphed) {
+      SetCurrentCameraId(mFpCamera->GetUniqueId(), mgr);
+    } else {
+      SetCurrentCameraId(mBallCamera->GetUniqueId(), mgr);
+    }
   }
   UpdateCameraTriggers(GetCurrentCameraId(false), mgr);
   mInterpCamera->SetActive(false);
@@ -485,7 +488,7 @@ void CCameraManager::SetupInterpolation(const CTransform4f& xf, TUniqueId from, 
   if (!IsInFPCamera()) {
     mInterpCamera->SetInterpolation(xf, from, to, interpolateRotation, positionMode, rotationMode,
                                     mgr, flag, duration, fov);
-    SetCurrentCameraId(mInterpCamera->GetUniqueId());
+    SetCurrentCameraId(mInterpCamera->GetUniqueId(), mgr);
   }
 }
 
@@ -579,13 +582,20 @@ void CCameraManager::AddCamera(TUniqueId uid, CStateManager& mgr) {
 }
 
 void CCameraManager::SCameraHistory::Push(const CTransform4f& xf) {
-  const bool full = mBegin == mEnd;
-  *mEnd++ = xf;
+  bool full = false;
+  if (mBegin == mEnd) {
+    full = true;
+  }
+  *mEnd = xf;
+  ++mEnd;
   if (mEnd == mTransforms.end()) {
     mEnd = mTransforms.begin();
   }
-  if (full && ++mBegin == mTransforms.end()) {
-    mBegin = mTransforms.begin();
+  if (full) {
+    ++mBegin;
+    if (mBegin == mTransforms.end()) {
+      mBegin = mTransforms.begin();
+    }
   }
 }
 
@@ -593,14 +603,13 @@ void CCameraManager::UpdateCameraHistory(CStateManager& mgr) {
   const CGameCamera* camera =
       TCastToConstPtr< CGameCamera >(mgr.GetObjectById(GetCurrentCameraId(false)));
   const CTransform4f xf = camera->GetTransform();
-  if (mCameraHistory.Size() == 0) {
-    mCameraHistory.Push(xf);
-    return;
-  }
-
-  const CTransform4f last = *mCameraHistory.Last();
-  const CVector3f delta = xf.GetTranslation() - last.GetTranslation();
-  if (delta.IsMagnitudeSafe() && delta.Magnitude() > 0.5f) {
+  if (mCameraHistory.Size() != 0) {
+    const CTransform4f last = *mCameraHistory.Last();
+    const CVector3f delta = xf.GetTranslation() - last.GetTranslation();
+    if (delta.IsMagnitudeSafe() && delta.Magnitude() > 0.5f) {
+      mCameraHistory.Push(xf);
+    }
+  } else {
     mCameraHistory.Push(xf);
   }
 }
@@ -617,9 +626,9 @@ void CCameraManager::Reset(TUniqueId uid, CStateManager& mgr) {
   mFirstPersonFov = 55.f;
   SetAspectRatio(GetDefaultAspectRatio(), mgr);
   if (TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid))) {
-    SetCurrentCameraId(uid);
+    SetCurrentCameraId(uid, mgr);
   } else {
-    SetCurrentCameraId(mFpCamera->GetUniqueId());
+    SetCurrentCameraId(mFpCamera->GetUniqueId(), mgr);
   }
   mFog.DisableFog();
   mgr.CameraFilterPass(mPlayerIndex, 4).DisableFilter(0.f);

@@ -57,7 +57,7 @@ public:
   TUniqueId GetCurrentCameraId(bool selector) const;
   CGameCamera* CurrentCamera(CStateManager& mgr, bool selector);
   const CGameCamera* GetCurrentCamera(const CStateManager& mgr, bool selector) const;
-  void SetCurrentCameraId(TUniqueId uid);
+  void SetCurrentCameraId(TUniqueId uid, CStateManager& mgr);
   void UpdateAudioListener(CStateManager& mgr);
   void UpdateFilters(float dt, CStateManager& mgr);
   float GetWaterFarDistance(CStateManager& mgr, const CScriptWater* water);
@@ -65,7 +65,7 @@ public:
   void TransferCameraTriggers(CGameCamera& from, CGameCamera& to,
                               CStateManager& mgr);                            // Guessed name
   void UpdateCameraTriggerOccupancy(CGameCamera& camera, CStateManager& mgr); // Guessed name
-  void UpdateCameraTriggers(TUniqueId uid, CStateManager& mgr);
+  void UpdateCameraTriggers(const TUniqueId& uid, CStateManager& mgr);
   void Update(float dt, CStateManager& mgr);
   void ProcessInput(const CFinalInput& input, CStateManager& mgr);
   void SetCinematicCameraId(CStateManager& mgr, TUniqueId uid); // Guessed name
