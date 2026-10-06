@@ -1856,7 +1856,8 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
         mBurstFire.SetBurstType(type);
         mBurstFire.Start(mgr);
         if (mAlive) {
-          x7e4_ = mAttackTimeVariation * mgr.Random()->Float() + GetAverageAttackTime();
+          const float variation = mAttackTimeVariation;
+          x7e4_ = variation * mgr.Random()->Float() + GetAverageAttackTime();
           const CVector3f delta =
               (GetBoundingBox().GetCenterPoint() - mgr.GetPlayer(0)->GetAimPosition(mgr, 0.f))
                   .AsNormalized();
@@ -1884,11 +1885,11 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
     }
   }
   if (mAlive && !GetBodyController()->IsFrozen() && !GetBodyController()->IsElectrocuting() &&
-      x6a0_28_ && !mIsAquaPirate) {
+      x6a0_28_ && !IsAquaPirate()) {
     BodyController()->CommandMgr().DeliverCmd(CBCAdditiveAimCmd());
     const CVector3f target = GetTargetPos(mgr);
-    const CVector3f delta = target - GetTranslation();
-    const CVector3f aim = GetTransform().TransposeRotate(delta);
+    const CVector3f aim =
+        GetTransform().TransposeRotate(target - GetTransform().GetTranslation());
     BodyController()->CommandMgr().DeliverAdditiveTargetVector(aim);
   } else {
     BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_AdditiveIdle));
@@ -1924,13 +1925,13 @@ void CFlyingPirate::Think(float dt, CStateManager& mgr) {
   if (movement.CanBeNormalized()) {
     movement.Normalize();
   }
-  const CVector3f& offset = CMath::Min(0.333f * x87c_.Magnitude(), 0.333f) * movement;
+  const CVector3f& offset = rstl::min_val(0.333f, 0.333f * x87c_.Magnitude()) * movement;
   const CVector3f targetUp = (CVector3f::Up() + offset).AsNormalized();
   const CVector3f& currentUp = GetTransform().GetUp();
   const float angle = CMath::AbsF(CVector3f::GetAngleDiff(currentUp, targetUp));
   if (angle > 0.f) {
     const float maxStep = 30.f * ((M_PIF * dt) / 180.f);
-    const float step = CMath::Min(angle, maxStep);
+    const float step = rstl::min_val(maxStep, angle);
     const CVector3f up = (step * targetUp + (angle - step) * currentUp).AsNormalized();
     CVector3f right = CVector3f::Cross(GetTransform().GetForward(), up);
     const CVector3f forward = CVector3f::Cross(up, right).AsNormalized();

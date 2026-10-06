@@ -116,6 +116,8 @@ public:
     return mIsAquaPirate ? skAquaGravityConstant : skGravityConstant;
   }
 
+  bool IsAquaPirate() const { return mIsAquaPirate; }
+
   // States
   void Attack(CStateManager& mgr, EStateMsg msg, float dt);
   void PathFind(CStateManager& mgr, EStateMsg msg, float dt);
