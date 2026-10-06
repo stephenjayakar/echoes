@@ -4,6 +4,7 @@
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CEnvFxManager.hpp"
+#include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CGameCollision.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/CWorld.hpp"
@@ -383,12 +384,15 @@ void CScriptPlatform::BuildSlaveList(CStateManager& mgr) {
 
 void CScriptPlatform::DragSlave(CStateManager& mgr, TMovedList& moved, const SRiders& slave) {
   CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(slave.mUid));
-  if (!actor || IsInMovedList(slave.mUid, moved)) {
+  if (!actor) {
+    return;
+  }
+  if (IsInMovedList(slave.mUid, moved)) {
     return;
   }
   moved.push_back(slave.mUid.Value());
   CTransform4f parent = CTransform4f::Identity();
-  const bool explosion = TryCast(actor, kET_Explosion) != nullptr;
+  CExplosion* explosion = TCastToPtr< CExplosion >(actor);
   CScriptEffect* effect = TCastToPtr< CScriptEffect >(actor);
   CWeapon* weapon = TCastToPtr< CWeapon >(actor);
   if ((mMotionFlags & 0x20) != 0 || explosion || effect || weapon) {
