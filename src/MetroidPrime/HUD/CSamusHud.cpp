@@ -127,9 +127,9 @@ const char* CSamusHud::GetHudFrameName(int viewportLayout) {
 }
 
 rstl::pair< CVector3f, CVector3f > CSamusHud::CombatEnergyCoordFunc(float t) {
-  const float angle = 0.5294118f * t - 0.20262942f;
-  const float x = 17.f * sin(angle);
-  const float y = 0.2f + (17.f * cos(angle) - 17.f);
+  const float angle = 0.5294118f * t + -0.20262942f;
+  const float x = 17.f * CMath::FastSinR(angle);
+  const float y = 0.2f + (17.f * CMath::FastCosR(angle) + -17.f);
   return rstl::pair< CVector3f, CVector3f >(CVector3f(x, y, 0.4f), CVector3f(x, y, 0.f));
 }
 
@@ -1741,10 +1741,11 @@ CColor CSamusHud::GetVisorHudLightColor(const CColor& color, const CStateManager
   const float t = state.GetVisorTransitionFactor();
   CColor result = color;
   switch (visor) {
+  case CPlayerState::kPV_Combat:
+    break;
   case CPlayerState::kPV_Scan: {
-    const CColor& white = CColor::White();
     const CColor multiplier =
-        CColor::Lerp(white, gpTweakGuiColors->GetScanVisorHUDLightMultiply(), t);
+        CColor::Lerp(CColor::White(), gpTweakGuiColors->GetScanVisorHUDLightMultiply(), t);
     result = CColor::Modulate(result, multiplier);
     break;
   }

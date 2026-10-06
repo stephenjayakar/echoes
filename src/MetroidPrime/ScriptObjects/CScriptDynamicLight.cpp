@@ -208,16 +208,14 @@ void CScriptDynamicLight::UpdateParent(CStateManager& mgr) {
 }
 
 void CScriptDynamicLight::UpdateTarget(CStateManager& mgr) {
-  if (!GetActive() || mTargetId == kInvalidUniqueId) {
-    return;
-  }
-  CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mTargetId));
-  if (!actor) {
-    mTargetId = kInvalidUniqueId;
-  } else {
-    CTransform4f xf = CTransform4f::LookAt(GetTranslation(), actor->GetTranslation());
-    xf.SetTranslation(GetTranslation());
-    SetTransform(xf);
+  if (GetActive() && mTargetId != kInvalidUniqueId) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mTargetId))) {
+      CTransform4f xf = CTransform4f::LookAt(GetTranslation(), actor->GetTranslation());
+      xf.SetTranslation(GetTranslation());
+      SetTransform(xf);
+    } else {
+      mTargetId = kInvalidUniqueId;
+    }
   }
 }
 

@@ -20,6 +20,9 @@ public:
 
   // Guessed name
   struct SBlurEffect {
+    SBlurEffect(int type, float amount, float fadeOutTime)
+    : mType(type), mAmount(amount), mFadeOutTime(fadeOutTime) {}
+
     int mType; // Camera blur mode; enum declaration is not recovered yet.
     float mAmount;
     float mFadeOutTime;
