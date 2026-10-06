@@ -22,7 +22,7 @@
 #include "MetroidPrime/TCastTo.hpp"
 
 static const CColor skLockedColor = CColor::Grey();
-static const CColor skResetColor(uchar(0), uchar(255), uchar(255), uchar(255));
+static const CColor skResetColor = CColor(uchar(0), uchar(255), uchar(255), uchar(255));
 
 int CScriptDoor::FindAnimation(const CPASAnimParmData& parms) const {
   int ret = -1;

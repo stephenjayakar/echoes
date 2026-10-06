@@ -34,8 +34,8 @@ static void SetupAlphaMaskVtxDesc(uint vtxDesc);
 
 static const float gkEpsilon32 = FLT_EPSILON;
 
-static CVector3f sPlayerPosition(CVector3f::Zero());
 CVector3f CCubeMaterial::sViewingFrom(0.f, 0.f, 0.f);
+static CVector3f sPlayerPosition(CVector3f::Zero());
 static CTransform4f sTextureProjectionTransform(CTransform4f::Identity());
 int sLastMaterialUnique = -1;
 static float sThrobX = 1.f;
