@@ -150,8 +150,8 @@ rstl::optional_object< rstl::ownership_transfer< IAnimReader > > CAnimTreeTweenB
   if (mCullSelector == 0) {
     rstl::optional_object< rstl::ownership_transfer< IAnimReader > > a = mA->Simplified();
     rstl::optional_object< rstl::ownership_transfer< IAnimReader > > b = mB->Simplified();
-    const bool simplifyA = a.valid();
-    const bool simplifyB = b.valid();
+    const uint simplifyB = b.valid();
+    const uint simplifyA = a.valid();
     if (!simplifyA && !simplifyB)
       return rstl::optional_object_null();
     CAnimTreeTweenBase* clone = static_cast< CAnimTreeTweenBase* >(Clone().take_ownership());
