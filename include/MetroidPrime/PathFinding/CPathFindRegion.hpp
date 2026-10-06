@@ -27,7 +27,7 @@ public:
 private:
   CVector3f mPosition;
   uint mFlags;
-  int mNumLinks;
+  uint mNumLinks;
   int* mLinks;
   float* mLinkCosts; // Target-derived from accumulated path-cost updates.
 };
