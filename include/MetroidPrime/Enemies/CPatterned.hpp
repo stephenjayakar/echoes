@@ -232,6 +232,8 @@ public:
   void fn_801524fc(CStateManager& mgr);
 
   bool GetAlive() const { return mAlive; }
+  void SetPendingDeath(bool pending) { mPendingDeath = pending; }
+  TUniqueId GetDestObj() const { return mDestObj; }
   bool IsMakingBigStrike() const { return mIsMakingBigStrike; }
   float GetDamageDuration() const { return mDamageDuration; }
   int GetCreatureSize() const { return mCreatureSize; }
@@ -250,6 +252,7 @@ public:
 
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 
+  CAiKnockBackMgr& KnockBackController() { return mKnockBackController; }
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
 private:
