@@ -28,18 +28,18 @@ class CGenDescription;
 class CJointCollisionDescription;
 class CShockWaveInfo;
 class CSkinnedModel;
-class CStateMachine;
+class CGenericFSM2;
 
 // Echoes reworked the Prime 1 elite pirate: the grenade launcher became a rocket launcher actor,
 // the energy-absorbing claw became a light/dark body shield, and the AI runs on an FSM2.
 class CElitePirateData {
 public:
   CElitePirateData(CAssetId stateMachine, int initialAnim, const CDamageInfo& meleeDamage,
-                   CAssetId darkShield, ushort darkShieldSound, CAssetId darkShieldPop,
-                   CAssetId lightShield, float maxMeleeRange, float minShockwaveRange,
-                   float maxShockwaveRange, float minRocketRange, float maxRocketRange,
-                   float meleeChance, float shockwaveChance, float tauntInterval,
-                   ushort lightShieldSound, CAssetId lightShieldPop, float tauntVariance,
+                   float maxMeleeRange, float minShockwaveRange, float maxShockwaveRange,
+                   float minRocketRange, float maxRocketRange, float meleeChance,
+                   float shockwaveChance, CAssetId darkShield, ushort darkShieldSound,
+                   CAssetId darkShieldPop, CAssetId lightShield, ushort lightShieldSound,
+                   CAssetId lightShieldPop, float tauntInterval, float tauntVariance,
                    float meleeWeight, float shockwaveWeight, float rocketWeight,
                    float doubleShockwaveWeight, float repeatedAttackChance,
                    float energyAttractionForce, CAssetId energyAbsorbEffect,
@@ -267,7 +267,7 @@ private:
     , mAlpha(0.f)
     , mType(kST_Random)
     , mElementGen(nullptr)
-    , mSfx(0)
+    , mSfx()
     , mActive(false)
     , mPendingRebuild(false) {}
 
@@ -284,6 +284,46 @@ private:
     rstl::optional_object< TLockedToken< CSkinnedModel > > mModel;
     bool mActive : 1;
     bool mPendingRebuild : 1;
+  };
+
+  // Guessed name; the attack-pattern FSM2 resource.
+  struct SStateMachineToken : public rstl::optional_object< CToken > {
+    explicit SStateMachineToken(CAssetId id);
+  };
+
+  // Guessed name; the last few scripted actions.
+  struct SActionHistory {
+    SActionHistory() {}
+    void Push(EAction action) {
+      if (mActions.size() == 3) {
+        mActions.erase(mActions.begin());
+      }
+      mActions.push_back(action);
+    }
+
+    rstl::reserved_vector< EAction, 4 > mActions;
+  };
+
+  // Guessed name; the rocket volley state.
+  struct SRocketAttack {
+    SRocketAttack(CAssetId rocket, const CDamageInfo& damage)
+    : mTarget(CVector3f::Zero())
+    , mInfo(rocket, damage)
+    , mFired(0)
+    , mToFire(0)
+    , mFireMode(0)
+    , mNextFireMode(1)
+    , mBreakAttack(false) {
+      mInfo.Token().Lock();
+    }
+
+    CVector3f mTarget;
+    CProjectileInfo mInfo;
+    int mFired;
+    int mToFire;
+    int mFireMode;
+    int mNextFireMode;
+    bool mBreakAttack;
   };
 
   struct SJointInfo {
@@ -344,15 +384,9 @@ private:
   void PopShield(CStateManager& mgr);
   const char* GetShieldEffectName() const;
   void SetCurrentAction(EAction action, EStateMsg msg);
-  static void PushAction(rstl::reserved_vector< EAction, 3 >& history, EAction action) {
-    if (history.size() == 3) {
-      history.erase(history.begin());
-    }
-    history.push_back(action);
-  }
   void PursueTarget(CStateManager& mgr, EStateMsg msg, const CVector3f& target, float dt);
-  bool ShouldFireLauncher(CStateManager& mgr, const TUniqueId& uid) const;
-  void ApplyMeleeDamage(CStateManager& mgr, const TUniqueId& uid);
+  bool ShouldFireLauncher(CStateManager& mgr, TUniqueId uid) const;
+  void ApplyMeleeDamage(CStateManager& mgr, TUniqueId uid);
   void CreateShockWave(CStateManager& mgr, const CInt32POINode& node);
   void LaunchRocket(CStateManager& mgr);
   void RenderShield() const;
@@ -362,7 +396,7 @@ private:
   void UpdateShieldFade(float dt);
   void AvoidObstacles(CStateManager& mgr, float dt);
   bool IsInitialAnimLocomotion(int type) const;
-  const CStateMachine* GetStateMachine() const;
+  CGenericFSM2* GetStateMachine();
 
   int x7c0_;
   CDamageVulnerability mVulnerability;
@@ -402,10 +436,10 @@ private:
   bool mReturnedToPatrol : 1;
   bool mLauncherPossessed : 1;
   bool mInvulnAlert : 1;
-  rstl::reserved_vector< EAction, 3 > mActionHistory;
+  SActionHistory mActionHistory;
   int xc28_;
   EAction mCurrentAction;
-  rstl::optional_object< TToken< CStateMachine > > mStateMachineToken;
+  SStateMachineToken mStateMachineToken;
   int mAlertTauntType;
   int mLocomotionType;
   bool mPoweredUp : 1;
@@ -418,13 +452,7 @@ private:
   int mAttackType;
   int mLastAttackType;
   CVector3f mTurnDirection;
-  CVector3f mAttackTarget;
-  CProjectileInfo mRocketInfo;
-  int mRocketsFired;
-  int mRocketsToFire;
-  int mFireMode;
-  int mNextFireMode;
-  bool mBreakProjectileAttack;
+  SRocketAttack mRocket;
   float mAimBlend;
   mutable CVector3f mAimPos;
   int mTauntType;

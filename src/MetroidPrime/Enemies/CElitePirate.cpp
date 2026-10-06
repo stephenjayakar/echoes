@@ -33,7 +33,7 @@
 #include "rstl/math.hpp"
 #include <float.h>
 #include "MetroidPrime/Enemies/CElitePirateGrenadeLauncher.hpp"
-#include "MetroidPrime/Enemies/CStateMachine.hpp"
+#include "MetroidPrime/Enemies/CGenericFSM2.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrElitePirate.hpp"
@@ -74,11 +74,11 @@ const CVector3f CElitePirate::skExtendedClawBounds(2.f, 2.f, 2.f);
 const CVector3f CElitePirate::skLocalShieldBounds(4.f, 4.f, 2.f);
 
 CElitePirateData::CElitePirateData(
-    CAssetId stateMachine, int initialAnim, const CDamageInfo& meleeDamage, CAssetId darkShield,
-    ushort darkShieldSound, CAssetId darkShieldPop, CAssetId lightShield, float maxMeleeRange,
+    CAssetId stateMachine, int initialAnim, const CDamageInfo& meleeDamage, float maxMeleeRange,
     float minShockwaveRange, float maxShockwaveRange, float minRocketRange, float maxRocketRange,
-    float meleeChance, float shockwaveChance, float tauntInterval, ushort lightShieldSound,
-    CAssetId lightShieldPop, float tauntVariance, float meleeWeight, float shockwaveWeight,
+    float meleeChance, float shockwaveChance, CAssetId darkShield, ushort darkShieldSound,
+    CAssetId darkShieldPop, CAssetId lightShield, ushort lightShieldSound, CAssetId lightShieldPop,
+    float tauntInterval, float tauntVariance, float meleeWeight, float shockwaveWeight,
     float rocketWeight, float doubleShockwaveWeight, float repeatedAttackChance,
     float energyAttractionForce, CAssetId energyAbsorbEffect, ushort energyAbsorbSound,
     const CActorParameters& launcherActParams, const CAnimationParameters& launcherAnimParams,
@@ -127,6 +127,9 @@ CElitePirateData::CElitePirateData(
 , mShieldedModel(shieldedModel)
 , mShieldedSkinRules(shieldedSkinRules) {}
 
+CElitePirate::SStateMachineToken::SStateMachineToken(CAssetId id)
+: rstl::optional_object< CToken >(gpSimplePool->GetObj(SObjectTag('FSM2', id))) {}
+
 CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                            const CTransform4f& xf, const CModelData& modelData,
                            const CPatternedInfo& pInfo, const CActorParameters& actParms,
@@ -161,7 +164,7 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
 , mStuckTime(0.f)
 , mLastObstacleTime(0.f)
 , mClaimedRegion(-1)
-, mPathFindSearch(nullptr, pInfo.GetIngPossessionData().isAnEncounter ? 0x201 : 1,
+, mPathFindSearch(nullptr, (pInfo.GetIngPossessionData().isAnEncounter ? 0x200 : 0) + 1,
                   pInfo.GetPathfindingIndex(), 1.f, 1.f, 0, CPFRegion::kRP_Center)
 , mTargetDestPos(CVector3f::Zero())
 , mPositionHistory(5.f)
@@ -174,8 +177,7 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
 , mInvulnAlert(false)
 , xc28_(-1)
 , mCurrentAction(kA_Invalid)
-, mStateMachineToken(TToken< CStateMachine >(
-      gpSimplePool->GetObj(SObjectTag('FSM2', data.GetStateMachine()))))
+, mStateMachineToken(data.GetStateMachine())
 , mAlertTauntType(6)
 , mLocomotionType(pas::kLT_Relaxed)
 , mPoweredUp(false)
@@ -187,13 +189,7 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
 , mAttackType(kAT_Shockwave)
 , mLastAttackType(7)
 , mTurnDirection(CVector3f::Zero())
-, mAttackTarget(CVector3f::Zero())
-, mRocketInfo(data.GetRocket(), data.GetRocketDamage())
-, mRocketsFired(0)
-, mRocketsToFire(0)
-, mFireMode(0)
-, mNextFireMode(1)
-, mBreakProjectileAttack(false)
+, mRocket(data.GetRocket(), data.GetRocketDamage())
 , mAimBlend(0.f)
 , mAimPos(CVector3f::Zero())
 , mTauntType(0)
@@ -204,7 +200,6 @@ CElitePirate::CElitePirate(TUniqueId uid, const rstl::string& name, const CEntit
 , mAngryChosen(false)
 , mInvulnAlpha(0.f)
 , mInvulnerable(false) {
-  mRocketInfo.Token().Lock();
   mKnockBackController.EnableAllAnimReactions(false);
   mKnockBackController.EnableBurnDeath(false);
   mKnockBackController.EnableExplodeDeath(false);
@@ -242,11 +237,12 @@ bool CElitePirate::IsInitialAnimLocomotion(int type) const {
   return best.second == mData.GetInitialAnim();
 }
 
-const CStateMachine* CElitePirate::GetStateMachine() const {
+CGenericFSM2* CElitePirate::GetStateMachine() {
   if (!mStateMachineToken->IsLoaded()) {
     return nullptr;
   }
-  return mStateMachineToken->NonConstCopy().GetT();
+  TToken< CGenericFSM2 > token(*mStateMachineToken);
+  return *token;
 }
 
 
@@ -429,8 +425,9 @@ void CElitePirate::UpdateAimBlend(float dt) {
 
 void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   const TUniqueId uid = msg.GetSenderId();
+  const EScriptObjectMessage message = msg.GetMessage();
   bool shouldPass = true;
-  switch (msg.GetMessage()) {
+  switch (message) {
   case kSM_Create: {
     BodyController()->Activate(mgr, pas::kAS_Invalid);
     SetupCollisionManager(mgr);
@@ -470,17 +467,19 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     mAlert = true;
     mAlerted = true;
     break;
-  case kSM_AreaLoaded:
-    mPathFindSearch.SetArea(
-        mgr.World()->Area(GetCurrentAreaId())->GetPostConstructed()->mPathArea);
+  case kSM_AreaLoaded: {
+    const TAreaId areaId = GetCurrentAreaId();
+    mPathFindSearch.SetArea(mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mPathArea);
     break;
+  }
   case kSM_XHIT:
     if (GetAlive()) {
       if (GetHealthInfo()->GetHP() > 0.f) {
-        if (mCurrentAction == kA_MeleeAttack) {
-          if (TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(uid))) {
-            const TUniqueId touched =
-                TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(uid))->GetLastTouchedObject();
+        switch (mCurrentAction) {
+        case kA_MeleeAttack:
+          if (const CCollisionActor* actor =
+                  TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(uid))) {
+            const TUniqueId touched = actor->GetLastTouchedObject();
             if (const CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(touched))) {
               if (mMeleeDamageOn == true) {
                 ApplyMeleeDamage(mgr, player->GetUniqueId());
@@ -494,13 +493,14 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
               }
             }
           }
+          break;
         }
       }
       if (CCollisionActor* actor = TCastToPtr< CCollisionActor >(mgr.ObjectById(uid))) {
         const TUniqueId touched = actor->GetLastTouchedObject();
         if (touched != GetUniqueId()) {
           if (const CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(touched))) {
-            if (mCurDamageRemTime <= 0.f && mLastMeleeTime + 1.5f < mTime) {
+            if (mCurDamageRemTime <= 0.f && 1.5f + mLastMeleeTime < mTime) {
               mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(),
                               GetContactDamage(),
                               CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
@@ -527,7 +527,7 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
           switch (mShield.mType) {
           case kST_Light: {
             const EWeaponType type = projectile->GetCurrentDamageInfo().GetWeaponMode().GetType();
-            if (type == kWT_Light || type == kWT_Annihilator) {
+            if (type == kWT_Dark || type == kWT_Annihilator) {
               mShield.mDamage += damage;
               mShield.mLastHitTime = mTime;
             }
@@ -535,7 +535,7 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
           }
           case kST_Dark: {
             const EWeaponType type = projectile->GetCurrentDamageInfo().GetWeaponMode().GetType();
-            if (type == kWT_Dark || type == kWT_Annihilator) {
+            if (type == kWT_Light || type == kWT_Annihilator) {
               mShield.mDamage += damage;
               mShield.mLastHitTime = mTime;
             }
@@ -559,9 +559,10 @@ void CElitePirate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
           SetShotAt(true);
         }
       }
-      const bool dead = GetHealthInfo()->GetHP() <= 0.f;
-      mKnockBackController.EnableFreeze(dead);
-      mKnockBackController.EnableSlow(dead);
+      const float initialHP = GetHealthInfo()->GetInitialHP();
+      const bool lowHealth = 100.f * (GetHealthInfo()->GetHP() / initialHP) <= 25.f;
+      mKnockBackController.EnableFreeze(lowHealth);
+      mKnockBackController.EnableSlow(lowHealth);
     }
     break;
   case kSM_ResistedDamage:
@@ -703,7 +704,7 @@ void CElitePirate::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node
       ExtendTouchBounds(mgr, mCollisionLJointIds, CVector3f::Zero());
       break;
     case kA_ProjectileAttack:
-      mBreakProjectileAttack = true;
+      mRocket.mBreakAttack = true;
       break;
     }
     break;
@@ -764,13 +765,13 @@ void CElitePirate::Dead(CStateManager& mgr, EStateMsg msg, float dt) {
 }
 
 void CElitePirate::LaunchRocket(CStateManager& mgr) {
-  ++mRocketsFired;
+  ++mRocket.mFired;
   if (const CElitePirateGrenadeLauncher* launcher =
           static_cast< const CElitePirateGrenadeLauncher* >(mgr.GetObjectById(mLauncherId))) {
-    if (mRocketInfo.Token().IsLoaded()) {
+    if (mRocket.mInfo.Token().IsLoaded()) {
       CTransform4f xf(launcher->GetTurretTransform());
       TUniqueId target = kInvalidUniqueId;
-      switch (mFireMode) {
+      switch (mRocket.mFireMode) {
       case 0:
         target = mgr.GetPlayer(0)->GetUniqueId();
         break;
@@ -788,7 +789,7 @@ void CElitePirate::LaunchRocket(CStateManager& mgr) {
               CVector3f(scale * (1.2f * -dir.GetY()), scale * (1.2f * dir.GetX()), scale * 0.f),
               CVector3f(scale * (1.2f * dir.GetY()), scale * (1.2f * -dir.GetX()), scale * 0.f),
           };
-          CVector3f aim = player->GetAimPosition(mgr, 0.f) + offsets[mRocketsFired - 1];
+          CVector3f aim = player->GetAimPosition(mgr, 0.f) + offsets[mRocket.mFired - 1];
           if (raised == true) {
             aim.SetZ(aim.GetZ() + mgr.Random()->Range(6.f, 12.f));
             xf = CTransform4f::LookAt(xf.GetTranslation(), aim, CVector3f::Up());
@@ -804,7 +805,7 @@ void CElitePirate::LaunchRocket(CStateManager& mgr) {
       }
       }
       CEnergyProjectile* projectile = rs_new CEnergyProjectile(
-          true, mRocketInfo.Token(), kWT_AI, xf, kMT_Character, mRocketInfo.GetDamage(),
+          true, mRocket.mInfo.Token(), kWT_AI, xf, kMT_Character, mRocket.mInfo.GetDamage(),
           mgr.AllocateUniqueId(), GetCurrentAreaId(), GetUniqueId(), target, 0, false,
           CVector3f::One(), CImpactVisorEffect(), false, true, false, 1.f, 4.f, 4.f);
       if (projectile) {
@@ -834,7 +835,7 @@ void CElitePirate::CreateShockWave(CStateManager& mgr, const CInt32POINode& node
   }
 }
 
-void CElitePirate::ApplyMeleeDamage(CStateManager& mgr, const TUniqueId& uid) {
+void CElitePirate::ApplyMeleeDamage(CStateManager& mgr, TUniqueId uid) {
   mgr.ApplyDamage(GetUniqueId(), uid, GetUniqueId(), mData.GetMeleeDamage(),
                   CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
                                                       CMaterialList()),
@@ -969,7 +970,7 @@ bool CElitePirate::ShouldFire(CStateManager& mgr, const CTriggerData& data) cons
   return ShouldFireLauncher(mgr, mLauncherId);
 }
 
-bool CElitePirate::ShouldFireLauncher(CStateManager& mgr, const TUniqueId& uid) const {
+bool CElitePirate::ShouldFireLauncher(CStateManager& mgr, const TUniqueId uid) const {
   if (mAttackTimer <= 0.f && uid != kInvalidUniqueId) {
     if (const CActor* launcher = static_cast< const CActor* >(mgr.GetObjectById(uid))) {
       if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
@@ -1274,15 +1275,15 @@ void CElitePirate::SelectTarget(CStateManager& mgr, float dt) {
 void CElitePirate::PickAttackType(CStateManager& mgr, float dt) {
   if (mgr.IsRandomAvailable()) {
     if (GetNearbyHintType(mgr) == CScriptAIHint::kHT_GrenadeLauncherRaisedAim) {
-      mFireMode = 1;
+      mRocket.mFireMode = 1;
     } else if (mgr.Random()->Range(0.f, 1.f) < 0.8f) {
-      if (mNextFireMode == 0) {
-        mFireMode = 1;
+      if (mRocket.mNextFireMode == 0) {
+        mRocket.mFireMode = 1;
       } else {
-        mFireMode = 0;
+        mRocket.mFireMode = 0;
       }
     } else {
-      mFireMode = mNextFireMode;
+      mRocket.mFireMode = mRocket.mNextFireMode;
     }
   }
 }
@@ -1308,24 +1309,24 @@ void CElitePirate::InvulnAlert(CStateManager& mgr, EStateMsg msg, float dt) {
   Alert(mgr, msg, dt);
 }
 
-CProjectileInfo* CElitePirate::ProjectileInfo() { return &mRocketInfo; }
+CProjectileInfo* CElitePirate::ProjectileInfo() { return &mRocket.mInfo; }
 
 void CElitePirate::ProjectileAttack(CStateManager& mgr, EStateMsg msg, float dt) {
   if (msg == kStateMsg_Activate) {
-    mRocketsFired = 0;
-    mRocketsToFire = mgr.Random()->Range(mData.GetMinRocketCount(), mData.GetMaxRocketCount());
-    mBreakProjectileAttack = false;
+    mRocket.mFired = 0;
+    mRocket.mToFire = mgr.Random()->Range(mData.GetMinRocketCount(), mData.GetMaxRocketCount());
+    mRocket.mBreakAttack = false;
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
   }
   SetCurrentAction(kA_ProjectileAttack, msg);
   if (msg == kStateMsg_Deactivate) {
     UpdateAttackTimeLeft(mgr);
   }
-  if (mRocketsFired >= mRocketsToFire) {
+  if (mRocket.mFired >= mRocket.mToFire) {
     BodyController()->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_ExitState));
   } else {
     if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-      mAttackTarget = target->GetTranslation();
+      mRocket.mTarget = target->GetTranslation();
       BodyController()->CommandMgr().SetTargetVector(target->GetTranslation() - GetTranslation());
     }
     TryCommand(msg, pas::kAS_LoopAttack, CBCLoopAttackCmd(static_cast< pas::ELoopAttackType >(0)));
@@ -1333,7 +1334,7 @@ void CElitePirate::ProjectileAttack(CStateManager& mgr, EStateMsg msg, float dt)
 }
 
 bool CElitePirate::BreakProjectileAttack(CStateManager& mgr, const CTriggerData& data) const {
-  return mBreakProjectileAttack;
+  return mRocket.mBreakAttack;
 }
 
 bool CElitePirate::CanShockwave(CStateManager& mgr, const CTriggerData& data) const {
@@ -1361,14 +1362,14 @@ bool CElitePirate::ClearLineOfSight(CStateManager& mgr, const CTriggerData& data
 }
 
 bool CElitePirate::PickedSpreadShot(CStateManager& mgr, const CTriggerData& data) const {
-  return mFireMode == 1;
+  return mRocket.mFireMode == 1;
 }
 
 void CElitePirate::SpreadShot(CStateManager& mgr, EStateMsg msg, float dt) {
   if (msg == kStateMsg_Activate) {
-    mRocketsFired = 0;
-    mRocketsToFire = 4;
-    mBreakProjectileAttack = false;
+    mRocket.mFired = 0;
+    mRocket.mToFire = 4;
+    mRocket.mBreakAttack = false;
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
   }
   SetCurrentAction(kA_SpreadShot, msg);
@@ -1376,11 +1377,11 @@ void CElitePirate::SpreadShot(CStateManager& mgr, EStateMsg msg, float dt) {
     UpdateAttackTimeLeft(mgr);
   }
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-    mAttackTarget = target->GetTranslation();
+    mRocket.mTarget = target->GetTranslation();
     BodyController()->CommandMgr().SetTargetVector(target->GetTranslation() - GetTranslation());
   }
   TryCommand(msg, pas::kAS_ProjectileAttack,
-             CBCProjectileAttackCmd(static_cast< pas::ESeverity >(9), mAttackTarget, false));
+             CBCProjectileAttackCmd(static_cast< pas::ESeverity >(9), mRocket.mTarget, false));
 }
 
 void CElitePirate::Shockwave(CStateManager& mgr, EStateMsg msg, float dt) {
@@ -1449,7 +1450,7 @@ void CElitePirate::MeleeAttack(CStateManager& mgr, EStateMsg msg, float dt) {
 
 void CElitePirate::SetCurrentAction(EAction action, EStateMsg msg) {
   if (msg == kStateMsg_Deactivate) {
-    PushAction(mActionHistory, mCurrentAction);
+    mActionHistory.Push(mCurrentAction);
     mCurrentAction = kA_None;
   } else {
     mCurrentAction = action;
@@ -2057,11 +2058,11 @@ CEntity* LoadElitePirate(CStateManager& mgr, CInputStream& input, CEntityInfo& i
 
   const CElitePirateData data(
       sldrThis.patterned.stateMachine2, sldrThis.patterned.animationInformation.initial_anim,
-      LdrToDamageInfo(sldrThis.meleeDamage), sldrThis.darkShield, sldrThis.darkShieldSound,
-      sldrThis.darkShieldPop, sldrThis.lightShield, sldrThis.maxMeleeRange,
-      sldrThis.minShockwaveRange, sldrThis.maxShockwaveRange, sldrThis.minRocketRange,
-      sldrThis.maxRocketRange, sldrThis.unknown_0x5236c2b6, sldrThis.unknown_0x01eaab17,
-      sldrThis.tauntInterval, sldrThis.lightShieldSound, sldrThis.lightShieldPop,
+      LdrToDamageInfo(sldrThis.meleeDamage), sldrThis.maxMeleeRange, sldrThis.minShockwaveRange,
+      sldrThis.maxShockwaveRange, sldrThis.minRocketRange, sldrThis.maxRocketRange,
+      sldrThis.unknown_0x5236c2b6, sldrThis.unknown_0x01eaab17, sldrThis.darkShield,
+      sldrThis.darkShieldSound, sldrThis.darkShieldPop, sldrThis.lightShield,
+      sldrThis.lightShieldSound, sldrThis.lightShieldPop, sldrThis.tauntInterval,
       sldrThis.tauntVariance, sldrThis.unknown_0x28b39197, sldrThis.unknown_0xe27de71b,
       sldrThis.unknown_0x665e7ace, sldrThis.unknown_0xacd4d06d, sldrThis.repeatedAttackChance,
       sldrThis.energyAttractionForce, sldrThis.alwaysFF, sldrThis.alwaysFF_0x23f5e1ee,
