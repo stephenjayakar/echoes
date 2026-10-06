@@ -353,14 +353,16 @@ void CPlasmaProjectile::ResetBeam(CStateManager& mgr, bool fullReset) {
     mExpansionT = 0.f;
     mBeamAngle = 0.f;
     mShutdownTimer = 0.f;
+    mBeamAngle = 0.f;
     mContactPulseTimer = 0.f;
     mEnergyPulseTimer = 0.f;
     mPlayerEffectPulseTimer = 0.f;
     mExpansionState = kES_Inactive;
+    mFiring = false;
   } else {
+    mFiring = false;
     mExpansionState = kES_Release;
   }
-  mFiring = false;
   mPulseGen->SetParticleEmission(false);
   if (mContactGen.get()) {
     mContactGen->SetParticleEmission(false);
