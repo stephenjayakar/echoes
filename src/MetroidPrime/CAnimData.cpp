@@ -105,7 +105,20 @@ CAnimData::~CAnimData() {
 }
 
 CAABox CAnimData::GetBoundingBox() const {
-  // TODO: Select the uint-keyed bounds using the best unblended animation child.
+  const rstl::vector< rstl::pair< uint, CAABox > >& bounds = mCharInfo.GetAnimBoundsById();
+  if (bounds.size() > 0) {
+    const CAnimTreeEffectiveContribution contrib = mAnimRoot->GetContributionOfHighestInfluence();
+    if (mCachedBoundsAnimId != contrib.GetAnimDatabaseIndex()) {
+      rstl::vector< rstl::pair< uint, CAABox > >::const_iterator it =
+          rstl::find_by_key(bounds, contrib.GetAnimDatabaseIndex());
+      if (it == bounds.end()) {
+        mCachedAnimBounds = mAabb;
+      } else {
+        mCachedAnimBounds = it->second;
+      }
+    }
+    return mCachedAnimBounds;
+  }
   return mAabb;
 }
 
