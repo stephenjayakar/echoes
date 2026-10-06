@@ -378,6 +378,7 @@ CHECK_SIZEOF(CBCWallHangCmd, 0xc)
 class CBCAdditiveAimCmd : public CBodyStateCmd {
 public:
   CBCAdditiveAimCmd() : CBodyStateCmd(kBSC_AdditiveAim), mAimType(0) {}
+  explicit CBCAdditiveAimCmd(int aimType) : CBodyStateCmd(kBSC_AdditiveAim), mAimType(aimType) {}
 
   int GetAimType() const { return mAimType; } // Guessed name
 
@@ -531,6 +532,7 @@ public:
   void SetTargetVector(const CVector3f& target) { mTarget = target; }
 
   const CVector3f& GetAdditiveTargetVector() const { return mAdditiveTarget; }
+  void SetAdditiveTargetVector(const CVector3f& target) { mAdditiveTarget = target; }
 
 private:
   CVector3f mMove;

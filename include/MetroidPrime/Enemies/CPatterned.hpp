@@ -34,6 +34,7 @@ class CCharAnimTime;
 
 enum EPatternedAI {
   kPAI_DarkSamus = 7,
+  kPAI_SpacePirate = 0x35, // Guessed name; SpacePirate REL constructor.
 };
 
 template <>

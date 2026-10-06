@@ -10,6 +10,7 @@
 #include "MetroidPrime/PathFinding/CPathFindSearch.hpp"
 #include "MetroidPrime/Weapons/CProjectileInfo.hpp"
 
+#include "Kyoto/Audio/CSfxHandle.hpp"
 #include "Kyoto/Math/CUnitVector3f.hpp"
 #include "Kyoto/Math/CVector2f.hpp"
 #include "rstl/list.hpp"
@@ -211,6 +212,17 @@ public:
   TUniqueId GetAttachedActor() const { return mAttachedActor; }
 
 private:
+  void SetupGrenadeLauncher(const SSpacePirateWeaponData& data); // Guessed name.
+  void SetEyeParticleActive(CStateManager& mgr, bool active);
+  bool ShouldFrenzy(CStateManager& mgr);
+  void UpdateCloak(float dt, CStateManager& mgr);
+  void UpdateSfxEmitter(); // Guessed name.
+  void UpdateAttacks(float dt, CStateManager& mgr);
+  void UpdateAimBodyState(float dt, CStateManager& mgr);
+  TUniqueId UpdateTarget(CStateManager& mgr); // Guessed name.
+  bool FireProjectile(float dt, CStateManager& mgr);
+  TUniqueId ChooseAttackTarget(CStateManager& mgr); // Guessed name.
+  void StartWarpOut(CStateManager& mgr, bool flag); // Guessed name.
   void SquadAdd(CStateManager& mgr);
   void SquadRemove(CStateManager& mgr);
   void SquadReset(CStateManager& mgr);
@@ -229,6 +241,7 @@ private:
   void SetNonCinematicCollision(CStateManager& mgr);
 
   static const float skGravityConstant;
+  static const float skRadii[14];
   static const SBurst skBurstsQuick[];
   static const SBurst skBurstsStandard[];
   static const SBurst skBurstsFrenzied[];
@@ -242,6 +255,7 @@ private:
   static const SBurst skBurstsInjuredOOV[];
   static const SBurst skBurstsSeatedOOV[];
   static const SBurst* skBursts[];
+  static rstl::list< TUniqueId > mChargePlayerList;
 
   CSpacePirateData mPirateData;
 
@@ -368,7 +382,7 @@ private:
   CVector3f xbc4_;
   float xbd0_;
   rstl::optional_object< CProjectileInfo > mProjectileInfo;
-  int xc00_;
+  CSfxHandle xc00_;
   int xc04_;
   rstl::optional_object< CModelData > mGrenadeLauncherModel; // Guessed name.
   int xc58_;

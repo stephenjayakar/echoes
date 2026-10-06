@@ -259,6 +259,7 @@ public:
   rstl::single_ptr< CPlayerRagDoll >& PlayerRagDoll() { return mRagDoll; }
 
   EPlayerMorphBallState GetMorphballTransitionState() const { return mMorphBallState; }
+  bool IsSidewaysDashing() const { return mSidewaysDashing; }
   EPlayerMorphBallState GetSpawnedMorphballState() const { return mSpawnedMorphBallState; }
   int Get_x12f8() const { return mTurretState; }
 

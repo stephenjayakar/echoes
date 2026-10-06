@@ -118,6 +118,7 @@ public:
   void EnableAnimReaction(EAnimReaction reaction, bool enabled);
   void EnableAllAnimReactions(bool enabled);
   void EnableShock(bool enabled) { mEnableShock = enabled; } // Guessed name.
+  void SetLocomotionDuringElectrocution(bool enabled) { mLocomotionDuringElectrocution = enabled; }
 
   void EnableExplodeDeath(bool enabled) { mEnableExplodeDeath = enabled; } // Guessed name.
 
