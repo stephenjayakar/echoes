@@ -2205,8 +2205,10 @@ void CBallCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     CCollisionActor* actor = rs_new CCollisionActor(mCollisionActorId, GetAreaIdForPersistence(),
                                                     kInvalidUniqueId, true, 0.3f, 1.f);
     if (actor != nullptr) {
-      actor->SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
-          CMaterialList(kMT_Unknown59), CMaterialList(kMT_Player, kMT_CameraPassthrough)));
+      const CMaterialList include(kMT_Unknown59);
+      const CMaterialList exclude(kMT_Player, kMT_CameraPassthrough);
+      const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(include, exclude);
+      actor->SetMaterialFilter(filter);
       actor->MaterialList() = CMaterialList(kMT_NoPlatformCollision, kMT_ScanPassthrough,
                                             kMT_SeeThrough, kMT_CameraPassthrough);
       actor->SetTranslation(GetTranslation());
@@ -2215,11 +2217,13 @@ void CBallCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       actor->SetLastNonCollidingState(CMotionState(
           GetTranslation(), CNUQuaternion::BuildFromAxisAngle(CVector3f::Forward(), 0.f),
           CVector3f::Zero(), CAxisAngle::Identity()));
-      actor->SetDrawEnabled(false);
+      actor->SetEnableRender(false);
     }
-    SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
-        CMaterialList(), CMaterialList(kMT_Unknown59, kMT_NoPlatformCollision, kMT_Player,
-                                       kMT_Character, kMT_CameraPassthrough)));
+    const CMaterialList include;
+    const CMaterialList exclude(kMT_Unknown59, kMT_NoPlatformCollision, kMT_Player, kMT_Character,
+                                kMT_CameraPassthrough);
+    const CMaterialFilter selfFilter = CMaterialFilter::MakeIncludeExclude(include, exclude);
+    SetMaterialFilter(selfFilter);
     RemoveMaterial(kMT_Unknown59, mgr);
     break;
   }
