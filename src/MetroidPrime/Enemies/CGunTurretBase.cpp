@@ -293,11 +293,10 @@ bool CGunTurretBase::ShouldPatrol(CStateManager&, const CTriggerData&) const {
 }
 
 bool CGunTurretBase::ShouldAttack(CStateManager& mgr, const CTriggerData&) const {
+  const CPhysicsActor* target = TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mHitTarget));
   bool ret = false;
-  if (TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mHitTarget))) {
-    if (mAlert && !mOccluded) {
-      ret = true;
-    }
+  if (target && mAlert && !mOccluded) {
+    ret = true;
   }
   return ret;
 }
@@ -306,8 +305,9 @@ bool CGunTurretBase::AttackExitDone(CStateManager&, const CTriggerData&) const {
   if (mGunDestroyed) {
     return true;
   }
-  return CVector3f::GetAngleDiff(mGunRotation.BuildTransform() * CVector3f::Forward(),
-                                 CVector3f::Forward()) < 0.1f;
+  const CVector3f gunDir = mGunRotation.BuildTransform() * CVector3f::Forward();
+  const CVector3f forward = CVector3f::Forward();
+  return CVector3f::GetAngleDiff(gunDir, forward) < CRelAngle::FromDegrees(1.f).AsRadians();
 }
 
 bool CGunTurretBase::GunDestroyed(CStateManager&, const CTriggerData&) const {
@@ -339,8 +339,7 @@ bool CGunTurretBase::WithdrawDelay(CStateManager&, const CTriggerData&) const {
 }
 
 bool CGunTurretBase::ShouldPan(CStateManager&, const CTriggerData&) const {
-  const bool over = mStateMachine->GetTime() > mPanDuration;
-  return over;
+  return mStateMachine->GetTime() > 0.25f;
 }
 
 bool CGunTurretBase::PlayerInRange(CStateManager& mgr, float range) const {
@@ -675,11 +674,12 @@ void CGunTurretBase::Think(float dt, CStateManager& mgr) {
         mCharging = true;
         mCanCharge = false;
         top->SetChargeEffect(mgr, true, mIsPirateTurret);
+        const int areaId = GetCurrentAreaId().Value();
         CAudioSys::C3DEmitterParmData parms(mSfxMaxDistance, mSfxFallOff, 1, 127, 20);
         parms.mPos = GetTranslation();
         parms.mDir = CVector3f::Zero();
         parms.mSfxId = mIsPirateTurret ? mPirateGunChargeSfx : mGFGunChargeSfx;
-        mChargeSfx = CSfxManager::AddEmitter(parms, GetCurrentAreaId().Value(), true, false,
+        mChargeSfx = CSfxManager::AddEmitter(parms, areaId, true, false,
                                              CSfxManager::kMedPriority);
       }
       if (mCharging &&
@@ -768,40 +768,48 @@ void CGunTurretBase::DestroyGun(CStateManager& mgr) {
 }
 
 void CGunTurretBase::UpdateGunPose(CStateManager& mgr, float dt) {
-  CSegId seg = GetAnimationData()->GetLocatorSegId(skConnectLocator);
+  const CSegId seg = GetAnimationData()->GetLocatorSegId(rstl::string_l(skConnectLocator));
   if (seg == CSegId(0xFF)) {
     return;
   }
-  if (mState >= kS_Patrol && mState < kS_Spawn) {
-    if (CPhysicsActor* target = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mHitTarget))) {
+  switch (mState) {
+  case kS_Attack:
+  case kS_AttackExit:
+    if (const CPhysicsActor* target =
+            TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mHitTarget))) {
       if (mTopId != kInvalidUniqueId) {
         if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-          CVector3f prevTarget = mTargetPos;
-          CVector3f gunPos = GetGunFirePosition(mgr);
+          CVector3f predicted = mTargetPos;
+          const CVector3f gunPos = GetGunFirePosition(mgr);
           mTargetPos = target->GetAimPosition(mgr, 0.f);
-          if (CPlayer* player = TCastToPtr< CPlayer >(target)) {
-            prevTarget = mProjectileInfo.PredictInterceptPos(gunPos, mTargetPos, *player, true, dt);
+          if (const CPlayer* player = TCastToConstPtr< CPlayer >(target)) {
+            predicted =
+                mProjectileInfo.PredictInterceptPos(gunPos, mTargetPos, *player, false, dt);
           }
-          top->SetTarget(mTargetPos + (prevTarget - mTargetPos));
+          top->SetTarget(mTargetPos + (predicted - mTargetPos));
         }
       }
       UpdateGunOrientation(mgr, seg, mState == kS_Attack, dt);
     } else {
       UpdateGunOrientation(mgr, seg, false, dt);
     }
-  } else {
+    break;
+  default: {
     mTargetGunRotation = GetAnimationData()->JointData().Rotation(seg.val());
-    CTransform4f xf = mTargetGunRotation.BuildTransform4f();
-    x8b0_ = -atan2(xf.Get01(), xf.Get11());
+    const CTransform4f xf = mTargetGunRotation.BuildTransform4f();
+    x8b0_ = -static_cast< float >(atan2(xf.Get01(), xf.Get11()));
     mFiring = false;
+    break;
+  }
   }
   mGunRotation = GetAnimationData()->JointData().Rotation(seg.val());
   if (CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId))) {
-    top->SetTransform(GetTransform() * GetScaledLocatorTransform(seg));
+    const CTransform4f topXf = GetTransform() * GetScaledLocatorTransform(seg);
+    top->SetTransform(topXf);
   }
 }
 
-void CGunTurretBase::UpdateGunOrientation(CStateManager& mgr, const CSegId& seg, bool aim,
+void CGunTurretBase::UpdateGunOrientation(CStateManager& mgr, CSegId seg, bool aim,
                                           float dt) {
   CGunTurretTop* top = TCastToPtr< CGunTurretTop >(mgr.ObjectById(mTopId));
   if (!top) {
@@ -1003,9 +1011,12 @@ void CGunTurretBase::UpdateAttack(CStateManager& mgr, float dt) {
 }
 
 void CGunTurretBase::ResetAttack(CStateManager& mgr) {
-  mTimeBetweenAttacks = mgr.Random()->Range(mMinTimeBetweenAttacks, mMaxTimeBetweenAttacks);
-  mTimeBetweenShots = mgr.Random()->Range(mMinTimeBetweenShots, mMaxTimeBetweenShots);
-  mShotsInBurst = mMinShotsInABurst + mgr.Random()->Range(0, mMaxShotsInABurst - mMinShotsInABurst);
+  mTimeBetweenAttacks = mMinTimeBetweenAttacks +
+                        (mMaxTimeBetweenAttacks - mMinTimeBetweenAttacks) * mgr.Random()->Float();
+  mTimeBetweenShots = mMinTimeBetweenShots +
+                      (mMaxTimeBetweenShots - mMinTimeBetweenShots) * mgr.Random()->Float();
+  mShotsInBurst = mMinShotsInABurst + static_cast< uchar >((mMaxShotsInABurst - mMinShotsInABurst) *
+                                                           mgr.Random()->Float());
   mAttackTimer = mTimeBetweenAttacks;
   mShotTimer = mTimeBetweenShots;
   mShotCount = 0;
@@ -1067,11 +1078,14 @@ void CGunTurretBase::LaunchProjectile(CStateManager& mgr) {
 void CGunTurretBase::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
                                      EUserEventType type, float dt) {
   switch (type) {
+  case kUE_SoundPlay:
+  case kUE_SoundStop:
+  case kUE_EffectOn:
+    break;
   case kUE_EffectOff:
     if (mGunDestroyed) {
       AnimationData()->SetEffectState(rstl::string_l("sparks"), false, mgr);
     }
-  case kUE_EffectOn:
     break;
   }
 }
@@ -1091,8 +1105,9 @@ float CGunTurretBase::GetClosestCameraDistanceSq(CStateManager& mgr) const {
 }
 
 bool CGunTurretBase::InDetectionHeight(const CActor& actor, float up, float down) const {
-  const float dz = actor.GetTranslation().GetZ() - GetTranslation().GetZ();
-  if ((up == 0.f || dz < up) && (down == 0.f || dz > down)) {
+  const float actorZ = actor.GetTranslation().GetZ();
+  const float z = GetTranslation().GetZ();
+  if ((up == 0.f || actorZ - z < up) && (down == 0.f || actorZ - z > down)) {
     return true;
   }
   return false;
@@ -1103,8 +1118,8 @@ rstl::optional_object< CAABox > CGunTurretBase::GetTouchBounds() const {
 }
 
 void CGunTurretBase::RaiseGun(float dt) {
-  float raise = mRaise + mRaiseSpeed * dt;
-  mRaise = raise < mMaxRaise ? raise : mMaxRaise;
+  const float delta = mRaiseSpeed * dt;
+  mRaise = rstl::min_val(mMaxRaise, mRaise + delta);
 }
 
 void CGunTurretBase::LowerGun(float dt) {
@@ -1114,23 +1129,20 @@ void CGunTurretBase::LowerGun(float dt) {
   } else {
     speed = mRaiseSpeed * dt;
   }
-  float raise = mRaise - speed;
-  mRaise = 0.f < raise ? raise : 0.f;
+  mRaise = rstl::max_val(0.f, mRaise - speed);
 }
 
 CAABox CGunTurretBase::GetScanVisorRenderBounds(const CStateManager& mgr) const {
   CAABox bounds = GetModelBounds();
-  if (mgr.GetPlayer(0)->GetOrbitTargetId() == GetUniqueId() && !mGunDestroyed &&
+  if (mgr.GetPlayer(0)->GetScanningObject() == GetUniqueId() && !mGunDestroyed &&
       (mState == kS_Attack || mState == kS_AttackExit || mState == kS_Patrol ||
-       (mState >= kS_IntoPan && mState <= kS_PanRight) ||
-       (mState == kS_Spawn && mRaise > 0.1f) || (mState == kS_Withdraw && mRaise > 0.1f))) {
-    CTransform4f locXf = GetScaledLocatorTransform(skConnectLocator);
-    CTransform4f xf = GetTransform() * CTransform4f::Translate(-GetTranslation()) * locXf;
+       static_cast< uint >(mState - kS_IntoPan) <= 2 || (mState == kS_Spawn && mRaise > 0.1f) ||
+       (mState == kS_Withdraw && mRaise > 0.1f))) {
+    const CTransform4f locXf = GetScaledLocatorTransform(rstl::string_l(skConnectLocator));
+    const CTransform4f xf = CTransform4f::Translate(-GetTranslation()) * GetTransform() * locXf;
     if (const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(mgr.GetObjectById(mTopId))) {
-      CAABox topBounds = top->GetModelBounds();
-      CAABox box = topBounds.GetTransformedAABox(CTransform4f::Translate(xf.GetTranslation()));
-      bounds.AccumulateBounds(box.GetMinPoint());
-      bounds.AccumulateBounds(box.GetMaxPoint());
+      const CAABox topBounds = top->GetModelBounds();
+      bounds.Include(topBounds.GetTransformedAABox(CTransform4f::Translate(xf.GetTranslation())));
     }
   }
   return bounds;
@@ -1142,11 +1154,11 @@ void CGunTurretBase::ScanVisorRender(const CStateManager& mgr, const CTransform4
   if (!modelData->IsNull()) {
     modelData->Render(CModelData::kWM_Normal, xf, nullptr, flags);
   }
-  if (mgr.GetPlayer(0)->GetOrbitTargetId() == GetUniqueId() && !mGunDestroyed &&
+  if (mgr.GetPlayer(0)->GetScanningObject() == GetUniqueId() && !mGunDestroyed &&
       (mState == kS_Attack || mState == kS_AttackExit || mState == kS_Patrol ||
-       (mState >= kS_IntoPan && mState <= kS_PanRight) ||
-       (mState == kS_Spawn && mRaise > 0.1f) || (mState == kS_Withdraw && mRaise > 0.1f))) {
-    CTransform4f topXf = xf * GetScaledLocatorTransform(skConnectLocator);
+       static_cast< uint >(mState - kS_IntoPan) <= 2 || (mState == kS_Spawn && mRaise > 0.1f) ||
+       (mState == kS_Withdraw && mRaise > 0.1f))) {
+    const CTransform4f topXf = xf * GetScaledLocatorTransform(rstl::string_l(skConnectLocator));
     if (const CGunTurretTop* top = TCastToConstPtr< CGunTurretTop >(mgr.GetObjectById(mTopId))) {
       top->ScanVisorRender(mgr, topXf, flags);
     }
@@ -1156,8 +1168,9 @@ void CGunTurretBase::ScanVisorRender(const CStateManager& mgr, const CTransform4
 CAABox CGunTurretBase::GetModelBounds() const {
   CAABox box = CAABox::MakeMaxInvertedBox();
   box = GetAnimationData()->CalcBoundingBoxFromModelVerts();
-  return box.GetTransformedAABox(GetTransform() * CTransform4f::Translate(-GetTranslation()) *
-                                 CTransform4f::Scale(GetModelData()->GetScale()));
+  box = box.GetTransformedAABox(CTransform4f::Translate(-GetTranslation()) * GetTransform() *
+                                CTransform4f::Scale(GetModelData()->GetScale()));
+  return box;
 }
 
 // Guessed name; unreferenced in the REL.

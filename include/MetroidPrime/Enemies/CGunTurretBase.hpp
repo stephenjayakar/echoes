@@ -121,7 +121,7 @@ private:
   void ResetAttack(CStateManager& mgr);
   void UpdateAttack(CStateManager& mgr, float dt);
   CActor* FindTarget(CStateManager& mgr);
-  void UpdateGunOrientation(CStateManager& mgr, const CSegId& seg, bool aim, float dt);
+  void UpdateGunOrientation(CStateManager& mgr, CSegId seg, bool aim, float dt);
   void UpdateGunPose(CStateManager& mgr, float dt);
   void LowerGun(float dt);
   void RaiseGun(float dt);

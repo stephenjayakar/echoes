@@ -269,10 +269,10 @@ void CGunTurretTop::ScanVisorRender(const CStateManager& mgr, const CTransform4f
   if (!modelData->IsNull()) {
     modelData->Render(CModelData::kWM_Normal, xf, nullptr, flags);
   }
-  if (mgr.GetPlayer(0)->GetOrbitTargetId() == GetUniqueId()) {
+  if (mgr.GetPlayer(0)->GetScanningObject() == GetUniqueId()) {
     if (const CGunTurretBase* base =
             TCastToConstPtr< CGunTurretBase >(mgr.GetObjectById(mBaseId))) {
-      CSegId seg = base->GetAnimationData()->GetLocatorSegId(CGunTurretBase::skConnectLocator);
+      CSegId seg = base->GetAnimationData()->GetLocatorSegId(rstl::string_l(CGunTurretBase::skConnectLocator));
       CTransform4f locXf = base->GetScaledLocatorTransform(seg);
       base->ScanVisorRender(mgr, xf * locXf.GetInverse(), flags);
     }
@@ -282,21 +282,22 @@ void CGunTurretTop::ScanVisorRender(const CStateManager& mgr, const CTransform4f
 CAABox CGunTurretTop::GetScanVisorRenderBounds(const CStateManager& mgr) const {
   CAABox bounds = GetModelBounds();
   if (const CGunTurretBase* base = TCastToConstPtr< CGunTurretBase >(mgr.GetObjectById(mBaseId))) {
-    CTransform4f locXf = base->GetScaledLocatorTransform(CGunTurretBase::skConnectLocator);
-    CTransform4f xf = GetTransform() * CTransform4f::Translate(-base->GetTranslation()) * locXf;
-    CAABox baseBounds = base->GetModelBounds();
-    CAABox box = baseBounds.GetTransformedAABox(CTransform4f::Translate(-locXf.GetTranslation()));
-    bounds.AccumulateBounds(box.GetMinPoint());
-    bounds.AccumulateBounds(box.GetMaxPoint());
+    const CTransform4f locXf =
+        base->GetScaledLocatorTransform(rstl::string_l(CGunTurretBase::skConnectLocator));
+    const CTransform4f xf =
+        CTransform4f::Translate(-base->GetTranslation()) * base->GetTransform() * locXf;
+    const CAABox baseBounds = base->GetModelBounds();
+    bounds.Include(baseBounds.GetTransformedAABox(CTransform4f::Translate(-xf.GetTranslation())));
+    return bounds;
   }
   return bounds;
 }
 
 CAABox CGunTurretTop::GetModelBounds() const {
   CAABox box = GetAnimationData()->CalcBoundingBoxFromModelVerts();
-  return box.GetTransformedAABox(GetTransform() *
-                                 CTransform4f::Translate(-GetTranslation()) *
-                                 CTransform4f::Scale(GetModelData()->GetScale()));
+  box = box.GetTransformedAABox(CTransform4f::Translate(-GetTranslation()) * GetTransform() *
+                                CTransform4f::Scale(GetModelData()->GetScale()));
+  return box;
 }
 
 void CGunTurretTop::Think(float dt, CStateManager& mgr) {
@@ -305,7 +306,8 @@ void CGunTurretTop::Think(float dt, CStateManager& mgr) {
   }
 
   if (CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(mLightId))) {
-    light->SetTransform(GetTransform() * GetScaledLocatorTransform("light_LCTR"));
+    const CTransform4f lightXf = GetTransform() * GetScaledLocatorTransform(rstl::string_l("light_LCTR"));
+    light->SetTransform(lightXf);
   }
 
   CPatterned::Think(dt, mgr);
