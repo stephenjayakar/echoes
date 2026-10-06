@@ -225,12 +225,8 @@ CElitePirate::~CElitePirate() {}
 
 bool CElitePirate::IsInitialAnimLocomotion(int type) const {
   const CPASDatabase& db = GetAnimationData()->GetCharacterInfo().GetPASDatabase();
-  const rstl::pair< float, int > best = db.FindBestAnimation(
-      CPASAnimParmData(pas::kAS_Locomotion, CPASAnimParm::FromEnum(0), CPASAnimParm::FromEnum(type),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter(),
-                       CPASAnimParm::NoParameter(), CPASAnimParm::NoParameter()),
-      -1);
+  const CPASAnimParmData parms(pas::kAS_Locomotion, CPASAnimParm::FromEnum(0), CPASAnimParm::FromEnum(type));
+  const rstl::pair< float, int > best = db.FindBestAnimation(parms, -1);
   return best.second == mData.GetInitialAnim();
 }
 
@@ -391,14 +387,14 @@ void CElitePirate::AvoidObstacles(CStateManager& mgr, float dt) {
 
 void CElitePirate::UpdateShieldFade(float dt) {
   if (IsShieldUp() == true) {
-    mShield.mAlpha = rstl::min_val(1.f, mShield.mAlpha + dt / 0.8f);
+    mShield.mAlpha = rstl::min_val(mShield.mAlpha + dt / 0.8f, 1.f);
   } else {
-    mShield.mAlpha = rstl::max_val(0.f, mShield.mAlpha - dt * 0.5f);
+    mShield.mAlpha = rstl::max_val(mShield.mAlpha - dt / 2.f, 0.f);
   }
   if (mInvulnerable == true) {
-    mInvulnAlpha = rstl::min_val(1.f, mInvulnAlpha + dt / 3.f);
+    mInvulnAlpha = rstl::min_val(mInvulnAlpha + dt / 3.f, 1.f);
   } else {
-    mInvulnAlpha = rstl::max_val(0.f, mInvulnAlpha - dt * 0.5f);
+    mInvulnAlpha = rstl::max_val(mInvulnAlpha - dt / 2.f, 0.f);
   }
 }
 
@@ -664,10 +660,7 @@ CVector3f CElitePirate::GetAimPosition(const CStateManager& mgr, float dt) const
           TCastToConstPtr< CCollisionActor >(mgr.GetObjectById(mShieldCollisionId))) {
     mAimPos = actor->GetTranslation();
   }
-  const float t = mAimBlend;
-  const float u = 1.f - t;
-  return CVector3f(aim.GetX() * u + mAimPos.GetX() * t, aim.GetY() * u + mAimPos.GetY() * t,
-                   aim.GetZ() * u + mAimPos.GetZ() * t);
+  return CVector3f::Lerp(aim, mAimPos, mAimBlend);
 }
 
 void CElitePirate::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
@@ -821,7 +814,7 @@ void CElitePirate::CreateShockWave(CStateManager& mgr, const CInt32POINode& node
   CTransform4f xf(GetTransform());
   float x;
   float y;
-  if (node.GetLocatorName() == rstl::string_l(skpRightBallLCTR)) {
+  if (rstl::string_l(skpRightBallLCTR) == node.GetLocatorName()) {
     x = mRightClawPos.GetX();
     y = mRightClawPos.GetY();
   } else {
@@ -890,10 +883,12 @@ void CElitePirate::FollowAttackPattern(CStateManager& mgr, EStateMsg msg, float 
 }
 
 bool CElitePirate::NotReachedTarget(CStateManager& mgr, const CTriggerData& data) const {
-  if (mLastObstacleTime > 0.5f * (mShield.mStartTime + mTime)) {
+  const float start = mShield.mStartTime;
+  const float now = mTime;
+  if (mLastObstacleTime > 0.5f * (start + now)) {
     return true;
   }
-  return 15.f + mShield.mStartTime < mTime;
+  return 15.f + start < now;
 }
 
 bool CElitePirate::ShieldKilled(CStateManager& mgr, const CTriggerData& data) const {
@@ -1630,9 +1625,10 @@ void CElitePirate::AddCollisionList(const SJointInfo* joints, int count,
     const CSegId from = animData.GetLocatorSegId(rstl::string_l(joints[i].mFrom));
     const CSegId to = animData.GetLocatorSegId(rstl::string_l(joints[i].mTo));
     if (from.val() != 0xff && to.val() != 0xff) {
-      list.push_back(CJointCollisionDescription::SphereSubdivideCollision(
+      const CJointCollisionDescription desc = CJointCollisionDescription::SphereSubdivideCollision(
           from, to, joints[i].mRadius, joints[i].mSeparation,
-          CJointCollisionDescription::kOT_BetweenJoints, rstl::string_l(joints[i].mFrom), 5.f));
+          CJointCollisionDescription::kOT_BetweenJoints, rstl::string_l(joints[i].mFrom), 5.f);
+      list.push_back_unsafe(desc);
     }
   }
 }
@@ -1643,8 +1639,9 @@ void CElitePirate::AddSphereCollisionList(const SSphereJointInfo* joints, int co
   for (int i = 0; i < count; ++i) {
     const CSegId id = animData.GetLocatorSegId(rstl::string_l(joints[i].mName));
     if (id.val() != 0xff) {
-      list.push_back(CJointCollisionDescription::SphereCollision(
-          id, CVector3f::Zero(), joints[i].mRadius, rstl::string_l(joints[i].mName), 5.f));
+      const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
+          id, CVector3f::Zero(), joints[i].mRadius, rstl::string_l(joints[i].mName), 5.f);
+      list.push_back_unsafe(desc);
     }
   }
 }
@@ -1793,7 +1790,8 @@ void CElitePirate::UpdateGrenadeLauncher(CStateManager& mgr, TUniqueId& uid,
                                          const rstl::string& locator) const {
   if (uid != kInvalidUniqueId) {
     if (CActor* actor = static_cast< CActor* >(mgr.ObjectById(uid))) {
-      actor->SetTransform(CTransform4f(GetLctrTransform(locator)));
+      const CTransform4f xf = GetLctrTransform(locator);
+      actor->SetTransform(xf);
     } else {
       uid = kInvalidUniqueId;
     }
@@ -1923,7 +1921,7 @@ void CElitePirate::AngryAttackBegin(CStateManager& mgr, EStateMsg msg, float dt)
       if (!mAngryChosen) {
         mShockwaveIsNext = mgr.Random()->Range(0.f, 1.f) < 0.7f;
       } else {
-        mShockwaveIsNext = !mAngryChoice;
+        mShockwaveIsNext = mAngryChoice != true;
       }
       break;
     }
@@ -1970,16 +1968,16 @@ bool CElitePirate::IsNearNoAttackHint(CStateManager& mgr) const {
 }
 
 int CElitePirate::GetNearbyHintType(CStateManager& mgr) const {
-  const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
-  CObjectList& list = mgr.ObjectListById(kOL_AiWaypoint);
-  float bestDist = FLT_MAX;
   const CScriptAIHint* best = nullptr;
+  float bestDist = 3.4028235e38f;
+  const CVector3f playerPos = mgr.GetPlayer(0)->GetTranslation();
+  const CObjectList& list = mgr.ObjectListById(kOL_AiWaypoint);
   for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
-    if (const CScriptAIHint* hint = TCastToPtr< CScriptAIHint >(list[i])) {
+    if (const CScriptAIHint* hint = TCastToConstPtr< CScriptAIHint >(list[i])) {
       if (hint->GetCurrentAreaId() == GetCurrentAreaId() && hint->GetActive() == true) {
         const int type = hint->GetHintType();
         if (type == 22 || type == 27 || type == CScriptAIHint::kHT_GrenadeLauncherRaisedAim) {
-          const float dist = (hint->GetTranslation() - playerPos).Magnitude();
+          const float dist = CVector3f(hint->GetTranslation() - playerPos).Magnitude();
           if (dist < hint->GetRadius()) {
             if (hint->GetHintType() == 27) {
               return 27;
@@ -2004,7 +2002,8 @@ bool CElitePirate::PlayerInNoAttack(CStateManager& mgr, const CTriggerData& data
 }
 
 CPFArea* CElitePirate::GetPathArea(CStateManager& mgr) const {
-  return mgr.World()->Area(GetCurrentAreaId())->GetPostConstructed()->mPathArea;
+  const TAreaId aid = GetCurrentAreaId();
+  return mgr.World()->Area(aid)->GetPostConstructed()->mPathArea;
 }
 
 void CElitePirate::ClaimPathRegion(CStateManager& mgr) {
