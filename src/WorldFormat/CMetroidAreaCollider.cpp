@@ -359,7 +359,8 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(CCollisionCache& ca
       cache.SkipLeaf(iterator);
       continue;
     }
-    const CCollisionSurface& surface = readCache.NextTriangle(iterator)->GetSurface();
+    const CCachedCollisionSurface* tri = readCache.NextTriangle(iterator);
+    const CCollisionSurface& surface = tri->GetSurface();
     if (filter.Passes(CMaterialList(surface.GetSurfaceFlags())) &&
         CollisionUtil::TriBoxOverlap(center, halfExtent, surface.GetVert(0), surface.GetVert(1),
                                      surface.GetVert(2)) == true) {
