@@ -309,28 +309,25 @@ CPlayerTargeting::EScanState CPlayerTargeting::GetScanState(CStateManager& mgr,
     const CPlayer* player =
         TCastToConstPtr< CPlayer >(mgr.GetObjectById(ResolveScanTarget(mgr, id)));
     if (player) {
-      return player->GetPlayerState()->GetItemCapacity(CPlayerState::kIT_HackedEffect) < 1
-                 ? kSS_Unscanned
-                 : kSS_Hacked;
+      return player->GetPlayerState()->GetItemCapacity(CPlayerState::kIT_HackedEffect) > 0
+                 ? kSS_Hacked
+                 : kSS_Unscanned;
     }
   }
 
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(ResolveScanTarget(mgr, id)));
-  if (!actor) {
-    return kSS_Invalid;
+  if (actor) {
+    const CScannableObjectInfo* scan = actor->GetScannableObjectInfo();
+    if (scan) {
+      if (mgr.PlayerState(mgr.MaskUIdNumPlayers(mPlayerId))
+              ->GetScanTime(scan->GetScannableObjectId()) >= 0.9999999f) {
+        return static_cast< EScanState >(kSS_Scanned + (scan->IsCritical() ? 1 : 0));
+      }
+      return static_cast< EScanState >(kSS_Unscanned + (scan->IsCritical() ? 1 : 0));
+    }
   }
 
-  const CScannableObjectInfo* scan = actor->GetScannableObjectInfo();
-  if (!scan) {
-    return kSS_Invalid;
-  }
-
-  if (mgr.PlayerState(mgr.MaskUIdNumPlayers(mPlayerId))
-          ->GetScanTime(scan->GetScannableObjectId()) >= 0.9999999f) {
-    return scan->IsCritical() ? kSS_CriticalScanned : kSS_Scanned;
-  }
-
-  return scan->IsCritical() ? kSS_CriticalUnscanned : kSS_Unscanned;
+  return kSS_Invalid;
 }
 
 void CPlayerTargeting::PrepareStaticGeometry(const CStateManager& mgr,
