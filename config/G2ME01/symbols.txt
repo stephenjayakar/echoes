@@ -6772,13 +6772,13 @@ insert_into__Q24rstl226red_black_tree<Q24rstl27pair<Ui,P15CPlayerListener>,Q24rs
 create_node__Q24rstl226red_black_tree<Q24rstl27pair<Ui,P15CPlayerListener>,Q24rstl27pair<Ui,P15CPlayerListener>,0,Q24rstl46identity<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl42less<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl17rmemory_allocator>FPQ34rstl226red_black_tree<Q24rstl27pair<Ui,P15CPlayerListener>,Q24rstl27pair<Ui,P15CPlayerListener>,0,Q24rstl46identity<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl42less<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl17rmemory_allocator>4nodePQ34rstl226red_black_tree<Q24rstl27pair<Ui,P15CPlayerListener>,Q24rstl27pair<Ui,P15CPlayerListener>,0,Q24rstl46identity<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl42less<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl17rmemory_allocator>4nodePQ34rstl226red_black_tree<Q24rstl27pair<Ui,P15CPlayerListener>,Q24rstl27pair<Ui,P15CPlayerListener>,0,Q24rstl46identity<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl42less<Q24rstl27pair<Ui,P15CPlayerListener>>,Q24rstl17rmemory_allocator>4nodeQ24rstl10node_colorRCQ24rstl27pair<Ui,P15CPlayerListener> = .text:0x80197910; // type:function size:0x68
 __dt__23CScriptConditionalRelayFv = .text:0x80197978; // type:function size:0xB8 align:4
 LoadConditionalRelay__FR13CStateManagerR12CInputStreamR11CEntityInfo = .text:0x80197A30; // type:function size:0x468 align:4
-VerifyConditions__23CScriptConditionalRelayCFRC13CStateManager9TUniqueId = .text:0x80197E98; // type:function size:0x1E0 align:4
+VerifyConditions__23CScriptConditionalRelayCFR13CStateManager9TUniqueId = .text:0x80197E98; // type:function size:0x1E0 align:4
 OnSetToZero__23CScriptConditionalRelayFR13CStateManager9TUniqueId = .text:0x80198078; // type:function size:0xB0 align:4
 Think__23CScriptConditionalRelayFfR13CStateManager = .text:0x80198128; // type:function size:0x4C align:4
 AcceptScriptMsg__23CScriptConditionalRelayFR13CStateManagerRC10CScriptMsg = .text:0x80198174; // type:function size:0x78 align:4
 __ct__23CScriptConditionalRelayF9TUniqueIdRCQ24rstl66basic_string<c,Q24rstl14char_traits<c>,Q24rstl17rmemory_allocator>RC11CEntityInfoUiRCQ24rstl43reserved_vector<22CConditionalRelayQuery,4>b = .text:0x801981EC; // type:function size:0x90
 __ct__Q24rstl43reserved_vector<22CConditionalRelayQuery,4>FRCQ24rstl43reserved_vector<22CConditionalRelayQuery,4> = .text:0x8019827C; // type:function size:0x60 scope:weak
-IsConditionSatisfied__22CConditionalRelayQueryCFRC13CStateManagerUi = .text:0x801982DC; // type:function size:0x204 align:4
+IsConditionSatisfied__22CConditionalRelayQueryCFR13CStateManagerUi = .text:0x801982DC; // type:function size:0x204 align:4
 __ct__22CConditionalRelayQueryFQ222CConditionalRelayQuery8EBooleanQ212CPlayerState9EItemTypeQ222CConditionalRelayQuery6EFieldQ222CConditionalRelayQuery11EComparisoni = .text:0x801984E0; // type:function size:0x18
 GetAnimationSet__21CPlayerBodyControllerCFR13CStateManager = .text:0x801984F8; // type:function size:0x40 align:4
 TransitionOutOfScrewAttackFloor__21CPlayerBodyControllerFR13CStateManagerif = .text:0x80198538; // type:function size:0x11C align:4
