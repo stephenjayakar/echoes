@@ -426,32 +426,33 @@ void CProjectileWeapon::UpdateBillboardEffects() {
   CParticleGlobals::SetEmitterTime(mCurFrame);
   CParticleGlobals::SetParticleLifetime(mLifetime);
   CParticleGlobals::UpdateParticleLifetimeTweenValues(mCurFrame);
+  const CWeaponDescription& description = **mWeaponDesc;
 
-  if (mWeaponDesc->mB1TX) {
-    if (mWeaponDesc->mB1SE) {
-      mWeaponDesc->mB1SE->GetValue(mCurFrame, mBillboard1Size);
+  if (description.mB1TX) {
+    if (description.mB1SE) {
+      description.mB1SE->GetValue(mCurFrame, mBillboard1Size);
     }
-    if (mWeaponDesc->mB1PO) {
-      mWeaponDesc->mB1PO->GetValue(mCurFrame, mBillboard1Offset);
-    }
-  }
-  if (mWeaponDesc->mB2TX) {
-    if (mWeaponDesc->mB2SE) {
-      mWeaponDesc->mB2SE->GetValue(mCurFrame, mBillboard2Size);
-    }
-    if (mWeaponDesc->mB2PO) {
-      mWeaponDesc->mB2PO->GetValue(mCurFrame, mBillboard2Offset);
+    if (description.mB1PO) {
+      description.mB1PO->GetValue(mCurFrame, mBillboard1Offset);
     }
   }
-  if (mWeaponDesc->mTTEX) {
-    if (mWeaponDesc->mTSZE) {
-      mWeaponDesc->mTSZE->GetValue(mCurFrame, mTrailSize);
+  if (description.mB2TX) {
+    if (description.mB2SE) {
+      description.mB2SE->GetValue(mCurFrame, mBillboard2Size);
     }
-    if (mWeaponDesc->mTLEN) {
-      mWeaponDesc->mTLEN->GetValue(mCurFrame, mTrailLength);
+    if (description.mB2PO) {
+      description.mB2PO->GetValue(mCurFrame, mBillboard2Offset);
     }
-    if (mWeaponDesc->mTLPO) {
-      mWeaponDesc->mTLPO->GetValue(mCurFrame, mTrailOffset);
+  }
+  if (description.mTTEX) {
+    if (description.mTSZE) {
+      description.mTSZE->GetValue(mCurFrame, mTrailSize);
+    }
+    if (description.mTLEN) {
+      description.mTLEN->GetValue(mCurFrame, mTrailLength);
+    }
+    if (description.mTLPO) {
+      description.mTLPO->GetValue(mCurFrame, mTrailOffset);
     }
   }
 }
