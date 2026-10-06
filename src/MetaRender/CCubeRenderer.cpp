@@ -1801,23 +1801,15 @@ void CCubeRenderer::DrawModelFlat(const SModelRenderData& model, const CModelFla
 
 void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
                                      const CColor& color2) {
-  static const GXVtxDescList threeTexDesc[] = {
-      {GX_VA_POS, GX_DIRECT},  {GX_VA_TEX0, GX_DIRECT}, {GX_VA_TEX1, GX_DIRECT},
-      {GX_VA_TEX2, GX_DIRECT}, {GX_VA_NULL, GX_NONE},
-  };
-  static const GXVtxDescList oneTexDesc[] = {
-      {GX_VA_POS, GX_DIRECT},
-      {GX_VA_TEX0, GX_DIRECT},
-      {GX_VA_NULL, GX_NONE},
-  };
   SetupRendererStates(true);
   const CViewport& viewport = CGraphics::GetViewport();
   const int width = viewport.mWidth;
   const int height = viewport.mHeight;
   const CGraphics::CProjectionState oldProjection(CGraphics::GetProjectionState());
   const CTransform4f oldView(CGraphics::GetViewMatrix());
+  int mipWidth;
+  int mipHeight;
   int mipSize = 0;
-  int mipWidth, mipHeight;
   CGX::SetDstAlpha(true, 0);
   GXSetAlphaUpdate(false);
   GXPixModeSync();
@@ -1829,22 +1821,29 @@ void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
   GXInitTexObjLOD(&texture, GX_LINEAR, GX_LINEAR, 0.f, 0.f, 0.f, false, false, GX_ANISO_1);
   GXLoadTexObj(&texture, GX_TEXMAP0);
   CTexture::InvalidateTexmap(GX_TEXMAP0);
+  const GXVtxDescList threeTexDesc[] = {
+      {GX_VA_POS, GX_DIRECT},  {GX_VA_TEX0, GX_DIRECT}, {GX_VA_TEX1, GX_DIRECT},
+      {GX_VA_TEX2, GX_DIRECT}, {GX_VA_NULL, GX_NONE},
+  };
   CGX::SetVtxDescv(threeTexDesc);
   CGraphics::SetFog(kRFM_None, 0.f, 1.f, CColor::Black());
   CGraphics::SetOrtho(0.f, width, 0.f, height, -4096.f, 4096.f);
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGraphics::SetModelMatrix(CTransform4f::Identity());
 
-  const CColor halfColor(static_cast< uchar >(color1.GetRedu8() >> 1),
-                         static_cast< uchar >(color1.GetGreenu8() >> 1),
-                         static_cast< uchar >(color1.GetBlueu8() >> 1), 255);
-  const CColor quarterColor(static_cast< uchar >(color1.GetRedu8() >> 2),
-                            static_cast< uchar >(color1.GetGreenu8() >> 2),
-                            static_cast< uchar >(color1.GetBlueu8() >> 2), 255);
-  CGX::SetTevKColor(GX_KCOLOR0, color1.GetGXColor());
-  CGX::SetTevKColor(GX_KCOLOR1, halfColor.GetGXColor());
+  const CColor full = color1;
+  GXColor halfColor = {0, 0, 0, 255};
+  halfColor.r = full.GetRedu8() / 2;
+  halfColor.g = full.GetGreenu8() / 2;
+  halfColor.b = full.GetBlueu8() / 2;
+  CGX::SetTevKColor(GX_KCOLOR0, full.GetGXColor());
+  CGX::SetTevKColor(GX_KCOLOR1, halfColor);
   CGX::SetTevKColor(GX_KCOLOR2, color0.GetGXColor());
-  CGX::SetTevKColor(GX_KCOLOR3, quarterColor.GetGXColor());
+  GXColor quarterColor = {0, 0, 0, 255};
+  quarterColor.r = full.GetRedu8() / 4;
+  quarterColor.g = full.GetGreenu8() / 4;
+  quarterColor.b = full.GetBlueu8() / 4;
+  CGX::SetTevKColor(GX_KCOLOR3, quarterColor);
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K1);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_ZERO);
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
@@ -1857,8 +1856,8 @@ void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
   CGX::SetTevColorIn(GX_TEVSTAGE2, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_CPREV);
   CGX::SetTevColorOp(GX_TEVSTAGE2, GX_TEV_SUB, GX_TB_ZERO, GX_CS_SCALE_2, true, GX_TEVPREV);
   CGX::SetTevOrder(GX_TEVSTAGE2, GX_TEXCOORD2, GX_TEXMAP0, GX_COLOR_NULL);
-  const CColor comparison(0x08080808u);
-  GXSetTevColor(GX_TEVREG0, comparison.GetGXColor());
+  const GXColor comparison = {8, 8, 8, 8};
+  GXSetTevColor(GX_TEVREG0, comparison);
   CGX::SetTevColorIn(GX_TEVSTAGE3, GX_CC_CPREV, GX_CC_C0, GX_CC_CPREV, GX_CC_KONST);
   CGX::SetTevColorOp(GX_TEVSTAGE3, GX_TEV_COMP_RGB8_GT, GX_TB_ZERO, GX_CS_SCALE_1, true,
                      GX_TEVPREV);
@@ -1873,30 +1872,27 @@ void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX3x4, GX_TG_TEX1, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetTexCoordGen(GX_TEXCOORD2, GX_TG_MTX3x4, GX_TG_TEX2, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetNumTexGens(3);
-  const CVector2f offsets[3] = {
-      CVector2f(2.f / mipWidth, 2.f / mipHeight),
-      CVector2f(-2.f / mipWidth, -2.f / mipHeight),
-      CVector2f(0.f, 0.f),
-  };
+  const float offsetU[3] = {2.f / mipWidth, -2.f / mipWidth, 0.f};
+  const float offsetV[3] = {2.f / mipHeight, -2.f / mipHeight, 0.f};
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_ONE, GX_BL_ZERO, GX_LO_CLEAR);
   CGX::SetZMode(false, GX_ALWAYS, false);
   CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 4);
   GXPosition3f32(0.f, 0.f, 0.f);
-  GXTexCoord2f32(offsets[0].GetX(), offsets[0].GetY());
-  GXTexCoord2f32(offsets[1].GetX(), offsets[1].GetY());
-  GXTexCoord2f32(offsets[2].GetX(), offsets[2].GetY());
+  GXTexCoord2f32(offsetU[0], offsetV[0]);
+  GXTexCoord2f32(offsetU[1], offsetV[1]);
+  GXTexCoord2f32(offsetU[2], offsetV[2]);
   GXPosition3f32(0.f, 0.f, height);
-  GXTexCoord2f32(offsets[0].GetX(), 1.f + offsets[0].GetY());
-  GXTexCoord2f32(offsets[1].GetX(), 1.f + offsets[1].GetY());
-  GXTexCoord2f32(offsets[2].GetX(), 1.f + offsets[2].GetY());
+  GXTexCoord2f32(offsetU[0], 1.f + offsetV[0]);
+  GXTexCoord2f32(offsetU[1], 1.f + offsetV[1]);
+  GXTexCoord2f32(offsetU[2], 1.f + offsetV[2]);
   GXPosition3f32(width, 0.f, height);
-  GXTexCoord2f32(1.f + offsets[0].GetX(), 1.f + offsets[0].GetY());
-  GXTexCoord2f32(1.f + offsets[1].GetX(), 1.f + offsets[1].GetY());
-  GXTexCoord2f32(1.f + offsets[2].GetX(), 1.f + offsets[2].GetY());
+  GXTexCoord2f32(1.f + offsetU[0], 1.f + offsetV[0]);
+  GXTexCoord2f32(1.f + offsetU[1], 1.f + offsetV[1]);
+  GXTexCoord2f32(1.f + offsetU[2], 1.f + offsetV[2]);
   GXPosition3f32(width, 0.f, 0.f);
-  GXTexCoord2f32(1.f + offsets[0].GetX(), offsets[0].GetY());
-  GXTexCoord2f32(1.f + offsets[1].GetX(), offsets[1].GetY());
-  GXTexCoord2f32(1.f + offsets[2].GetX(), offsets[2].GetY());
+  GXTexCoord2f32(1.f + offsetU[0], offsetV[0]);
+  GXTexCoord2f32(1.f + offsetU[1], offsetV[1]);
+  GXTexCoord2f32(1.f + offsetU[2], offsetV[2]);
   CGX::End();
 
   mScanRamp.Load(GX_TEXMAP0, CTexture::kCM_Repeat);
@@ -1910,6 +1906,11 @@ void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
   CGX::SetNumTexGens(1);
   CGX::SetNumChans(0);
   CGX::SetBlendMode(GX_BM_BLEND, GX_BL_DSTALPHA, GX_BL_ONE, GX_LO_CLEAR);
+  const GXVtxDescList oneTexDesc[] = {
+      {GX_VA_POS, GX_DIRECT},
+      {GX_VA_TEX0, GX_DIRECT},
+      {GX_VA_NULL, GX_NONE},
+  };
   CGX::SetVtxDescv(oneTexDesc);
   const float rampWidth = width * 0.125f;
   const float rampHeight = height * 0.125f;
