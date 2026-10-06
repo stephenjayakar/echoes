@@ -873,107 +873,110 @@ CParticleGen* CElementGen::ConstructChildParticleSystem(const CToken& descriptio
 }
 
 void CElementGen::UpdateChildParticleSystems(double dt) {
-  if (close_enough(dt, 0.0, 1e-7)) {
-    return;
-  }
-  CGlobalRandom random(mRandState);
+  if (!close_enough(dt, 0.0, 1e-7)) {
+    CGlobalRandom random(mRandState);
 
-  // ICTS: children spawned at CSSD.
-  if (mLoadedGenDesc->mICTS && mPrevFrame != mCurFrame && mCurFrame == mCSSD) {
-    int count = 1;
-    if (mLoadedGenDesc->mNCSY) {
-      mLoadedGenDesc->mNCSY->GetValue(mCurFrame, count);
-    }
-    mActivePartChildren.reserve(count + mActivePartChildren.size());
-    for (int i = 0; i < count; ++i) {
-      TLockedToken< CGenDescription > description = mLoadedGenDesc->mICTS->GetToken();
-      if (mEnableOPTS && description->mOPTS) {
-        break;
+    // ICTS: children spawned at CSSD.
+    if (mLoadedGenDesc->mICTS && mPrevFrame != mCurFrame && mCurFrame == mCSSD) {
+      int count = 1;
+      if (mLoadedGenDesc->mNCSY) {
+        mLoadedGenDesc->mNCSY->GetValue(mCurFrame, count);
       }
-      mActivePartChildren.push_back(ConstructChildParticleSystem(description, 'PART', sSeed));
-    }
-  }
-
-  // IITS: children spawned periodically while the emitter is alive.
-  if (mLoadedGenDesc->mIITS && mPrevFrame != mCurFrame && mCurFrame < mPSLT && mParticleEmission &&
-      mCurFrame >= mSISY && (mCurFrame - mSISY) % mPISY == 0) {
-    TLockedToken< CGenDescription > description = mLoadedGenDesc->mIITS->GetToken();
-    if (!(mEnableOPTS && description->mOPTS)) {
-      mActivePartChildren.reserve(mActivePartChildren.size() + 1);
-      mActivePartChildren.push_back(ConstructChildParticleSystem(description, 'PART', sSeed));
-    }
-  }
-
-  // KSSM: keyframes can spawn several different effect types.
-  if (mLoadedGenDesc->mKSSM && mPrevFrame != mCurFrame && mCurFrame < mPSLT) {
-    rstl::vector< CSpawnSystemKeyframeData::CSpawnSystemKeyframeInfo >& spawns =
-        mLoadedGenDesc->mKSSM->GetSpawnedSystemsAtFrame(mCurFrame);
-    if (!spawns.empty()) {
-      const ushort backupSeed = sSeed;
-      mActivePartChildren.reserve(spawns.size() + mActivePartChildren.size());
-      for (int i = 0; i < spawns.size(); ++i) {
-        CParticleGen* child = ConstructChildParticleSystem(
-            *spawns[i].GetToken(), spawns[i].GetType(), mCurFrame + backupSeed + i);
-        if (child) {
-          mActivePartChildren.push_back(child);
+      mActivePartChildren.reserve(count + mActivePartChildren.size());
+      for (int i = 0; i < count; ++i) {
+        TLockedToken< CGenDescription > description = mLoadedGenDesc->mICTS->GetToken();
+        const bool descOpts = description->mOPTS;
+        if (mEnableOPTS && descOpts) {
+          break;
         }
+        mActivePartChildren.push_back_unsafe(ConstructChildParticleSystem(description, 'PART', sSeed));
       }
-      sSeed = backupSeed;
     }
-  }
 
-  // IDTS: children spawned when this system reaches its lifetime.
-  if (mCurFrame == mPSLT && mPrevFrame != mCurFrame && mLoadedGenDesc->mIDTS) {
-    int count = 1;
-    if (mLoadedGenDesc->mNDSY) {
-      mLoadedGenDesc->mNDSY->GetValue(0, count);
-    }
-    mActivePartChildren.reserve(count + mActivePartChildren.size());
-    for (int i = 0; i < count; ++i) {
-      TLockedToken< CGenDescription > description = mLoadedGenDesc->mIDTS->GetToken();
-      if (mEnableOPTS && description->mOPTS) {
-        break;
+    // IITS: children spawned periodically while the emitter is alive.
+    if (mLoadedGenDesc->mIITS && mPrevFrame != mCurFrame && mCurFrame < mPSLT && mParticleEmission == true &&
+        mCurFrame >= mSISY && (mCurFrame - mSISY) % mPISY == 0) {
+      TLockedToken< CGenDescription > description = mLoadedGenDesc->mIITS->GetToken();
+      const bool descOpts = description->mOPTS;
+      if (!(mEnableOPTS && descOpts)) {
+        mActivePartChildren.reserve(mActivePartChildren.size() + 1);
+        mActivePartChildren.push_back_unsafe(ConstructChildParticleSystem(description, 'PART', sSeed));
       }
-      mActivePartChildren.push_back(ConstructChildParticleSystem(description, 'PART', sSeed));
     }
-  }
 
-  if (mLoadedGenDesc->mSSWH && mPrevFrame != mCurFrame && mCurFrame == mSSSD) {
-    CParticleSwoosh* swoosh = rs_new CParticleSwoosh(*mLoadedGenDesc->mSSWH, 0);
-    swoosh->SetGlobalTranslation(mGlobalTranslation);
-    swoosh->SetGlobalScale(mGlobalScale);
-    swoosh->SetLocalScale(mLocalScale);
-    swoosh->SetTranslation(mTranslation + mSSPO);
-    swoosh->SetOrientation(mOrientation);
-    swoosh->SetParticleEmission(mParticleEmission);
-    mActivePartChildren.reserve(mActivePartChildren.size() + 1);
-    mActivePartChildren.push_back(swoosh);
-  }
-
-  if (mLoadedGenDesc->mSELC && mPrevFrame != mCurFrame && mCurFrame == mSESD) {
-    CParticleElectric* electric = rs_new CParticleElectric(*mLoadedGenDesc->mSELC);
-    electric->SetGlobalTranslation(mGlobalTranslation);
-    electric->SetGlobalScale(mGlobalScale);
-    electric->SetLocalScale(mLocalScale);
-    electric->SetTranslation(mTranslation + mSEPO);
-    electric->SetOrientation(mOrientation);
-    electric->SetParticleEmission(mParticleEmission);
-    mActivePartChildren.reserve(mActivePartChildren.size() + 1);
-    mActivePartChildren.push_back(electric);
-  }
-
-  rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
-  while (it != mActivePartChildren.end()) {
-    CParticleGen* child = *it;
-    child->Update(dt);
-    if (child->IsSystemDeletable() == true) {
-      delete child;
-      it = mActivePartChildren.erase(it);
-    } else {
-      ++it;
+    // KSSM: keyframes can spawn several different effect types.
+    if (mLoadedGenDesc->mKSSM && mPrevFrame != mCurFrame && mCurFrame < mPSLT) {
+      rstl::vector< CSpawnSystemKeyframeData::CSpawnSystemKeyframeInfo >& spawns =
+          mLoadedGenDesc->mKSSM->GetSpawnedSystemsAtFrame(mCurFrame);
+      if (spawns.size() != 0) {
+        const ushort backupSeed = sSeed;
+        mActivePartChildren.reserve(spawns.size() + mActivePartChildren.size());
+        for (int i = 0; i < spawns.size(); ++i) {
+          const CSpawnSystemKeyframeData::CSpawnSystemKeyframeInfo& info = spawns[i];
+          const ushort seed = mCurFrame + backupSeed + i;
+          CParticleGen* child = ConstructChildParticleSystem(*info.GetToken(), info.GetType(), seed);
+          if (child) {
+            mActivePartChildren.push_back_unsafe(child);
+          }
+        }
+        sSeed = backupSeed;
+      }
     }
+
+    // IDTS: children spawned when this system reaches its lifetime.
+    if (mCurFrame == mPSLT && mPrevFrame != mCurFrame && mLoadedGenDesc->mIDTS) {
+      int count = 1;
+      if (mLoadedGenDesc->mNDSY) {
+        mLoadedGenDesc->mNDSY->GetValue(0, count);
+      }
+      mActivePartChildren.reserve(count + mActivePartChildren.size());
+      for (int i = 0; i < count; ++i) {
+        TLockedToken< CGenDescription > description = mLoadedGenDesc->mIDTS->GetToken();
+        const bool descOpts = description->mOPTS;
+        if (mEnableOPTS && descOpts) {
+          break;
+        }
+        mActivePartChildren.push_back_unsafe(ConstructChildParticleSystem(description, 'PART', sSeed));
+      }
+    }
+
+    if (mLoadedGenDesc->mSSWH && mPrevFrame != mCurFrame && mCurFrame == mSSSD) {
+      CParticleGen* swoosh = rs_new CParticleSwoosh(*mLoadedGenDesc->mSSWH, 0);
+      swoosh->SetGlobalTranslation(mGlobalTranslation);
+      swoosh->SetGlobalScale(mGlobalScale);
+      swoosh->SetLocalScale(mLocalScale);
+      swoosh->SetTranslation(mTranslation + mSSPO);
+      swoosh->SetOrientation(mOrientation);
+      swoosh->SetParticleEmission(mParticleEmission);
+      mActivePartChildren.reserve(mActivePartChildren.size() + 1);
+      mActivePartChildren.push_back_unsafe(swoosh);
+    }
+
+    if (mLoadedGenDesc->mSELC && mPrevFrame != mCurFrame && mCurFrame == mSESD) {
+      CParticleGen* electric = rs_new CParticleElectric(*mLoadedGenDesc->mSELC);
+      electric->SetGlobalTranslation(mGlobalTranslation);
+      electric->SetGlobalScale(mGlobalScale);
+      electric->SetLocalScale(mLocalScale);
+      electric->SetTranslation(mTranslation + mSEPO);
+      electric->SetOrientation(mOrientation);
+      electric->SetParticleEmission(mParticleEmission);
+      mActivePartChildren.reserve(mActivePartChildren.size() + 1);
+      mActivePartChildren.push_back_unsafe(electric);
+    }
+
+    rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin();
+    while (it != mActivePartChildren.end()) {
+      CParticleGen* child = *it;
+      child->Update(dt);
+      if (child->IsSystemDeletable() == true) {
+        delete child;
+        it = mActivePartChildren.erase(it);
+      } else {
+        ++it;
+      }
+    }
+    mPrevFrame = mCurFrame;
   }
-  mPrevFrame = mCurFrame;
 }
 
 void CElementGen::SetParticleEmission(bool emission) {
