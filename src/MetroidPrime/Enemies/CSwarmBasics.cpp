@@ -235,8 +235,8 @@ CSwarmBasics::CSwarmBasics(TUniqueId uid, const rstl::string& name, const CEntit
     mAdvancementDeltas.reserve(4);
     if (animRes.GetId() != kInvalidAssetId) {
       for (uint i = 0; i < 4; ++i) {
-        mModelDatas.push_back(CModelData(animRes));
-        mAdvancementDeltas.push_back(
+        mModelDatas.push_back_unsafe(CModelData(animRes));
+        mAdvancementDeltas.push_back_unsafe(
             CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation()));
       }
       mModelData = rs_new CModelData(animRes);
