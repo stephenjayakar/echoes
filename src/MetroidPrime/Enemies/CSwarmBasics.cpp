@@ -546,8 +546,8 @@ void CSwarmBasics::UpdateBoid(CAreaCollisionCache& cache, CStateManager& mgr, fl
   }
   UpdateLightComboBeam(boid, mgr);
   if (boid.mLaunched) {
+    const float radius = 2.f * mBoidRadius;
     const float boidRadius = mBoidRadius;
-    const float radius = 2.f * boidRadius;
     const float speed = boid.mVelocity.Magnitude();
     float distance = speed * dt;
     CVector3f pos = boid.GetTranslation();
@@ -585,8 +585,8 @@ void CSwarmBasics::UpdateBoid(CAreaCollisionCache& cache, CStateManager& mgr, fl
       StopLoopedSound(boid, mLocomotionSounds);
     }
   } else {
+    const float radius = 2.f * mBoidRadius;
     const float boidRadius = mBoidRadius;
-    const float radius = 2.f * boidRadius;
     const CVector3f pos = boid.GetTranslation();
     bool found = false;
     CCollisionSurface surface(CVector3f(1.f, 0.f, 0.f), CVector3f(0.f, 1.f, 0.f),
