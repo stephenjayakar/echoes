@@ -1970,7 +1970,7 @@ IsCachedLightInAreaLights__9CSamusHudCFRCQ29CSamusHud15SCachedHudLightRC12CActor
 fn_8006653c__9CSamusHudFRC13CStateManagerb = .text:0x8006653C; // type:function size:0x4
 UpdateThreatAssessment__9CSamusHudFfRC13CStateManager = .text:0x80066540; // type:function size:0x998 align:4
 ResolveLockOnTexture__9CSamusHudFv = .text:0x80066ED8; // type:function size:0x6C
-UpdateBallMode__9CSamusHudFRC13CStateManager = .text:0x80066F44; // type:function size:0x2C8
+UpdateBallMode__9CSamusHudFRC13CStateManagerb = .text:0x80066F44; // type:function size:0x2C8
 UpdateBeamAmmo__9CSamusHudFRC13CStateManagerb = .text:0x8006720C; // type:function size:0xFAC
 UpdateMissile__9CSamusHudFfRC13CStateManagerb = .text:0x800681B8; // type:function size:0x6B0
 UpdateEnergy__9CSamusHudFfRC13CStateManagerb = .text:0x80068868; // type:function size:0x598

@@ -755,24 +755,26 @@ CSamusHud::~CSamusHud() {
 bool CSamusHud::CheckLoadComplete(const CStateManager& mgr) {
   switch (mLoadPhase) {
   case kLP_Targeting:
-    if (!mTargetingManager.CheckLoadComplete()) {
+    if (mTargetingManager.CheckLoadComplete()) {
+      mLoadPhase = kLP_Frames;
+      InitializeFrameGlueMutable(mgr);
+      UpdateEnergy(0.f, mgr, true);
+      UpdateMissile(0.f, mgr, true);
+      UpdateBeamAmmo(mgr, true);
+      UpdateBallMode(mgr, true);
+      fn_8006653c(mgr, true);
+      ResolveLockOnTexture();
+    } else {
       return false;
     }
-    mLoadPhase = kLP_Frames;
-    InitializeFrameGlueMutable(mgr);
-    UpdateEnergy(0.f, mgr, true);
-    UpdateMissile(0.f, mgr, true);
-    UpdateBeamAmmo(mgr, true);
-    UpdateBallMode(mgr);
-    fn_8006653c(mgr, true);
-    ResolveLockOnTexture();
     // Fall through.
   case kLP_Frames:
-    if (!mLoadedHudFrame->GetIsFinishedLoading() ||
-        (mLoadedHelmetFrame != nullptr && !mLoadedHelmetFrame->GetIsFinishedLoading())) {
+    if (mLoadedHudFrame->GetIsFinishedLoading() &&
+        (mLoadedHelmetFrame == nullptr || mLoadedHelmetFrame->GetIsFinishedLoading())) {
+      mLoadPhase = kLP_Complete;
+    } else {
       return false;
     }
-    mLoadPhase = kLP_Complete;
     // Fall through.
   case kLP_Complete:
     return true;
@@ -1375,7 +1377,7 @@ void CSamusHud::UpdateBeamAmmo(const CStateManager& mgr, bool init) {
   mAmmoBeam = beam;
 }
 
-void CSamusHud::UpdateBallMode(const CStateManager& mgr) {
+void CSamusHud::UpdateBallMode(const CStateManager& mgr, bool) {
   if (mPowerBombDigits == nullptr && mPowerBombIcon == nullptr && mBombIndicators.size() != 3) {
     return;
   }
@@ -2196,7 +2198,7 @@ void CSamusHud::Update(float dt, const CStateManager& mgr, uint helmetVisibility
     UpdateBeamAmmo(mgr, false);
     UpdateMissile(dt, mgr, false);
     UpdateVisorAndBeamMenus(dt, mgr);
-    UpdateBallMode(mgr);
+    UpdateBallMode(mgr, false);
     ResolveLockOnTexture();
     if (!mRadar.null()) {
       mRadar->SetColor(ModulateColor(gpTweakGuiColors->GetRadarWidgetColor()));
