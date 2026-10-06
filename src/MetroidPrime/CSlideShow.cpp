@@ -237,7 +237,7 @@ void CSlideShow::BuildGalleryLists(uint flags) {
       rstl::string name = CBasics::Stringize("%s_%02d_%03d", "slideshow", i, slide);
       const SObjectTag* tag = gpResourceFactory->GetResourceIdByName(name.data());
       if (tag != nullptr) {
-        gallery.mTextures.push_back(tag);
+        gallery.mTextures.push_back_unsafe(tag);
         column = 1;
         ++tiles;
         columns = 1;
@@ -247,7 +247,7 @@ void CSlideShow::BuildGalleryLists(uint flags) {
         name.append(CBasics::Stringize("_%02d%02d", column, row), -1);
         tag = gpResourceFactory->GetResourceIdByName(name.data());
         if (tag != nullptr) {
-          gallery.mTextures.push_back(tag);
+          gallery.mTextures.push_back_unsafe(tag);
           ++column;
           ++tiles;
           columns = column;
@@ -256,7 +256,7 @@ void CSlideShow::BuildGalleryLists(uint flags) {
       }
       if (tag == nullptr) {
         if (missingRows == 1 && tiles > 0) {
-          gallery.mSlides.push_back(rstl::pair< int, int >(gallery.mTextures.size(), columns));
+          gallery.mSlides.push_back_unsafe(rstl::pair< int, int >(gallery.mTextures.size(), columns));
           ++slide;
           row = 0;
           missingRows = 0;
