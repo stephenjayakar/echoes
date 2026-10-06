@@ -2,6 +2,7 @@
 
 #include "Kyoto/Audio/CSfxManager.hpp"
 #include "Kyoto/Graphics/CLight.hpp"
+#include "Kyoto/Graphics/CTexture.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Particles/CElementGen.hpp"
 #include "MetaRender/CCubeRenderer.hpp"
@@ -24,10 +25,13 @@
 #include "MetroidPrime/Weapons/CGameProjectile.hpp"
 
 #include "Collision/CollisionUtil.hpp"
+#include "Kyoto/Basics/CCast.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Math/CSphere.hpp"
 #include "Kyoto/Math/CVector2f.hpp"
+#include "math.h"
 #include "rstl/algorithm.hpp"
+#include "rstl/math.hpp"
 
 CEntity* REL_LoadSafeZone(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
 CEntity* REL_LoadSafeZoneCrystal(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
@@ -528,6 +532,20 @@ void CScriptSafeZone::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   UpdatePlayerInside(actor, true, mgr);
 }
 
+void CScriptSafeZone::SpawnImpactEffect(const CVector3f& position, float scale) {
+  CElementGen* gen = rs_new CElementGen(mImpactEffect, CElementGen::kMOT_Normal,
+                                        CElementGen::kOSF_One);
+  gen->SetTranslation(position);
+  CVector3f lookFrom = GetTranslation();
+  if (GetShape() == kST_Cylinder) {
+    lookFrom.SetZ(position.GetZ());
+  }
+  CTransform4f xf = CTransform4f::LookAt(lookFrom, position, CVector3f::Up());
+  gen->SetOrientation(xf.GetRotation());
+  gen->SetGlobalScale(scale * gen->GetGlobalScale());
+  mImpactGens.push_back(rstl::auto_ptr< CElementGen >(gen));
+}
+
 // Guessed name. Ray against a Z-aligned cylinder; the entry point is skipped when the ray starts
 // inside the circle.
 static bool RayCylinderIntersection(const CVector3f& center, const CVector3f& start,
@@ -645,6 +663,83 @@ bool CScriptSafeZone::ShouldSendScriptMsgs(CActor& actor, CStateManager& mgr) co
   return TCastToPtr< CPlayer >(actor) != nullptr;
 }
 
+void CScriptSafeZone::RenderDarkVisorSpot(const CStateManager& mgr) const {
+  if (mCurrentInfo->x10_) {
+    (*mCurrentInfo->x10_)->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+    const CTransform4f& view = CGraphics::GetViewMatrix();
+    const CVector3f pos = GetTranslation();
+    const CVector3f toSpot = pos - view.GetTranslation();
+    if (toSpot.CanBeNormalized()) {
+      const CVector3f forward = view.GetForward();
+      const float dot = CVector3f::Dot(toSpot.AsNormalized(), forward);
+      if (!(dot < 0.f)) {
+        const float alpha = mActivation * dot;
+        const float size = mCurrentInfo->x20_ * alpha;
+        const CVector3f right = size * view.GetRight();
+        const CVector3f up = size * view.GetUp();
+        CGraphics::SetModelMatrix(CTransform4f::Identity());
+        CGraphics::SetBlendMode(kBM_Blend, kBF_One, kBF_One, kLO_Clear);
+        CGraphics::SetTevOp(kTS_Stage0, CGraphics::kEnvModulate);
+        CGraphics::SetTevOp(kTS_Stage1, CGraphics::kEnvPassthru);
+        CGraphics::SetDepthWriteMode(false, kE_Always, false);
+        const CColor color(alpha, alpha, alpha, alpha);
+        CGraphics::StreamColor(color);
+        CGraphics::StreamBegin(kP_TriangleFan);
+        CGraphics::StreamTexcoord(0.f, 0.f);
+        CGraphics::StreamVertex((pos - right) + up);
+        CGraphics::StreamTexcoord(1.f, 0.f);
+        CGraphics::StreamVertex((pos - right) - up);
+        CGraphics::StreamTexcoord(1.f, 1.f);
+        CGraphics::StreamVertex((pos + right) - up);
+        CGraphics::StreamTexcoord(0.f, 1.f);
+        CGraphics::StreamVertex((pos + right) + up);
+        CGraphics::StreamEnd();
+      }
+    }
+  }
+}
+
+void CScriptSafeZone::ApplyRenderEffect(CStateManager& mgr) {
+  const bool inside = HasInhabitant(
+      mgr.CameraManager(mgr.MaskUIdNumPlayers(mgr.mCurrentRenderPlayer->GetUniqueId()))
+          ->GetCurrentCameraId(false));
+  const float flash = mFlashTimer * mFlashTime;
+  float pulse;
+  if (inside) {
+    pulse = 0.25f * mShellPulse + 0.5f * flash;
+  } else {
+    pulse = mShellPulse + flash;
+  }
+  float spotSize = 0.1f;
+  if (!inside) {
+    const CGameCamera* camera =
+        mgr.CameraManager(mgr.mCurrentRenderPlayerIndex)->GetCurrentCamera(mgr, true);
+    const float fov = camera->GetFov();
+    const float invSin = 1.f / sinf(0.017453292f * fov);
+    const CVector3f delta = GetTranslation() - camera->GetTranslation();
+    const CVector3f forward = camera->GetTransform().GetForward();
+    const float invDist = CMath::FastInvSqrtF(delta.MagSquared());
+    const CVector3f dir = invDist * delta;
+    const float angle =
+        (2.f * fabsf(57.295776f * acosf(CVector3f::Dot(forward, dir)))) /
+        (fov * camera->GetAspectRatio());
+    const float edge = rstl::min_val(angle, 1.f);
+    const float edgeScale = edge < 0.8f ? 1.f : 0.7f;
+    const float maxScale =
+        rstl::max_val(GetScale().GetX(), rstl::max_val(GetScale().GetY(), GetScale().GetZ()));
+    spotSize = invSin * (mActivation * maxScale * invDist) * edgeScale *
+               (mMobile ? 2.25f : 2.5f);
+  }
+  const CVector3f radii = mActivation * GetScale();
+  const uchar alpha = CCast::ToUint8(CMath::Clamp(0.f, 255.f * pulse, 255.f));
+  const uchar insideAlpha = CCast::ToUint8(CMath::Clamp(0.f, 127.f * mInsideAlpha, 255.f));
+  mgr.AddDarkWorldSphereToRenderer(
+      GetTranslation(), radii, alpha, insideAlpha, inside, spotSize, mCurrentInfo->mScroll1,
+      mCurrentInfo->mScroll2, mCurrentInfo->mTexScale1, mCurrentInfo->mTexScale2,
+      **mCurrentInfo->mEnvironment, **mCurrentInfo->mCloud1, **mCurrentInfo->mCloud2,
+      mCurrentInfo->mColor, mCurrentInfo->mAdditiveColor, GetShape() == kST_Cylinder);
+}
+
 void CScriptSafeZone::Render(const CStateManager& mgr) const {
   if (mgr.GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Dark) {
     RenderDarkVisorSpot(mgr);
@@ -655,7 +750,7 @@ void CScriptSafeZone::Render(const CStateManager& mgr) const {
 void CScriptSafeZone::InhabitantIdle(CActor& actor, CStateManager& mgr, float dt) {
   CScriptTrigger::InhabitantIdle(actor, mgr, dt);
   if (IsAI(mgr, actor)) {
-    ApplyDamageTo(mgr, dt, actor.GetUniqueId());
+    DamageActor(mgr, actor.GetUniqueId(), dt);
   }
 }
 
@@ -664,7 +759,7 @@ static inline CDamageInfo ScaleDamage(const CDamageInfo& info, float dt) {
   return CDamageInfo(info, dt);
 }
 
-void CScriptSafeZone::ApplyDamageTo(CStateManager& mgr, float dt, TUniqueId id) {
+void CScriptSafeZone::DamageActor(CStateManager& mgr, TUniqueId id, float dt) {
   CDamageInfo damage = mZoneType == kZT_Normal ? ScaleDamage(mNormalDamage, dt)
                                                : ScaleDamage(mHurtfulDamage, dt);
   mgr.ApplyDamage(GetUniqueId(), id, GetUniqueId(), damage,

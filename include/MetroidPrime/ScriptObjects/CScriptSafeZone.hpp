@@ -93,7 +93,7 @@ private:
   void SetZoneType(EZoneType type);
   void UpdateObstruction(CStateManager& mgr, bool enable);
   void ModifyObstruction(CStateManager& mgr, int delta, int type);
-  void ApplyDamageTo(CStateManager& mgr, float dt, TUniqueId id);
+  void DamageActor(CStateManager& mgr, TUniqueId id, float dt); // Name from the Wii SEL export.
   void RenderDarkVisorSpot(const CStateManager& mgr) const;
   void UpdatePlayerInside(CActor& actor, bool inside, CStateManager& mgr);
   void HandleProjectile(CActor& actor, CStateManager& mgr);
