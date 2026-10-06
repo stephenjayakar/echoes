@@ -322,7 +322,7 @@ bool CGunTurretBase::Attacked(CStateManager& mgr, const CTriggerData& data) cons
 bool CGunTurretBase::Delay(CStateManager&, const CTriggerData&) const {
   if (mGunDestroyed) {
     if (mStateMachine->GetTime() > mHurtSleepDelay && mGunRespawns) {
-      const_cast< CGunTurretBase* >(this)->mGunDestroyed = false;
+      mGunDestroyed = false;
       return true;
     }
     return false;

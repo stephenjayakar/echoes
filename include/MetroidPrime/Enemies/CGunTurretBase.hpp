@@ -145,7 +145,7 @@ private:
   int mState;
   float mHurtSleepDelay;
   TUniqueId mTopId;
-  bool mGunDestroyed;
+  mutable bool mGunDestroyed; // Cleared by the const Delay trigger once the gun respawns.
   bool mGunRespawns;
   CVector3f mTargetPos;
   CVector3f mOriginalFront;
