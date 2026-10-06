@@ -30,6 +30,7 @@ CScriptControlHint::CScriptControlHint(TUniqueId uid, const rstl::string& name,
     mCommandEnabled[CControlMapper::kC_AutoFireBeam] = false;
     mCommandEnabled[CControlMapper::kC_ChargeBeam] = false;
     mCommandEnabled[CControlMapper::kC_ChargeBeam2] = false;
+    mCommandEnabled[CControlMapper::kC_ChargeBeam2] = false;
   }
   if (mDisableFlags & kDF_Movement) {
     mCommandEnabled[CControlMapper::kC_Backward] = false;
