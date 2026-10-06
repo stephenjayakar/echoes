@@ -1562,8 +1562,8 @@ bool CSamusHud::IsCachedLightInAreaLights(const SCachedHudLight& light,
 bool CSamusHud::IsAreaLightInCachedLights(const CLight& light) const {
   for (int i = 0; i < 3; ++i) {
     const SCachedHudLight& cached = mHudLights[i];
-    if (cached.mFade != 0.f && cached.mColor == light.GetColor() &&
-        cached.mPosition == light.GetPosition()) {
+    if (cached.mFade != 0.f && light.GetColor() == cached.mColor &&
+        light.GetPosition() == cached.mPosition) {
       return true;
     }
   }
