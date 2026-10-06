@@ -125,6 +125,9 @@ public:
     mValue |= other.mValue;
     return *this;
   }
+  const CMaterialList Union(const CMaterialList& other) const {
+    return CMaterialList(mValue | other.mValue);
+  }
   bool HasMaterial(EMaterialTypes material) const {
     return (mValue & (u64(1) << material)) ? true : false;
   }
