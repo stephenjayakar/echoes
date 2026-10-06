@@ -168,10 +168,13 @@ bool CScriptTeamAiMgr::JoinTeam(const CAi& ai, CTeamAiRole::ETeamAiRole roleA,
   rstl::vector< CTeamAiRole >::iterator found =
       rstl::binary_find(mRoles.begin(), mRoles.end(), role);
   if (found == mRoles.end()) {
-    if (mRoles.size() >= mRoles.capacity()) {
+    if (mRoles.size() < mRoles.capacity()) {
+      rstl::vector< CTeamAiRole >::iterator pos =
+          rstl::lower_bound(mRoles.begin(), mRoles.end(), role);
+      mRoles.insert(pos, role);
+    } else {
       return false;
     }
-    mRoles.insert(rstl::lower_bound(mRoles.begin(), mRoles.end(), role), role);
   } else {
     *found = role;
   }
@@ -184,7 +187,9 @@ void CScriptTeamAiMgr::QuitTeam(TUniqueId id) {
   EndMeleeAttack(id);
   EndProjectileAttack(id);
   const CTeamAiRole role(id);
-  mRoles.erase(rstl::binary_find(mRoles.begin(), mRoles.end(), role));
+  rstl::vector< CTeamAiRole >::iterator found =
+      rstl::binary_find(mRoles.begin(), mRoles.end(), role);
+  mRoles.erase(found);
   UpdateTeamCaptain();
 }
 
@@ -476,10 +481,10 @@ TUniqueId CScriptTeamAiMgr::FindBestIndividualAttackTarget(CStateManager& mgr, c
     if (mgr.GetPlayerState(i)->IsPlayerAlive()) {
       const float penalty = 100.f * targetCounts[i];
       if (penalty < bestScore) {
-        const CPlayer& player = *mgr.GetPlayer(i);
-        const float score = penalty + (player.GetTranslation() - ai.GetTranslation()).Magnitude();
+        const float score =
+            penalty + (mgr.GetPlayer(i)->GetTranslation() - ai.GetTranslation()).Magnitude();
         if (score < bestScore) {
-          target = player.GetUniqueId();
+          target = mgr.GetPlayer(i)->GetUniqueId();
           bestScore = score;
         }
       }
@@ -514,7 +519,7 @@ void CScriptTeamAiMgr::SetMemberTargetId(TUniqueId memberId, TUniqueId targetId)
   rstl::vector< CTeamAiRole >::iterator found =
       rstl::binary_find(mRoles.begin(), mRoles.end(), role);
   if (found != mRoles.end()) {
-    found->mTargetId = targetId;
+    found->SetTargetId(targetId);
   }
 }
 
