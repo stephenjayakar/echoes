@@ -73,7 +73,7 @@ private:
   bool mStashedInARAM : 1;
   EAsyncPhase mAsyncLoadPhase;
   rstl::auto_ptr< CDvdRequest > mDvdReq;
-  rstl::vector< uchar > mHeaderData;
+  rstl::vector< uchar, rstl::aligned_allocator > mHeaderData;
   uint mResTableOffset;
   int mResTableCount;
   int mFakeStaticSize;

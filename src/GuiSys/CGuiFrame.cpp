@@ -33,7 +33,7 @@ rstl::vector< CToken > CGuiFrame::LoadAssets(CInputStream& in, CSimplePool* pool
     assets.reserve(in.ReadInt32());
     for (int i = 0; i < assets.capacity(); ++i) {
       const FourCC type = in.Get< uint >();
-      const CAssetId id = in.Get< uint >();
+      const CAssetId id = in.ReadInt32();
       CToken token = pool->GetObj(SObjectTag(type, id));
       token.Lock();
       assets.push_back_unsafe(token);
