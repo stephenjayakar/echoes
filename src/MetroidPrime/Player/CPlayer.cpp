@@ -3436,7 +3436,7 @@ float CPlayer::GetPrevDamageAmount() const { return mPrevDamageAmount; }
 
 CVector3f CPlayer::GetDamageLocationWR() const { return mDamageLocation; }
 
-uint CPlayer::GetDamageWeaponType() const { return mDamageWeaponType; }
+int CPlayer::GetDamageWeaponType() const { return mDamageWeaponType; }
 
 void CPlayer::FluidFXThink(EFluidState state, CScriptWater& water, CStateManager& mgr) {
   if (mMorphBallState == kMS_Morphed) {

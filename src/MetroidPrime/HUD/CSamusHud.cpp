@@ -175,9 +175,12 @@ void CSamusHud::InitializeFrameGlueMutable(const CStateManager& mgr) {
     const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
     const CPlayerState& playerState = *mgr.GetPlayerState(mPlayerIndex);
     const CPlayerGun& gun = *player.mGun;
-    const CPlayerState::EBeamId beam = player.GetMorphballTransitionState() == CPlayer::kMS_Morphed
-                                           ? playerState.GetCurrentBeam()
-                                           : gun.GetPrimaryWeaponId();
+    CPlayerState::EBeamId beam;
+    if (player.GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
+      beam = playerState.GetCurrentBeam();
+    } else {
+      beam = gun.GetPrimaryWeaponId();
+    }
     mBeamMenu =
         rs_new CHudVisorBeamMenu(*mLoadedHudFrame, mHudStringTable, CHudVisorBeamMenu::kVBM_Beam,
                                  BuildPlayerHasBeams(mgr), beam, mgr.IsMultiplayer());
@@ -799,10 +802,10 @@ void CSamusHud::UpdateVisorAndBeamMenus(float dt, const CStateManager& mgr) {
       mBallBeamTransition = 0.6f - mBallBeamTransition;
       mPreviousBallBeam = mMenuBeam;
     }
-    mBallBeamTransition = rstl::max_val(0.f, mBallBeamTransition - dt);
+    mBallBeamTransition = rstl::max_val(mBallBeamTransition - dt, 0.f);
     const float transition = (2.f * mBallBeamTransition - 0.6f) / 0.6f;
-    const CPlayerState::EBeamId selected = transition > 0.f ? mPreviousBallBeam : currentBeam;
     const CPlayerState::EBeamId pending = transition > 0.f ? mPreviousBallBeam : currentBeam;
+    const CPlayerState::EBeamId selected = transition > 0.f ? mPreviousBallBeam : currentBeam;
     mBeamMenuTransition = CMath::Clamp(0.f, CMath::AbsF(transition), 1.f);
     if (mBeamMenu.get() != nullptr) {
       mBeamMenu->SetSelection(selected, pending, mBeamMenuTransition);
@@ -1838,8 +1841,8 @@ void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
   for (int i = 0; i < mDamageSectorRemaining.size(); ++i) {
     if (mDamageSectorRemaining[i] > 0.f) {
       mDamageSectorRemaining[i] = rstl::max_val(0.f, mDamageSectorRemaining[i] - dt);
-      mDamageSectorIntensity[i] = rstl::min_val(
-          1.f, (mDamageSectorRemaining[i] / mDamageSectorDurations[i]) * mDamageSectorIntensity[i]);
+      const float ratio = mDamageSectorRemaining[i] / mDamageSectorDurations[i];
+      mDamageSectorIntensity[i] = rstl::min_val(1.f, ratio * mDamageSectorIntensity[i]);
     }
   }
   if (mDamageHighlightRemaining > 0.f) {
@@ -1885,7 +1888,7 @@ void CSamusHud::UpdateHudDamage(float dt, const CStateManager& mgr) {
         mDamagerToPlayer;
     if (mDecorationRoot != nullptr) {
       const CTransform4f& idle = mDecorationRoot->GetIdleXform();
-      const CVector3f translation =
+      const CVector3f& translation =
           idle.GetTranslation() + gpTweakGui->GetHudDecoShakeTranslateGain() * mShakeTranslation;
       mDecorationRoot->SetLocalTransform(CTransform4f(idle.BuildMatrix3f() * mShakeRotation, translation));
     }
