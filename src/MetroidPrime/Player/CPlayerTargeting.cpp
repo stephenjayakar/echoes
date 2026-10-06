@@ -129,7 +129,8 @@ bool CPlayerTargeting::AddScanObject(const CActor& actor, const CStateManager& m
 
   const TUniqueId id = actor.GetUniqueId();
   const int bit = 1 << (id.Value() & 7);
-  uchar& membership = mScanObjectMembership[id.Value() >> 3];
+  uchar* bits = mScanObjectMembership;
+  uchar& membership = bits[id.Value() >> 3];
   if (membership & bit) {
     return true;
   }
