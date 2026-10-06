@@ -46,7 +46,7 @@ CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityI
 : CPhysicsActor(uid, name, info, 0, xf, model,
                 open ? CMaterialList(kMT_Unknown59, kMT_Immovable, kMT_Orbit)
                      : CMaterialList(kMT_Immovable, kMT_Occluder, kMT_Unknown59, kMT_Orbit),
-                bounds, SMoverData(1.f), parameters, StepData(0.3f, 0.3f, 0))
+                bounds, SMoverData(1.f), parameters, CPhysicsActor::skDefaultStepData)
 , mDoorState(open ? kDS_Open : kDS_Closed)
 , mOpenTime(openTime)
 , mCloseTime(closeTime)
@@ -88,7 +88,11 @@ CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityI
 , mResetPending(false)
 , mHasReset(false)
 , mHorizontal(horizontal) {
-  SetDoorAnimation(open ? kDAT_Opening : kDAT_Closed);
+  if (open) {
+    SetDoorAnimation(kDAT_Opening);
+  } else {
+    SetDoorAnimation(kDAT_Closed);
+  }
   SetMass(0.f);
 
   if (alternateScan != kInvalidAssetId) {
