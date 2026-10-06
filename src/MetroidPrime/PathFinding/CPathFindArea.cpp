@@ -109,7 +109,7 @@ CPFArea::CPFArea(const rstl::auto_ptr< uchar >& data, int size)
   maxRegionNodes = maxRegionNodes > 4 ? maxRegionNodes : 4;
   mPolyPoints.reserve(maxRegionNodes);
 
-  int numWords = (numRegions * (numRegions - 1) / 2 + 31) / 32;
+  uint numWords = (numRegions * (numRegions - 1) / 2 + 31) / 32;
   mConnectionsGround.set_size(numWords);
   mConnectionsGround.set_data(static_cast< uint* >(stream.GetBlock(numWords, sizeof(uint))));
   mConnectionsFlyers.set_size(numWords);
@@ -275,7 +275,8 @@ bool CPFArea::PathExists(const CPFRegion* source, const CPFRegion* destination, 
   }
   int numRegions = GetNumRegions();
   int sourceIndex = source->GetIndex();
-  int destinationIndex = destination->GetIndex();
+  const int destIndex = destination->GetIndex();
+  int destinationIndex = destIndex;
   const rstl::prereserved_vector< uint >& connections =
       (flags & 2) ? mConnectionsFlyers : mConnectionsGround;
   int lowIndex = sourceIndex;
