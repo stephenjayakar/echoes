@@ -308,9 +308,9 @@ bool CAutoMapper::CheckLoadComplete() {
   // Fall through after the map resources are ready.
   case kLP_LoadUniverse:
     if (mMapu.IsLoaded()) {
-      const int numWorlds = mMapu.GetObject()->GetNumMapWorldDatas();
-      mDummyWorlds =
-          rstl::vector< rstl::auto_ptr< IWorld > >(numWorlds, rstl::auto_ptr< IWorld >());
+      const CMapUniverse* mapu = mMapu.GetObject();
+      mDummyWorlds = rstl::vector< rstl::auto_ptr< IWorld > >(mapu->GetNumMapWorldDatas(),
+                                                              rstl::auto_ptr< IWorld >());
       SetCurWorldAssetId(mWorld->IGetWorldAssetId());
       mLoadPhase = kLP_Done;
     } else {
