@@ -169,8 +169,12 @@ bool CBSHurled::ShouldStartLand(float dt, CBodyController& bc) const {
 }
 
 bool CBSHurled::ShouldStartStrikeWall(CBodyController& bc) const {
+  bool ret = false;
   CPatterned* actor = TCastToPtr< CPatterned >(&bc.GetOwner());
-  return actor->IsInCollision() && !actor->IsOnGround();
+  if (actor->IsInCollision() && !actor->IsOnGround()) {
+    ret = true;
+  }
+  return ret;
 }
 
 void CBSHurled::PlayLandAnimation(CBodyController& bc, CStateManager& mgr) {
