@@ -759,16 +759,16 @@ bool CScriptPlatform::IsSlave(TUniqueId id) const {
 }
 
 CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
-  if (mSplineController.get() && mSplineController->GetPositionSpline().GetKnotCount() != 0) {
+  if (mSplineController.get() && mSplineController->GetPositionSpline().GetControlPointCount() != 0) {
     const CVector3f position = mSplineController->GetPositionByTime(mMotionTime);
     mDragDelta = position - GetTranslation();
     MoveToWR(position, dt);
     TNearList nearList;
-    mgr.BuildColliderList(nearList, *this, GetMotionVolume(dt));
+    mgr.BuildColliderList(nearList, *this, CAABox(GetMotionVolume(dt)));
     TNearList filtered;
-    for (int i = 0; i < nearList.size(); ++i) {
-      if (!IsRider(nearList[i]) && !IsSlave(nearList[i])) {
-        filtered.push_back(nearList[i]);
+    for (TNearList::iterator it = nearList.begin(); it != nearList.end(); ++it) {
+      if (!IsRider(*it) && !IsSlave(*it)) {
+        filtered.push_back(*it);
       }
     }
     const CMotionState motion = PredictMotion(dt);
@@ -800,7 +800,7 @@ CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
                                        mgr);
       }
     }
-    if ((mMotionFlags & (0x80 | 0x1000)) != 0) {
+    if ((mMotionFlags & 0x80) != 0 || (mMotionFlags & 0x1000) != 0) {
       const float time = mSplineController->GetDuration() *
                          mSplineController->PositionTimeSpline().EvaluateAt(mMotionTime);
       CVector3f tangent = mSplineController->GetPositionSpline().GetTangentByTime(time);
@@ -816,15 +816,14 @@ CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
         if (flat.CanBeNormalized()) {
           flat.Normalize();
           if (CVector3f::Dot(tangent, flat) < 0.99999f) {
-            xf.SetColumn(kDZ, CQuaternion::LookAt(CUnitVector3f(flat), CUnitVector3f(tangent),
-                                                  CRelAngle::FromRadians(2.f * M_PIF))
-                                  .Transform(CVector3f::Up()));
+            const CQuaternion rotation = CQuaternion::LookAt(
+                CUnitVector3f(flat), CUnitVector3f(tangent), CRelAngle::FromRadians(2.f * M_PIF));
+            xf.SetColumn(kDZ, rotation.Transform(CVector3f::Up()));
           }
           xf.SetColumn(kDX, CVector3f::Cross(tangent, xf.GetUp()));
           if (!mRollSpline.null()) {
-            const CQuaternion roll = CQuaternion::AxisAngle(
-                CUnitVector3f(tangent),
-                CRelAngle::FromDegrees(mRollSpline->EvaluateAt(mMotionTime)));
+            const CRelAngle rollAngle = CRelAngle::FromDegrees(mRollSpline->EvaluateAt(mMotionTime));
+            const CQuaternion roll = CQuaternion::AxisAngle(CUnitVector3f(tangent), rollAngle);
             xf.SetColumn(kDZ, roll.Transform(xf.GetUp()));
             xf.SetColumn(kDX, roll.Transform(xf.GetRight()));
           }
@@ -837,12 +836,18 @@ CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
     AdvanceMotionTime(dt);
   }
   if ((mMotionFlags & 0x200) != 0) {
-    const CRelAngle pitch =
-        CRelAngle::FromDegrees(mPitchSpline.null() ? 0.f : mPitchSpline->EvaluateAt(mMotionTime));
-    const CRelAngle yaw =
-        CRelAngle::FromDegrees(mYawSpline.null() ? 0.f : mYawSpline->EvaluateAt(mMotionTime));
-    const CRelAngle roll =
-        CRelAngle::FromDegrees(mRollSpline.null() ? 0.f : mRollSpline->EvaluateAt(mMotionTime));
+    CRelAngle pitch = CRelAngle::FromRadians(0.f);
+    if (!mPitchSpline.null()) {
+      pitch = CRelAngle::FromDegrees(mPitchSpline->EvaluateAt(mMotionTime));
+    }
+    CRelAngle yaw = CRelAngle::FromRadians(0.f);
+    if (!mYawSpline.null()) {
+      yaw = CRelAngle::FromDegrees(mYawSpline->EvaluateAt(mMotionTime));
+    }
+    CRelAngle roll = CRelAngle::FromRadians(0.f);
+    if (!mRollSpline.null()) {
+      roll = CRelAngle::FromDegrees(mRollSpline->EvaluateAt(mMotionTime));
+    }
     CTransform4f xf = mInitialTransform.GetRotation() * CTransform4f::RotateZ(yaw) *
                       CTransform4f::RotateY(roll) * CTransform4f::RotateX(pitch);
     xf.SetTranslation(GetTranslation());
@@ -850,9 +855,10 @@ CQuaternion CScriptPlatform::Move(float dt, CStateManager& mgr) {
     SetTransformExplicitly(xf);
   }
   if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mLookAtTarget))) {
-    if ((actor->GetOrbitPosition(mgr) - GetTranslation()).CanBeNormalized()) {
-      CTransform4f xf =
-          CTransform4f::LookAt(GetTranslation(), actor->GetOrbitPosition(mgr), CVector3f::Up());
+    const CVector3f delta = actor->GetScanObjectIndicatorPosition(mgr) - GetTranslation();
+    if (delta.CanBeNormalized()) {
+      CTransform4f xf = CTransform4f::LookAt(
+          GetTranslation(), actor->GetScanObjectIndicatorPosition(mgr), CVector3f::Up());
       xf.SetTranslation(GetTranslation());
       SetTransform(xf);
     }
