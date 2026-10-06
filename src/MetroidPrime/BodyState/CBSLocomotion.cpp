@@ -393,7 +393,7 @@ float CBSRestrictedLocomotion::UpdateLocomotionAnimation(float dt, float velMag,
   return 1.f;
 }
 
-CBSFlyerLocomotion::CBSFlyerLocomotion(CActor& actor, bool pitchable)
+CBSFlyerLocomotion::CBSFlyerLocomotion(CActor& actor, const bool pitchable)
 : CBSBiPedLocomotion(actor), mPitchable(pitchable) {}
 
 float CBSFlyerLocomotion::ApplyLocomotionPhysics(float dt, CBodyController& bc) {
