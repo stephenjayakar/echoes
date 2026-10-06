@@ -87,15 +87,15 @@ void CEyeBall::CreateBeam(CStateManager& mgr) {
 
 void CEyeBall::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   bool skipForward = false;
+  const EScriptObjectMessage message = msg.GetMessage();
   const TUniqueId sender = msg.GetSenderId();
-  switch (msg.GetMessage()) {
+  switch (message) {
   case kSM_Damage: {
     if (const CGameProjectile* proj =
             TCastToConstPtr< CGameProjectile >(mgr.GetObjectById(sender))) {
       if (proj->GetOwnerId() == mgr.GetPlayer(0)->GetUniqueId()) {
-        if (GetDamageVulnerability()
-                ->GetVulnerability(proj->GetCurrentDamageInfo().GetWeaponMode())
-                .WeaponHurts()) {
+        const CDamageVulnerability* vuln = GetDamageVulnerability();
+        if (vuln->GetVulnerability(proj->GetCurrentDamageInfo().GetWeaponMode()).WeaponHurts()) {
           mHitByPlayerProjectile = true;
         }
       }
@@ -106,9 +106,8 @@ void CEyeBall::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     if (const CGameProjectile* proj =
             TCastToConstPtr< CGameProjectile >(mgr.GetObjectById(sender))) {
       if (proj->GetOwnerId() == mgr.GetPlayer(0)->GetUniqueId()) {
-        if (GetDamageVulnerability()
-                ->GetVulnerability(proj->GetCurrentDamageInfo().GetWeaponMode())
-                .WeaponHurts()) {
+        const CDamageVulnerability* vuln = GetDamageVulnerability();
+        if (vuln->GetVulnerability(proj->GetCurrentDamageInfo().GetWeaponMode()).WeaponHurts()) {
           mHitByPlayerProjectile = true;
         }
       }
@@ -230,7 +229,7 @@ void CEyeBall::Active(CStateManager& mgr, EStateMsg msg, float dt) {
 void CEyeBall::PreRender(CStateManager& mgr) {
   CPatterned::PreRender(mgr);
   mBoneTracking.PreRender(mgr, *AnimationData(), GetTransform(),
-                          GetModelData()->GetScale(), ApplyBoneTracking());
+                          GetModelScale(), ApplyBoneTracking());
   mLaserLocatorXf = GetLctrTransform(rstl::string_l(skEyeLocator));
 }
 
@@ -337,7 +336,8 @@ void CEyeBall::UpdateCycleAnimation(float dt) {
   }
   const int animIdx = mAnimIndices[mCurrentAnim];
   if (animIdx != -1) {
-    BodyController()->CommandMgr().DeliverCmd(CBCScriptedCmd(animIdx, false, false, 0.f));
+    CBodyController* controller = BodyController();
+    controller->CommandMgr().DeliverCmd(CBCScriptedCmd(animIdx, false, false, 0.f));
   }
 }
 

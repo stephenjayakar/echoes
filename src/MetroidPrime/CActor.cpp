@@ -784,7 +784,7 @@ void CActor::ProcessSoundEvent(int sfxId, float weight, int flags, float fallOff
   } else {
     CSfxHandle handle;
     if (nonEmitter) {
-      short pan = 64;
+      int pan = 64;
       if (flags & 0x10000000) {
         if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(GetUniqueId()))) {
           pan = player->GetSoundPan(CPlayer::kMSP_4);
