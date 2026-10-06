@@ -54,7 +54,7 @@ void CGroundMovement::MoveGroundCollider(
     actor.SetMotionState(oldState);
   }
   CMotionState newState = actor.PredictMotion_Internal(dt);
-  if (actor.IsStandardCollider() && newState.IsZero()) {
+  if (actor.IsOnStaticGround() == true && newState.IsZero() == true) {
     actor.ClearForcesAndTorques();
     actor.MoveCollisionPrimitive(CVector3f::Zero());
     return;
@@ -79,7 +79,7 @@ void CGroundMovement::MoveGroundCollider(
         0.5f * CGameCollision::GetMinExtentForCollisionPrimitive(*actor.GetCollisionPrimitive())) {
       CAABox bounds = actor.GetCollisionPrimitive()->CalculateAABox(actor.GetPrimitiveTransform());
       CVector3f point = bounds.GetCenterPoint();
-      CVector3f direction = newState.GetTranslation() / deltaMag;
+      CVector3f direction = newState.GetTranslation() * (1.f / deltaMag);
       TUniqueId intersectId = kInvalidUniqueId;
       const CMaterialFilter& rayFilter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Solid));
       CRayCastResult result =
@@ -271,23 +271,24 @@ bool CGroundMovement::MoveGroundColliderXY(CAreaCollisionCache& cache, CStateMan
   static int totalIterations = 0;
   static int peakIterationCount = 1;
   int iterationCount = 0;
+  float curDt = dt;
   float remainingDt = dt;
   float originalDt = dt;
   CPhysicsActor* otherActor = nullptr;
   CCollisionInfoList collisionList;
-  CMotionState motion = actor.PredictMotion_Internal(dt);
+  CMotionState motion = actor.PredictMotion_Internal(curDt);
   float translationMag = motion.GetTranslation().Magnitude();
   float minimumTranslation = isPlayer ? rstl::max_val(translationMag / 5.f, 0.005f)
                                       : rstl::max_val(translationMag / 3.f, 0.02f);
   float minExtent =
       0.5f * CGameCollision::GetMinExtentForCollisionPrimitive(*actor.GetCollisionPrimitive());
   if (translationMag > minExtent) {
-    originalDt = minExtent * (dt / translationMag);
-    dt = originalDt;
-    motion = actor.PredictMotion_Internal(dt);
+    originalDt = minExtent * (curDt / translationMag);
+    curDt = originalDt;
+    motion = actor.PredictMotion_Internal(curDt);
     minimumTranslation = rstl::min_val(minExtent, minimumTranslation);
   }
-  float nonCollideDt = dt;
+  float nonCollideDt = curDt;
   bool loopContinue = true;
   while (loopContinue) {
     actor.MoveCollisionPrimitive(motion.GetTranslation());
@@ -340,20 +341,20 @@ bool CGroundMovement::MoveGroundColliderXY(CAreaCollisionCache& cache, CStateMan
                                                        CUnitVector3f(normal), restitution, true);
           }
         }
-        remainingDt -= dt;
+        remainingDt -= curDt;
         nonCollideDt = rstl::min_val(remainingDt, originalDt);
-        dt = nonCollideDt;
+        curDt = nonCollideDt;
       } else {
         nonCollideDt *= 0.5f;
-        dt *= 0.5f;
+        curDt *= 0.5f;
       }
     } else {
       actor.AddMotionState(motion);
-      remainingDt -= dt;
-      dt = nonCollideDt;
+      remainingDt -= curDt;
+      curDt = nonCollideDt;
       actor.MoveCollisionPrimitive(CVector3f::Zero());
     }
-    motion = actor.PredictMotion_Internal(dt);
+    motion = actor.PredictMotion_Internal(curDt);
     loopContinue = remainingDt > 0.f;
   }
   if (!didCollide && !actor.GetMaterialList().HasMaterial(kMT_GroundCollider)) {
@@ -740,7 +741,7 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
   CVector3f floorNormal = floorCollision ? *options.mFloorPlaneNormal : CVector3f::Zero();
 
   while (remainingDt > 0.f) {
-    float collideDt = remainingDt;
+    float collideDt;
     CMotionState motion = actor.PredictMotion_Internal(remainingDt);
     const float translationMag = motion.GetTranslation().Magnitude();
     const CVector3f direction =
@@ -759,6 +760,8 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
         result.mCollision = info;
       }
       collideDt = remainingDt * static_cast< float >(distance / translationMag);
+    } else {
+      collideDt = remainingDt;
     }
 
     const float moveDistance =
@@ -779,10 +782,10 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
 
       if (clipCollision) {
         if (floorCollision) {
-          if (RemoveNormalComponent(floorNormal, direction, collisionNormal, collisionFloorDot)) {
-            collisionNormal.Normalize();
-          } else {
+          if (!RemoveNormalComponent(floorNormal, direction, collisionNormal, collisionFloorDot)) {
             RemovePositiveZComponentFromNormal(collisionNormal);
+          } else {
+            collisionNormal.Normalize();
           }
         } else {
           RemovePositiveZComponentFromNormal(collisionNormal);
@@ -811,19 +814,22 @@ CGroundMovement::MoveObjectAnalytical(CStateManager& mgr, CPhysicsActor& actor, 
         velocity.SetZ(0.f);
       }
       if (velocity.GetZ() > options.mMaxPositiveVerticalVelocity) {
-        velocity *= options.mMaxPositiveVerticalVelocity / velocity.GetZ();
+        float scale = options.mMaxPositiveVerticalVelocity / velocity.GetZ();
+        velocity.SetX(velocity.GetX() * scale);
+        velocity.SetY(velocity.GetY() * scale);
+        velocity.SetZ(velocity.GetZ() * scale);
       }
 
       if (options.mDampForceAndMomentum) {
-        const CVector3f force = actor.GetForceWR();
+        CVector3f force = actor.GetForceWR();
         if (force.CanBeNormalized()) {
-          actor.SetForceWR(
-              CollisionDamping(force, force.AsNormalized(), collisionNormal, 0.f, 1.f));
+          force = CollisionDamping(force, force.AsNormalized(), collisionNormal, 0.f, 1.f);
+          actor.SetForceWR(force);
         }
-        const CVector3f momentum = actor.GetMomentumWR();
+        CVector3f momentum = actor.GetMomentumWR();
         if (momentum.CanBeNormalized()) {
-          actor.SetMomentumWR(
-              CollisionDamping(momentum, momentum.AsNormalized(), collisionNormal, 0.f, 1.f));
+          momentum = CollisionDamping(momentum, momentum.AsNormalized(), collisionNormal, 0.f, 1.f);
+          actor.SetMomentumWR(momentum);
         }
       }
 

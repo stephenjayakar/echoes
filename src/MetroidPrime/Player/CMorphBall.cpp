@@ -1049,7 +1049,8 @@ void CMorphBall::CollidedWith(const TUniqueId& id, const CCollisionInfoList& lis
                                   CSfxManager::kMedPriority);
         }
         mPendingRecoil = true;
-        mPlayer.BodyController()->CommandMgr().DeliverCmd(CPBCMorphToScrewAttackCmd(3, 4));
+        CPlayerBodyStateCmdMgr& cmdMgr = mPlayer.BodyController()->CommandMgr();
+        cmdMgr.DeliverCmd(CPBCMorphToScrewAttackCmd(3, 4));
         mWallNormal = normal;
         mScrewAttackDirection = mWallNormal;
         mScrewAttackDirection.SetZ(0.f);
@@ -1413,11 +1414,13 @@ bool CMorphBall::UpdateMarbleDynamics(CStateManager& mgr, float dt, const CVecto
         const float tireFactor = useTireFactor ? 0.25f : 1.f;
 
         const CVector3f& newVelocityDir = newVelocity.AsNormalized();
-        const CVector3f torque =
-            newVelocityDir *
-            (slipVelocity.Magnitude() *
+        const float torqueScale = slipVelocity.Magnitude() *
              -gpTweakBall->GetBallSlipFactor(mPlayer.GetSurfaceRestraint()) * tireFactor * 0.5f /
-             GetBallRadius());
+             GetBallRadius();
+        CVector3f torque;
+        torque.SetX(newVelocityDir.GetX() * torqueScale);
+        torque.SetY(newVelocityDir.GetY() * torqueScale);
+        torque.SetZ(newVelocityDir.GetZ() * torqueScale);
         const CVector3f worldTorque = CVector3f::Cross(ballToPoint.AsNormalized(), torque);
         mPlayer.ApplyTorqueWR(worldTorque);
       }
@@ -1494,10 +1497,11 @@ void CMorphBall::ApplyBoostBallDamage(CStateManager& mgr, TUniqueId id, const CD
 
       canDamage |= slowHit;
       if (canDamage) {
+        bool shielded;
         CPlayer* otherPlayer = TCastToPtr< CPlayer >(physAct);
         const float knockBackSpeed = gpTweakBall->GetBoostBallCollisionKnockBackSpeed();
         if (otherPlayer) {
-          bool shielded = false;
+          shielded = false;
           const bool otherMorphed =
               otherPlayer->GetMorphballTransitionState() == CPlayer::kMS_Morphed;
           if (otherPlayer->GetMorphBall()->IsBoostShieldActive() && !hasCannonBall) {
@@ -1526,7 +1530,7 @@ void CMorphBall::ApplyBoostBallDamage(CStateManager& mgr, TUniqueId id, const CD
               const float hitSpeed = shielded
                                          ? knockBackSpeed
                                          : gpTweakBall->GetBoostBallHitPlayerBallKnockBackSpeed();
-              otherPlayer->SetVelocityWR(hitSpeed * hitDir + CVector3f(0.f, 0.f, hitSpeed * 0.5f));
+              otherPlayer->SetVelocityWR(hitSpeed * hitDir + CVector3f(0.f, 0.f, hitSpeed / 2.f));
             } else {
               otherPlayer->SetVelocityWR(gpTweakBall->GetBoostBallHitPlayerFPKnockBackSpeed() *
                                          hitDir);
@@ -1945,7 +1949,8 @@ void CMorphBall::UpdateScrewAttackRecovery(float dt) {
   }
 
   if (mScrewAttackExitAnimationFrames != 0) {
-    mPlayer.BodyController()->CommandMgr().DeliverCmd(CPBCJumpCmd(0, 4));
+    CPlayerBodyStateCmdMgr& cmdMgr = mPlayer.BodyController()->CommandMgr();
+    cmdMgr.DeliverCmd(CPBCJumpCmd(0, 4));
     --mScrewAttackExitAnimationFrames;
   }
 
@@ -1960,10 +1965,9 @@ void CMorphBall::UpdateScrewAttackRecovery(float dt) {
 
   if (mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround) {
     ++mScrewAttackGroundedFrames;
-    CVector2f flatVelocity(velocity.GetX(), velocity.GetY());
+    const CVector2f flatVelocity = CVector2f(velocity.GetX(), velocity.GetY());
     const CVector3f dampedVelocity =
-        velocity - static_cast< float >(pow(0.05f, 60.f * dt)) *
-                       CVector3f(flatVelocity.GetX(), flatVelocity.GetY(), 0.f);
+        velocity - static_cast< float >(pow(0.05f, 60.f * dt)) * CVector3f(flatVelocity, 0.f);
     mPlayer.SetVelocityWR(dampedVelocity);
   }
 
@@ -2009,8 +2013,8 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
 
     mScrewAttackDirection = mWallNormal;
     mWallContactTime += dt;
-    const float wallTimeScale = mWallJumpCount != 0 ? 1.f : 1.5f;
-    const float maxWallContactTime = wallTimeScale * gpTweakBall->GetScrewAttackWallJumpMaxTime();
+    const float maxWallContactTime =
+        (mWallJumpCount != 0 ? 1.f : 1.5f) * gpTweakBall->GetScrewAttackWallJumpMaxTime();
     if (mTouchingWall && mWallContactTime > maxWallContactTime) {
       mEndScrewAttackRequested = true;
     }
@@ -2037,6 +2041,7 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
       }
     }
   } else {
+    float steeringAngle;
     const float verticalVelocity = gpTweakBall->GetScrewAttackVerticalJumpVelocity();
     const float jumpEnergy = mass * (0.5f * verticalVelocity * verticalVelocity);
     const float horizontalVelocity = gpTweakBall->GetScrewAttackHorizontalJumpVelocity();
@@ -2050,7 +2055,7 @@ void CMorphBall::ComputeScrewAttackMovement(const CFinalInput& input, CStateMana
         const float jumpSpeed = CMath::SqrtF(2.f * (jumpEnergy + potentialEnergy) / mass);
         const CVector2f steering = CalculateSpiderBallAttractionSurfaceForces(input);
         if (CMath::AbsF(steering.GetX()) > 0.05f) {
-          const float steeringAngle =
+          steeringAngle =
               -(gpTweakBall->GetScrewAttackMaxSteeringAngle().AsRadians() * steering.GetX());
           moveDir = CTransform4f::RotateZ(CRelAngle::FromRadians(steeringAngle)).Rotate(moveDir);
           CTransform4f playerXf = mPlayer.GetTransform();
@@ -2276,7 +2281,7 @@ void CMorphBall::UpdateEffects(float dt, CStateManager& mgr) {
 
     mWallSparkGen->Update(dt);
 
-    const bool emitRainWake = mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround &&
+    bool emitRainWake = mPlayer.GetPlayerMovementState() == NPlayer::kMS_OnGround &&
                               mgr.GetWorld()->GetNeededEnvFx() == kEFX_Rain &&
                               mgr.GetEnvFxManager()->GetRainMagnitude() > 0.f &&
                               mgr.GetEnvFxManager()->IsSplashActive();
@@ -2367,7 +2372,10 @@ void CMorphBall::UpdateEffects(float dt, CStateManager& mgr) {
       mBoostEffectGen->Update(dt * rate);
 
       mBoostEffectTime += dt;
-      const bool boostEffectDone = !IsBoosting() && mBoostEffectTime > 1.5f;
+      bool boostEffectDone = false;
+      if (!IsBoosting() && mBoostEffectTime > 1.5f) {
+        boostEffectDone = true;
+      }
       if (boostEffectDone || mBoostEffectGen->IsSystemDeletable()) {
         mBoostEffectGen = nullptr;
       }

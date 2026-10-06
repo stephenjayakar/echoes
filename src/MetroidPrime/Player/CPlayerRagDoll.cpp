@@ -47,7 +47,7 @@ CPlayerRagDoll::CPlayerRagDoll(CStateManager& mgr, CPlayer* player, ushort thudS
   SetNumLengthConstraints(47);
   SetNumJointConstraints(4);
 
-  const CVector3f scale = player->GetModelData()->GetScale();
+  const CVector3f& scale = player->GetModelData()->GetScale();
   const CTransform4f& xf = player->GetTransform();
   CAnimData* animData = player->AnimationData();
   animData->BuildPose();

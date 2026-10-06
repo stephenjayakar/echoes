@@ -26,7 +26,7 @@
 #include <float.h>
 
 const float CActorLights::kDefaultMinPosChange = 0.1f;
-const int CActorLights::kInvalidShadowLightIndex = -1;
+const uint CActorLights::kInvalidShadowLightIndex = -1;
 int CActorLights::sFrameSchedulerCount = 0;
 static bool sUseOverflowLight = true;
 
