@@ -1387,16 +1387,15 @@ bool CFlyingPirate::Attacked(CStateManager& mgr, const CTriggerData& data) const
 }
 
 bool CFlyingPirate::ShouldSpecialAttack(CStateManager& mgr, const CTriggerData& data) const {
-  CFlyingPirate* self = const_cast< CFlyingPirate* >(this);
   if (mFlavor == kFT_One && mAttackObjectId != kInvalidUniqueId && x860_ <= 0.f) {
-    self->x860_ = 15.f * mgr.Random()->Float() + 15.f;
+    const_cast< CFlyingPirate* >(this)->x860_ = 15.f * mgr.Random()->Float() + 15.f;
     if (!mgr.GetPlayer(0)->CheckOrbitDisableSourceList()) {
       if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mAttackObjectId))) {
         if (mTeamAiMgr == kInvalidUniqueId ||
             CScriptTeamAiMgr::StartAttack(CScriptTeamAiMgr::kAT_Projectile, mgr, mTeamAiMgr,
                                           GetUniqueId())) {
-          self->SetDestPos(actor->GetTranslation() + 15.f * CVector3f::Down());
-          self->mIsMoving = true;
+          const_cast< CFlyingPirate* >(this)->SetDestPos(actor->GetTranslation() + 15.f * CVector3f::Down());
+          const_cast< CFlyingPirate* >(this)->mIsMoving = true;
           return true;
         }
       }
@@ -1615,6 +1614,8 @@ void CFlyingPirate::Explode(CStateManager& mgr, EStateMsg msg, float dt) {
     if (mStateMachine->GetTime() > 0.1f) {
       DeathDelete(mgr);
     }
+    break;
+  case kStateMsg_Deactivate:
     break;
   }
 }
