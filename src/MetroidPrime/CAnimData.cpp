@@ -12,6 +12,7 @@
 #include "Kyoto/Math/CloseEnough.hpp"
 #include "rstl/algorithm.hpp"
 #include "MetroidPrime/CModelData.hpp"
+#include "MetroidPrime/Factories/CCharacterFactory.hpp"
 
 typedef rstl::reserved_vector< rstl::pair< uint, CAdditiveAnimPlayback >, 8 > TAdditiveAnims;
 
@@ -503,7 +504,32 @@ void CAnimData::SetAnimationTreeLimit(int limit) { x2a8_ = limit; }
 rstl::rc_ptr< CAnimationManager > CAnimData::GetAnimationManager() { return mAnimMgr; }
 
 void CAnimData::AddAdditiveAnimation(uint idx, float weight, bool active, bool fadeOut) {
-  // TODO: Create or update the character-mapped additive animation and its fade parameters.
+  const uint anim = mCharInfo.GetAnimationIndexList()[idx];
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  for (; it != mAdditiveAnims.end(); ++it) {
+    if (anim == it->first) {
+      break;
+    }
+  }
+  if (it != mAdditiveAnims.end()) {
+    it->second.SetLoop(active);
+    CAdditiveAnimPlayback& playback = it->second;
+    playback.SetWeight(weight);
+    playback.SetFadeOutWhenAnimOver(!playback.IsLoop() && fadeOut);
+  } else {
+    const rstl::ncrc_ptr< CAnimTreeNode > node =
+        GetAnimationManager()->GetAnimationTree(anim, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    const rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >& infos =
+        mCharFactory->GetAdditiveAnimInfoList();
+    rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >::const_iterator infoIt =
+        rstl::binary_find(infos.begin(), infos.end(), anim,
+                          rstl::pair_sorter_finder< rstl::pair< uint, CAdditiveAnimationInfo >,
+                                                    rstl::less< uint > >(rstl::less< uint >()));
+    const CAdditiveAnimationInfo info =
+        infoIt != infos.end() ? infoIt->second : mCharFactory->GetDefaultAdditiveAnimInfo();
+    const CAdditiveAnimPlayback playback(node, weight, active, info, fadeOut);
+    mAdditiveAnims.push_back(rstl::pair< uint, CAdditiveAnimPlayback >(anim, playback));
+  }
 }
 
 void CAnimData::DelAdditiveAnimation(uint idx) {
@@ -573,8 +599,14 @@ rstl::rc_ptr< CAnimTreeNode > CAnimData::GetAdditiveAnimationTree(uint idx) cons
 const rstl::ncrc_ptr< CAnimTreeNode >& CAnimData::GetAnimationTree() const { return mAnimRoot; }
 
 bool CAnimData::IsAdditiveAnimation(uint idx) const {
-  // TODO: Search the animation database's additive-animation information.
-  return false;
+  const uint anim = mCharInfo.GetAnimationIndexList()[idx];
+  const rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >& infos =
+      mCharFactory->GetAdditiveAnimInfoList();
+  rstl::vector< rstl::pair< uint, CAdditiveAnimationInfo > >::const_iterator it =
+      rstl::binary_find(infos.begin(), infos.end(), anim,
+                        rstl::pair_sorter_finder< rstl::pair< uint, CAdditiveAnimationInfo >,
+                                                  rstl::less< uint > >(rstl::less< uint >()));
+  return it != infos.end();
 }
 
 SAdvancementResults CAnimData::AdvanceAdditiveAnim(rstl::rc_ptr< CAnimTreeNode >& tree,
