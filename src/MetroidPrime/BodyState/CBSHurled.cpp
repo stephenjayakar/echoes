@@ -70,80 +70,83 @@ void CBSHurled::Start(CBodyController& bc, CStateManager& mgr) {
 
 pas::EAnimationState CBSHurled::UpdateBody(float dt, CBodyController& bc, CStateManager& mgr) {
   pas::EAnimationState state = GetBodyStateTransition(dt, bc);
-  if (state != pas::kAS_Invalid) {
-    return state;
-  }
+  if (state == pas::kAS_Invalid) {
 
-  mCurTime += dt;
-  if (mRemTime > 0.f) {
-    bc.SetDeltaRotation(CQuaternion::ZRotation(CRelAngle::FromRadians(mRotateSpeed * dt)));
-    mRemTime -= dt;
-  }
-  if (bc.CommandMgr().GetCmd(kBSC_ExitState)) {
-    mNeedsRecover = true;
-  }
-
-  switch (mState) {
-  case pas::kHS_KnockIntoAir:
-    if (bc.IsAnimationOver()) {
-      bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
-                                            CPASAnimParm::FromReal32(mKnockAngle),
-                                            CPASAnimParm::FromEnum(pas::kHS_KnockLoop)),
-                           *mgr.Random());
-      mState = pas::kHS_KnockLoop;
-      mLandedDur = 0.f;
+    mCurTime += dt;
+    if (mRemTime > 0.f) {
+      bc.SetDeltaRotation(CQuaternion::ZRotation(CRelAngle::FromRadians(mRotateSpeed * dt)));
+      mRemTime -= dt;
     }
-    break;
-  case pas::kHS_KnockLoop:
-    if (ShouldStartLand(dt, bc)) {
-      mState = pas::kHS_KnockDown;
-      PlayLandAnimation(bc, mgr);
-    } else if (ShouldStartStrikeWall(bc)) {
-      PlayStrikeWallAnimation(bc, mgr);
-      if (CPatterned* actor = TCastToPtr< CPatterned >(&bc.GetOwner())) {
-        actor->SetVelocityWR((2.f * dt * actor->GetGravityConstant()) * CVector3f::Down());
+    if (bc.CommandMgr().GetCmd(kBSC_ExitState)) {
+      mNeedsRecover = true;
+    }
+
+    switch (mState) {
+    case pas::kHS_KnockIntoAir:
+      if (bc.IsAnimationOver()) {
+        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
+                                              CPASAnimParm::FromReal32(mKnockAngle),
+                                              CPASAnimParm::FromEnum(pas::kHS_KnockLoop)),
+                             *mgr.Random());
+        mState = pas::kHS_KnockLoop;
+        mLandedDur = 0.f;
       }
-    } else if (mNeedsRecover) {
-      Recover(mgr, bc, pas::kHS_RecoverFromKnockLoop);
+      break;
+    case pas::kHS_KnockLoop:
+      if (ShouldStartLand(dt, bc)) {
+        mState = pas::kHS_KnockDown;
+        PlayLandAnimation(bc, mgr);
+      } else if (ShouldStartStrikeWall(bc)) {
+        PlayStrikeWallAnimation(bc, mgr);
+        if (CPatterned* actor = TCastToPtr< CPatterned >(&bc.GetOwner())) {
+          actor->SetVelocityWR((2.f * dt * actor->GetGravityConstant()) * CVector3f::Down());
+        }
+      } else if (mNeedsRecover) {
+        Recover(mgr, bc, pas::kHS_RecoverFromKnockLoop);
+      }
+      break;
+    case pas::kHS_StrikeWall:
+      if (bc.IsAnimationOver()) {
+        mState = pas::kHS_StrikeWallFallLoop;
+        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
+                                              CPASAnimParm::FromReal32(mKnockAngle),
+                                              CPASAnimParm::FromEnum(mState)),
+                             *mgr.Random());
+        mLandedDur = 0.f;
+      }
+      break;
+    case pas::kHS_StrikeWallFallLoop:
+      if (ShouldStartLand(dt, bc)) {
+        mState = pas::kHS_OutOfStrikeWall;
+        PlayLandAnimation(bc, mgr);
+      } else if (mNeedsRecover) {
+        Recover(mgr, bc, pas::kHS_RecoverFromStrikeWall);
+      }
+      break;
+    case pas::kHS_RecoverFromKnockLoop:
+    case pas::kHS_RecoverFromStrikeWall:
+      if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
+        actor->SetVelocityWR(actor->GetVelocityWR() * powf(0.9f, 60.f * dt));
+      }
+      if (bc.IsAnimationOver()) {
+        mState = pas::kHS_Invalid;
+        state = pas::kAS_Locomotion;
+      }
+      break;
+    case pas::kHS_KnockDown:
+    case pas::kHS_OutOfStrikeWall:
+      if (bc.IsAnimationOver()) {
+        mState = pas::kHS_Invalid;
+        if (bc.GetFallState() == pas::kFS_Zero) {
+          state = pas::kAS_Locomotion;
+        } else {
+          state = pas::kAS_LieOnGround;
+        }
+      }
+      break;
+    default:
+      break;
     }
-    break;
-  case pas::kHS_StrikeWall:
-    if (bc.IsAnimationOver()) {
-      mState = pas::kHS_StrikeWallFallLoop;
-      bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
-                                            CPASAnimParm::FromReal32(mKnockAngle),
-                                            CPASAnimParm::FromEnum(mState)),
-                           *mgr.Random());
-      mLandedDur = 0.f;
-    }
-    break;
-  case pas::kHS_StrikeWallFallLoop:
-    if (ShouldStartLand(dt, bc)) {
-      mState = pas::kHS_OutOfStrikeWall;
-      PlayLandAnimation(bc, mgr);
-    } else if (mNeedsRecover) {
-      Recover(mgr, bc, pas::kHS_RecoverFromStrikeWall);
-    }
-    break;
-  case pas::kHS_RecoverFromKnockLoop:
-  case pas::kHS_RecoverFromStrikeWall:
-    if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-      actor->SetVelocityWR(actor->GetVelocityWR() * powf(0.9f, 60.f * dt));
-    }
-    if (bc.IsAnimationOver()) {
-      mState = pas::kHS_Invalid;
-      state = pas::kAS_Locomotion;
-    }
-    break;
-  case pas::kHS_KnockDown:
-  case pas::kHS_OutOfStrikeWall:
-    if (bc.IsAnimationOver()) {
-      mState = pas::kHS_Invalid;
-      state = bc.GetFallState() == pas::kFS_Zero ? pas::kAS_Locomotion : pas::kAS_LieOnGround;
-    }
-    break;
-  default:
-    break;
   }
   return state;
 }
