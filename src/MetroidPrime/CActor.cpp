@@ -915,12 +915,14 @@ void CActor::ClearFluidList(CStateManager& mgr) {
 }
 
 uchar CActor::GetVisorSoundVolume(const CStateManager& mgr) const {
-  if (mgr.IsMultiplayer()) {
-    return mMaxVol;
+  if (!mgr.IsMultiplayer()) {
+    int volume = mNormalVolume;
+    if (mgr.GetPlayer(0)->GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Echo) {
+      volume = mEchoVolume;
+    }
+    return volume;
   }
-  return mgr.GetPlayer(0)->GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Echo
-             ? mEchoVolume
-             : mNormalVolume;
+  return mMaxVol;
 }
 
 void CActor::UpdateSfxEmitters(CStateManager& mgr) {
