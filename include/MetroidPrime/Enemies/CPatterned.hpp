@@ -234,6 +234,8 @@ public:
   void fn_801524fc(CStateManager& mgr);
 
   bool GetAlive() const { return mAlive; }
+  bool GetFadeToDeath() const { return mFadeToDeath; }
+  void SetFadeToDeath(bool fade) { mFadeToDeath = fade; }
   bool IsMakingBigStrike() const { return mIsMakingBigStrike; }
   float GetDamageDuration() const { return mDamageDuration; }
   int GetCreatureSize() const { return mCreatureSize; }

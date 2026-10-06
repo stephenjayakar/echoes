@@ -3461,8 +3461,8 @@ void CSpacePirate::Think(float dt, CStateManager& mgr) {
     if (mRagDoll->IsOver() && !mRagDoll->WillContinueSmallMovements()) {
       SetMomentumWR(CVector3f::Zero());
       CPhysicsActor::Stop();
-      if (!mFadeToDeath) {
-        mFadeToDeath = true;
+      if (!GetFadeToDeath()) {
+        SetFadeToDeath(true);
         mAlphaDelta = -1.f / 3.f;
         mAllEnergyDrained = true;
       }
@@ -3472,10 +3472,7 @@ void CSpacePirate::Think(float dt, CStateManager& mgr) {
     mRagdollDelayTimer -= dt;
     if (mRagdollDelayTimer <= 0.f) {
       if (mRagDoll.null()) {
-        rstl::reserved_vector< float, 14 > radii;
-        for (int i = 0; i < ARRAY_SIZE(skRadii); ++i) {
-          radii.push_back(skRadii[i]);
-        }
+        rstl::reserved_vector< float, 14 > radii(skRadii, skRadii + ARRAY_SIZE(skRadii));
         mRagDoll = rs_new CPirateRagDoll(
             mgr, this, mPirateData.mSound_Impact,
             (mFloatingCorpse ? 3 : 0) | (mRagdollNoAiCollision ? 4 : 0), skGravityConstant, -3.f,

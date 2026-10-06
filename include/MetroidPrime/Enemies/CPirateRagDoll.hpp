@@ -25,9 +25,15 @@ private:
   float mSfxTimer;
   CVector3f mLastSFXPos;
   CVector3f mTorsoImpulse;
-  rstl::reserved_vector< int, 3 > xc4_;
-  rstl::reserved_vector< TUniqueId, 12 > mWaypoints;
-  rstl::reserved_vector< int, 2 > xf0_;
+  // Guessed element type: the PirateRagDoll REL fills it from CScriptAIWaypoint locator indices
+  // with a placement-constructed 4-byte value that rstl does not treat as trivially destructible.
+  struct SWaypointLocator {
+    int mIndex;
+  };
+
+  rstl::reserved_vector< TUniqueId, 6 > mWaypoints;
+  rstl::reserved_vector< SWaypointLocator, 6 > mWaypointLocators;
+  rstl::reserved_vector< bool, 6 > mWaypointActive;
   float xfc_;
   float x100_;
   float x104_;

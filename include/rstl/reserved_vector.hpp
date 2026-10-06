@@ -35,6 +35,11 @@ public:
   reserved_vector(const reserved_vector& other) : mCount(other.mCount) {
     uninitialized_copy_n(other.data(), mCount, data());
   }
+  template < typename S >
+  reserved_vector(const S* first, const S* last) : mCount(0) {
+    mCount = last - first;
+    uninitialized_copy(first, last, data());
+  }
   reserved_vector(CInputStream& in);
 
   reserved_vector& operator=(const reserved_vector& other);
