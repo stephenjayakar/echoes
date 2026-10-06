@@ -98,7 +98,7 @@ void CScriptHUDHint::Think(float dt, CStateManager& mgr) {
 
   const CSphere sphere(GetTranslation(), 1.f);
   const uint numPlayers = mgr.GetNumPlayers();
-  for (uint player = 0; player < numPlayers; ++player) {
+  for (int player = 0; player < numPlayers; ++player) {
     CPlayerState* state = mgr.PlayerState(player);
     bool visible = false;
     if ((mVisorMask & (1 << state->GetCurrentVisor())) != 0 &&
