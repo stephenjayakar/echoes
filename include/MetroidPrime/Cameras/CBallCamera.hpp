@@ -3,6 +3,7 @@
 
 #include "Collision/CMaterialList.hpp"
 #include "Kyoto/Math/CMotionSpline.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/Cameras/CCameraColliderGroup.hpp"
 #include "MetroidPrime/Cameras/CCameraSpring.hpp"
 #include "MetroidPrime/Cameras/CGameCamera.hpp"
@@ -233,11 +234,11 @@ private:
   float mTooCloseActorDist;
   bool mPendingFailsafe;
   float x4b0_;
-  float mFreeLookYawDelta;
+  CRelAngle mFreeLookYawDelta;
   float mFreeLookPitchDelta;
   float mFreeLookDistance;
-  float mFreeLookZoomOutInput;
   float mFreeLookZoomInInput;
+  float mFreeLookZoomOutInput;
   EBallCameraState mState;
   float mChaseDistance;
   float mChaseYawSpeed;

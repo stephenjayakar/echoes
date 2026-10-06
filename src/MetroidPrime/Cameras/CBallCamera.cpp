@@ -130,11 +130,11 @@ CBallCamera::CBallCamera(TUniqueId uid, TUniqueId watchedId, const CTransform4f&
 , mTooCloseActorDist(10000.f)
 , mPendingFailsafe(false)
 , x4b0_(0.f)
-, mFreeLookYawDelta(0.f)
+, mFreeLookYawDelta(CRelAngle::FromRadians(0.f))
 , mFreeLookPitchDelta(0.f)
 , mFreeLookDistance(2.f)
-, mFreeLookZoomOutInput(0.f)
 , mFreeLookZoomInInput(0.f)
+, mFreeLookZoomOutInput(0.f)
 , mState(kBCS_Default)
 , mChaseDistance(gpTweakBall->GetBallCameraChaseDistance())
 , mChaseYawSpeed(gpTweakBall->GetBallCameraChaseYawSpeed())
@@ -1556,44 +1556,49 @@ void CBallCamera::UpdateUsingColliders(float dt, CStateManager& mgr) {
 }
 
 void CBallCamera::UpdateUsingFreeLook(float dt, CStateManager& mgr) {
-  CVector3f ballPos = Player(mgr).GetBallPosition();
+  const CPlayer& player = Player(mgr);
+  const CVector3f ballPos = player.GetBallPosition();
   mLookPos = ballPos;
   mLookPos.SetZ(mLookPos.GetZ() + mLookAtOffset.GetZ());
+  const CQuaternion yawRotation = CQuaternion::ZRotation(mFreeLookYawDelta);
   CVector3f ballToCam = GetTranslation() - mLookPos;
   float distance = ballToCam.Magnitude();
   if (ballToCam.IsMagnitudeSafe()) {
     ballToCam.Normalize();
   }
 
-  float zoom = CMath::Limit((mFreeLookDistance - distance) /
-                                (gpTweakBall->GetBallCameraFreeLookMaxDistance() -
-                                 gpTweakBall->GetBallCameraFreeLookMinDistance()),
+  const float distanceDelta = mFreeLookDistance - distance;
+  float zoom = CMath::Limit(distanceDelta / (gpTweakBall->GetBallCameraFreeLookMaxDistance() -
+                                             gpTweakBall->GetBallCameraFreeLookMinDistance()),
                             1.f);
   ballToCam *= distance + zoom * (dt * gpTweakBall->GetBallCameraFreeLookZoomSpeed());
-  ballToCam =
-      CQuaternion::ZRotation(CRelAngle::FromRadians(mFreeLookYawDelta)).Transform(ballToCam);
-  CVector3f flatDirection(ballToCam.GetX(), ballToCam.GetY(), 0.f);
+  ballToCam = yawRotation.Transform(ballToCam);
+  CVector3f flatDirection = ballToCam;
+  flatDirection.SetZ(0.f);
   if (flatDirection.IsMagnitudeSafe()) {
     flatDirection.Normalize();
   }
   CUnitVector3f right(flatDirection.GetY(), -flatDirection.GetX(), 0.f, CUnitVector3f::kN_Yes);
-  ballToCam = CQuaternion::AxisAngle(right, CRelAngle::FromRadians(-mFreeLookPitchDelta))
-                  .Transform(ballToCam);
+  const CQuaternion pitchRotation =
+      CQuaternion::AxisAngle(right, CRelAngle::FromRadians(-mFreeLookPitchDelta));
+  ballToCam = pitchRotation.Transform(ballToCam);
 
   float upDot = CMath::Limit(CVector3f::Dot(ballToCam.AsNormalized(), CVector3f::Up()), 1.f);
   float angle = CMath::ArcCosineR(CMath::AbsF(upDot));
-  if (angle > M_PIF / 2.f - gpTweakBall->GetBallCameraFreeLookMaxVertAngle()) {
-    CVector3f desiredPos = mLookPos + ballToCam;
-    CVector3f position = MoveCollisionActor(desiredPos, dt, mgr);
-    if ((position - desiredPos).IsMagnitudeSafe()) {
-      if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mCollisionActorId))) {
-        actor->SetTranslation(GetTranslation());
-        actor->Stop();
-      }
-    } else if (mgr.RayCollideWorld(position, ballPos, skLineOfSightFilter, nullptr)) {
+  if (angle <= M_PIF / 2.f - gpTweakBall->GetBallCameraFreeLookMaxVertAngle()) {
+    return;
+  }
+  CVector3f desiredPos = mLookPos + ballToCam;
+  CVector3f position = MoveCollisionActor(desiredPos, dt, mgr);
+  const CVector3f moveError = position - desiredPos;
+  if (!moveError.IsMagnitudeSafe()) {
+    if (mgr.RayCollideWorld(position, ballPos, skLineOfSightFilter, nullptr)) {
       mDampedPos = position;
       SetTransform(CTransform4f::LookAt(position, mLookPos));
     }
+  } else if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mCollisionActorId))) {
+    actor->SetTranslation(GetTranslation());
+    actor->Stop();
   }
 }
 
@@ -2093,62 +2098,74 @@ void CBallCamera::ProcessInput(const CFinalInput& input, CStateManager& mgr) {
     return;
   }
 
+  bool preventFreeLook = false;
   const CScriptPlayerHint* hint =
       TCastToConstPtr< CScriptPlayerHint >(player->GetPlayerHintManager()->GetCurrentHint(mgr));
-  const bool preventFreeLook = hint != nullptr && (hint->GetOverrideFlags() & 0x80000) != 0;
+  if (hint != nullptr && (hint->GetOverrideFlags() & 0x80000) != 0) {
+    preventFreeLook = true;
+  }
   if (player->GetMorphballTransitionState() != CPlayer::kMS_Morphed) {
     return;
   }
 
-  const CControlMapper& controls = player->GetControlMapper();
-  const CMorphBall& ball = *player->GetMorphBall();
   switch (mState) {
   case kBCS_Chase:
-    if (!controls.GetDigitalInput(CControlMapper::kC_ChaseCamera, input) ||
+    if (!player->GetControlMapper().GetDigitalInput(CControlMapper::kC_ChaseCamera, input) ||
         player->IsInFreeLook()) {
       SetState(kBCS_Default, mgr);
     }
     break;
-  case kBCS_Default:
-    if (mChaseAllowed && controls.GetPressInput(CControlMapper::kC_ChaseCamera, input)) {
-      SetState(kBCS_Chase, mgr);
-    }
-    break;
   case kBCS_FreeLook:
-    if ((!controls.GetDigitalInput(CControlMapper::kC_LookHold1, input) &&
-         !controls.GetDigitalInput(CControlMapper::kC_LookHold2, input)) ||
+    if ((!player->GetControlMapper().GetDigitalInput(CControlMapper::kC_LookHold1, input) &&
+         !player->GetControlMapper().GetDigitalInput(CControlMapper::kC_LookHold2, input)) ||
         CMath::AbsF(player->GetMoveSpeed()) >= 0.1f ||
-        ball.GetBallState() == CMorphBall::kBS_Spider || preventFreeLook) {
+        player->GetMorphBall()->GetBallState() == CMorphBall::kBS_Spider || preventFreeLook) {
       SetState(kBCS_Default, mgr);
     } else {
-      const float left = controls.GetAnalogInput(CControlMapper::kC_LookLeft, input);
-      const float right = controls.GetAnalogInput(CControlMapper::kC_LookRight, input);
-      const float up = controls.GetAnalogInput(CControlMapper::kC_LookUp, input);
-      const float down = controls.GetAnalogInput(CControlMapper::kC_LookDown, input);
-      mFreeLookZoomOutInput = controls.GetAnalogInput(CControlMapper::kC_LookZoomOut, input);
-      mFreeLookZoomInInput = controls.GetAnalogInput(CControlMapper::kC_LookZoomIn, input);
-      mFreeLookDistance += input.DeltaTime() * ((mFreeLookZoomOutInput - mFreeLookZoomInInput) *
-                                                gpTweakBall->GetBallCameraFreeLookZoomSpeed());
+      const float left =
+          player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookLeft, input);
+      const float right =
+          player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookRight, input);
+      const float up = player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookUp, input);
+      const float down =
+          player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookDown, input);
+      mFreeLookZoomInInput =
+          player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookZoomIn, input);
+      mFreeLookZoomOutInput =
+          player->GetControlMapper().GetAnalogInput(CControlMapper::kC_LookZoomOut, input);
+      const float dt = input.DeltaTime();
+      mFreeLookDistance += dt * ((mFreeLookZoomInInput - mFreeLookZoomOutInput) *
+                                 gpTweakBall->GetBallCameraFreeLookZoomSpeed());
       mFreeLookDistance =
           CMath::Clamp(gpTweakBall->GetBallCameraFreeLookMinDistance(), mFreeLookDistance,
                        gpTweakBall->GetBallCameraFreeLookMaxDistance());
       mFreeLookYawDelta =
-          input.DeltaTime() * ((left - right) * gpTweakBall->GetBallCameraFreeLookSpeed());
-      mFreeLookPitchDelta =
-          input.DeltaTime() * ((up - down) * gpTweakBall->GetBallCameraFreeLookSpeed());
+          CRelAngle::FromRadians(dt * ((left - right) * gpTweakBall->GetBallCameraFreeLookSpeed()));
+      mFreeLookPitchDelta = dt * ((up - down) * gpTweakBall->GetBallCameraFreeLookSpeed());
     }
     break;
   case kBCS_Boost:
-    if (!ball.IsBoosting() && ball.GetBallAnimationIndex() != 1) {
+    if (!player->GetMorphBall()->IsBoosting() &&
+        player->GetMorphBall()->GetBallAnimationIndex() != 1) {
       SetState(kBCS_Default, mgr);
     }
+    break;
+  case kBCS_Default:
+    if (mChaseAllowed &&
+        player->GetControlMapper().GetPressInput(CControlMapper::kC_ChaseCamera, input)) {
+      SetState(kBCS_Chase, mgr);
+    }
+    break;
+  case kBCS_ToBall:
+  case kBCS_FromBall:
     break;
   default:
     break;
   }
 
   if (mBoostAllowed && mState != kBCS_Boost &&
-      (ball.IsBoosting() || ball.GetBoostChargeTimer() > 0.f)) {
+      (player->GetMorphBall()->IsBoosting() ||
+       player->GetMorphBall()->GetBoostChargeTimer() > 0.f)) {
     SetState(kBCS_Boost, mgr);
   }
 }
