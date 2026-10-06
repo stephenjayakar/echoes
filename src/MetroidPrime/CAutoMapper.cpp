@@ -1124,7 +1124,7 @@ void CAutoMapper::ProcessMapPanInput(const CFinalInput& input, const CStateManag
     }
   } else {
     SetShouldPanningSoundBePlaying(false);
-    float speed = gpTweakAutoMapper->GetCamPanUnitsPerFrame() * GetBaseMapScreenCameraMoveSpeed();
+    float speed = GetBaseMapScreenCameraMoveSpeed() * gpTweakAutoMapper->GetCamPanUnitsPerFrame();
     if (mState == kAMS_MapScreen) {
       const CMapWorld* mapWorld = mWorld->IGetMapWorld();
       const CMapArea* area = mapWorld->GetMapArea(mCurAreaId.value);
