@@ -31,6 +31,13 @@ public:
 
   // Guessed names.
   void SetExpanding(bool expanding) { mExpanding = expanding; }
+  bool IsFullyClosed() const {
+    bool ret = false;
+    if (!mExpanding && mExpansion == 0.f) {
+      ret = true;
+    }
+    return ret;
+  }
   const CAbsAngle& GetFov() const { return mFov; }
 
 private:

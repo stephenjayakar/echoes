@@ -16,6 +16,7 @@
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/CWorld.hpp"
+#include "MetroidPrime/Enemies/CSplitterBeamEffect.hpp"
 #include "MetroidPrime/Enemies/CSplitterMainChassis.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/Weapons/CBeamInfo.hpp"
@@ -69,14 +70,14 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , xf20_(0)
 , mFaceDirection(xf.GetForward())
 , mDodgeDirection(pas::kSD_Invalid)
-, xf34_(-1)
-, xf38_(CVector3f::Zero())
-, xf44_(CVector3f::Zero())
+, mLaserSweepState(-1)
+, mLaserSweepStart(CVector3f::Zero())
+, mLaserSweepEnd(CVector3f::Zero())
 , mLaserSweepDirection(CVector3f::Zero())
 , mLaserSweepSfx()
 , mShieldSfx()
-, xf64_(0)
-, xf68_(kInvalidUniqueId)
+, mScanSfx()
+, mBeamEffectId(kInvalidUniqueId)
 , xf6a_24_(true)
 , xf6a_25_(false)
 , xf6a_26_(false)
@@ -114,8 +115,8 @@ void CSplitterCommandModule::AcceptScriptMsg(CStateManager& mgr, const CScriptMs
     if (mCollisionActorManager.get() != nullptr) {
       mCollisionActorManager->Destroy(mgr);
     }
-    if (xf68_ != kInvalidUniqueId) {
-      mgr.DeleteObjectRequest(xf68_);
+    if (mBeamEffectId != kInvalidUniqueId) {
+      mgr.DeleteObjectRequest(mBeamEffectId);
     }
     StopLaserSweep(mgr);
     break;
@@ -358,9 +359,9 @@ void CSplitterCommandModule::StartLaserSweep(const CVector3f& start, const CVect
   if (mMainChassisId == kInvalidUniqueId) {
     return;
   }
-  xf34_ = 0;
-  xf38_ = start;
-  xf44_ = end;
+  mLaserSweepState = 0;
+  mLaserSweepStart = start;
+  mLaserSweepEnd = end;
 }
 
 CVector3f CSplitterCommandModule::GetBeamPosition() const {
@@ -471,7 +472,7 @@ bool CSplitterCommandModule::ShouldFireAgain(CStateManager& mgr, const CTriggerD
 
 bool CSplitterCommandModule::ShouldLaserSweep(CStateManager& mgr,
                                               const CTriggerData& data) const {
-  return xf34_ != -1;
+  return mLaserSweepState != -1;
 }
 
 bool CSplitterCommandModule::PathOver(CStateManager& mgr, const CTriggerData& data) const {
@@ -680,6 +681,61 @@ void CSplitterCommandModule::LaserPulse(CStateManager& mgr, EStateMsg msg, float
     break;
   case kStateMsg_Deactivate:
     mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSplitterCommandModule::LaserSweep(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mLaserSweepDirection = GetTransform().GetForward();
+    if (mgr.GetObjectById(mTargetId)) {
+      const CVector3f toStart = mLaserSweepStart - GetTranslation();
+      const CVector3f toEnd = mLaserSweepEnd - GetTranslation();
+      if (CVector3f::GetAngleDiff(mLaserSweepDirection, toEnd) <
+          CVector3f::GetAngleDiff(mLaserSweepDirection, toStart)) {
+        const CVector3f start = mLaserSweepStart;
+        mLaserSweepStart = mLaserSweepEnd;
+        mLaserSweepEnd = start;
+      }
+    }
+    CSfxManager::AddEmitter(mData.sound_LaserChargeUp, GetTranslation(), 127,
+                            GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+    break;
+  case kStateMsg_Update:
+    if (dt > 0.f) {
+      const CVector3f target = mLaserSweepState == 0 ? mLaserSweepStart : mLaserSweepEnd;
+      const CTransform4f lctrXf = GetLctrTransform(mBeamLocator);
+      const CVector3f delta = target - lctrXf.GetTranslation();
+      const CVector3f flatDelta = delta.DropZ();
+      if (flatDelta.IsMagnitudeSafe()) {
+        const CVector3f forward = GetTransform().GetForward();
+        const float maxTurn = dt * mData.laserSweepTurnSpeed;
+        const float angleDiff = CVector3f::GetAngleDiff(forward, flatDelta);
+        if (angleDiff < CRelAngle::FromDegrees(maxTurn).AsRadians()) {
+          mFaceDirection = flatDelta.AsNormalized();
+          mLaserSweepDirection = delta.AsNormalized();
+          if (mLaserSweepState == 0) {
+            mLaserSweepState = 1;
+            FireLaserSweep(mgr, target);
+          } else {
+            mLaserSweepState = -1;
+          }
+        } else {
+          mFaceDirection = CVector3f::Slerp(forward, flatDelta.AsNormalized(),
+                                            CRelAngle::FromDegrees(maxTurn));
+          mLaserSweepDirection = CVector3f::Slerp(mLaserSweepDirection.AsNormalized(),
+                                                  delta.AsNormalized(),
+                                                  CRelAngle::FromDegrees(maxTurn));
+        }
+      } else {
+        mLaserSweepState = -1;
+      }
+    }
+    break;
+  case kStateMsg_Deactivate:
+    StopLaserSweep(mgr);
+    mLaserSweepState = -1;
     break;
   }
 }
@@ -1045,6 +1101,46 @@ void CSplitterCommandModule::UpdateAlertEffect(CStateManager& mgr) {
   } else {
     animData->SetEffectState(rstl::string_l(skAlertEye), false, mgr);
     animData->SetEffectState(rstl::string_l(skLaserMuzzle), false, mgr);
+  }
+}
+
+void CSplitterCommandModule::UpdateBeamEffect(float dt, CStateManager& mgr) {
+  CSplitterBeamEffect* beam = static_cast< CSplitterBeamEffect* >(mgr.ObjectById(mBeamEffectId));
+  const CTransform4f beamXf = GetBeamEffectTransform();
+  if (beam) {
+    beam->SetTransform(beamXf);
+  }
+  if (IsScanning(mgr, CTriggerData(0.f))) {
+    if (!beam && mDetectionRange > 0.f) {
+      mBeamEffectId = mgr.AllocateUniqueId();
+      beam = rs_new CSplitterBeamEffect(
+          mBeamEffectId,
+          CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true, kInvalidEditorId),
+          rstl::string_l("Splitter Beam Effect"), beamXf, 64,
+          CAbsAngle::FromDegrees(mData.unknown_0x9ec51fe4.angle), mDetectionRange,
+          mData.unknown_0x9ec51fe4.cloudColor1, mData.unknown_0x9ec51fe4.cloudColor2,
+          mData.unknown_0x9ec51fe4.addColor1, mData.unknown_0x9ec51fe4.addColor2,
+          mData.unknown_0x9ec51fe4.cloudScale, mData.unknown_0x9ec51fe4.fadeOffSize,
+          mData.unknown_0x9ec51fe4.openSpeed);
+      mgr.AddObject(*beam);
+      mScanSfx = CSfxManager::AddEmitter(mData.sound_Scanning, GetTranslation(), 127,
+                                         GetCurrentAreaId().Value(), true, true,
+                                         CSfxManager::kMedPriority);
+    }
+    if (beam) {
+      beam->SetExpanding(true);
+    }
+    CSfxManager::UpdateEmitter(mScanSfx, GetTranslation(), GetTransform().GetForward(), 127);
+  } else if (beam) {
+    beam->SetExpanding(false);
+    if (beam->IsFullyClosed()) {
+      mgr.DeleteObjectRequest(mBeamEffectId);
+      mBeamEffectId = kInvalidUniqueId;
+    }
+  } else {
+    mBeamEffectId = kInvalidUniqueId;
+    CSfxManager::RemoveEmitter(mScanSfx);
+    mScanSfx = CSfxHandle();
   }
 }
 
