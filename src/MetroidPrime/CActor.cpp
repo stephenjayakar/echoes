@@ -870,10 +870,10 @@ TUniqueId CActor::InFluidId() const {
 void CActor::RemoveInvalidFluidIds(CStateManager& mgr) {
   rstl::reserved_vector< TUniqueId, 4 >::iterator it = mFluidIds.begin();
   while (it != mFluidIds.end()) {
-    if (TCastToPtr< CScriptWater >(mgr.ObjectById(*it))) {
-      ++it;
-    } else {
+    if (!TCastToConstPtr< CScriptWater >(mgr.GetObjectById(*it))) {
       it = mFluidIds.erase(it);
+    } else {
+      ++it;
     }
   }
 }
@@ -914,36 +914,44 @@ void CActor::ClearFluidList(CStateManager& mgr) {
   mFluidIdsChanged = false;
 }
 
-uchar CActor::GetVisorSoundVolume(const CStateManager& mgr) const {
+uint CActor::GetVisorSoundVolume(const CStateManager& mgr) const {
   if (!mgr.IsMultiplayer()) {
     int volume = mNormalVolume;
     if (mgr.GetPlayer(0)->GetPlayerState()->GetActiveVisor(mgr) == CPlayerState::kPV_Echo) {
       volume = mEchoVolume;
     }
-    return volume;
+    return static_cast< uchar >(volume);
   }
   return mMaxVol;
 }
 
 void CActor::UpdateSfxEmitters(CStateManager& mgr) {
   const CVector3f position = GetTranslation();
-  for (uint i = 0; i < mNonLoopingSounds.size(); ++i) {
+  uint i = 0;
+  const uint count = mNonLoopingSounds.size();
+  for (; i < count; ++i) {
     const SSound& sound = mNonLoopingSounds[i];
+    const CSegId& locator = sound.mLocator;
     const CVector3f soundPosition =
-        sound.mLocator.val() == 0
-            ? position
-            : (GetTransform() * GetScaledLocatorTransform(sound.mLocator)).GetTranslation();
-    const uchar volume = sound.mUseEchoVolume ? GetVisorSoundVolume(mgr) : mMaxVol;
+        locator.val() == 0 ? position
+                           : (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
+    uint volume = mMaxVol;
+    if (sound.mUseEchoVolume) {
+      volume = GetVisorSoundVolume(mgr);
+    }
     CSfxManager::UpdateEmitter(sound.mHandle, soundPosition, CVector3f::Zero(), volume);
   }
-  for (uint i = 0; i < mLoopingSoundCount; ++i) {
-    const SSound& sound = mLoopingSounds[i].second;
+  for (i = 0; i < mLoopingSoundCount; ++i) {
+    const TLoopingSound& sound = mLoopingSounds[i];
+    const CSegId& locator = sound.second.mLocator;
     const CVector3f soundPosition =
-        sound.mLocator.val() == 0
-            ? position
-            : (GetTransform() * GetScaledLocatorTransform(sound.mLocator)).GetTranslation();
-    const uchar volume = sound.mUseEchoVolume ? GetVisorSoundVolume(mgr) : mMaxVol;
-    CSfxManager::UpdateEmitter(sound.mHandle, soundPosition, CVector3f::Zero(), volume);
+        locator.val() == 0 ? position
+                           : (GetTransform() * GetScaledLocatorTransform(locator)).GetTranslation();
+    uint volume = mMaxVol;
+    if (sound.second.mUseEchoVolume) {
+      volume = GetVisorSoundVolume(mgr);
+    }
+    CSfxManager::UpdateEmitter(sound.second.mHandle, soundPosition, CVector3f::Zero(), volume);
   }
 }
 
