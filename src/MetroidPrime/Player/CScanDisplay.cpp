@@ -35,7 +35,7 @@
 #include "rstl/math.hpp"
 
 bool CScanDisplay::CScanTargetPredicate::IsValid(const CStateManager& mgr, TUniqueId id) const {
-  if (id != mObject) {
+  if (id.value != mObject.value) {
     return false;
   }
   if (const CScriptPointOfInterest* point =

@@ -140,7 +140,7 @@ void CMultiplayerGui::Draw() const {
 }
 
 void CMultiplayerGui::BindWidgets(const CStateManager& mgr) {
-  const uint numPlayers = mgr.GetNumPlayers();
+  const int numPlayers = mgr.GetNumPlayers();
   const CGameMode& gameMode = gpGameState->GetGameMode();
   static const char* noTimeSuffix = "notime";
   static const char* timeSuffix = "";

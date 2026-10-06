@@ -572,14 +572,14 @@ void CGameProjectile::DeleteProjectileLight(CStateManager& mgr) {
 
 CWeapon::EProjectileAttrib CGameProjectile::GetBeamAttribType(EWeaponType type) {
   switch (type) {
+  case kWT_Phazon:
+    return kPA_Phazon;
   case kWT_Dark:
     return kPA_Dark;
   case kWT_Light:
     return kPA_Light;
   case kWT_Annihilator:
     return kPA_Annihilator;
-  case kWT_Phazon:
-    return kPA_Phazon;
   default:
     return kPA_None;
   }

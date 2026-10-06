@@ -110,7 +110,7 @@ bool CPatterned::InMaxRange(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CPatterned::InDetectionRange(CStateManager& mgr, const CTriggerData&) const {
-  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < static_cast< int >(mgr.GetNumPlayers()); ++i) {
     const CVector3f delta = mgr.GetPlayer(i)->GetTranslation() - GetTranslation();
     if (delta.MagSquared() < mDetectionRange * mDetectionRange &&
         (mDetectionHeightRange <= 0.f ||
