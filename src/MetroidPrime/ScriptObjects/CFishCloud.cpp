@@ -348,7 +348,7 @@ void CFishCloud::PlaceBoid(CStateManager& mgr, CBoid& boid, const CAABox& aabb) 
     const CVector3f min = localBounds.GetMinPoint();
     const CVector3f pos(random.Float() * localBounds.GetWidth() + min.GetX(),
                         random.Float() * localBounds.GetHeight() + min.GetY(),
-                        random.Float() * localBounds.GetDepth() + min.GetZ());
+                        random.Float() * (localBounds.GetMaxPoint().GetZ() - min.GetZ()) + min.GetZ());
     boid.mPos = GetTransform() * pos;
   }
 }
@@ -681,17 +681,16 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
   }
   if (mRepelFromThreats) {
     if (CPlayer* player = TCastToPtr< CPlayer >(other)) {
-      CPlayer::EPlayerMorphBallState state = CPlayer::kMS_Unmorphed;
-      if (player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed) {
-        state = player->GetMorphballTransitionState();
-      }
+      const CPlayer::EPlayerMorphBallState state =
+          player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
+              ? player->GetMorphballTransitionState()
+              : CPlayer::kMS_Unmorphed;
       if (state == CPlayer::kMS_Morphed && !close_enough(mPlayerBallPriority, 0.f)) {
         const float ballRadius = 2.f * player->GetMorphBall()->GetBallRadius() + 0.25f;
         const float ballRadiusSquared = ballRadius * ballRadius;
-        const CVector3f ballPos(player->GetTranslation().GetX() + mgr.Random()->Range(-0.1f, 0.1f),
-                                player->GetTranslation().GetY() + 0.f,
-                                player->GetTranslation().GetZ() + 0.f);
-        const float outerSquared = ballRadiusSquared + 0.8f;
+        const CVector3f ballPos =
+            player->GetTranslation() + CVector3f(mgr.Random()->Range(-0.1f, 0.1f), 0.f, 0.f);
+        const float outerSquared = 0.8f + ballRadiusSquared;
         const float distanceSquared = mPlayerBallDistance * mPlayerBallDistance;
         int index = 0;
         for (TBoidVector::iterator it = mBoids.begin(); it != mBoids.end(); ++it, ++index) {
@@ -700,29 +699,34 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
           if (magSquared > outerSquared) {
             if ((index & mUpdateMask) != (mThinkCounter & mUpdateMask) &&
                 magSquared < distanceSquared) {
+              const float priority = mPlayerBallPriority;
               const float weight = 1.f - magSquared / distanceSquared;
-              it->mVel += mPlayerBallPriority * (weight * delta.AsNormalized());
+              it->mVel += priority * (weight * delta.AsNormalized());
             }
           } else if (magSquared < ballRadiusSquared) {
             if (delta.GetY() > 0.f) {
               const CVector3f flat(delta.GetX(), 0.f, delta.GetZ());
-              if (flat.CanBeNormalized() && it->mVel.CanBeNormalized()) {
+              CVector3f& vel = it->mVel;
+              if (flat.CanBeNormalized() && vel.CanBeNormalized()) {
                 const float mag = flat.Magnitude();
-                const CVector3f velocity = it->mVel.AsNormalized();
+                const CVector3f velocity = vel.AsNormalized();
                 const CVector3f normal = VecDiv(-flat, mag);
                 const float push = 0.1f + (ballRadius - mag);
                 const float dot = CVector3f::Dot(velocity, normal);
-                it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
+                vel += 0.25f * (velocity - 2.f * (dot * normal));
                 it->mPos += push * normal;
               }
-            } else if (delta.CanBeNormalized() && it->mVel.CanBeNormalized()) {
-              const float mag = delta.Magnitude();
-              const CVector3f velocity = it->mVel.AsNormalized();
-              const CVector3f normal = VecDiv(-delta, mag);
-              const float push = 0.1f + (ballRadius - mag);
-              const float dot = CVector3f::Dot(velocity, normal);
-              it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
-              it->mPos += push * normal;
+            } else {
+              CVector3f& vel = it->mVel;
+              if (delta.CanBeNormalized() && vel.CanBeNormalized()) {
+                const float mag = delta.Magnitude();
+                const CVector3f velocity = vel.AsNormalized();
+                const CVector3f normal = VecDiv(-delta, mag);
+                const float push = 0.1f + (ballRadius - mag);
+                const float dot = CVector3f::Dot(velocity, normal);
+                vel += 0.25f * (velocity - 2.f * (dot * normal));
+                it->mPos += push * normal;
+              }
             }
           }
         }
