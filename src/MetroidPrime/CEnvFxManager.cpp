@@ -43,6 +43,9 @@ static int g_TrailPrimaryAxis;
 static const CColor skTrailColor6(0.6f, 0.71f, 0.48f, 0.175f);
 static const CColor skTrailColor7(0.f, 0.f, 1.f, 0.175f);
 
+// Empty no-argument hook called at the start of the CEnvFxManager constructor.
+extern "C" void fn_80168498() {}
+
 CEnvFxManagerGrid::CEnvFxManagerGrid(const CVector2i& position, const CVector2i& extent,
                                      const rstl::vector< CVectorFixed8_8 >& initialParticles,
                                      int reserve)
@@ -73,6 +76,7 @@ CEnvFxManager::CEnvFxManager()
 , mUnderwaterFlake(TLockedToken< CTexture >(gpSimplePool->GetObj("TXTR_UnderwaterFlake")))
 , mDarkWorldParticleTexture(gpSimplePool->GetObj("TXTR_DarkworldParticleTexture"))
 , mPreviousFxType(kEFX_None) {
+  fn_80168498();
   CRandom16 random(0);
   for (int i = 0; i < 4; ++i) {
     mEnvRainSplashIds.push_back(kInvalidUniqueId);
@@ -494,7 +498,7 @@ void CEnvFxManager::Update(float dt, CStateManager& mgr) {
   const CTransform4f xf = GetParticleBoundsToWorldTransform();
   const CTransform4f invXf = xf.GetInverse();
   UpdateBlockedGrids(mgr, type, camXf, xf, invXf);
-  CreateNewParticles(type, invXf, dt);
+  CreateNewParticles(type, invXf);
   mPreviousFxType = type;
 
   switch (type) {
@@ -527,33 +531,19 @@ void CEnvFxManager::Update(float dt, CStateManager& mgr) {
       256.f);
 }
 
-void CEnvFxManager::CreateNewParticles(EEnvFxType type, const CTransform4f& invXf, float dt) {
-  int maxParticleCount = 0;
-  switch (type) {
-  case kEFX_Snow:
-  case kEFX_Unknown5:
-    maxParticleCount = 0x1c98;
-    break;
-  case kEFX_Rain:
-    maxParticleCount = 11000;
-    break;
-  case kEFX_UnderwaterFlake:
-    maxParticleCount = 0xfeb;
-    break;
-  case kEFX_DarkWorld:
-    maxParticleCount = 0x2ee;
-    break;
-  case kEFX_Unknown6:
-  case kEFX_Unknown7:
-    maxParticleCount = 0x1c90;
-    break;
-  default:
-    break;
-  }
-  maxParticleCount /= 64;
-  int cellParticleCount = static_cast< int >(mFxDensity * maxParticleCount);
-  const bool trails = type == kEFX_Unknown6 || type == kEFX_Unknown7;
-  if (trails) {
+void CEnvFxManager::CreateNewParticles(EEnvFxType type, const CTransform4f& invXf) {
+  const int totalParticleCount = type == kEFX_Snow              ? 0x1c98
+                         : type == kEFX_Rain            ? 11000
+                         : type == kEFX_UnderwaterFlake ? 0xfeb
+                         : type == kEFX_DarkWorld       ? 0x2ee
+                         : type == kEFX_Unknown5        ? 0x1c98
+                         : type == kEFX_Unknown6        ? 0x1c90
+                         : type == kEFX_Unknown7        ? 0x1c90
+                                                        : 0;
+  const int perCell = totalParticleCount / 64;
+  int cellParticleCount = static_cast< int >(mFxDensity * perCell);
+  int maxParticleCount = perCell;
+  if (type == kEFX_Unknown6 || type == kEFX_Unknown7) {
     maxParticleCount -= maxParticleCount % 8;
     cellParticleCount -= cellParticleCount % 8;
   }
@@ -561,7 +551,8 @@ void CEnvFxManager::CreateNewParticles(EEnvFxType type, const CTransform4f& invX
   static uint seed = 0;
   CRandom16 random(seed);
   const bool darkWorld = type == kEFX_DarkWorld;
-  const bool leavingDarkWorld = !darkWorld && mPreviousFxType == kEFX_DarkWorld;
+  const bool leavingDarkWorld = type != kEFX_DarkWorld && mPreviousFxType == kEFX_DarkWorld;
+  const bool trails = type == kEFX_Unknown6 || type == kEFX_Unknown7;
   const bool leavingTrails = (type != kEFX_Unknown6 && mPreviousFxType == kEFX_Unknown6) ||
                              (type != kEFX_Unknown7 && mPreviousFxType == kEFX_Unknown7);
   if (leavingDarkWorld || leavingTrails) {
@@ -580,57 +571,59 @@ void CEnvFxManager::CreateNewParticles(EEnvFxType type, const CTransform4f& invX
       continue;
     }
     rstl::vector< CVectorFixed8_8 >& particles = grid.mParticles;
+    rstl::vector< float >& lifetimes = grid.mParticleLifetimes;
+    rstl::vector< int >& trailFrames = grid.mTrailFrames;
     if (cellParticleCount > particles.size() ||
-        ((darkWorld || trails) && cellParticleCount > grid.mParticleLifetimes.size())) {
+        ((trails || darkWorld) && cellParticleCount > lifetimes.size())) {
       if (cellParticleCount > particles.capacity() ||
-          ((darkWorld || trails) && cellParticleCount > grid.mParticleLifetimes.capacity())) {
+          ((trails || darkWorld) && cellParticleCount > lifetimes.capacity())) {
         particles.reserve(maxParticleCount);
         if (darkWorld) {
-          grid.mParticleLifetimes.reserve(maxParticleCount);
+          lifetimes.reserve(maxParticleCount);
         }
         if (trails) {
-          grid.mParticleLifetimes.reserve(maxParticleCount / 8);
-          grid.mTrailFrames.reserve(maxParticleCount / 8);
+          lifetimes.reserve(maxParticleCount / 8);
+          trailFrames.reserve(maxParticleCount / 8);
         }
       }
       const int remaining = cellParticleCount - particles.size();
       for (int j = 0; j < remaining; ++j) {
-        // The retail dark-world branch uses the caller's frame delta for X rather than
-        // drawing another random value.
-        const short x =
-            type == kEFX_DarkWorld
-                ? static_cast< short >(dt)
-                : static_cast< short >(random.Range(0.f, static_cast< float >(grid.mExtent.GetX()) -
-                                                             (trails ? 20.f : 0.f)));
-        short z;
-        if (type == kEFX_DarkWorld) {
-          z = real_to_fixed8_8((invXf * CVector3f(0.f, 0.f, grid.GetVisibility().second)).GetZ());
+        // X is left uninitialized on the dark-world path in retail.
+        float x;
+        int z;
+        if (darkWorld) {
+          z = static_cast< int >(
+              256.f * (invXf * CVector3f(0.f, 0.f, grid.GetVisibility().second)).GetZ());
         } else if (trails) {
-          z = static_cast< short >(random.Range(20.f, 16363.f));
+          x = random.Range(0.f, static_cast< float >(grid.mExtent.GetX()) - 20.f);
+          z = static_cast< int >(random.Range(20.f, 16363.f));
         } else {
-          z = real_to_fixed8_8(random.Range(0.f, 63.f));
+          x = random.Range(0.f, static_cast< float >(grid.mExtent.GetX()));
+          z = static_cast< int >(256.f * random.Range(0.f, 63.f));
         }
-        const short y =
-            static_cast< short >(random.Range(0.f, static_cast< float >(grid.mExtent.GetY())));
-        particles.push_back(CVectorFixed8_8(x, y, z));
-        if (type == kEFX_DarkWorld) {
-          grid.mParticleLifetimes.push_back(random.Float());
+        const int y = random.Range(0.f, static_cast< float >(grid.mExtent.GetY()));
+        particles.push_back_unsafe(
+            CVectorFixed8_8(static_cast< int >(x), y, z));
+        if (darkWorld) {
+          lifetimes.push_back_unsafe(random.Float());
         } else if (trails) {
-          grid.mParticleLifetimes.push_back(1.f);
-          grid.mTrailFrames.push_back(8 * g_TrailPeriod * random.Range(0, 100));
+          lifetimes.push_back_unsafe(1.f);
+          trailFrames.push_back_unsafe(g_TrailPeriod * random.Range(0, 100) * 8);
+        }
+        if (trails) {
           for (int point = 1; point < 8; ++point) {
-            particles.push_back(CVectorFixed8_8());
+            particles.push_back_unsafe(CVectorFixed8_8());
             ++j;
           }
         }
       }
     } else {
       particles.resize(cellParticleCount);
-      if (type == kEFX_DarkWorld) {
-        grid.mParticleLifetimes.resize(cellParticleCount);
+      if (darkWorld) {
+        lifetimes.resize(cellParticleCount);
       } else if (trails) {
-        grid.mParticleLifetimes.resize(cellParticleCount / 8);
-        grid.mTrailFrames.resize(cellParticleCount / 8);
+        lifetimes.resize(cellParticleCount / 8);
+        trailFrames.resize(cellParticleCount / 8);
       }
     }
   }
