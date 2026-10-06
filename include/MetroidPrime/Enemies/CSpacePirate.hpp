@@ -23,6 +23,18 @@ class CTriggerData;
 
 // Guessed name. Weapon block of the space pirate data; the launcher fields follow SLdrSpacePirate.
 struct SSpacePirateWeaponData {
+  SSpacePirateWeaponData(int equippedWeapon, CAssetId grenadeLauncher,
+                         const CBouncyGrenadeData& grenadeData, int x58, float x5c, float x60,
+                         float x64, float x68)
+  : mEquippedWeapon(equippedWeapon)
+  , mGrenadeLauncher(grenadeLauncher)
+  , mGrenadeData(grenadeData)
+  , x58_(x58)
+  , x5c_(x5c)
+  , x60_(x60)
+  , x64_(x64)
+  , x68_(x68) {}
+
   int mEquippedWeapon;
   CAssetId mGrenadeLauncher;
   CBouncyGrenadeData mGrenadeData;
@@ -37,6 +49,52 @@ CHECK_SIZEOF(SSpacePirateWeaponData, 0x6c)
 // Prime's CSpacePirateData, built by the REL loader from SLdrSpacePirate.
 class CSpacePirateData {
 public:
+  CSpacePirateData(float aggressionCheck, float coverCheck, float searchRadius,
+                   float fallBackCheck, float fallBackRadius, float hearingRadius, uint flags,
+                   bool x1c, CAssetId projectile, CDamageInfo projectileDamage,
+                   ushort sound_Projectile, CDamageInfo bladeDamage, float kneelAttackChance,
+                   CAssetId kneelAttackShot, CDamageInfo kneelAttackDamage, float dodgeCheck,
+                   ushort sound_Impact, float averageNextShotTime, float nextShotTimeVariation,
+                   float x94, float x98, ushort sound_Alert, float gunTrackDelay,
+                   int firstBurstCount, float cloakOpacity, float maxCloakOpacity,
+                   float dodgeDelayTimeMin, float dodgeDelayTimeMax, ushort sound_Hurled,
+                   ushort sound_Death, float xbc, float avoidDistance, float xc4,
+                   const SSpacePirateWeaponData& weaponData)
+  : mAggressionCheck(aggressionCheck)
+  , mCoverCheck(coverCheck)
+  , mSearchRadius(searchRadius)
+  , mFallBackCheck(fallBackCheck)
+  , mFallBackRadius(fallBackRadius)
+  , mHearingRadius(hearingRadius)
+  , mFlags(flags)
+  , x1c_(x1c)
+  , mProjectile(projectile)
+  , mProjectileDamage(projectileDamage)
+  , mSound_Projectile(sound_Projectile)
+  , mBladeDamage(bladeDamage)
+  , mKneelAttackChance(kneelAttackChance)
+  , mKneelAttackShot(kneelAttackShot)
+  , mKneelAttackDamage(kneelAttackDamage)
+  , mDodgeCheck(dodgeCheck)
+  , mSound_Impact(sound_Impact)
+  , mAverageNextShotTime(averageNextShotTime)
+  , mNextShotTimeVariation(nextShotTimeVariation)
+  , x94_(x94)
+  , x98_(x98)
+  , mSound_Alert(sound_Alert)
+  , mGunTrackDelay(gunTrackDelay)
+  , mFirstBurstCount(firstBurstCount)
+  , mCloakOpacity(cloakOpacity)
+  , mMaxCloakOpacity(maxCloakOpacity)
+  , mDodgeDelayTimeMin(dodgeDelayTimeMin)
+  , mDodgeDelayTimeMax(dodgeDelayTimeMax)
+  , mSound_Hurled(sound_Hurled)
+  , mSound_Death(sound_Death)
+  , xbc_(xbc)
+  , mAvoidDistance(avoidDistance)
+  , xc4_(xc4)
+  , mWeaponData(weaponData) {}
+
   float mAggressionCheck;
   float mCoverCheck;
   float mSearchRadius;

@@ -30,6 +30,8 @@
 #include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrSpacePirate.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAiJumpPoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
@@ -3487,7 +3489,49 @@ void CSpacePirate::Think(float dt, CStateManager& mgr) {
 
 SSpacePirate_FuncPtrs REL_loader_SpacePirate;
 
-CEntity* REL_LoadSpacePirate(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
+CEntity* REL_LoadSpacePirate(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrSpacePirate sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrSpacePirate.inc"
+
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+
+  CBouncyGrenadeData grenadeData(
+      sldrThis.weaponData.grenadeMass, sldrThis.weaponData.unknown_0xed086ce0,
+      LdrToDamageInfo(sldrThis.weaponData.grenadeDamage), sldrThis.weaponData.unknown_0x454f16b1,
+      sldrThis.weaponData.grenadeExplosion, sldrThis.weaponData.grenadeExplosion,
+      sldrThis.weaponData.grenadeTrail, sldrThis.weaponData.grenadeEffect,
+      sldrThis.weaponData.sound_GrenadeBounce, sldrThis.weaponData.sound_GrenadeExplode, 0.1f,
+      150.f, 0.1f, 150.f, true);
+  SSpacePirateWeaponData weaponData(
+      sldrThis.weaponData.equippedWeapon, sldrThis.weaponData.grenadeLauncher, grenadeData,
+      sldrThis.weaponData.unknown_0xa95a025b, sldrThis.weaponData.grenadeMinLaunchSpeed,
+      sldrThis.weaponData.grenadeMaxLaunchSpeed, sldrThis.weaponData.grenadeMinAttackDist,
+      sldrThis.weaponData.grenadeMaxAttackDist);
+  CSpacePirateData data(
+      sldrThis.aggressiveness, sldrThis.coverCheck, sldrThis.searchRadius, sldrThis.fallBackCheck,
+      sldrThis.fallBackRadius, sldrThis.hearingRadius, sldrThis.flags,
+      sldrThis.unknown_0xce670970, sldrThis.projectile,
+      LdrToDamageInfo(sldrThis.projectileDamage), sldrThis.sound_Projectile,
+      LdrToDamageInfo(sldrThis.bladeDamage), sldrThis.kneelAttackChance,
+      sldrThis.kneelAttackShot, LdrToDamageInfo(sldrThis.kneelAttackDamage),
+      sldrThis.dodgeCheck, sldrThis.sound_Impact, sldrThis.intraBurstShotTime,
+      sldrThis.intraBurstShotVariation, sldrThis.unknown_0x5080162a, sldrThis.unknown_0xc78b40e0,
+      sldrThis.sound_Alert, sldrThis.gunTrackDelay, sldrThis.unknown_0x1b454a27,
+      sldrThis.cloakOpacity, sldrThis.maxCloakOpacity, sldrThis.breakDodgeMinTime,
+      sldrThis.breakDodgeMaxTime, sldrThis.sound_Hurled, sldrThis.sound_Death,
+      sldrThis.unknown_0x8708b7d3, sldrThis.avoidDistance, 0.5f, weaponData);
+
+  return rs_new CSpacePirate(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      *modelData, LdrToActorParameters(sldrThis.actorInformation),
+      LdrToPatternedInfo(sldrThis.patterned, &sldrThis.ingPossessionData), data);
+}
 
 void SetRelLoaderFunctionToLoader() {
   REL_loader_SpacePirate.mLoadSpacePirate = REL_LoadSpacePirate;
