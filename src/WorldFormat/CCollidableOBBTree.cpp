@@ -386,7 +386,7 @@ bool CCollidableOBBTree::CacheTree(CCollisionCacheWriter& writer, const COBBTree
   return false;
 }
 
-void CCollidableOBBTree::CacheSphere(CCollisionCache& cache, const CTransform4f& xf, short ownerId,
+void CCollidableOBBTree::CacheSphere(CCollisionCache& cache, const CTransform4f& xf, ushort ownerId,
                                      u64 material) {
   float scale = xf.GetRight().Magnitude();
   COBBTree* tree;
@@ -410,7 +410,7 @@ void CCollidableOBBTree::CacheSphere(CCollisionCache& cache, const CTransform4f&
   primitive.CacheTree(writer, *tree->GetRoot(), xf, worldCenter, halfExtent, obb);
 }
 
-void CCollidableOBBTree::CacheAABox(CCollisionCache& cache, const CTransform4f& xf, short ownerId,
+void CCollidableOBBTree::CacheAABox(CCollisionCache& cache, const CTransform4f& xf, ushort ownerId,
                                     u64 material) {
   COBBTree* tree = COBBTree::GetPrebuiltTree(COBBTree::kPBT_UnitCube);
   CCollisionCacheWriter writer(cache);

@@ -63,7 +63,9 @@ void InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bou
 } // namespace Buckets
 
 template < bool Special, bool Alpha >
-void CCubeRenderer::DrawGeometry(int areaId) {
+void CCubeRenderer::DrawGeometry(int areaId, const char* name, const SGeometryTag&,
+                                 const SGeometryTag&, const SGeometryTag&, const SGeometryTag&,
+                                 const SGeometryTag&) {
   SetupRendererStates(true);
   uchar lastAlpha = 0;
   if (Alpha) {
@@ -151,14 +153,16 @@ void Buckets::Shutdown() {
 
 void Buckets::Insert(const CVector3f& pos, const CAABox& bounds, EDrawableType type,
                      const void* data, const CPlane& plane, ushort extraSort, bool alpha) {
-  if (sData->size() == sData->capacity()) {
+  DrawableList& list = *sData;
+  if (list.size() == list.capacity()) {
     return;
   }
 
-  const float distance = plane.GetHeight(pos);
-  sData->push_back(CDrawable(type, extraSort, distance, bounds, data, alpha));
+  float distance = plane.GetHeight(pos);
+  list.push_back(CDrawable(type, extraSort, distance, bounds, data, alpha));
   sMinMaxDistance.first = rstl::min_val(distance, sMinMaxDistance.first);
   sMinMaxDistance.second = rstl::max_val(distance, sMinMaxDistance.second);
+  __dcbt(&list.back() + 1, 0);
 }
 
 void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bounds,
@@ -176,7 +180,9 @@ void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CA
 namespace Buckets {
 struct planeSorter {
   bool operator()(ushort a, ushort b) const {
-    return (*sPlaneObjectData)[a].GetDistance() < (*sPlaneObjectData)[b].GetDistance();
+    const CDrawablePlaneObject& planeA = (*sPlaneObjectData)[a];
+    const CDrawablePlaneObject& planeB = (*sPlaneObjectData)[b];
+    return planeA.GetDistance() < planeB.GetDistance();
   }
 };
 
@@ -280,8 +286,8 @@ void Buckets::Clear() {
   sBucketIndex.clear();
   sPlaneObjectData->clear();
   sPlaneObjectBucket->clear();
-  for (int i = 0; i < sBuckets->size(); ++i) {
-    (*sBuckets)[i].clear();
+  for (Bucket* it = sBuckets->begin(); it != sBuckets->end(); ++it) {
+    it->clear();
   }
   sMinMaxDistance = skWorstMinMaxDistance;
 }
@@ -400,7 +406,8 @@ CGraphicsPalette* CCubeRenderer::ClonePalette(const TLockedToken< CTexture >& te
   const CGraphicsPalette* palette = texture->GetPalette();
   CGraphicsPalette* result =
       rs_new CGraphicsPalette(palette->GetFormat(), palette->GetEntryCount());
-  memcpy(result->Lock(), palette->GetPaletteData(), result->GetEntryCount() * sizeof(ushort));
+  void* dst = result->Lock();
+  memcpy(dst, palette->GetPaletteData(), static_cast< int >(result->GetEntryCount()) * 16 / 8);
   result->UnLock();
   return result;
 }
@@ -644,7 +651,7 @@ void CCubeRenderer::AddDrawable(const void* obj, const CVector3f& pos, const CAA
   }
 }
 
-void CCubeRenderer::SetupRendererStates(bool depthWrite) {
+void CCubeRenderer::SetupRendererStates(const bool depthWrite) {
   CGraphics::DisableAllLights();
   CGraphics::SetModelMatrix(CTransform4f::Identity());
   CGraphics::SetAmbientColor(CColor(0));
@@ -2657,8 +2664,8 @@ void CCubeRenderer::RenderSilhouette(
 void CCubeRenderer::AllocatePhazonSuitMaskTexture() {
   mRequestRGBA6 = true;
   if (!mSilhouetteMask.get()) {
-    const CViewport& viewport = CGraphics::GetViewport();
-    mSilhouetteMask = rs_new CTexture(kTF_I8, viewport.mWidth >> 2, viewport.mHeight >> 2, 1);
+    mSilhouetteMask = rs_new CTexture(kTF_I8, CGraphics::GetViewport().mWidth >> 2,
+                                      CGraphics::GetViewport().mHeight >> 2, 1);
   }
   mSilhouetteMaskCountdown = 2;
 }
@@ -3060,16 +3067,23 @@ void CCubeRenderer::GenerateScreenMipmaps(int mipCount, GXTexFmt copyFormat, GXT
 
 void CCubeRenderer::GenerateScreenMipmaps(int mipCount, bool alpha) {
   const CViewport& viewport = CGraphics::GetViewport();
-  GenerateScreenMipmaps(mipCount, alpha ? GX_CTF_A8 : GX_CTF_R8, GX_TF_I8, 0, 0, viewport.mWidth,
-                        viewport.mHeight);
+  const int width = viewport.mWidth;
+  const int height = viewport.mHeight;
+  GenerateScreenMipmaps(mipCount, alpha ? GX_CTF_A8 : GX_CTF_R8, GX_TF_I8, 0, 0, width, height);
 }
 
 void CCubeRenderer::SetMaterialMode(int mode) {
+  if (mCurrentMaterialMode == mode) {
+    return;
+  }
   mCurrentMaterialMode = mode;
-  if (mode == 1) {
-    CCubeMaterial::UseThermalTevs();
-  } else if (mode == 0) {
+  switch (mode) {
+  case 0:
     CCubeMaterial::UseNormalTevs();
+    break;
+  case 1:
+    CCubeMaterial::UseThermalTevs();
+    break;
   }
 }
 
@@ -3668,7 +3682,7 @@ void CCubeRenderer::UnpackLightSet(uint lightSet, uchar* lights, float* ambient,
 
   const uchar level = (lightSet >> 24) & 63;
   if (ambient) {
-    *ambient = level * (1.f / 63.f);
+    *ambient = CCast::ToReal32(level) * (1.f / 63.f);
   }
   if (quantizedAmbient) {
     *quantizedAmbient = level;
@@ -3778,13 +3792,25 @@ void CCubeRenderer::PrepareWorldRendering(
   }
 }
 
-void CCubeRenderer::DrawUnsortedGeometry(int areaId) { DrawGeometry< false, false >(areaId); }
+void CCubeRenderer::DrawUnsortedGeometry(int areaId) {
+  DrawGeometry< false, false >(areaId, "DrawUnsortedGeometry", SGeometryTag(), SGeometryTag(),
+                               SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawUnsortedGeometryAlpha(int areaId) { DrawGeometry< false, true >(areaId); }
+void CCubeRenderer::DrawUnsortedGeometryAlpha(int areaId) {
+  DrawGeometry< false, true >(areaId, "DrawGeometryScan", SGeometryTag(), SGeometryTag(),
+                              SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawSpecialGeometry(int areaId) { DrawGeometry< true, false >(areaId); }
+void CCubeRenderer::DrawSpecialGeometry(int areaId) {
+  DrawGeometry< true, false >(areaId, "DrawTranslastGeometry", SGeometryTag(), SGeometryTag(),
+                              SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
-void CCubeRenderer::DrawSpecialGeometryAlpha(int areaId) { DrawGeometry< true, true >(areaId); }
+void CCubeRenderer::DrawSpecialGeometryAlpha(int areaId) {
+  DrawGeometry< true, true >(areaId, "DrawGeometryScanTranslast", SGeometryTag(), SGeometryTag(),
+                             SGeometryTag(), SGeometryTag(), SGeometryTag());
+}
 
 void CCubeRenderer::DrawAreaModel(int areaId, int modelId, const CModelFlags& flags) {
   rstl::list< CAreaListItem >::iterator area = FindArea(areaId);

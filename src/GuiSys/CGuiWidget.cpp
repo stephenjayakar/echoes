@@ -5,6 +5,16 @@
 #include "Kyoto/Streams/CInputStream.hpp"
 #include <stdio.h>
 
+static const char* const skDrawFlagNames[] = {
+    "kGUIModelDrawFlags_None",
+    "kGUIModelDrawFlags_RGBModulate",
+    "kGUIModelDrawFlags_AlphaBlend",
+    "kGUIModelDrawFlags_AdditiveAlpha",
+    "kGUIModelDrawFlags_TwoPassAddAndBlendAlpha",
+    "kGuiModelDrawFlags_DrawToAlphaBuffer",
+    "kGuiModelDrawFlags_2xModulateSolid",
+};
+
 CGuiWidget::CGuiWidgetParms::CGuiWidgetParms(CGuiFrame* frame, short selfId, short parentId,
                                              const CColor& color, EGuiModelDrawFlags drawFlags,
                                              bool cullFaces, bool defaultVisible,

@@ -45,7 +45,7 @@ struct SLightValue {
   , mVisibility(visibility) {}
 
   struct CPredicate {
-    bool operator()(SLightValue& a, SLightValue& b) const { return a.mColorMag > b.mColorMag; }
+    bool operator()(const SLightValue& a, const SLightValue& b) const { return a.mColorMag > b.mColorMag; }
   };
 };
 CHECK_SIZEOF(SLightValue, 0x1c);

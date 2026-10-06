@@ -27,8 +27,8 @@ public:
   class CObjectTracker {
   public:
     CObjectTracker(TUniqueId id, TUniqueId triggerId);
-    TUniqueId GetObjectId() const { return mId; }
-    void SetObjectId(TUniqueId id) { mId = id; }
+    const TUniqueId& GetObjectId() const { return mId; }
+    void SetObjectId(const TUniqueId& id) { mId = id; }
     const rstl::list< TUniqueId >& GetTriggers() const { return mTriggers; }
     rstl::list< TUniqueId >& Triggers() { return mTriggers; }
 
@@ -60,9 +60,9 @@ public:
   virtual bool ShouldSendScriptMsgs(CActor& actor, CStateManager& mgr) const; // Guessed name
   virtual bool BoundsOverlap(const CAABox& bounds) const;                     // Guessed name
 
-  bool RemoveInhabitant(TUniqueId id, CStateManager& mgr);                      // Guessed name
-  bool RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr);             // Guessed name
-  bool ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateManager& mgr); // Guessed name
+  uchar RemoveInhabitant(TUniqueId id, CStateManager& mgr);                      // Guessed name
+  uchar RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr);             // Guessed name
+  uchar ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateManager& mgr); // Guessed name
   bool IsAI(CStateManager& mgr, CActor& actor) const;                           // Guessed name
   bool GetPlayerInside(int playerIndex) const;
   bool HasInhabitant(TUniqueId id) const; // Guessed name
@@ -94,9 +94,9 @@ protected:
   float mForceMagnitude;
   uint mFlags;
   CAABox mBounds;
-  uint mDeactivateOnEntered : 1;
-  uint mDeactivateOnExited : 1;
-  uint x1bc_2_ : 30; // Remaining flag-word bits are unresolved.
+  bool mDeactivateOnEntered : 1;
+  bool mDeactivateOnExited : 1;
+  uchar x1bd_pad[3]; // Unresolved.
   bool mPlayerInside[4];
   bool mPlayerEnvironmentDamage[4]; // Guessed name
 };
