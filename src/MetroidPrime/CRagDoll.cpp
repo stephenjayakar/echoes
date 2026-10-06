@@ -127,15 +127,16 @@ void CRagDoll::Prime(CStateManager& mgr, const CTransform4f& xf, CModelData& mod
 
 void CRagDoll::Verlet(float dt) {
   for (int i = 0; i < mParticles.size(); ++i) {
-    CRagDollParticle& particle = mParticles[i];
-    CVector3f oldPos = particle.mCurPos;
-    particle.mCurPos += particle.mDamping * (particle.mCurPos - particle.mPrevPos);
-    particle.mCurPos += dt * (dt * mParticles[i].mAcceleration);
-    particle.mCurPos += mParticles[i].mImpactResponseDelta;
-    particle.mPrevPos = oldPos;
-    const CVector3f delta = particle.mCurPos - particle.mPrevPos;
+    CVector3f& pos = mParticles[i].mCurPos;
+    CVector3f& prevPos = mParticles[i].mPrevPos;
+    CVector3f oldPos = pos;
+    pos += mParticles[i].mDamping * (pos - prevPos);
+    pos += dt * (dt * mParticles[i].mAcceleration);
+    pos += mParticles[i].mImpactResponseDelta;
+    prevPos = oldPos;
+    const CVector3f& delta = pos - prevPos;
     if (delta.MagSquared() > 4.f) {
-      particle.mCurPos = particle.mPrevPos + 2.f * delta.AsNormalized();
+      pos = prevPos + 2.f * CVector3f(delta).AsNormalized();
     }
     mParticles[i].mImpactPending = false;
     mParticles[i].mDamping = 1.f;
@@ -287,8 +288,8 @@ void CRagDoll::ClearForces() {
 
 void CRagDoll::CheckStatic(float dt) {
   mImpactCount = 0;
-  mImpactVel = 0.f;
   float staticDistance = mStaticSpeedThreshold * dt;
+  mImpactVel = 0.f;
   float threshold = staticDistance * staticDistance;
   mAverageVel = CVector3f::Zero();
   bool movingSlowly = true;
@@ -300,7 +301,7 @@ void CRagDoll::CheckStatic(float dt) {
     }
     if (mParticles[i].mImpactPending) {
       ++mImpactCount;
-      mImpactVel = rstl::max_val(mImpactVel, mParticles[i].mImpactFrameVel);
+      mImpactVel = mImpactVel < mParticles[i].mImpactFrameVel ? mParticles[i].mImpactFrameVel : mImpactVel;
     }
     mParticles[i].mImpactFrameVel = 0.f;
   }
