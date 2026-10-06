@@ -2976,11 +2976,11 @@ float CMorphBall::GetSpiderBallSwingControllerMovementScalar() const {
 void CMorphBall::UpdateSpiderBallSwingControllerMovementTimer(float movement, float dt) {
   if (CMath::AbsF(movement) < 0.05f) {
     ResetSpiderBallSwingControllerMovementTimer();
-  } else if (mSwingControlDirection == CMath::Sign(movement)) {
-    mSwingControlTime += dt;
-  } else {
+  } else if (mSwingControlDirection != CMath::Sign(movement)) {
     ResetSpiderBallSwingControllerMovementTimer();
     mSwingControlDirection = CMath::Sign(movement);
+  } else {
+    mSwingControlTime += dt;
   }
 }
 
