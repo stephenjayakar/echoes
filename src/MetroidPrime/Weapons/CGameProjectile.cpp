@@ -552,7 +552,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
 
 void CGameProjectile::CreateProjectileLight(const rstl::string& name, const CLight& light,
                                             CStateManager& mgr) {
-  if (mgr.GetNumPlayers() < 3) {
+  if (mgr.GetNumPlayers() < 3u) {
     DeleteProjectileLight(mgr);
     mProjectileLight = mgr.AllocateUniqueId();
     const uint sourceId = mWpscId;
