@@ -39,9 +39,10 @@ void CSafeZoneManager::AddOrUpdateSafeZone(CStateManager& mgr, const TUniqueId& 
       mZones.push_back(zone);
     }
   } else {
-    mZones[index].mPosition = position;
-    mZones[index].mHalfExtents = halfExtents;
-    mZones[index].mScaleFactor = scaleFactor;
+    SZone& zone = mZones[index];
+    zone.mPosition = position;
+    zone.mHalfExtents = halfExtents;
+    zone.mScaleFactor = scaleFactor;
   }
 }
 
@@ -155,20 +156,22 @@ void CSafeZoneManager::Update(float, CStateManager& mgr) {
 }
 
 float CSafeZoneManager::GetDarkWorldFilterAmount(const CTransform4f& cameraTransform) const {
+  float closest = 1.f;
   const CVector3f position = cameraTransform.GetTranslation();
   const CVector3f forward = cameraTransform.GetForward();
-  float closest = 1.f;
-  for (int i = 0; i < mZones.size(); ++i) {
-    const CVector3f delta = mZones[i].mPosition - position;
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
+    const CVector3f delta = it->mPosition - position;
     if (!delta.CanBeNormalized()) {
       continue;
     }
     const float distance = delta.Magnitude();
-    const float surfaceDistance = distance - mZones[i].mHalfExtents.GetX();
+    const float surfaceDistance = distance - it->mHalfExtents.GetX();
     if (surfaceDistance < 0.f || surfaceDistance > 10.f) {
       continue;
     }
-    const float projection = CVector3f::Dot(forward, delta) / distance * surfaceDistance / 10.f;
+    const float cosAngle = CVector3f::Dot(forward, delta) / distance;
+    const float projection = cosAngle * surfaceDistance / 10.f;
     if (projection >= 0.f && projection < closest) {
       closest = projection;
     }
