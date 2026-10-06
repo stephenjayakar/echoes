@@ -603,8 +603,8 @@ void CMFGame::PlayerDied() {
 }
 
 bool CMFGame::IsCameraActiveFlow() const {
-  return mFlowState == kFS_InGame || mFlowState == kFS_PlayerDied ||
-         (mFlowState == kFS_PortalTransition && x44_4);
+  return (bool)(mFlowState == kFS_InGame || mFlowState == kFS_PlayerDied ||
+                (mFlowState == kFS_PortalTransition && x44_4 != 0));
 }
 
 void CMFGame::EndGame(CArchitectureQueue& queue) {

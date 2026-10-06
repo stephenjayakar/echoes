@@ -85,7 +85,7 @@ void CHomingBlob::PreRender(CStateManager& mgr) {
 
 void CHomingBlob::AddToRenderer(const CStateManager& mgr) const {
   if (!GetPreRenderClipped()) {
-    const CAABox& bounds = GetRenderBoundsCached();
+    const CAABox& bounds = GetOtherBounds();
     EnsureRendered(mgr, bounds.GetCenterPoint(), bounds);
   }
 }

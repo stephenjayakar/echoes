@@ -8,51 +8,229 @@ static const double skSqrtThree = CMath::SqrtD(3.0);
 // Reconstructed names for the native Perlin-noise helpers and shared permutation.
 extern uchar skNoisePermutation[512];
 
+float CMath::SqrtF(const float x) { return sqrt(x); }
+
+double CMath::SqrtD(const double x) { return sqrt(x); }
+
+float CMath::InvSqrtF(float x) { return 1.f / sqrt(x); }
+
+float CMath::CeilingF(float x) {
+  float tmp = floor(x);
+  if (tmp == x) {
+    return x;
+  }
+  return tmp + 1.f;
+}
+
+CVector3f CMath::GetHermiteSplinePoint(const CVector3f& a, const CVector3f& b,
+                                       const CVector3f& tangentA, const CVector3f& tangentB,
+                                       float t) {
+  if (t <= 0.f) {
+    return a;
+  }
+  if (t >= 1.f) {
+    return b;
+  }
+
+  const float t2 = t * t;
+  const float t3 = t2 * t;
+  const float h00 = 1.f + (2.f * t3 - 3.f * t2);
+  const float h01 = -2.f * t3 + 3.f * t2;
+  const float h10 = t + (t3 - 2.f * t2);
+  const float h11 = t3 - t2;
+  return h00 * a + h01 * b + h10 * tangentA + h11 * tangentB;
+}
+
+CVector3f CMath::GetHermiteSplineTangent(const CVector3f& a, const CVector3f& b,
+                                         const CVector3f& tangentA, const CVector3f& tangentB,
+                                         float t) {
+  const float t2 = t * t;
+  const float h00 = 6.f * t2 - 6.f * t;
+  const float h01 = -6.f * t2 + 6.f * t;
+  const float h10 = 1.f + (3.f * t2 - 4.f * t);
+  const float h11 = 3.f * t2 - 2.f * t;
+  return h00 * a + h01 * b + h10 * tangentA + h11 * tangentB;
+}
+
+CVector3f CMath::GetCatmullRomSplinePoint(const CVector3f& a, const CVector3f& b,
+                                          const CVector3f& c, const CVector3f& d, float t) {
+  if (t <= 0.0f)
+    return b;
+  if (t >= 1.0f)
+    return c;
+
+  return (
+      a * (-0.5f * t * t * t + t * t - 0.5f * t) + b * (1.5f * t * t * t + -2.5f * t * t + 1.0f) +
+      c * (-1.5f * t * t * t + 2.0f * t * t + 0.5f * t) + d * (0.5f * t * t * t - 0.5f * t * t));
+}
+
+CVector3f CMath::GetCatmullRomSplineTangent(const CVector3f& a, const CVector3f& b,
+                                            const CVector3f& c, const CVector3f& d, float t) {
+  const float t2 = t * t;
+  return 0.5f * ((-3.f * t2 + 4.f * t - 1.f) * a + (9.f * t2 - 10.f * t) * b +
+                 (1.f + (-9.f * t2 + 8.f * t)) * c + (3.f * t2 - 2.f * t) * d);
+}
+
+float CMath::GetCatmullRomSplinePoint(float a, float b, float c, float d, float t) {
+  if (t <= 0.0f)
+    return b;
+  if (t >= 1.0f)
+    return c;
+
+  return (
+      a * (-0.5f * t * t * t + t * t - 0.5f * t) + b * (1.5f * t * t * t + -2.5f * t * t + 1.0f) +
+      c * (-1.5f * t * t * t + 2.0f * t * t + 0.5f * t) + d * (0.5f * t * t * t - 0.5f * t * t));
+}
+
+CVector3f CMath::GetRoundedCatmullRomSplinePoint(const CVector3f& a, const CVector3f& b,
+                                                 const CVector3f& c, const CVector3f& d, float t) {
+  if (t <= 0.f) {
+    return b;
+  }
+  if (t >= 1.f) {
+    return c;
+  }
+
+  const CVector3f span = c - b;
+  if (!span.CanBeNormalized()) {
+    return b;
+  }
+
+  CVector3f incoming = a - b;
+  if (!incoming.CanBeNormalized()) {
+    incoming = CVector3f(0.f, 1.f, 0.f);
+  }
+  CVector3f tangentA = span.AsNormalized() - incoming.AsNormalized();
+  if (tangentA.CanBeNormalized()) {
+    tangentA.Normalize();
+  } else {
+    tangentA = CVector3f(0.f, 1.f, 0.f);
+  }
+
+  CVector3f outgoing = d - c;
+  if (!outgoing.CanBeNormalized()) {
+    outgoing = CVector3f(0.f, 1.f, 0.f);
+  }
+  const CVector3f backwardSpan = -span;
+  CVector3f tangentB = outgoing.AsNormalized() - backwardSpan.AsNormalized();
+  if (tangentB.CanBeNormalized()) {
+    tangentB.Normalize();
+  } else {
+    tangentB = CVector3f(0.f, 1.f, 0.f);
+  }
+
+  const float length = span.Magnitude();
+  return GetHermiteSplinePoint(b, c, length * tangentA, length * tangentB, t);
+}
+
+CVector3f CMath::GetRoundedCatmullRomSplineTangent(const CVector3f& a, const CVector3f& b,
+                                                   const CVector3f& c, const CVector3f& d,
+                                                   float t) {
+  const CVector3f span = c - b;
+  if (!span.CanBeNormalized()) {
+    return b;
+  }
+
+  CVector3f incoming = a - b;
+  if (!incoming.CanBeNormalized()) {
+    incoming = CVector3f(0.f, 1.f, 0.f);
+  }
+  CVector3f tangentA = span.AsNormalized() - incoming.AsNormalized();
+  if (tangentA.CanBeNormalized()) {
+    tangentA.Normalize();
+  } else {
+    tangentA = CVector3f(0.f, 1.f, 0.f);
+  }
+
+  CVector3f outgoing = d - c;
+  if (!outgoing.CanBeNormalized()) {
+    outgoing = CVector3f(0.f, 1.f, 0.f);
+  }
+  const CVector3f backwardSpan = -span;
+  CVector3f tangentB = outgoing.AsNormalized() - backwardSpan.AsNormalized();
+  if (tangentB.CanBeNormalized()) {
+    tangentB.Normalize();
+  } else {
+    tangentB = CVector3f(0.f, 1.f, 0.f);
+  }
+
+  const float length = span.Magnitude();
+  return GetHermiteSplineTangent(b, c, length * tangentA, length * tangentB, t);
+}
+
+CVector3f CMath::GetBezierPoint(const CVector3f& a, const CVector3f& b, const CVector3f& c,
+                                const CVector3f& d, float t) {
+  CVector3f ab = CVector3f::Lerp(a, b, t);
+  CVector3f bc = CVector3f::Lerp(b, c, t);
+  CVector3f cd = CVector3f::Lerp(c, d, t);
+
+  return CVector3f::Lerp(CVector3f::Lerp(ab, bc, t), CVector3f::Lerp(bc, cd, t), t);
+}
+
+CVector3f CMath::GetBezierTangent(const CVector3f& a, const CVector3f& b, const CVector3f& c,
+                                  const CVector3f& d, float t) {
+  const float t2 = t * t;
+  return (-3.f + 6.f * t - 3.f * t2) * a + (-(12.f * t - 3.f) + 9.f * t2) * b +
+         (6.f * t - 9.f * t2) * c + (3.f * t2) * d;
+}
+
+CVector3f CMath::GetBSplinePoint(const CVector3f& a, const CVector3f& b, const CVector3f& c,
+                                 const CVector3f& d, float t) {
+  const float clamped = Clamp(0.f, t, 1.f);
+  const float t2 = clamped * clamped;
+  const float t3 = t2 * clamped;
+  return (1.f / 6.f) *
+         ((1.f + (-3.f * t + (-t3 + 3.f * t2))) * a + (4.f + (3.f * t3 + -6.f * t2)) * b +
+          (1.f + (3.f * t + (-3.f * t3 + 3.f * t2))) * c + t3 * d);
+}
+
+CVector3f CMath::GetBSplineTangent(const CVector3f& a, const CVector3f& b, const CVector3f& c,
+                                   const CVector3f& d, float t) {
+  t = Clamp(0.f, t, 1.f);
+  const float t2 = t * t;
+  return (1.f / 6.f) * ((-3.f * t2 + 6.f * t - 3.f) * a + (9.f * t2 + -12.f * t) * b +
+                        (3.f + (-9.f * t2 + 6.f * t)) * c + (3.f * t2) * d);
+}
+
 static float NoiseFade(float t) { return t * t * t * (t * (6.f * t - 15.f) + 10.f); }
 
 static float NoiseLerp(float t, float a, float b) { return a + t * (b - a); }
 
 static float NoiseGradient3d(uint hash, float x, float y, float z) {
-  const uint h = hash & 15;
+  const int h = hash & 15;
   float u = h < 8 ? x : y;
   float v = h < 4 ? y : (h == 12 || h == 14 ? x : z);
-  if ((hash & 2) != 0) {
-    v = -v;
-  }
-  if ((hash & 1) != 0) {
-    u = -u;
-  }
-  return u + v;
+  return ((h & 1) == 0 ? u : -u) + ((h & 2) == 0 ? v : -v);
 }
 
 static float NoiseGradient4d(uint hash, float x, float y, float z, float w) {
-  float u = z;
-  float v = y;
-  float s = w;
-  switch ((hash >> 3) & 3) {
-  case 0:
-    break;
+  int h = hash & 31;
+  float b = y;
+  switch (h >> 3) {
   case 1:
-    u = x;
-    v = w;
-    s = y;
+    b = w;
+    z = x;
+    w = y;
     break;
   case 2:
-    u = w;
-    v = z;
-    s = x;
+    b = z;
+    z = w;
+    w = x;
+    break;
+  case 3:
+    b = y;
     break;
   }
-  if ((hash & 2) == 0) {
-    u = -u;
+  if ((h & 2) == 0) {
+    z = -z;
   }
-  if ((hash & 4) == 0) {
-    v = -v;
+  if ((h & 4) == 0) {
+    b = -b;
   }
-  if ((hash & 1) == 0) {
-    s = -s;
+  if ((h & 1) == 0) {
+    w = -w;
   }
-  return s + (v + u);
+  return w + (b + z);
 }
 
 static float PerlinNoise3d(float x, float y, float z) {
@@ -165,184 +343,6 @@ float CMath::Noise3d(float x, float y, float z) { return PerlinNoise3d(x, y, z);
 
 float CMath::Noise4d(float x, float y, float z, float w) { return PerlinNoise4d(x, y, z, w); }
 
-float CMath::SqrtF(const float x) { return sqrt(x); }
-
-double CMath::SqrtD(const double x) { return sqrt(x); }
-
-float CMath::InvSqrtF(float x) { return 1.f / sqrt(x); }
-
-float CMath::CeilingF(float x) {
-  float tmp = floor(x);
-  if (tmp == x) {
-    return x;
-  }
-  return tmp + 1.f;
-}
-
-CVector3f CMath::GetHermiteSplinePoint(const CVector3f& a, const CVector3f& b,
-                                       const CVector3f& tangentA, const CVector3f& tangentB,
-                                       float t) {
-  if (t <= 0.f) {
-    return a;
-  }
-  if (t >= 1.f) {
-    return b;
-  }
-
-  const float t2 = t * t;
-  const float t3 = t2 * t;
-  return (1.f + (2.f * t3 - 3.f * t2)) * a + (-2.f * t3 + 3.f * t2) * b +
-         (t + (t3 - 2.f * t2)) * tangentA + (t3 - t2) * tangentB;
-}
-
-CVector3f CMath::GetHermiteSplineTangent(const CVector3f& a, const CVector3f& b,
-                                         const CVector3f& tangentA, const CVector3f& tangentB,
-                                         float t) {
-  const float t2 = t * t;
-  return (6.f * t2 - 6.f * t) * a + (-6.f * t2 + 6.f * t) * b +
-         (1.f + (-(4.f * t - 3.f * t2))) * tangentA + (-(2.f * t - 3.f * t2)) * tangentB;
-}
-
-CVector3f CMath::GetCatmullRomSplineTangent(const CVector3f& a, const CVector3f& b,
-                                            const CVector3f& c, const CVector3f& d, float t) {
-  const float t2 = t * t;
-  return 0.5f * ((-3.f * t2 + 4.f * t - 1.f) * a + (9.f * t2 - 10.f * t) * b +
-                 (1.f + (-9.f * t2 + 8.f * t)) * c + (3.f * t2 - 2.f * t) * d);
-}
-
-CVector3f CMath::GetCatmullRomSplinePoint(const CVector3f& a, const CVector3f& b,
-                                          const CVector3f& c, const CVector3f& d, float t) {
-  if (t <= 0.0f)
-    return b;
-  if (t >= 1.0f)
-    return c;
-
-  return (
-      a * (-0.5f * t * t * t + t * t - 0.5f * t) + b * (1.5f * t * t * t + -2.5f * t * t + 1.0f) +
-      c * (-1.5f * t * t * t + 2.0f * t * t + 0.5f * t) + d * (0.5f * t * t * t - 0.5f * t * t));
-}
-
-float CMath::GetCatmullRomSplinePoint(float a, float b, float c, float d, float t) {
-  if (t <= 0.0f)
-    return b;
-  if (t >= 1.0f)
-    return c;
-
-  return (
-      a * (-0.5f * t * t * t + t * t - 0.5f * t) + b * (1.5f * t * t * t + -2.5f * t * t + 1.0f) +
-      c * (-1.5f * t * t * t + 2.0f * t * t + 0.5f * t) + d * (0.5f * t * t * t - 0.5f * t * t));
-}
-
-CVector3f CMath::GetBezierTangent(const CVector3f& a, const CVector3f& b, const CVector3f& c,
-                                  const CVector3f& d, float t) {
-  const float t2 = t * t;
-  return (-3.f + 6.f * t - 3.f * t2) * a + (-(12.f * t - 3.f) + 9.f * t2) * b +
-         (6.f * t - 9.f * t2) * c + (3.f * t2) * d;
-}
-
-CVector3f CMath::GetRoundedCatmullRomSplinePoint(const CVector3f& a, const CVector3f& b,
-                                                 const CVector3f& c, const CVector3f& d, float t) {
-  if (t <= 0.f) {
-    return b;
-  }
-  if (t >= 1.f) {
-    return c;
-  }
-
-  const CVector3f span = c - b;
-  if (!span.CanBeNormalized()) {
-    return b;
-  }
-
-  CVector3f incoming = a - b;
-  if (!incoming.CanBeNormalized()) {
-    incoming = CVector3f(0.f, 1.f, 0.f);
-  }
-  CVector3f tangentA = span.AsNormalized() - incoming.AsNormalized();
-  if (tangentA.CanBeNormalized()) {
-    tangentA.Normalize();
-  } else {
-    tangentA = CVector3f(0.f, 1.f, 0.f);
-  }
-
-  CVector3f outgoing = d - c;
-  if (!outgoing.CanBeNormalized()) {
-    outgoing = CVector3f(0.f, 1.f, 0.f);
-  }
-  const CVector3f backwardSpan = -span;
-  CVector3f tangentB = outgoing.AsNormalized() - backwardSpan.AsNormalized();
-  if (tangentB.CanBeNormalized()) {
-    tangentB.Normalize();
-  } else {
-    tangentB = CVector3f(0.f, 1.f, 0.f);
-  }
-
-  const float length = span.Magnitude();
-  return GetHermiteSplinePoint(b, c, length * tangentA, length * tangentB, t);
-}
-
-CVector3f CMath::GetRoundedCatmullRomSplineTangent(const CVector3f& a, const CVector3f& b,
-                                                   const CVector3f& c, const CVector3f& d,
-                                                   float t) {
-  const CVector3f span = c - b;
-  if (!span.CanBeNormalized()) {
-    return b;
-  }
-
-  CVector3f incoming = a - b;
-  if (!incoming.CanBeNormalized()) {
-    incoming = CVector3f(0.f, 1.f, 0.f);
-  }
-  CVector3f tangentA = span.AsNormalized() - incoming.AsNormalized();
-  if (tangentA.CanBeNormalized()) {
-    tangentA.Normalize();
-  } else {
-    tangentA = CVector3f(0.f, 1.f, 0.f);
-  }
-
-  CVector3f outgoing = d - c;
-  if (!outgoing.CanBeNormalized()) {
-    outgoing = CVector3f(0.f, 1.f, 0.f);
-  }
-  const CVector3f backwardSpan = -span;
-  CVector3f tangentB = outgoing.AsNormalized() - backwardSpan.AsNormalized();
-  if (tangentB.CanBeNormalized()) {
-    tangentB.Normalize();
-  } else {
-    tangentB = CVector3f(0.f, 1.f, 0.f);
-  }
-
-  const float length = span.Magnitude();
-  return GetHermiteSplineTangent(b, c, length * tangentA, length * tangentB, t);
-}
-
-CVector3f CMath::GetBSplinePoint(const CVector3f& a, const CVector3f& b, const CVector3f& c,
-                                 const CVector3f& d, float t) {
-  const float clamped = Clamp(0.f, t, 1.f);
-  const float t2 = clamped * clamped;
-  const float t3 = t2 * clamped;
-  return (1.f / 6.f) *
-         ((1.f + (-3.f * t + (-t3 + 3.f * t2))) * a + (4.f + (3.f * t3 - 6.f * t2)) * b +
-          (1.f + (3.f * t + (-3.f * t3 + 3.f * t2))) * c + t3 * d);
-}
-
-CVector3f CMath::GetBSplineTangent(const CVector3f& a, const CVector3f& b, const CVector3f& c,
-                                   const CVector3f& d, float t) {
-  t = Clamp(0.f, t, 1.f);
-  const float t2 = t * t;
-  return (1.f / 6.f) * ((-3.f * t2 + 6.f * t - 3.f) * a + (9.f * t2 - 12.f * t) * b +
-                        (3.f + (-9.f * t2 + 6.f * t)) * c + (3.f * t2) * d);
-}
-
-CVector3f CMath::GetBezierPoint(const CVector3f& a, const CVector3f& b, const CVector3f& c,
-                                const CVector3f& d, float t) {
-  CVector3f ab = CVector3f::Lerp(a, b, t);
-  CVector3f bc = CVector3f::Lerp(b, c, t);
-  CVector3f cd = CVector3f::Lerp(c, d, t);
-
-  return CVector3f::Lerp(CVector3f::Lerp(ab, bc, t), CVector3f::Lerp(bc, cd, t), t);
-}
-
 CVector3f CMath::BaryToWorld(const CVector3f& p0, const CVector3f& p1, const CVector3f& p2,
                              const CVector3f& bary) {
   return bary.GetX() * p0 + bary.GetY() * p1 + bary.GetZ() * p2;
@@ -416,22 +416,6 @@ float CMath::FastArcCosR(float x) {
   return acc;
 }
 
-int CMath::FloorLog2(uint v) {
-  if (v == 0) {
-    return 0;
-  }
-
-  const uint s1 = (0xffffU - v) >> 0x1b & 0x10;
-  const uint sb1 = v >> s1 & 0xffff;
-  const uint s2 = (0xff - sb1) >> 0x1c & 8;
-  const uint sb2 = sb1 >> s2 & 0xff;
-  const uint s3 = (0xf - sb2) >> 0x1d & 4;
-  const uint sb3 = sb2 >> s3 & 0xf;
-  const uint s4 = (3 - sb3) >> 0x1e & 2;
-  const uint finalSig = sb3 >> s4 & 3;
-  return s1 + s2 + s3 + s4 - (static_cast< int >(1 - finalSig) >> 0x1f);
-}
-
 int CMath::FloorPowerOfTwo(int v) {
   if (v == 0) {
     return 0;
@@ -447,6 +431,23 @@ int CMath::FloorPowerOfTwo(int v) {
   const uint finalSig = sb3 >> s4 & 3;
   const uint finalShift = ((1 - finalSig) >> 0x1f) + totalShift;
   return 1 << finalShift;
+}
+
+int CMath::FloorLog2(uint v) {
+  if (static_cast< int >(v) == 0) {
+    return 0;
+  }
+
+  const uint s1 = (0xffffU - v) >> 0x1b & 0x10;
+  const uint sb1 = v >> s1 & 0xffff;
+  const uint s2 = (0xff - sb1) >> 0x1c & 8;
+  const uint sb2 = sb1 >> s2 & 0xff;
+  const uint s3 = (0xf - sb2) >> 0x1d & 4;
+  const uint sb3 = sb2 >> s3 & 0xf;
+  const uint s4 = (3 - sb3) >> 0x1e & 2;
+  const uint finalSig = sb3 >> s4 & 3;
+  const uint totalShift = s1 + s2 + s3 + s4;
+  return ((1 - finalSig) >> 0x1f) + totalShift;
 }
 
 bool CMath::SolveQuadratic(float a, float b, float c, float& plus, float& minus) {

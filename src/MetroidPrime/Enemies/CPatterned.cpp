@@ -246,8 +246,9 @@ float CPatterned::GetAnimationDistance(const CPASAnimParmData& parms) const {
   const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
   if (best.first > FLT_EPSILON) {
     const CAnimData* animData = GetAnimationData();
-    distance = animData->GetAnimationDuration(best.second);
-    distance *= animData->GetAverageVelocity(best.second);
+    const float dur = animData->GetAnimationDuration(best.second);
+    const float vel = animData->GetAverageVelocity(best.second);
+    distance = vel * dur;
   }
   return distance;
 }
