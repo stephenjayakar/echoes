@@ -1492,6 +1492,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "ElitePirate",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CElitePirate.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "FishCloud",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CFishCloud.cpp"),

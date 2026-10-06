@@ -59,6 +59,8 @@ public:
   void ResetNonUniformVulnerability();
   TUniqueId GetLastTouchedObject() const;
   TUniqueId GetOwnerId() const { return mOwner; }
+  void SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes type) { mResponseType = type; }
+  void SetExtendedTouchBounds(const CVector3f& bounds) { mExtendedTouchBounds = bounds; }
   float GetSphereRadius() const;
   void SetSphereRadius(float radius);
 

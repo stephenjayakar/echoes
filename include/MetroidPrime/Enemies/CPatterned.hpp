@@ -196,6 +196,25 @@ public:
                               float secondaryDuration, TUniqueId source, TUniqueId owner);
   void GenerateIceDeathExplosion(CStateManager& mgr); // Guessed Prime-correlated name.
 
+  // Guessed name; drives one body-state command through the CAnimationState handshake.
+  template < typename T >
+  void TryCommand(EStateMsg msg, pas::EAnimationState state, const T& cmd) {
+    switch (msg) {
+    case kStateMsg_Activate:
+      mAnimationState.SetState(CAnimationState::kAS_Ready);
+      mBodyController->CommandMgr().DeliverCmd(cmd);
+      break;
+    case kStateMsg_Update:
+      if (mAnimationState.CanIssueCommand(*mBodyController, state)) {
+        mBodyController->CommandMgr().DeliverCmd(cmd);
+      }
+      break;
+    case kStateMsg_Deactivate:
+      mAnimationState.SetState(CAnimationState::kAS_NotReady);
+      break;
+    }
+  }
+
   void Start(CStateManager& mgr, EStateMsg msg, float dt);
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt);
   void Dead(CStateManager& mgr, EStateMsg msg, float dt);

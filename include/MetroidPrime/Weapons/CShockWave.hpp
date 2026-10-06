@@ -3,6 +3,8 @@
 
 #include "MetroidPrime/CActor.hpp"
 #include "MetroidPrime/CDamageInfo.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/Structs/SLdrShockWaveInfo.hpp"
 
 class CElementGen;
 class CGenDescription;
@@ -10,6 +12,17 @@ class CElectricDescription;
 
 class CShockWaveInfo {
 public:
+  CShockWaveInfo(const SLdrShockWaveInfo& info)
+  : mShockWaveEffect(info.shockWaveEffect)
+  , mDamage(LdrToDamageInfo(info.damage))
+  , mRadius(info.radius)
+  , mInnerRadiusRatio(info.innerRadiusRatio)
+  , mRadialVelocity(info.radialVelocity)
+  , mRadialVelocityAcceleration(info.radialVelocityAcceleration)
+  , mVisorElectricEffect(info.visorElectricEffect)
+  , mVisorElectricSound(info.sound_VisorElectric)
+  , mHeight(info.height) {}
+
   CAssetId GetParticleDescId() const { return mShockWaveEffect; }
   const CDamageInfo& GetDamageInfo() const { return mDamage; }
   float GetInitialRadius() const { return mRadius; }
