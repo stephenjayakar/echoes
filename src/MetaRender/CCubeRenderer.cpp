@@ -627,18 +627,36 @@ void CCubeRenderer::AddParticleGen(const CParticleGen& gen, const CVector3f& pos
 void CCubeRenderer::AddPlaneObject(const void* obj, const CAABox& bounds, const CPlane& plane,
                                    int type) {
   static const CVector3f sOptimalPlane(0.f, 0.f, 1.f);
-  const CVector3f closest = bounds.ClosestPointAlongVector(mViewPlane.GetNormal());
-  const float closeDistance = mViewPlane.GetHeight(closest);
-  const CVector3f furthest = bounds.FurthestPointAlongVector(mViewPlane.GetNormal());
-  const float farDistance = mViewPlane.GetHeight(furthest);
-  if (closeDistance >= 0.f || farDistance >= 0.f) {
-    const bool zOnly = plane.GetNormal() == sOptimalPlane;
-    const CVector3f viewPosition = CGraphics::GetViewMatrix().GetTranslation();
-    const bool invertTest = zOnly ? !(viewPosition.GetZ() < plane.GetConstant())
-                                  : !(plane.GetHeight(viewPosition) < 0.f);
-    Buckets::InsertPlaneObject(closeDistance, farDistance, bounds, invertTest, plane, zOnly,
-                               static_cast< EDrawableType >(type + kDT_Actor), obj);
+  CVector3f closestPoint = bounds.ClosestPointAlongVector(mViewPlane.GetNormal());
+  float closestDist = mViewPlane.GetHeight(closestPoint);
+  CVector3f furthestPoint = bounds.FurthestPointAlongVector(mViewPlane.GetNormal());
+  float furthestDist = mViewPlane.GetHeight(furthestPoint);
+  if (closestDist < 0.f && furthestDist < 0.f) {
+    return;
   }
+
+  bool zOnly;
+  if (plane.GetNormal() == sOptimalPlane) {
+    zOnly = true;
+  } else {
+    zOnly = false;
+  }
+
+  bool invertTest;
+  if (zOnly) {
+    if (CGraphics::GetViewMatrix().GetTranslation().GetZ() >= plane.GetConstant()) {
+      invertTest = true;
+    } else {
+      invertTest = false;
+    }
+  } else if (plane.GetHeight(CGraphics::GetViewMatrix().GetTranslation()) >= 0.f) {
+    invertTest = true;
+  } else {
+    invertTest = false;
+  }
+
+  Buckets::InsertPlaneObject(closestDist, furthestDist, bounds, invertTest, plane, zOnly,
+                             EDrawableType(type + 2), obj);
 }
 
 void CCubeRenderer::AddDrawable(const void* obj, const CVector3f& pos, const CAABox& bounds,
