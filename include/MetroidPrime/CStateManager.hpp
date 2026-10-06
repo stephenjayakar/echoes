@@ -116,7 +116,8 @@ public:
   // Guessed phase names, derived from world initialization.
   enum EInitPhase { kIP_LoadAudioGroups, kIP_LoadWorld, kIP_LoadFirstArea, kIP_Done };
   // Guessed names, based on the update dispatch and Prime's corresponding state.
-  enum EGameState { kGS_Running, kGS_SoftPaused };
+  // Paused is a guessed name: native state 2 suppresses pre-think and player post-update.
+  enum EGameState { kGS_Running, kGS_SoftPaused, kGS_Paused };
   // Guessed names: Combat and Scan share the normal rendering mode.
   enum ERenderVisorMode { kRVM_Normal, kRVM_Echo, kRVM_Dark };
 
@@ -178,7 +179,8 @@ public:
 
   void SendScriptMsg(const CScriptMsg& msg);
   void DeliverScriptMsg(const CScriptMsg& msg); // Guessed name
-  void SendScriptMsg(CEntity*, TUniqueId, EScriptObjectMessage, TUniqueId);
+  void SendScriptMsg(CEntity* target, TUniqueId sender, EScriptObjectMessage message,
+                     TUniqueId actor = kInvalidUniqueId);
   void SendScriptMsg(TUniqueId target, TUniqueId sender, EScriptObjectMessage message,
                      TUniqueId actor); // Guessed overload name.
 
@@ -195,7 +197,7 @@ public:
   void RemoveWeaponId(TUniqueId owner, EWeaponType type);
   void ApplyDamageToWorld(TUniqueId owner, CActor& projectile, const CVector3f& position,
                           const CDamageInfo& damage, const CMaterialFilter& filter);
-  void ApplyDamage(TUniqueId damager, TUniqueId damagee, TUniqueId weapon,
+  void ApplyDamage(TUniqueId damager, TUniqueId damagee, TUniqueId owner,
                    const CDamageInfo& damage, const CMaterialFilter& filter,
                    const CVector3f& direction);
   void ApplyRadiusDamage(const CActor& radiusSource, const CVector3f& position, CActor& damagee,
@@ -387,24 +389,36 @@ public:
   CMapWorldInfo* MapWorldInfo() { return mMapWorldInfo.GetPtr(); }
 
   void UpdateActorInSortedLists(CActor*);
+  void UpdateSortedLists(); // Prime-correlated name; updates every registered actor's bounds.
 
   bool ApplyLocalDamage(const CVector3f& pos, const CVector3f& dir, CActor& damagee, float damage,
-                        TUniqueId uid1, TUniqueId uid2, const CDamageInfo& info, int);
+                        TUniqueId source, TUniqueId owner, const CDamageInfo& info,
+                        bool radiusDamage);
 
   // Guessed name; records the last damage source and, on lethal hits, death attribution.
-  // The final context flag's complete interface remains under investigation.
-  void RecordDamageSource(CActor& damagee, TUniqueId source, const CDamageInfo& info,
-                          bool lethal, int damageContext);
+  // The last flag distinguishes the native radius and direct callers.
+  void RecordDamageSource(CActor& damagee, TUniqueId source, const CDamageInfo& info, bool lethal,
+                          bool radiusDamage);
   // Guessed names, recovered from script deletion and object-list consumers.
   void AddToGraveyard(CEntity* entity);
   void ClearGraveyard(); // Prime-correlated name; deletes the queued entity batches.
   void RemoveObject(TUniqueId id);
-  bool IsMultiplayer() const; // Guessed name
-  void DispatchScriptMessages(); // Guessed name.
+  bool IsMultiplayer() const;     // Guessed name
+  void DispatchScriptMessages();  // Guessed name.
   void ThinkNewObjects(float dt); // Guessed name.
   void InformListeners(const CVector3f& position, EListenNoiseType type);
   void Think(float dt);
+  void PreThinkObjects(float dt);  // Prime-correlated name; excludes cameras in the ordinary pass.
+  void PostUpdatePlayer(float dt); // Prime-correlated name; Echoes updates every active player.
+  void MovePlatforms(float dt);    // Prime-correlated name; Echoes has a platform-only object list.
   void MoveActors(float dt);
+  // Guessed name; advances the cached multiplayer player-pair line-of-sight test.
+  void UpdatePlayerLineOfSight(float dt);
+  void ProcessPlayerInput();      // Guessed name; routes each player's selected controller input.
+  void CrossTouchActors();        // Prime-correlated name; sends mutual overlap Touch callbacks.
+  void UpdateHintState(float dt); // Prime-correlated name; maps hint locations and queues memos.
+  void UpdateEscapeSequenceTimer(float dt); // Prime-correlated name; updates saved escape time.
+  void UpdateAreaSounds(); // Prime-correlated name; selects visible areas for the SFX manager.
   // Guessed helper names, recovered from their update-loop consumers.
   bool ShouldUpdatePatterned(const CPatterned& actor);
   void ThinkEntity(float dt, CEntity& entity);

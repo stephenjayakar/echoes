@@ -93,6 +93,7 @@ enum EEntityType {
   kET_ScriptVisorFlare = 96,
   kET_ScriptWater = 97,
   kET_ScriptWorldTeleporter = 98,
+  kET_SnakeWeedSwarm = 99, // Native REL type query; class spelling corroborated by Wii export.
   kET_SpindleCamera = 100,
   kET_SurfaceCamera = 101, // Guessed name; runtime surface camera.
   kET_SwarmBasics = 102, // Native TypesMatch tag, correlated with swarm consumers.
@@ -136,6 +137,7 @@ enum EScriptObjectState {
   kSS_CameraTime = 0x4354494d,
   kSS_UnFrozen = 0x5546525a,
   kSS_Dead = 0x44454144,
+  kSS_DeathRattle = 0x5241544c, // Guessed Prime-correlated name; native damage-death state.
   kSS_Generate = 0x47454e52,
   kSS_ReflectedDamage = 0x52454644,
   kSS_Damage = 0x44414d47, // Guessed name; DAMG damage notification state.
