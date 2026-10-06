@@ -498,6 +498,16 @@ public:
     mSlide = cmd;
   }
 
+  void DeliverCmd(const CBCLoopReactionCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopReaction = cmd;
+  }
+
+  void DeliverCmd(const CBCGenerateCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGenerate = cmd;
+  }
+
   void DeliverCmd(const CBCJumpCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mJump = cmd;
@@ -506,6 +516,11 @@ public:
   void DeliverCmd(const CBCAdditiveReactionCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mAdditiveReaction = cmd;
+  }
+
+  void DeliverCmd(const CBCAdditiveFlinchCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveFlinch = cmd;
   }
 
   void DeliverCmd(const CBCScriptedCmd& cmd) {
