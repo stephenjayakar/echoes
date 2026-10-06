@@ -2212,34 +2212,38 @@ int CCubeRenderer::DrawOverlappingWorldModelShadows(int alphaVal, rstl::vector< 
 void CCubeRenderer::DrawWorldModelShadow(const CAABox& bounds) {
   for (rstl::list< CAreaListItem >::iterator area = mAreaListItems.begin();
        area != mAreaListItems.end(); ++area) {
-    if (area->mOctTree == nullptr) {
+    const CAreaRenderOctTree* octTree = area->mOctTree;
+    const rstl::vector< SAreaSurface >* surfaces = area->GetSurfaces();
+    if (octTree == nullptr) {
       continue;
     }
     rstl::vector< uint > models;
-    area->mOctTree->FindOverlappingModels(models, bounds);
-    for (uint word = 0; word < area->mOctTree->GetBitmapWordCount(); ++word) {
+    octTree->FindOverlappingModels(models, bounds);
+    for (uint word = 0; word < octTree->GetBitmapWordCount(); ++word) {
       const uint bits = models[word];
       if (bits == 0) {
         continue;
       }
       for (int bit = 0; bit < 32; ++bit) {
-        if ((bits & (1u << bit)) == 0) {
+        if ((bits & (1 << bit)) == 0) {
           continue;
         }
-        const SAreaSurface& areaSurface = (*area->mSurfaces)[word * 32 + bit + 1];
-        if (areaSurface.mModelIndex == -1 || areaSurface.mSurfaceGroupIndex == -1) {
+        const SAreaSurface& areaSurface = (*surfaces)[word * 32 + bit + 1];
+        const int modelIndex = areaSurface.mModelIndex;
+        const int groupIndex = areaSurface.mSurfaceGroupIndex;
+        if (modelIndex == -1 || groupIndex == -1) {
           continue;
         }
-        const CMetroidModelInstance& instance = (*area->mGeometry)[areaSurface.mModelIndex];
-        const CCubeModel& model = *(*area->mModels)[areaSurface.mModelIndex];
-        CCubeMaterial::KillCachedViewDepState();
-        model.SetArraysCurrent();
+        const CCubeModel* model = (*area->mModels)[modelIndex].get();
+        const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
         const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
-        const ushort count = groups.GetSurfaceCount(areaSurface.mSurfaceGroupIndex);
-        const ushort* indices = groups.GetSurfaceIndices(areaSurface.mSurfaceGroupIndex);
+        CCubeMaterial::KillCachedViewDepState();
+        model->SetArraysCurrent();
+        const ushort count = groups.GetSurfaceCount(groupIndex);
+        const ushort* indices = groups.GetSurfaceIndices(groupIndex);
         for (ushort surfaceIndex = 0; surfaceIndex < count; ++surfaceIndex) {
           const CCubeSurface surface(instance.GetSurfaces()[indices[surfaceIndex]]);
-          const CCubeMaterial material = model.GetMaterial(surface);
+          const CCubeMaterial material = model->GetMaterial(surface);
           if (!material.IsFlagSet(kStateFlag_DepthSorting) &&
               surface.GetBounds().DoBoundsOverlap(bounds)) {
             CGX::SetVtxDescv_Compressed(material.GetVertexDesc());
