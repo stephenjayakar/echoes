@@ -11,7 +11,7 @@ CGMDeathMatch::CGMDeathMatch(int playerCount, int fragLimit, float timeLimit, bo
 , mPlayerCount(playerCount)
 , mFragLimit(fragLimit)
 , x40_24_(false)
-, mHasFragLimit(fragLimit > 0)
+, mHasFragLimit(mFragLimit > 0)
 , mHasTimeLimit(timeLimit > 0.f)
 , mAwardFrags(awardFrags)
 , mFragLimitReached(false)
