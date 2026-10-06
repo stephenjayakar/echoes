@@ -143,6 +143,19 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   }
 
   switch (message) {
+  case kSM_Close:
+    --mOpenRequestCount;
+    if (mOpenRequestCount < 0) {
+      mOpenRequestCount = 0;
+    }
+    if (mOpenRequestCount == 0 || (sender == mOpeningSenderDoorId && mDoorState != kDS_Closed)) {
+      if (mDoorState == kDS_WaitingForArea) {
+        SetDoorState(mgr, kDS_Closed);
+      } else if (mDoorState != kDS_Closed) {
+        SetDoorState(mgr, kDS_Closing);
+      }
+    }
+    break;
   case kSM_Open:
     if (!mIsOpen) {
       const CScriptDoor* door = TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(sender));
@@ -156,17 +169,11 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       }
     }
     break;
-  case kSM_Close:
-    --mOpenRequestCount;
-    if (mOpenRequestCount < 0) {
-      mOpenRequestCount = 0;
-    }
-    if (mOpenRequestCount == 0 || (sender == mOpeningSenderDoorId && mDoorState != kDS_Closed)) {
-      if (mDoorState == kDS_WaitingForArea) {
-        SetDoorState(mgr, kDS_Closed);
-      } else if (mDoorState != kDS_Closed) {
-        SetDoorState(mgr, kDS_Closing);
-      }
+  case kSM_AreaLoaded:
+    mDockId = FindConnectedObject(mgr, kSS_InvalidState, kSM_Increment);
+    mLockActorId = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+    if (mInitiallyLocked) {
+      SetLockState(mgr, kLS_Locked);
     }
     break;
   case kSM_Increment:
@@ -188,13 +195,6 @@ void CScriptDoor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
       } else {
         mResetPending = true;
       }
-    }
-    break;
-  case kSM_AreaLoaded:
-    mDockId = FindConnectedObject(mgr, kSS_InvalidState, kSM_Increment);
-    mLockActorId = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
-    if (mInitiallyLocked) {
-      SetLockState(mgr, kLS_Locked);
     }
     break;
   }
