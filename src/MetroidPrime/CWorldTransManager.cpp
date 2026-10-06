@@ -434,10 +434,12 @@ CTransform4f CWorldTransManager::GetCameraTransform(int pass) const {
       const float rotationT = CMath::Clamp(0.f, mCurTime / 25.f, 100.f);
       const float translationT = CMath::Clamp(0.f, mCurTime / 10.f, 1.f);
       const CRelAngle angle = CRelAngle::FromDegrees(360.f * rotationT + 180.f - 90.f);
-      return CTransform4f::RotateZ(angle) *
-             CTransform4f::Translate(mModelData->mShakeResult.GetX(),
-                                     -3.5f * (1.f - translationT) - 3.5f,
-                                     2.f + mModelData->mShakeResult.GetY());
+      const CTransform4f xf =
+          CTransform4f::RotateZ(angle) *
+          CTransform4f::Translate(mModelData->mShakeResult.GetX(),
+                                  -3.5f * (1.f - translationT) + -3.5f,
+                                  mModelData->mShakeResult.GetY() + 2.f);
+      return xf;
     }
     spline = &*mFirstPassCamera;
     time = mCurTime;
@@ -447,16 +449,20 @@ CTransform4f CWorldTransManager::GetCameraTransform(int pass) const {
           CMath::Clamp(0.f, (4.f + (mCurTime - mModelData->mDissolveStartTime)) / 5.f, 1.f);
       const CRelAngle angle = CRelAngle::FromDegrees(48.f * t + 180.f - 24.f);
       const CVector3f& scale = mModelData->mSamusRes.GetScale();
-      return CTransform4f::RotateZ(angle) * CTransform4f::Translate(-0.1f * scale.GetX(),
-                                                                    -0.5f * scale.GetY(),
-                                                                    1.5f * scale.GetZ());
+      const CTransform4f xf =
+          CTransform4f::RotateZ(angle) *
+          CTransform4f::Translate(
+              CVector3f(-0.1f * scale.GetX(), -0.5f * scale.GetY(), 1.5f * scale.GetZ()));
+      return xf;
     }
     spline = &*mSecondPassCamera;
     time = mCurTime - mModelData->mDissolveStartTime;
   }
 
-  const CVector3f position = mCameraTransform * spline->GetPositionByTime(time);
-  const CVector3f lookAt = mCameraTransform * spline->GetLookAtByTime(time);
+  CVector3f position = spline->GetPositionByTime(time);
+  CVector3f lookAt = spline->GetLookAtByTime(time);
+  position = mCameraTransform * position;
+  lookAt = mCameraTransform * lookAt;
   return CTransform4f::LookAt(position, lookAt, CVector3f::Up());
 }
 
