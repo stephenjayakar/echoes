@@ -240,13 +240,13 @@ void CMain::ShutdownSubsystems() {
   uchar* stackEnd =
       reinterpret_cast< uchar* >((reinterpret_cast< uint >(thread->stackEnd) + 0x3ff) & ~0x3ff);
   uchar* ptr = stackEnd + 0x400;
-  uchar* stackBase = thread->stackBase - 0x2000;
-  for (; ptr < stackBase; ptr += sizeof(uint)) {
+  uchar* stackBase = thread->stackBase;
+  for (; ptr < stackBase - 0x2000; ptr += sizeof(uint)) {
     if (*reinterpret_cast< uint* >(ptr) != UNUSED_STACK_VAL) {
       break;
     }
   }
-  const int used = stackBase - ptr + 0x2000;
+  const int used = static_cast< int >((stackBase - 0x2000) - ptr) + 0x2000;
   OSReport("Stack usage: %d bytes (%dk)\n", used, static_cast< uint >(used) / 1024);
 }
 
