@@ -32,8 +32,8 @@ public:
   // Guessed names; used by the command module while docking.
   CVector3f GetDockPosition() const;
   bool Dock(CStateManager& mgr, TUniqueId commandModule);
-  void CancelDockingRequest(const TUniqueId& commandModule);
-  bool RequestDocking(const TUniqueId& commandModule);
+  void CancelDockingRequest(TUniqueId commandModule);
+  bool RequestDocking(TUniqueId commandModule);
 
   float GetHeadHealth() const { return xd28_; } // Guessed name
   bool IsDocked() const { return mDockedCommandModule != kInvalidUniqueId; } // Guessed name

@@ -26,6 +26,8 @@
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
+#include <float.h>
+
 static const char* const skBeamLocator = "Beam_LCTR";
 static const char* const skLightShield = "LightShield";
 static const char* const skDarkShield = "DarkShield";
@@ -353,6 +355,44 @@ bool CSplitterCommandModule::CanBeIngPossessed(CStateManager& mgr) const {
     return false;
   }
   return CPatterned::CanBeIngPossessed(mgr);
+}
+
+void CSplitterCommandModule::SetChassisDocked(CStateManager& mgr) {
+  mVulnerability = CDamageVulnerability::ReflectVulnerabilty();
+  SetVisorOrbitableFlags(CVisorParameters::kVOF_All, true);
+  xedc_ = 2;
+  xf18_ = 0.f;
+  UpdateAlertEffect(mgr);
+}
+
+void CSplitterCommandModule::SetChassisReleased(CStateManager& mgr) {
+  mVulnerability = *CPatterned::GetDamageVulnerability();
+  SetVisorOrbitableFlags(CVisorParameters::kVOF_All, true);
+  if (xedc_ == 2) {
+    xf1c_ = 0.f;
+  }
+  xedc_ = 0;
+  xf18_ = 0.f;
+  UpdateAlertEffect(mgr);
+}
+
+void CSplitterCommandModule::SetChassisDetaching(CStateManager& mgr) {
+  mVulnerability = CDamageVulnerability::ReflectVulnerabilty();
+  SetVisorOrbitableFlags(CVisorParameters::kVOF_All, true);
+  if (xedc_ == 2) {
+    xf1c_ = 0.f;
+  }
+  xedc_ = 1;
+  xf18_ = 0.f;
+  UpdateAlertEffect(mgr);
+}
+
+void CSplitterCommandModule::SetChassisProtected(CStateManager& mgr) {
+  mVulnerability = CDamageVulnerability::ReflectVulnerabilty();
+  SetVisorOrbitableFlags(CVisorParameters::kVOF_All, false);
+  xedc_ = 3;
+  xf18_ = 0.f;
+  UpdateAlertEffect(mgr);
 }
 
 void CSplitterCommandModule::StartLaserSweep(const CVector3f& start, const CVector3f& end) {
@@ -996,6 +1036,110 @@ CParticleGenInfo* CSplitterCommandModule::GetShieldEffect() {
     return AnimationData()->GetFirstParticleEffect(name);
   }
   return nullptr;
+}
+
+pas::EStepDirection CSplitterCommandModule::FindDodgeDirection(CStateManager& mgr) {
+  const float rangeSq = mHoverDistance * mHoverDistance;
+  const CVector3f pos = GetTranslation();
+  bool leftClear = true;
+  bool rightClear = true;
+  pas::EStepDirection dir = pas::kSD_Invalid;
+  const CVector3f right = GetTransform().GetRight();
+  const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    const CEntity* ent = list[i];
+    if (ent && ent != this && ent->GetCurrentAreaId() == GetCurrentAreaId()) {
+      const CVector3f delta = static_cast< const CActor* >(ent)->GetTranslation() - pos;
+      if (delta.MagSquared() < rangeSq) {
+        if (CVector3f::Dot(delta, right) >= 0.f) {
+          if (rightClear && CVector3f::GetAngleDiff(right, delta) < M_PIF / 3.f) {
+            rightClear = false;
+          }
+        } else if (leftClear && CVector3f::GetAngleDiff(-right, delta) < M_PIF / 3.f) {
+          leftClear = false;
+        }
+      }
+    }
+  }
+  if (rightClear) {
+    rightClear = IsDodgeClear(mgr, right, mHoverDistance);
+  }
+  if (leftClear) {
+    leftClear = IsDodgeClear(mgr, -right, mHoverDistance);
+  }
+  if (leftClear && rightClear) {
+    if (mgr.Random()->Next() & 0x4000) {
+      leftClear = false;
+    } else {
+      rightClear = false;
+    }
+  }
+  if (leftClear) {
+    dir = pas::kSD_Left;
+  } else if (rightClear) {
+    dir = pas::kSD_Right;
+  }
+  return dir;
+}
+
+bool CSplitterCommandModule::IsDodgeClear(CStateManager& mgr, const CVector3f& dir, float dist) {
+  const CVector3f center = GetBoundingBox().GetCenterPoint();
+  const CVector3f end = center + dist * dir;
+  const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
+      CMaterialList(kMT_Unknown59), CMaterialList(kMT_CollisionActor));
+  if (mgr.RayCollideWorld(center, end, filter, this) &&
+      mPathFindSearch.OnPath(end) == CPathFindSearch::kR_Success) {
+    return true;
+  }
+  return false;
+}
+
+CVector3f CSplitterCommandModule::GetSeparation(CStateManager& mgr) {
+  const CObjectList& list = mgr.GetObjectListById(kOL_ListeningAi);
+  CVector3f separation = CVector3f::Zero();
+  float count = 0.f;
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    if (const CPatterned* ai = TCastToConstPtr< CPatterned >(list[i])) {
+      if (ai != this && ai->GetCurrentAreaId() == GetCurrentAreaId()) {
+        const CSplitterCommandModule* module = TCastToConstPtr< CSplitterCommandModule >(ai);
+        if (!module || module->mMainChassisId == kInvalidUniqueId) {
+          const float radius = 5.f * GetModelData()->GetScale().GetX();
+          const CVector3f away = mSteeringBehaviors.Separation(*this, ai->GetTranslation(), radius);
+          if (away.IsMagnitudeSafe()) {
+            separation += away.AsNormalized();
+            count += 1.f;
+          }
+        }
+      }
+    }
+  }
+  if (count > 0.f) {
+    separation *= 1.f / count;
+  }
+  return separation;
+}
+
+void CSplitterCommandModule::FindChassisToDock(CStateManager& mgr) {
+  CObjectList& list = mgr.ObjectListById(kOL_ListeningAi);
+  const CVector3f pos = GetTranslation();
+  float bestDistSq = FLT_MAX;
+  for (int i = list.GetFirstObjectIndex(); i != -1; i = list.GetNextObjectIndex(i)) {
+    if (CSplitterMainChassis* chassis = TCastToPtr< CSplitterMainChassis >(list[i])) {
+      if (chassis->GetCurrentAreaId() == GetCurrentAreaId() &&
+          chassis->RequestDocking(GetUniqueId())) {
+        const CVector3f delta = chassis->GetTranslation() - pos;
+        const float distSq = delta.MagSquared();
+        if (distSq < bestDistSq) {
+          if (CSplitterMainChassis* prev =
+                  TCastToPtr< CSplitterMainChassis >(mgr.ObjectById(xefc_))) {
+            prev->CancelDockingRequest(GetUniqueId());
+          }
+          bestDistSq = distSq;
+          xefc_ = chassis->GetUniqueId();
+        }
+      }
+    }
+  }
 }
 
 void CSplitterCommandModule::UpdateStuckTimer(float dt, CStateManager& mgr) {

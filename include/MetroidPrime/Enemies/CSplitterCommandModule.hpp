@@ -127,7 +127,11 @@ public:
   void RaiseShields(CStateManager& mgr, int arg);
   void ResetAttackTimes(CStateManager& mgr, int arg);
 
-  // Guessed names.
+  // Guessed names; called by the main chassis.
+  void SetChassisDocked(CStateManager& mgr);
+  void SetChassisReleased(CStateManager& mgr);
+  void SetChassisDetaching(CStateManager& mgr);
+  void SetChassisProtected(CStateManager& mgr);
   void StartLaserSweep(const CVector3f& start, const CVector3f& end);
   CVector3f GetBeamPosition() const;
 
@@ -142,6 +146,7 @@ private:
   void UpdateStuckTimer(float dt, CStateManager& mgr);
   void UpdateAlertEffect(CStateManager& mgr);
   pas::EStepDirection FindDodgeDirection(CStateManager& mgr);
+  bool IsDodgeClear(CStateManager& mgr, const CVector3f& dir, float dist);
   void MoveTo(const CVector3f& pos, float dt);
   void StopLaserSweep(CStateManager& mgr);
   CVector3f GetSeparation(CStateManager& mgr);
