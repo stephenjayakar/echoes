@@ -28,6 +28,14 @@
 #include "rstl/algorithm.hpp"
 #include "rstl/math.hpp"
 
+// Unreferenced; only the pooled strings survive in the final binary.
+static const char* skSlideShowPrefix = "slideshow";
+static const char* const skGalleryPrefix = "Gallery";
+static const char* skGalleryBorderModel = "CMDL_GalleryBorder";
+static const char skImageTag[] = "&image=";
+static const char skImageTagEnd[] = ";";
+static const char* const skLogbookName = "Logbook";
+
 static CVector2f sZeroVector(0.f, 0.f);
 static rstl::string sSlideShowMusic;
 
@@ -305,7 +313,7 @@ CIOWin::EMessageReturn CSlideShow::OnMessage(const CArchitectureMessage& msg,
     if (mGalleryTXTRDeps.empty()) {
       mGalleryTXTRDeps.reserve(8);
       for (int i = 1;; ++i) {
-        const rstl::string name = CBasics::Stringize("Gallery%02d_DGRP", i);
+        const rstl::string name = CBasics::Stringize("%s%02d_DGRP", skGalleryPrefix, i);
         if (!LoadTXTRDep(name.data())) {
           break;
         }
@@ -468,7 +476,7 @@ rstl::pair< int, int > CStateManager::CalculateScanCompletionRate() const {
       GetPlayerState(0)->ScanStates();
   int logbook = -1;
   for (int i = 0; i < hierarchy.size(); ++i) {
-    if (hierarchy[i].mName == "Logbook") {
+    if (hierarchy[i].mName == skLogbookName) {
       logbook = i;
     }
   }
@@ -669,28 +677,28 @@ void CSlideShow::UpdateControlsText(const CFinalInput& input) {
   rstl::wstring text;
   text.reserve(256);
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=SI,0.6,1.0,%8.8X;", gpTweakPlayerRes->mLStick[mLStick])));
+      CBasics::Stringize("%sSI,0.6,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mLStick[mLStick], skImageTagEnd)));
   text.append(strings.GetString("Browse"), -1);
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("   ")));
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=%8.8X;", gpTweakPlayerRes->mLTrigger[mLTrigger])));
+      CBasics::Stringize("%s%8.8X%s", skImageTag, gpTweakPlayerRes->mLTrigger[mLTrigger], skImageTagEnd)));
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l(" ")));
   text.append(strings.GetString("Zoom"), -1);
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l(" ")));
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=%8.8X;", gpTweakPlayerRes->mRTrigger[mRTrigger])));
+      CBasics::Stringize("%s%8.8X%s", skImageTag, gpTweakPlayerRes->mRTrigger[mRTrigger], skImageTagEnd)));
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("  ")));
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=SI,0.6,1.0,%8.8X;", gpTweakPlayerRes->mCStick[mCStick])));
+      CBasics::Stringize("%sSI,0.6,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mCStick[mCStick], skImageTagEnd)));
   text.append(strings.GetString("Pan"), -1);
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("   ")));
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=SI,1.0,1.0,%8.8X;", gpTweakPlayerRes->mYButton[0])));
+      CBasics::Stringize("%sSI,1.0,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mYButton[0], skImageTagEnd)));
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l(" ")));
   text.append(strings.GetString("Instructions"), -1);
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l("   ")));
   text.append(CStringExtras::ConvertToUNICODE(
-      CBasics::Stringize("&image=SI,0.6,1.0,%8.8X;", gpTweakPlayerRes->mBButton[0])));
+      CBasics::Stringize("%sSI,0.6,1.0,%8.8X%s", skImageTag, gpTweakPlayerRes->mBButton[0], skImageTagEnd)));
   text.append(CStringExtras::ConvertToUNICODE(rstl::string_l(" ")));
   text.append(strings.GetString("Quit"), -1);
   mControlsText->SetText(text);
@@ -788,24 +796,24 @@ void CSlideShow::UpdateSlideNumber(float dt) {
     for (int i = 0; i < mGallery; ++i) {
       slide += mGalleries[i].mSlides.size();
     }
-    mSlideNumberText->SetText(CBasics::Stringize("%d/%d", slide + 1, mTotalSlides));
+    rstl::string text = CBasics::Stringize("%d/%d", slide + 1, mTotalSlides);
+    mSlideNumberText->SetText(text);
     mSlideNumberText->Update(dt);
   }
 }
 
 void CSlideShow::DrawControls() const {
-  if (mControlsText.null()) {
-    return;
+  if (CGuiTextSupport* text = mControlsText.get()) {
+    const float fadeTime =
+        mIntroFade ? gpTweakSlideShow->GetFadeInTime() : gpTweakSlideShow->GetFadeOutTime();
+    text->SetGeometryColor(CColor::White().WithAlphaOf(mControlsAlpha * fadeTime));
+    const int height = CGraphics::GetViewport().mHeight;
+    gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
+    gpRender->SetModelMatrix(CTransform4f::Translate(0.f, 0.f, 32.f + height));
+    CGraphics::SetCullMode(kCM_None);
+    gpRender->SetDepthReadWrite(false, false);
+    mControlsText->Render();
   }
-  const float fadeTime =
-      mIntroFade ? gpTweakSlideShow->GetFadeInTime() : gpTweakSlideShow->GetFadeOutTime();
-  mControlsText->SetGeometryColor(CColor::White().WithAlphaModulatedBy(mControlsAlpha * fadeTime));
-  gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
-  gpRender->SetModelMatrix(
-      CTransform4f::Translate(0.f, 0.f, 32.f + CGraphics::GetViewport().mHeight));
-  CGraphics::SetCullMode(kCM_None);
-  gpRender->SetDepthReadWrite(false, false);
-  mControlsText->Render();
 }
 
 CIOWin::EMessageReturn CSlideShow::SSlideData::ProcessUserInput(const CFinalInput& input) {
