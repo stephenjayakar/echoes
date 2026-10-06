@@ -114,15 +114,14 @@ TAreaId CScriptLayerController::GetAreaIdAndWorldLayerState(CStateManager& mgr,
 
   const rstl::pair< CAssetId, TAreaId > worldAndArea =
       gpMemoryCard->GetAreaAndWorldIdForSaveId(mAreaSaveId);
-  if (worldAndArea.first == kInvalidAssetId) {
-    return kInvalidAreaId;
+  if (worldAndArea.first != kInvalidAssetId) {
+    CWorldState& worldState = gpGameState->StateForWorld(worldAndArea.first);
+    if (layers != nullptr) {
+      *layers = worldState.GetLayerState().GetPtr();
+    }
+    return worldAndArea.second;
   }
-
-  CWorldState& worldState = gpGameState->StateForWorld(worldAndArea.first);
-  if (layers != nullptr) {
-    *layers = worldState.GetLayerState().GetPtr();
-  }
-  return worldAndArea.second;
+  return kInvalidAreaId;
 }
 
 CGameArea* CScriptLayerController::GetAreaForAreaId(CStateManager& mgr, TAreaId area) {
