@@ -1540,6 +1540,15 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "Splitter",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSplitterCommandModule.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CSplitterMainChassis.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CSplitterBeamEffect.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "SwarmBasics",
         [
             Object(NonMatching, "MetroidPrime/Enemies/CSwarmBasics.cpp"),
