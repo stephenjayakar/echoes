@@ -588,8 +588,24 @@ SAdvancementResults CAnimData::AdvanceAdditiveAnim(rstl::rc_ptr< CAnimTreeNode >
 }
 
 CAdvancementDeltas CAnimData::UpdateAdditiveAnims(float dt) {
-  // TODO: Update fades, remove finished entries and combine their weighted deltas.
-  return CAdvancementDeltas(CVector3f::Zero(), CQuaternion::NoRotation());
+  TAdditiveAnims::iterator it = mAdditiveAnims.begin();
+  while (it != mAdditiveAnims.end()) {
+    CAdditiveAnimPlayback& playback = it->second;
+    playback.Update(dt);
+    const CCharAnimTime remaining = playback.GetAnimationTree()->VGetTimeRemaining();
+    const CAdditiveAnimPlayback::EPlaybackPhase phase = playback.GetFadingMode();
+    if (close_enough(remaining.GetSeconds(), 0.f) && playback.IsFadeOutWhenAnimOver() &&
+        phase != CAdditiveAnimPlayback::kPP_FadedOut &&
+        phase != CAdditiveAnimPlayback::kPP_FadingOut) {
+      playback.FadeOut();
+    }
+    if (phase == CAdditiveAnimPlayback::kPP_FadedOut) {
+      it = mAdditiveAnims.erase(it);
+    } else {
+      ++it;
+    }
+  }
+  return AdvanceAdditiveAnims(dt);
 }
 
 CAdvancementDeltas CAnimData::AdvanceAdditiveAnims(float dt) {
