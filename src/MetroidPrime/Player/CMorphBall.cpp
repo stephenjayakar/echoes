@@ -831,11 +831,12 @@ CAABox CMorphBall::GetRenderBounds(const CStateManager& mgr) const {
   const CVector3f center = GetBallPosition();
   const CVector3f extent(2.f * mRadius, 2.f * mRadius, 2.f * mRadius);
   CAABox bounds(center - extent, center + extent);
-  if (mSlowBlueTailSwooshGen->GetModulationColor().GetAlpha() != 0.f) {
+  if (!close_enough(mSlowBlueTailSwooshGen->GetModulationColor().GetAlpha(), 0.f)) {
     const rstl::optional_object< CAABox > trailBounds = mSlowBlueTailSwooshGen->GetBounds();
     if (trailBounds.valid()) {
-      bounds.AccumulateBounds(trailBounds->GetMinPoint());
-      bounds.AccumulateBounds(trailBounds->GetMaxPoint());
+      const CAABox& box = *trailBounds;
+      bounds.AccumulateBounds(box.GetMinPoint());
+      bounds.AccumulateBounds(box.GetMaxPoint());
     }
   }
   return bounds;
@@ -2721,7 +2722,7 @@ CTransform4f CMorphBall::CalculateSurfaceToWorld(const CVector3f& normal, const 
     if (right.CanBeNormalized()) {
       right.Normalize();
       const CVector3f up = CVector3f::Cross(right, forward).AsNormalized();
-      return CTransform4f::FromColumns(right, forward, up, point);
+      return CTransform4f::FromColumns(right, forward, up, point + CVector3f(0.f, 0.f, 0.f));
     }
   }
   return CTransform4f::Identity();
