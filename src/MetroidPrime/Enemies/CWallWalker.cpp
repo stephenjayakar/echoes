@@ -222,7 +222,7 @@ bool CWallWalker::IsRightLegHit(CStateManager& mgr, const CTriggerData& data) co
 }
 
 bool CWallWalker::AreBothLegsHit(CStateManager& mgr, const CTriggerData& data) const {
-  return mLeftLegHit && mRightLegHit;
+  return mLeftLegHit & mRightLegHit;
 }
 
 bool CWallWalker::ShouldShootProjectile(CStateManager& mgr, const CTriggerData& data) const {
