@@ -72,8 +72,10 @@ void CGameCollision::BuildCollisionCache(const CStateManager& mgr, CCollisionCac
     } else {
       mgr.BuildNearList(nearList, cache.GetBounds(), filter, nullptr);
     }
-    for (int i = 0; i < nearList.size(); ++i) {
-      CacheActorGeometry(mgr, cache, mgr.GetObjectById(nearList[i]));
+    for (rstl::reserved_vector< TUniqueId, 1024 >::iterator id = nearList.begin();
+         id != nearList.end(); ++id) {
+      const CEntity* entity = mgr.GetObjectById(*id);
+      CacheActorGeometry(mgr, cache, entity);
     }
   }
 }
