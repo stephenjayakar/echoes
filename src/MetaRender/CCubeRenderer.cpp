@@ -153,14 +153,16 @@ void Buckets::Shutdown() {
 
 void Buckets::Insert(const CVector3f& pos, const CAABox& bounds, EDrawableType type,
                      const void* data, const CPlane& plane, ushort extraSort, bool alpha) {
-  if (sData->size() == sData->capacity()) {
+  DrawableList& list = *sData;
+  if (list.size() == list.capacity()) {
     return;
   }
 
-  const float distance = plane.GetHeight(pos);
-  sData->push_back(CDrawable(type, extraSort, distance, bounds, data, alpha));
+  float distance = plane.GetHeight(pos);
+  list.push_back(CDrawable(type, extraSort, distance, bounds, data, alpha));
   sMinMaxDistance.first = rstl::min_val(distance, sMinMaxDistance.first);
   sMinMaxDistance.second = rstl::max_val(distance, sMinMaxDistance.second);
+  __dcbt(&list.back() + 1, 0);
 }
 
 void Buckets::InsertPlaneObject(float closeDistance, float farDistance, const CAABox& bounds,
@@ -284,8 +286,8 @@ void Buckets::Clear() {
   sBucketIndex.clear();
   sPlaneObjectData->clear();
   sPlaneObjectBucket->clear();
-  for (int i = 0; i < sBuckets->size(); ++i) {
-    (*sBuckets)[i].clear();
+  for (Bucket* it = sBuckets->begin(); it != sBuckets->end(); ++it) {
+    it->clear();
   }
   sMinMaxDistance = skWorstMinMaxDistance;
 }
