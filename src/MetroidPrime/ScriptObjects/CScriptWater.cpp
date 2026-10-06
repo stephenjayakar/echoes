@@ -419,8 +419,13 @@ void CScriptWater::PreRenderAllViewports(CStateManager& mgr) {
 }
 
 CAABox CScriptWater::GetSortingBounds(const CStateManager&) const {
-  // The original's maxZ < maxZ - 1 comparison leaves the surface bounds unchanged.
-  return mSurfaceBounds;
+  const CAABox& bounds = mSurfaceBounds;
+  CVector3f max = bounds.GetMaxPoint();
+  const float z = max.GetZ() - 1.f;
+  if (z > max.GetZ()) {
+    max.SetZ(z);
+  }
+  return CAABox(bounds.GetMinPoint(), max);
 }
 
 void CScriptWater::AddToRenderer(const CStateManager& mgr) const {

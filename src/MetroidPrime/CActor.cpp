@@ -849,14 +849,22 @@ void CActor::AllocateShadow() {
 }
 
 bool CActor::CanDrawStatic() const {
-  return GetActive() && HasModelData() && static_cast< char >(mDrawFlags.GetTrans()) < 5 &&
-         !HasAnimation();
+  if (!GetActive() || !HasModelData() || static_cast< char >(mDrawFlags.GetTrans()) > 4) {
+    return false;
+  }
+  if (NullModel() || GetAnimationData()) {
+    return false;
+  }
+  return true;
 }
 
 void CActor::ClearSoundEventPitchBend() { mEnablePitchBend = false; }
 
 TUniqueId CActor::InFluidId() const {
-  return mFluidIds.empty() ? kInvalidUniqueId : mFluidIds.back();
+  if (mFluidIds.empty()) {
+    return kInvalidUniqueId;
+  }
+  return mFluidIds.back();
 }
 
 void CActor::RemoveInvalidFluidIds(CStateManager& mgr) {
@@ -939,13 +947,14 @@ void CActor::UpdateSfxEmitters(CStateManager& mgr) {
 
 CSfxHandle CActor::PlayCustomSound(const CVector3f& position, const CVector3f& direction,
                                    const SLdrAudioPlaybackParms& parameters, bool looped) const {
+  const int areaId = GetCurrentAreaId().Value();
   CAudioSys::C3DEmitterParmData emitter(parameters.maximumDistance, parameters.fallOff, 1,
                                         parameters.maxVolume, parameters.minVolume);
   emitter.mPos = position;
   emitter.mDir = direction;
   emitter.mSfxId = parameters.sound_Id;
-  return CSfxManager::AddEmitter(emitter, GetCurrentAreaId().Value(), parameters.useRoomAcoustics,
-                                 looped, CSfxManager::kMedPriority);
+  return CSfxManager::AddEmitter(emitter, areaId, parameters.useRoomAcoustics, looped,
+                                 CSfxManager::kMedPriority);
 }
 
 void CActor::StopLoopedSound(ushort sfxId) {
@@ -1021,8 +1030,8 @@ void CActor::AddLoopedSound(ushort sfxId, bool nonEmitter, int area, bool useAco
 }
 
 void CActor::RemoveLoopedSoundAt(int index) {
-  for (int i = index; i + 1 < mLoopingSoundCount; ++i) {
-    mLoopingSounds[i] = mLoopingSounds[i + 1];
+  for (uint i = index + 1; i < mLoopingSoundCount; ++i) {
+    mLoopingSounds[i - 1] = mLoopingSounds[i];
   }
   --mLoopingSoundCount;
 }
