@@ -221,47 +221,49 @@ void CVisorFlare::RenderFlares(const CVector3f& pos, const CStateManager& mgr) c
   const CVector3f reflectedWorldPos = viewMatrix * reflectedPos;
   const CVector3f cameraForward = camera.GetTransform().GetForward();
   const CVector3f toFlare = flarePos - cameraPos;
-  if (close_enough(mIntensity, 0.f)) {
-    return;
-  }
-
-  float angle = 0.f;
-  if (!close_enough(mRotationScale, 0.f)) {
-    const CVector3f flareDir = toFlare.DropZ().AsNormalized();
-    const CVector3f cameraDir = cameraForward.DropZ().AsNormalized();
-    float relativeAngle = CMath::ArcCosineR(CVector3f::Dot(flareDir, cameraDir));
-    if (CVector3f::Cross(flareDir, cameraDir).GetZ() < 0.f) {
-      relativeAngle = -relativeAngle;
-    }
-    angle = mRotationScale * relativeAngle;
-  }
-
-  SetupRenderState(mgr);
-  for (int i = 0; i < mFlareDefs.size(); ++i) {
-    const CFlareDef& flare = mFlareDefs[i];
-    const CVector3f origin = CVector3f::Lerp(flarePos, reflectedWorldPos, flare.GetPosition());
-    const CTransform4f modelMatrix = CTransform4f::LookAt(origin, cameraPos);
-    gpRender->SetModelMatrix(modelMatrix);
-    float scale = 0.5f * mIntensity * flare.GetScale();
-    if (mDistanceScaled) {
-      const CVector3f distance = origin - cameraPos;
-      if (distance.CanBeNormalized()) {
-        scale *= distance.Magnitude();
+  if (!close_enough(mIntensity, 0.f)) {
+    float angle = 0.f;
+    if (!close_enough(mRotationScale, 0.f)) {
+      const CVector3f flareDir = toFlare.DropZ().AsNormalized();
+      const CVector3f cameraDir = cameraForward.DropZ().AsNormalized();
+      float relativeAngle = CMath::ArcCosineR(CVector3f::Dot(flareDir, cameraDir));
+      if (CVector3f::Cross(flareDir, cameraDir).GetZ() < 0.f) {
+        relativeAngle = -relativeAngle;
       }
+      angle = mRotationScale * relativeAngle;
     }
-    TLockedToken< CTexture > texture(flare.GetTexture());
-    if (flare.GetTexture().IsLoaded()) {
+
+    SetupRenderState(mgr);
+    for (int i = 0; i < mFlareDefs.size(); ++i) {
+      const CFlareDef& flare = mFlareDefs[i];
+      const CVector3f origin = CVector3f::Lerp(flarePos, reflectedWorldPos, flare.GetPosition());
+      const CTransform4f modelMatrix = CTransform4f::LookAt(origin, cameraPos);
+      gpRender->SetModelMatrix(modelMatrix);
+      float scale = 0.5f * mIntensity * flare.GetScale();
+      if (mDistanceScaled) {
+        const CVector3f distance = origin - cameraPos;
+        if (distance.CanBeNormalized()) {
+          scale *= distance.Magnitude();
+        }
+      }
+      TLockedToken< CTexture > texture(flare.GetTexture());
+      if (!flare.GetTexture().IsLoaded()) {
+        continue;
+      }
       texture->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-      float sinScale = 0.f;
-      float cosScale = scale;
-      if (!close_enough(angle, 0.f)) {
+      float sinScale;
+      float cosScale;
+      if (close_enough(angle, 0.f)) {
+        sinScale = 0.f;
+        cosScale = scale;
+      } else {
         sinScale = scale * sine(CRelAngle::FromRadians(angle));
         cosScale = scale * cosine(CRelAngle::FromRadians(angle));
       }
       DrawStreamed(flare.GetColor(), sinScale, cosScale);
     }
+    ResetRenderState(mgr);
   }
-  ResetRenderState(mgr);
 }
 
 void CVisorFlare::DrawStreamed(const CColor& color, float sinScale, float cosScale) const {
