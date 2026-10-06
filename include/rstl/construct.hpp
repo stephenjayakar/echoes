@@ -60,6 +60,20 @@ struct construction_policy< T, true > {
   static void construct(void* dest, const T& src) { *static_cast< T* >(dest) = src; }
 };
 
+// Bitwise construction copies the object as doubles in an out-of-line routine (one weak
+// instance per size), skipping both the copy constructor and the placement-new null check.
+template < int N >
+void bitwise_copy(void* dest, const void* src);
+
+template < int N >
+void bitwise_copy(void* dest, const void* src) {
+  for (int i = 0; i < N; ++i) {
+    static_cast< double* >(dest)[i] = static_cast< const double* >(src)[i];
+  }
+}
+
+#define RSTL_DECLARE_BITWISE_CONSTRUCTION(T)   template <>   struct use_assignment_for_construction< T > {     enum { value = true };   };   template <>   struct construction_policy< T, true > {     static void construct(void* dest, const T& src) {       bitwise_copy< sizeof(T) / sizeof(double) >(dest, &src);     }   };
+
 RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(char)
 RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(signed char)
 RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(uchar)
