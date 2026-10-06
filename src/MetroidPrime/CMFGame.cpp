@@ -657,23 +657,21 @@ void CMFGame::RecordMultiplayerResults() const {
 
   if (gameMode == 'DTHM') {
     for (int i = 0; i < playerCount; ++i) {
-      CGameState& state = *gpGameState;
       const CPlayerState& player = *mStateManager->GetPlayerState(i);
+      const CPlayerOptions& options = gpGameState->GameOptions().PlayerOptions(i);
       const uint selection = player.GetPlayerSelection();
       const int score = player.GetItemAmount(CPlayerState::kIT_FragCount);
       const int deaths = player.GetItemAmount(CPlayerState::kIT_DiedCount);
-      const CPlayerOptions& options = state.GameOptions().PlayerOptions(i);
       players.push_back(CGameState::SPlayerResult(selection, score, deaths,
                                                 options.GetInvertYAxis(), options.GetRumbleEnabled()));
     }
   } else if (gameMode == 'COIN') {
     for (int i = 0; i < playerCount; ++i) {
-      CGameState& state = *gpGameState;
       const CPlayerState& player = *mStateManager->GetPlayerState(i);
+      const CPlayerOptions& options = gpGameState->GameOptions().PlayerOptions(i);
       const uint selection = player.GetPlayerSelection();
       const int score = player.GetItemAmount(CPlayerState::kIT_CoinCounter);
       const int deaths = player.GetItemAmount(CPlayerState::kIT_DiedCount);
-      const CPlayerOptions& options = state.GameOptions().PlayerOptions(i);
       players.push_back(CGameState::SPlayerResult(selection, score, deaths,
                                                 options.GetInvertYAxis(), options.GetRumbleEnabled()));
     }
