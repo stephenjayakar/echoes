@@ -484,7 +484,6 @@ float CBSAiMovedFlyerLocomotion::UpdateLocomotionAnimation(float dt, float velMa
   return 1.f;
 }
 
-CBSRestrictedLocomotion::~CBSRestrictedLocomotion() {}
 
 CBSFloaterLocomotion::CBSFloaterLocomotion(CActor& actor) : CBSRestrictedLocomotion(actor) {}
 
@@ -500,7 +499,6 @@ float CBSFloaterLocomotion::ApplyLocomotionPhysics(float dt, CBodyController& bc
   return 0.f;
 }
 
-CBSBiPedLocomotion::~CBSBiPedLocomotion() {}
 
 CBSBlendedLocomotion::CBSBlendedLocomotion(CActor& actor, float turnSpeed)
 : CBSBiPedLocomotion(actor), mDirection(0.f, 1.f, 0.f), mTurnSpeed(turnSpeed), mTimeMoving(0.f) {}
