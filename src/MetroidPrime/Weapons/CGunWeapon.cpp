@@ -174,7 +174,10 @@ void CGunWeapon::PlayAnim(NWeaponTypes::EGunAnimType type, bool loop) {
 }
 
 float CGunWeapon::GetAnimDuration(NWeaponTypes::EGunAnimType type) const {
-  if (!mLoaded || int(type) < 0 || int(type) > 11) {
+  if (!mLoaded) {
+    return 0.f;
+  }
+  if (int(type) < 0 || int(type) > 11) {
     return 0.f;
   }
   return mSolidModelData->GetAnimationData()->GetAnimationDuration(mAnimIds[type]);
