@@ -34,9 +34,9 @@
 
 #include <float.h>
 
-float CParasite::skAttackTime = 2.f * CMath::SqrtF(2.5f / CPhysicsActor::GravityConstant());
+float CParasite::skAttackTime = 2.f * CMath::SqrtF(2.5f / kDefaultGravityAccel);
 float CParasite::skAttackVelocity = 15.f / skAttackTime;
-float CParasite::skRetreatTime = 2.f * CMath::SqrtF(2.5f / CPhysicsActor::GravityConstant());
+float CParasite::skRetreatTime = 2.f * CMath::SqrtF(2.5f / kDefaultGravityAccel);
 float CParasite::skRetreatVelocity = 3.f / skRetreatTime;
 
 struct SSphereJointInfo {
@@ -44,6 +44,44 @@ struct SSphereJointInfo {
   float radius;
 };
 static const SSphereJointInfo skIceJoints[] = {{"Skeleton_Root", 0.f}};
+
+static EMaterialTypes skContactMaterial = kMT_Unknown59;
+
+static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
+    {"AnimOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::AnimOver)},
+    {"Landed", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::Landed)},
+    {"HitSomething",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::HitSomething)},
+    {"ShouldAttack",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::ShouldAttack)},
+    {"Stuck", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::Stuck)},
+    {"AttackOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::AttackOver)},
+    {"ShotAt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::ShotAt)},
+    {"PatrolPathOver",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::PatrolPathOver)},
+};
+
+static CPatterned::StateMachine::SStateFunction skStates[] = {
+    {"Generate", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Generate)},
+    {"Deactivate", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Deactivate)},
+    {"PathFind", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::PathFind)},
+    {"TargetPatrol",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TargetPatrol)},
+    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Patrol)},
+    {"Run", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Run)},
+    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Attack)},
+    {"TelegraphAttack",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TelegraphAttack)},
+    {"Jump", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Jump)},
+    {"TargetPlayer",
+     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TargetPlayer)},
+    {"Retreat", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Retreat)},
+    {"Halt", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Halt)},
+    {"Crouch", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Crouch)},
+    {"GetUp", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::GetUp)},
+};
+
+static TUniqueId lastParasite = TUniqueId(0, 0);
 
 CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor,
                      const CEntityInfo& info, const CTransform4f& xf, const CModelData& mData,
@@ -143,8 +181,6 @@ CParasite::CParasite(TUniqueId uid, const rstl::string& name, EFlavorType flavor
 }
 
 CParasite::~CParasite() {}
-
-static TUniqueId lastParasite = kInvalidUniqueId;
 
 void CParasite::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   const TUniqueId uid = msg.GetSenderId();
@@ -290,8 +326,6 @@ void CParasite::AddDoorRepulsors(CStateManager& mgr) {
 }
 
 void CParasite::PreThink(float dt, CStateManager& mgr) { CWallWalker::PreThink(dt, mgr); }
-
-static EMaterialTypes skContactMaterial = kMT_Unknown59;
 
 void CParasite::Think(float dt, CStateManager& mgr) {
   if (!GetActive()) {
@@ -471,40 +505,6 @@ void CParasite::ThinkAboutMove(float dt) {
     CPatterned::ThinkAboutMove(dt);
   }
 }
-
-static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
-    {"AnimOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::AnimOver)},
-    {"Landed", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::Landed)},
-    {"HitSomething",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::HitSomething)},
-    {"ShouldAttack",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::ShouldAttack)},
-    {"Stuck", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::Stuck)},
-    {"AttackOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::AttackOver)},
-    {"ShotAt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::ShotAt)},
-    {"PatrolPathOver",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CParasite::PatrolPathOver)},
-};
-
-static CPatterned::StateMachine::SStateFunction skStates[] = {
-    {"Generate", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Generate)},
-    {"Deactivate", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Deactivate)},
-    {"PathFind", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::PathFind)},
-    {"TargetPatrol",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TargetPatrol)},
-    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Patrol)},
-    {"Run", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Run)},
-    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Attack)},
-    {"TelegraphAttack",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TelegraphAttack)},
-    {"Jump", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Jump)},
-    {"TargetPlayer",
-     static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::TargetPlayer)},
-    {"Retreat", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Retreat)},
-    {"Halt", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Halt)},
-    {"Crouch", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::Crouch)},
-    {"GetUp", static_cast< CPatterned::StateMachine::StateFunc >(&CParasite::GetUp)},
-};
 
 bool CParasite::Stuck(CStateManager&, const CTriggerData&) const {
   return mStuckTime > mStuckTimeThreshold;
