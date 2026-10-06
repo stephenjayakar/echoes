@@ -122,6 +122,7 @@ public:
   void EnableExplodeDeath(bool enabled) { mEnableExplodeDeath = enabled; } // Guessed name.
 
   bool IsBurnEnabled() const { return mEnableBurn; } // Guessed name.
+  void SetLocomotionDuringElectrocution(bool enabled) { mLocomotionDuringElectrocution = enabled; }
 
   bool IsShockEnabled() const { return mEnableShock; } // Guessed name.
 

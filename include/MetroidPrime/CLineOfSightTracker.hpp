@@ -14,6 +14,9 @@ public:
                       float checkIntervalRange);
   void Update(float dt, CStateManager& mgr); // Guessed name
   void SetTarget(TUniqueId target);          // Guessed name
+  void SetSegment(const CSegId& segment) { mSegment = segment; }            // Guessed name
+  void SetRayFilter(const CMaterialFilter& filter) { mRayFilter = filter; } // Guessed name
+  bool HasLineOfSight() const { return mHasLineOfSight; }                   // Guessed name
 
 private:
   TUniqueId mOwner;            // Guessed name
