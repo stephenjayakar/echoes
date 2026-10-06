@@ -171,6 +171,7 @@ enum EScriptObjectState {
   kSS_InternalState00 = 0x49533030, // Guessed name: base of the ten counter-condition states.
   kSS_InternalState01 = 0x49533031, // Guessed name
   // Guessed names; portal-transition connections use these internal states.
+  kSS_InternalState02 = 0x49533032,
   kSS_InternalState03 = 0x49533033,
   kSS_InternalState04 = 0x49533034,
   kSS_InternalState05 = 0x49533035,
@@ -211,6 +212,9 @@ enum EScriptObjectMessage {
   kSM_InternalMessage01 = 0x494d3031,
   kSM_InternalMessage02 = 0x494d3032,
   kSM_InternalMessage03 = 0x494d3033,
+  kSM_InternalMessage04 = 0x494d3034,
+  kSM_InternalMessage05 = 0x494d3035,
+  kSM_InternalMessage06 = 0x494d3036,
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
