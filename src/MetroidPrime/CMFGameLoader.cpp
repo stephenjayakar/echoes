@@ -154,19 +154,23 @@ void CMFGameLoader::ScanLoadedGunPaks() {
     if (!pak->IsARAMPak()) {
       continue;
     }
-    const rstl::string& filename = pak->GetDvdFile().GetFilename();
-    const rstl::string name = CStringExtras::CreatePrefix(
-        CStringExtras::ConvertToLowerCase(filename), filename.length() - 4);
+    const rstl::string name =
+        CStringExtras::CreatePrefix(CStringExtras::ConvertToLowerCase(pak->GetDvdFile().GetFilename()),
+                                    pak->GetDvdFile().GetFilename().length() - 4);
     const rstl::vector< rstl::string >::const_iterator found =
         rstl::binary_find(names.begin(), names.end(), name);
-    if (found == names.end()) {
-      continue;
-    }
-    for (int set = 0; set < 3; ++set) {
-      if (*found == rstl::string_l(skGunPakSets[set][0]) ||
-          *found == rstl::string_l(skGunPakSets[set][1])) {
-        MarkGunPakSetLoaded(set);
-        return;
+    if (found != names.end()) {
+      bool marked = false;
+      for (int set = 0; set < 3; ++set) {
+        if (!CStringExtras::CompareCaseInsensitive(*found, rstl::string_l(skGunPakSets[set][0])) ||
+            !CStringExtras::CompareCaseInsensitive(*found, rstl::string_l(skGunPakSets[set][1]))) {
+          MarkGunPakSetLoaded(set);
+          marked = true;
+          break;
+        }
+      }
+      if (marked) {
+        break;
       }
     }
   }
