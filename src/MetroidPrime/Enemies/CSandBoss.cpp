@@ -215,6 +215,180 @@ void CSandBoss::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   }
 }
 
+void CSandBoss::PreThink(float dt, CStateManager& mgr) {
+  if (IsLeader(mgr)) {
+    if (CActor* sphere = static_cast< CActor* >(mgr.ObjectById(xe8a_))) {
+      CTransform4f xf = GetLctrTransform(CSegId(1));
+      const CVector3f center = sphere->GetModelData()->GetBounds().GetCenterPoint();
+      xf.AddTranslation(xf.Rotate(-center));
+      sphere->SetTransform(xf);
+    }
+    const CQuaternion rot = GetRotation() * x14d0_.BuildInverted();
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      CSandBoss* other = TCastToPtr< CSandBoss >(mgr.ObjectById(*it));
+      if (other != nullptr && other != this && other->x165d_24_) {
+        other->SetTransform((other->x14d0_ * rot).BuildTransform4f(other->GetTranslation()));
+      }
+    }
+  }
+  mBoneTracking.PreThink(*AnimationData());
+  CPatterned::PreThink(dt, mgr);
+}
+
+void CSandBoss::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
+                                EUserEventType type, float dt) {
+  bool handled = false;
+  switch (type) {
+  case kUE_Activate:
+    SetArmorVisible(node.GetLocatorName(), true);
+    UpdateCollisionActorResponses(mgr);
+    break;
+  case kUE_Deactivate:
+    SetArmorVisible(node.GetLocatorName(), false);
+    UpdateCollisionActorResponses(mgr);
+    break;
+  case kUE_ObjectDrop:
+    ReleasePlayer(mgr);
+    handled = true;
+    break;
+  case kUE_ObjectPickUp:
+    if (x165d_28_) {
+      if (CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(xe84_))) {
+        const CTransform4f lctrXf = GetLctrTransform(node.GetLocatorName());
+        CTransform4f xf = GetTransform();
+        xf.SetTranslation(lctrXf.GetTranslation());
+        wp->SetTransform(xf);
+        SendScriptMsgs(kSS_InternalState00, mgr, GetUniqueId(), kSM_None);
+      }
+    }
+    handled = true;
+    break;
+  case kUE_Projectile:
+    if (x165c_28_) {
+      FireDarkBeam(mgr);
+      handled = true;
+    }
+    break;
+  case kUE_DamageOn:
+    BreakArmor(mgr);
+    handled = true;
+    break;
+  case kUE_BeginAction:
+    if (x165d_26_) {
+      x165d_27_ = true;
+    } else if (IsLeader(mgr)) {
+      if (x165c_30_) {
+        FireDoubleChargeBeams(mgr, node.GetLocatorName());
+      } else if (x165c_31_) {
+        FireTripleChargeBeams(mgr, node.GetLocatorName());
+      }
+    }
+    handled = true;
+    break;
+  case kUE_IkLock:
+    x165d_24_ = true;
+    handled = true;
+    break;
+  case kUE_IkRelease:
+    x165d_24_ = false;
+    handled = true;
+    break;
+  case kUE_ScreenShake:
+    ShakeCamera(mgr, node.GetLocatorName());
+    break;
+  case kUE_TakeOff:
+    if (GetCoverPoint(mgr, xe90_) != nullptr) {
+      SendScriptMsgs(kSS_Arrived, mgr, kInvalidUniqueId, kSM_None);
+    }
+    SpawnSandFountain(mgr, node.GetLocatorName());
+    break;
+  case kUE_Landing:
+    SpawnSandFountain(mgr, node.GetLocatorName());
+    break;
+  default:
+    break;
+  }
+  if (!handled) {
+    CPatterned::DoUserAnimEvent(mgr, node, type, dt);
+  }
+}
+
+void CSandBoss::ScanVisorRender(const CStateManager& mgr, const CTransform4f& xf,
+                                const CModelFlags& flags) const {
+  if (x165d_24_) {
+    RenderSphere(mgr, xf, flags);
+    const CQuaternion inv = CQuaternion::FromMatrix(GetTransform()).BuildInverted();
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+      if (other != nullptr && other->x165d_24_) {
+        const CQuaternion rot = CQuaternion::FromMatrix(other->GetTransform()) * inv;
+        other->RenderModelAndArmor(mgr, rot.BuildTransform4f() * xf, flags);
+      }
+    }
+  } else {
+    RenderModelAndArmor(mgr, xf, flags);
+  }
+}
+
+CAABox CSandBoss::GetScanVisorRenderBounds(const CStateManager& mgr) const {
+  if (x165d_24_) {
+    CAABox box = GetModelBounds();
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+      if (other != nullptr && other != this && other->x165d_24_) {
+        const CAABox otherBox = other->GetModelBounds();
+        box.AccumulateBounds(otherBox.GetMinPoint());
+        box.AccumulateBounds(otherBox.GetMaxPoint());
+      }
+    }
+    return box;
+  }
+  return GetModelBounds();
+}
+
+CAABox CSandBoss::GetModelBounds() const {
+  CAABox box = CAABox::MakeMaxInvertedBox();
+  box = GetModelData()->GetAnimationData()->CalcBoundingBoxFromModelVerts();
+  const CVector3f scale = GetModelData()->GetScale();
+  box = box.GetTransformedAABox(CTransform4f::Translate(-GetTranslation()) * GetTransform() *
+                                CTransform4f::Scale(scale));
+  return box;
+}
+
+void CSandBoss::RenderSphere(const CStateManager& mgr, const CTransform4f& xf,
+                             const CModelFlags& flags) const {
+  if (const CActor* sphere = static_cast< const CActor* >(mgr.GetObjectById(xe8a_))) {
+    CTransform4f sphereXf = xf * GetScaledLocatorTransform(CSegId(1));
+    const CVector3f center = sphere->GetModelData()->GetBounds().GetCenterPoint();
+    sphereXf.AddTranslation(sphereXf.Rotate(-center));
+    sphere->GetModelData()->Render(mgr, sphereXf, sphere->GetActorLights(), flags);
+  }
+}
+
+void CSandBoss::RenderModelAndArmor(const CStateManager& mgr, const CTransform4f& xf,
+                                    const CModelFlags& flags) const {
+  if (!NullModel()) {
+    GetModelData()->Render(CModelData::kWM_Normal, xf, nullptr, flags);
+  }
+  RenderArmor(mgr, xf, flags, flags);
+}
+
+void CSandBoss::RenderArmor(const CStateManager& mgr, const CTransform4f& xf,
+                            const CModelFlags& flags, const CModelFlags& headFlags) const {
+  for (int i = 0; i < 8; ++i) {
+    rstl::optional_object< CModelData > model;
+    if (mArmorStates[i] == kArmor_Attached) {
+      model = mAttachedArmorModels[i];
+    } else if (mArmorStates[i] == kArmor_Stampede) {
+      model = mStampedeArmorModels[i];
+    }
+    if (model) {
+      const CTransform4f armorXf = xf * GetScaledLocatorTransform(mArmorSegIds[i]);
+      model->Render(mgr, armorXf, GetActorLights(), i == 0 ? headFlags : flags);
+    }
+  }
+}
+
 void CSandBoss::Think(float dt, CStateManager& mgr) {
   if (!GetActive()) {
     return;

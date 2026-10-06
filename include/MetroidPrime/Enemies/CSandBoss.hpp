@@ -209,6 +209,18 @@ public:
   void UpdateDoubleChargeBeams(CStateManager& mgr, float dt);
   void UpdateTripleChargeBeams(CStateManager& mgr, float dt);
   void UpdateStampedeMovement(CStateManager& mgr, float dt);
+  void SetArmorVisible(const rstl::string& locator, bool visible);
+  void BreakArmor(CStateManager& mgr);
+  void FireDarkBeam(CStateManager& mgr);
+  void FireDoubleChargeBeams(CStateManager& mgr, const rstl::string& locator);
+  void FireTripleChargeBeams(CStateManager& mgr, const rstl::string& locator);
+  void ShakeCamera(CStateManager& mgr, const rstl::string& locator);
+  void SpawnSandFountain(CStateManager& mgr, const rstl::string& locator);
+  void RenderSphere(const CStateManager& mgr, const CTransform4f& xf,
+                    const CModelFlags& flags) const;
+  void RenderModelAndArmor(const CStateManager& mgr, const CTransform4f& xf,
+                           const CModelFlags& flags) const;
+  CAABox GetModelBounds() const;
   void RenderArmor(const CStateManager& mgr, const CTransform4f& xf, const CModelFlags& flags,
                    const CModelFlags& headFlags) const;
 
