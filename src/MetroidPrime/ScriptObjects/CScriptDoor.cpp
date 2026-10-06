@@ -23,7 +23,11 @@ static const CColor skLockedColor = CColor::Grey();
 static const CColor skResetColor(uchar(0), uchar(255), uchar(255), uchar(255));
 
 int CScriptDoor::FindAnimation(const CPASAnimParmData& parms) const {
-  return HasAnimation() ? GetAnimationData()->FindBestAnimation(parms) : -1;
+  int ret = -1;
+  if (HasAnimation()) {
+    ret = GetAnimationData()->FindBestAnimation(parms);
+  }
+  return ret;
 }
 
 CScriptDoor::CScriptDoor(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
@@ -105,9 +109,6 @@ CVector3f CScriptDoor::GetOrbitPosition(const CStateManager& mgr) const {
 void CScriptDoor::SetDoorAnimation(EDoorAnimType animation) {
   int animationId = 0;
   switch (animation) {
-  case kDAT_Open:
-    animationId = mOpenAnimation;
-    break;
   case kDAT_Closing:
     animationId = mClosingAnimation;
     break;
@@ -117,10 +118,13 @@ void CScriptDoor::SetDoorAnimation(EDoorAnimType animation) {
   case kDAT_Closed:
     animationId = mClosedAnimation;
     break;
+  case kDAT_Open:
+    animationId = mOpenAnimation;
+    break;
   }
   mAnimationId = animationId;
   if (HasAnimation()) {
-    AnimationData()->SetAnimation(CAnimPlaybackParms(animationId, -1, 1.f, true), false);
+    AnimationData()->SetAnimation(CAnimPlaybackParms(mAnimationId, -1, 1.f, true), false);
   }
 }
 
@@ -202,6 +206,8 @@ void CScriptDoor::SetShieldAlpha(float alpha, CStateManager& mgr) {
 
 void CScriptDoor::UpdateShield(float dt, CStateManager& mgr) {
   switch (mShieldState) {
+  case kSS_Visible:
+    break;
   case kSS_FadingOut:
     mColorDirty = true;
     mShieldAlpha -= dt / mShieldFadeOutTime;
@@ -210,6 +216,8 @@ void CScriptDoor::UpdateShield(float dt, CStateManager& mgr) {
       mShieldState = kSS_Hidden;
     }
     SetShieldAlpha(mShieldAlpha, mgr);
+    break;
+  case kSS_Hidden:
     break;
   case kSS_FadingIn:
     mColorDirty = true;
@@ -510,7 +518,9 @@ bool CScriptDoor::IsConnectedToArea(const CStateManager& mgr, TAreaId area) cons
     }
     const CGameArea::Dock& areaDock =
         mgr.GetWorld()->GetAreaAlways(dock->GetAreaId()).GetDock(dock->GetDockId());
-    return areaDock.GetConnectedAreaId(dock->GetDockReference(mgr)) == area;
+    if (areaDock.GetConnectedAreaId(dock->GetDockReference(mgr)) == area) {
+      return true;
+    }
   }
   return false;
 }
@@ -527,20 +537,23 @@ void CScriptDoor::UpdateShellColor(float dt) {
   }
   mColorDirty = false;
 
-  switch (mLockState) {
-  case kLS_Locked:
+  if (mLockState == kLS_Locked) {
     mCurrentShellColor = skLockedColor;
-    break;
+    return;
+  }
+
+  const CColor shellColor = mShellColor;
+  switch (mLockState) {
   case kLS_Locking:
     mCurrentShellColor =
-        CColor::Lerp(mShellColor, skLockedColor, CMath::Clamp(0.f, mLockTimer, 1.f));
+        CColor::Lerp(shellColor, skLockedColor, CMath::Clamp(0.f, mLockTimer, 1.f));
     break;
   case kLS_Unlocking:
     mCurrentShellColor =
-        CColor::Lerp(skLockedColor, mShellColor, CMath::Clamp(0.f, mLockTimer, 1.f));
+        CColor::Lerp(skLockedColor, shellColor, CMath::Clamp(0.f, mLockTimer, 1.f));
     break;
   default:
-    mCurrentShellColor = mShellColor;
+    mCurrentShellColor = shellColor;
     break;
   }
 }
@@ -559,7 +572,10 @@ void CScriptDoor::AddToRenderer(const CStateManager& mgr) const {
     return;
   }
   CPhysicsActor::Render(mgr);
-  if (!mShellModel || !(mShieldAlpha > 0.f)) {
+  if (!mShellModel) {
+    return;
+  }
+  if (!(mShieldAlpha > 0.f)) {
     return;
   }
 
