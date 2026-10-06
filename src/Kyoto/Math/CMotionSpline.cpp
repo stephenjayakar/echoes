@@ -679,7 +679,7 @@ float CMotionSpline::FindClosestLengthOnSpline(float start, const CVector3f& pos
       const float span = i == mKnots.size() - 1 ? mLength - mKnotDistances[i]
                                                 : mKnotDistances[i + 1] - mKnotDistances[i];
       const float length = t * span + mKnotDistances[i];
-      const CVector3f offset = position - GetPositionByLength(length);
+      const CVector3f& offset = position - GetPositionByLength(length);
       float distance = 0.f;
       if (offset.IsMagnitudeSafe()) {
         distance = offset.Magnitude();
@@ -740,7 +740,7 @@ float CMotionSpline::FindClosestBezierLength(float start, const CVector3f& posit
   for (int i = 0; i < iterations; ++i) {
     const CVector3f first = knots[i];
     const CVector3f second = mClosedLoop && i == knots.size() - 1 ? knots[0] : knots[i + 1];
-    const CVector3f delta = second - first;
+    const CVector3f& delta = second - first;
     const CVector3f reverseDelta = first - second;
     CVector3f previous;
     if (i == 0) {

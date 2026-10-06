@@ -903,7 +903,7 @@ rstl::optional_object< CAABox > CProjectileWeapon::GetBounds() const {
         rstl::max_val(rstl::max_val(mGlobalScale.GetX(), mGlobalScale.GetY()), mGlobalScale.GetZ());
     const float radius = (size + CMath::FastSqrtF(offsetSquared)) * scale;
     const CVector3f extent(radius, radius, radius);
-    const CVector3f center = GetTranslation();
+    const CVector3f& center = GetTranslation();
     result.AccumulateBounds(center - extent);
     result.AccumulateBounds(center + extent);
     hasBounds = true;

@@ -505,7 +505,7 @@ void CGameProjectile::Chase(float dt, CStateManager& mgr) {
   CVector3f delta = homingPosition - mProjectile.GetTranslation();
   const bool breakHoming = mProjectile.GetWeaponDescription()->mBHBT;
   if (breakHoming) {
-    const CVector3f movement = GetTranslation() - mPreviousPos;
+    const CVector3f& movement = GetTranslation() - mPreviousPos;
     const bool movingToward = CVector3f::Dot(movement, delta) > 0.f;
     if (mMovingTowardTarget && !movingToward) {
       mHomingTargetId = kInvalidUniqueId;

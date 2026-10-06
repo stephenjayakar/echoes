@@ -418,7 +418,7 @@ bool CIceImpact::SubdivideAndGenerateParticles(CStateManager& mgr, const CVector
     return false;
   }
 
-  const CVector3f edgeAB = b - a;
+  const CVector3f& edgeAB = b - a;
   const CVector3f edgeAC = c - a;
   const CVector3f cross = CVector3f::Cross(edgeAB, edgeAC);
   const float area = cross.Magnitude();

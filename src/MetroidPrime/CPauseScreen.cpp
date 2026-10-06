@@ -503,11 +503,11 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
         if (model->HasAnimation()) {
           CRandom16 random(0);
           model->AdvanceAnimation(0.02f, random, true);
-          const CAABox modelBounds = model->AnimationData()->CalcBoundingBoxFromModelVerts();
+          const CAABox& modelBounds = model->AnimationData()->CalcBoundingBoxFromModelVerts();
           bounds.AccumulateBounds(modelBounds.GetMinPoint());
           bounds.AccumulateBounds(modelBounds.GetMaxPoint());
         } else {
-          const CAABox modelBounds = model->GetBounds();
+          const CAABox& modelBounds = model->GetBounds();
           bounds.AccumulateBounds(modelBounds.GetMinPoint());
           bounds.AccumulateBounds(modelBounds.GetMaxPoint());
         }
@@ -1455,7 +1455,7 @@ void CPauseScreen::DrawNodes(const CTransform4f& view, rstl::vector< SNodeDraw >
   for (rstl::vector< SNodeDraw >::const_iterator it = nodes.begin(); it != nodes.end(); ++it) {
     const float alpha = rstl::min_val(1.f, rstl::max_val(0.f, it->mAlpha));
     const CColor brightness(alpha, alpha, alpha, 1.f);
-    const CColor faded = brightness.WithAlphaOf(alpha);
+    const CColor& faded = brightness.WithAlphaOf(alpha);
     const CColor* textColor;
     const CColor* selectedTextColor;
     if (it->mNode->IsViewed()) {
@@ -1641,7 +1641,7 @@ void CPauseScreen::DrawSlider(const CTransform4f& view, const CVector3f& positio
   const float halfWidth = centerWidth * 0.5f;
   const CTransform4f local = CTransform4f::Scale(scale * sliderScale) * view.GetRotation() *
                              CTransform4f::Translate(0.f, 0.f, textOffset);
-  const CTransform4f world = CTransform4f::Translate(position) * local;
+  const CTransform4f& world = CTransform4f::Translate(position) * local;
   const CColor selectionColor =
       gpTweakGui->GetLogBookSliderSelectionColor().WithAlphaModulatedBy(alpha);
   const CColor backgroundColor =
