@@ -1033,7 +1033,7 @@ void CActor::PlayLoopedSound(ushort sfxId, int flags, float fallOff, float maxDi
   }
 }
 
-void CActor::AddLoopedSound(ushort sfxId, bool nonEmitter, int area, bool useAcoustics,
+void CActor::AddLoopedSound(ushort sfxId, bool nonEmitter, int area, const bool useAcoustics,
                             CAudioSys::C3DEmitterParmData& parameters, const CSegId& locator,
                             ushort pitchStart, ushort pitchEnd, float pitchDuration,
                             bool useEchoVolume) {
@@ -1046,18 +1046,15 @@ void CActor::AddLoopedSound(ushort sfxId, bool nonEmitter, int area, bool useAco
   }
 
   if (handle) {
-    TLoopingSound& sound = mLoopingSounds[mLoopingSoundCount];
-    sound.first = sfxId;
-    sound.second = SSound(handle, locator, useEchoVolume);
+    mLoopingSounds[mLoopingSoundCount].first = sfxId;
+    mLoopingSounds[mLoopingSoundCount].second = SSound(handle, locator, useEchoVolume);
     if (mEnablePitchBend) {
       CSfxManager::PitchBend(handle, mPitchBend);
     }
-    if (pitchDuration <= 0.f) {
-      if (!mEnablePitchBend) {
-        CSfxManager::PitchBend(handle, pitchStart);
-      }
-    } else {
+    if (pitchDuration > 0.f) {
       CSfxManager::AddPitchBend(CSfxPitchBend(handle, pitchStart, pitchEnd, pitchDuration));
+    } else if (!mEnablePitchBend) {
+      CSfxManager::PitchBend(handle, pitchStart);
     }
   }
   ++mLoopingSoundCount;
