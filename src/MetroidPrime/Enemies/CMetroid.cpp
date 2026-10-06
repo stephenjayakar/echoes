@@ -9,6 +9,7 @@
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
+#include "Collision/CRayCastResult.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/CSafeZoneManager.hpp"
 #include "MetroidPrime/CStateManager.hpp"
@@ -25,7 +26,13 @@
 #include "MetroidPrime/ScriptLoaderRel.hpp"
 #include "REL/REL_Setup.h"
 
+static const char* skJointNameList[] = {
+    "Head_1",  "L_ankle", "L_elbow",       "L_hip",   "L_knee",  "L_shoulder",
+    "L_varias2_SDK", "L_wrist", "Pelvis",  "R_ankle", "R_elbow", "R_hip",
+    "R_knee",  "R_shoulder", "R_varias2_SDK", "Spine_1", "Spine_2",
+};
 static const char* const skPirateSuckJoint = "Head_1";
+static const char* const skPirateRootJoint = "Skeleton_Root";
 
 static CDamageVulnerability::TWeaponVulnerability skFaceHugOverrides[] = {
     CDamageVulnerability::TWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false)),
@@ -964,6 +971,90 @@ bool CMetroid::InAttackPosition(CStateManager& mgr, const CTriggerData&) const {
     }
   }
   return false;
+}
+
+void CMetroid::InterpolateToPosRot(CStateManager& mgr, float dt) {
+  CVector3f targetPos = CVector3f::Zero();
+  CQuaternion targetRot = CQuaternion::NoRotation();
+  ComputeSuckTargetPosRot(mgr, targetPos, targetRot);
+  const CVector3f pos = CVector3f::Lerp(GetTranslation(), targetPos, dt);
+  const CQuaternion rot = CQuaternion::SlerpLocal(GetRotation(), targetRot, dt);
+  SetTranslation(pos);
+  SetRotation(rot.BuildNormalized());
+}
+
+void CMetroid::ComputeSuckTargetPosRot(CStateManager& mgr, CVector3f& pos, CQuaternion& rot) const {
+  pos = GetTranslation();
+  rot = GetRotation();
+  if (const CPlayer* player = TCastToConstPtr< CPlayer >(mgr.GetObjectById(mAttackTarget))) {
+    ComputeSuckPlayerPosRot(*player, mgr, pos, rot);
+  } else {
+    ComputeSuckPiratePosRot(mgr, pos, rot);
+  }
+}
+
+float CMetroid::ComputeMorphingPlayerSuckUpPos(const CPlayer& player) const {
+  float height = 0.f;
+  if (player.HasModelData()) {
+    for (uint i = 0; i < 17; ++i) {
+      const CTransform4f xf = player.GetLocatorTransform(rstl::string_l(skJointNameList[i]));
+      const float jointZ = xf.Get23();
+      const float jointHeight = jointZ * player.GetModelData()->GetScale().GetZ();
+      if (jointHeight > height) {
+        height = jointHeight;
+      }
+    }
+  }
+  return height;
+}
+
+void CMetroid::ComputeSuckPiratePosRot(CStateManager& mgr, CVector3f& pos, CQuaternion& rot) const {
+  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(GetAttackTargetId()))) {
+    const CTransform4f headXf = actor->GetLocatorTransform(rstl::string_l(skPirateSuckJoint));
+    const CTransform4f rootXf = actor->GetLocatorTransform(rstl::string_l(skPirateRootJoint));
+    const CVector3f localPos = headXf.GetTranslation() + -0.5f * rootXf.GetUp();
+    const CVector3f& scale = actor->GetModelData()->GetScale();
+    const CVector3f scaledPos(scale.GetX() * localPos.GetX(), scale.GetY() * localPos.GetY(),
+                              scale.GetZ() * localPos.GetZ());
+    pos = actor->GetTranslation() + actor->GetTransform().Rotate(scaledPos);
+    pos += 0.3f * actor->GetTransform().Rotate(rootXf.GetForward());
+    const CQuaternion rotation = CQuaternion::FromMatrix(actor->GetTransform() * rootXf);
+    rot = rotation * CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
+  }
+}
+
+void CMetroid::SetTargetDest(CStateManager& mgr, float) {
+  BodyController()->SetLocomotionType(pas::kLT_Lurk);
+  BodyController()->CommandMgr().SetSteeringBlendMode(kSBM_FullSpeed);
+  BodyController()->CommandMgr().SetSteeringSpeedRange(1.f, 1.f);
+  xa40_28_ = false;
+  if (const CTeamAiRole* role =
+          CScriptTeamAiMgr::GetTeamAiRole(mgr, mTeamAiManagerId, GetUniqueId())) {
+    x7c0_ = role->GetTeamPosition();
+  } else {
+    UpdateAttackTarget(mgr);
+    if (const CEntity* target = mgr.GetObjectById(mAttackTarget)) {
+      x7c0_ = GetOrigin(mgr, CTeamAiRole(GetUniqueId()),
+                        static_cast< const CActor* >(target)->GetTranslation());
+    } else {
+      x7c0_ = GetTranslation();
+    }
+  }
+  const CVector3f targetPos = GetAttackTargetPos(mgr);
+  const CVector3f dir = x7c0_ - targetPos;
+  if (dir.CanBeNormalized()) {
+    const CMaterialFilter filter =
+        CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59, kMT_AIBlock));
+    const float mag = dir.Magnitude();
+    const CVector3f normDir = (1.f / mag) * dir;
+    const CRayCastResult result = mgr.RayStaticIntersection(targetPos, normDir, mag, filter);
+    if (result.IsValid()) {
+      x7c0_ = targetPos + 0.5f * (result.GetTime() * normDir);
+      xa40_28_ = true;
+    }
+  }
+  mPathFindNavigation.SetDestination(x7c0_);
+  mPathFindNavigation.SetFaceTarget(kInvalidUniqueId);
 }
 
 const CCollisionPrimitive* CMetroid::GetCollisionPrimitive() const {

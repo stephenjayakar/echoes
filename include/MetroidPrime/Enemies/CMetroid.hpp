@@ -153,6 +153,12 @@ public:
   void PreventWorldCollisions(float dt, CStateManager& mgr);
   void RestoreSolidCollision(CStateManager& mgr);
   void DisableSolidCollision(CMetroid& target);
+  void InterpolateToPosRot(CStateManager& mgr, float dt);
+  void ComputeSuckTargetPosRot(CStateManager& mgr, CVector3f& pos, CQuaternion& rot) const;
+  void ComputeSuckPlayerPosRot(const CPlayer& player, CStateManager& mgr, CVector3f& pos,
+                               CQuaternion& rot) const;
+  void ComputeSuckPiratePosRot(CStateManager& mgr, CVector3f& pos, CQuaternion& rot) const;
+  float ComputeMorphingPlayerSuckUpPos(const CPlayer& player) const;
   float GetDamageMultiplier() const;
   float GetGrowthStage() const;
   bool AttachToTarget(CStateManager& mgr);
