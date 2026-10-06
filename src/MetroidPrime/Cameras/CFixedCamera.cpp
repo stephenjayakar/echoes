@@ -41,7 +41,7 @@ CFixedCamera::~CFixedCamera() {}
 
 void CFixedCamera::ProcessInput(const CFinalInput& input, CStateManager& mgr) {}
 
-void CFixedCamera::UpdateTargetPosition(CStateManager& mgr) {
+void CFixedCamera::UpdateTargetPosition(float dt, CStateManager& mgr) {
   const CScriptCameraHint* hint =
       TCastToConstPtr< CScriptCameraHint >(mgr.GetObjectById(mScriptCameraId));
   if (!hint) {
@@ -49,6 +49,9 @@ void CFixedCamera::UpdateTargetPosition(CStateManager& mgr) {
   }
 
   switch (hint->GetInfo().GetBehaviourType()) {
+  case CBallCamera::kBCB_Unknown4:
+    mTargetPosition = CGameCamera::GetScanObjectIndicatorPosition(mgr);
+    break;
   case CBallCamera::kBCB_Unknown5: {
     const CTransform4f xf = hint->GetTransform();
     const CVector3f ballTarget =
@@ -58,9 +61,6 @@ void CFixedCamera::UpdateTargetPosition(CStateManager& mgr) {
     mTargetPosition = xf.GetTranslation() + distance * xf.GetForward();
     break;
   }
-  case CBallCamera::kBCB_Unknown4:
-    mTargetPosition = CGameCamera::GetScanObjectIndicatorPosition(mgr);
-    break;
   default:
     break;
   }
@@ -71,19 +71,18 @@ void CFixedCamera::PreThink(float dt, CStateManager& mgr) {}
 void CFixedCamera::Render(const CStateManager& mgr) const {}
 
 void CFixedCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
-  UpdateTargetPosition(mgr);
+  UpdateTargetPosition(0.f, mgr);
   const CScriptCameraHint* hint =
       TCastToConstPtr< CScriptCameraHint >(mgr.GetObjectById(mScriptCameraId));
   if (hint) {
-    if (!(hint->GetInfo().GetFlags() & kHF_UseExistingTransform)) {
-      SetTransform(CTransform4f::LookAt(hint->GetTranslation(), mTargetPosition));
-    } else {
+    if (hint->GetInfo().GetFlags() & kHF_UseExistingTransform) {
       SetTransform(xf);
+    } else {
+      SetTransform(CTransform4f::LookAt(hint->GetTranslation(), mTargetPosition));
     }
     if (hint->GetInfo().GetFlags() & kHF_TeleportBallCamera) {
-      CBallCamera* ballCamera = mgr.CameraManager(GetControllerNumber())->BallCamera();
-      ballCamera->TeleportCamera(GetTransform(), mgr);
-      ballCamera->TeleportLookAtStuff(mgr);
+      mgr.CameraManager(GetControllerNumber())->BallCamera()->TeleportCamera(GetTransform(), mgr);
+      mgr.CameraManager(GetControllerNumber())->BallCamera()->TeleportLookAtStuff(mgr);
     }
   } else {
     SetTransform(xf);
@@ -102,7 +101,7 @@ void CFixedCamera::Think(float dt, CStateManager& mgr) {
   if (hint) {
     const CCameraOverrideInfo& info = hint->GetInfo();
     if (!(info.GetFlags() & kHF_FreezeTargetPosition)) {
-      UpdateTargetPosition(mgr);
+      UpdateTargetPosition(dt, mgr);
     }
     switch (info.GetBehaviourType()) {
     case CBallCamera::kBCB_Unknown5:
