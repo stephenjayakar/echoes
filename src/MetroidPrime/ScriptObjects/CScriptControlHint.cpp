@@ -120,6 +120,9 @@ void CScriptControlHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& m
       player->GetControlHintManager()->AddHint(GetUniqueId(), sender, mgr);
     }
     break;
+  case kSM_AreaLoaded:
+  case kSM_Delete:
+    break;
   default:
     break;
   }
