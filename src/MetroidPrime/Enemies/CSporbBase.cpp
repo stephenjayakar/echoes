@@ -1,5 +1,8 @@
 #include "MetroidPrime/Enemies/CSporbBase.hpp"
 
+#include "MetroidPrime/CGameArea.hpp"
+#include "MetroidPrime/CWorld.hpp"
+
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "Kyoto/Animation/CPASDatabase.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
@@ -227,13 +230,12 @@ CSporbBase::CSporbBase(
 
 void CSporbBase::SetStage(uchar stage) {
   if (mIsPowerBombGuardian && mStages.size() > stage) {
-    const CPowerBombGuardianStageData& data = *mStages[stage];
-    mMinTimeBetweenAttacks = data.mMinTimeBetweenAttacks;
-    mMaxTimeBetweenAttacks = data.mMaxTimeBetweenAttacks;
-    mMinTimeBetweenShots = data.mMinTimeBetweenShots;
-    mMaxTimeBetweenShots = data.mMaxTimeBetweenShots;
-    mMinShotsInABurst = data.mMinShotsInABurst;
-    mMaxShotsInABurst = data.mMaxShotsInABurst;
+    mMinTimeBetweenAttacks = mStages[stage]->mMinTimeBetweenAttacks;
+    mMaxTimeBetweenAttacks = mStages[stage]->mMaxTimeBetweenAttacks;
+    mMinTimeBetweenShots = mStages[stage]->mMinTimeBetweenShots;
+    mMaxTimeBetweenShots = mStages[stage]->mMaxTimeBetweenShots;
+    mMinShotsInABurst = mStages[stage]->mMinShotsInABurst;
+    mMaxShotsInABurst = mStages[stage]->mMaxShotsInABurst;
   }
 }
 
@@ -384,10 +386,10 @@ void CSporbBase::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 }
 
 void CSporbBase::DecayAimBlend() {
-  x7ec_ = rstl::max_val(x7ec_ - 0.025f, 0.f);
-  x7f0_ = rstl::max_val(x7f0_ - 0.025f, 0.f);
-  x7f4_ = rstl::max_val(x7f4_ - 0.025f, 0.f);
-  x7f8_ = rstl::max_val(x7f8_ - 0.025f, 0.f);
+  x7ec_ = rstl::max_val(0.f, x7ec_ - 0.025f);
+  x7f0_ = rstl::max_val(0.f, x7f0_ - 0.025f);
+  x7f4_ = rstl::max_val(0.f, x7f4_ - 0.025f);
+  x7f8_ = rstl::max_val(0.f, x7f8_ - 0.025f);
 }
 
 void CSporbBase::Render(const CStateManager& mgr) const {
@@ -728,10 +730,15 @@ void CSporbBase::FakeDeath(CStateManager& mgr, EStateMsg msg, float dt) {
     SendScriptMsgs(kSS_Exited, mgr, mgr.GetPlayer(0)->GetUniqueId(), kSM_None);
     if (gSporbGrabbedBallOwner == GetUniqueId()) {
       CPlayer* player = mgr.GetPlayer(0);
+      player->EnableLeaveMorphBall(true);
       player->GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostAvailable);
       gSporbGrabbedBallOwner = kInvalidUniqueId;
     }
     BodyController()->UnFreeze();
+    {
+      const CColor& black = CColor::Black();
+      mColor.Set(black.GetRedu8(), black.GetGreenu8(), black.GetBlueu8(), mColor.GetAlphau8());
+    }
     break;
   case kStateMsg_Update:
     if (mAnimationState.CanIssueCommand(*GetBodyController(), pas::kAS_Generate)) {
@@ -761,20 +768,24 @@ bool CSporbBase::AnimOver(CStateManager& mgr, const CTriggerData& data) const {
 }
 
 bool CSporbBase::ShouldAttack(CStateManager& mgr, const CTriggerData&) const {
+  if (mgr.GetWorld()->GetArea(GetCurrentAreaId())->GetOcclusionState() == CGameArea::kOS_Occluded) {
+    return false;
+  }
   if (!x909_) {
     return false;
   }
   if (gSporbGrabbedBallOwner == kInvalidUniqueId) {
-    const CPlayer* player = mgr.GetPlayer(0);
     bool inRange = false;
+    const CPlayer* player = mgr.GetPlayer(0);
     if (IsInRange(*player, mMaxAttackRange) && !IsInRange(*player, mMinAttackRange)) {
       inRange = true;
     }
-    if (TCastToConstPtr< CSporbTop >(mgr.GetObjectById(mTopId)) != nullptr) {
+    if (TCastToPtr< CSporbTop >(mgr.ObjectById(mTopId)) != nullptr) {
+      bool result = false;
       if (inRange || x94f_) {
-        return true;
+        result = true;
       }
-      return false;
+      return result;
     }
     return inRange;
   }
@@ -813,7 +824,7 @@ bool CSporbBase::ShouldSpit(CStateManager&, const CTriggerData&) const { return 
 bool CSporbBase::ShouldFlail(CStateManager&, const CTriggerData&) const { return mState == 8; }
 
 bool CSporbBase::AttackExitOver(CStateManager&, const CTriggerData&) const {
-  return mStateMachine->GetTime() > 1.f;
+  return mStateMachine->GetTime() > mMinTimeBetweenAttacks2;
 }
 
 bool CSporbBase::AttackOver(CStateManager&, const CTriggerData&) const {
@@ -852,8 +863,10 @@ void CSporbBase::UpdateGrabber(CStateManager& mgr, float dt) {}
 void CSporbBase::AttachPlayer(CStateManager& mgr) {}
 
 CVector3f CSporbBase::GetTopAttachPosition() const {
-  return (GetTransform() * GetScaledLocatorTransform(rstl::string_l(skTopAttachLocator)))
-      .GetTranslation();
+  const CTransform4f xf =
+      GetTransform() * GetScaledLocatorTransform(rstl::string_l(skTopAttachLocator));
+  const CVector3f pos = xf.GetTranslation();
+  return pos;
 }
 
 void CSporbBase::UpdateFiring(CStateManager& mgr, float dt) {}
@@ -947,7 +960,8 @@ void CSporbBase::LaunchPowerBomb(const CVector3f& from, CStateManager& mgr, int 
 
 float CSporbBase::GetPowerBombGravity() const {
   float multiplier = 1.f;
-  if (mStages.size() != 0 && mStage < mStages.size()) {
+  const uint count = mStages.size();
+  if (count != 0 && mStage < count) {
     multiplier = mStages[mStage]->mProjectileGravityMultiplier;
   }
   return 9.81f * multiplier;
