@@ -3031,9 +3031,4 @@ CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
   }
 }
 
-CPlayerGun::~CPlayerGun() {
-  for (rstl::vector< CToken >::iterator it = mCommonDependencies.begin();
-       it != mCommonDependencies.end(); ++it) {
-    it->Unlock();
-  }
-}
+CPlayerGun::~CPlayerGun() { NWeaponTypes::unlock_tokens(mCommonDependencies); }
