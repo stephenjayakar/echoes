@@ -30,7 +30,8 @@ static float PlaneIntersectionFraction(const CVector3f& start, const CVector3f& 
 // Guessed name
 static float PlaneIntersectionFraction(const CVector3f& start, const CVector3f& end,
                                        const CPlane& plane) {
-  return -plane.GetHeight(start) / CVector3f::Dot(end - start, plane.GetNormal());
+  return -(CVector3f::Dot(start, plane.GetNormal()) - plane.GetConstant()) /
+         CVector3f::Dot(end - start, plane.GetNormal());
 }
 
 bool CMetroidAreaCollider::ConvexPolyCollision(const CPlane* planes, const CVector3f* verts,
