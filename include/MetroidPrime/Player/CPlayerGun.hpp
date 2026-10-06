@@ -154,7 +154,7 @@ public:
   void InitBombData();
   void InitBeamData();
   void ChangeWeapon(CStateManager& mgr);
-  bool ProcessGunMorph(float dt, CStateManager& mgr);
+  uchar ProcessGunMorph(float dt, CStateManager& mgr);
   void UpdateBeamChange(float dt, CStateManager& mgr);
   void HandleBeamChange(const CFinalInput& input, CStateManager& mgr);
   void HandleWeaponChange(const CFinalInput& input, CStateManager& mgr);
@@ -170,7 +170,7 @@ public:
   void UpdateGunIdle(float dt, CStateManager& mgr);
   void UpdateGunMotion(float dt, CStateManager& mgr);
   void AddBombReloadTime(float time) { mBombReloadTimer += time; }
-  void UpdateTimers(float dt);
+  void UpdateTimers(float dt, CStateManager& mgr);
   void UpdateFreeLook(float dt, CStateManager& mgr);
   void UpdateLeftArmTransform();
   CTransform4f GetLocatorTransform(const CModelData& model, const rstl::string& name,

@@ -119,6 +119,12 @@ static const CMaterialFilter skWeaponCollisionFilter = CMaterialFilter::MakeIncl
 static const CColor kUnusedGunColor(0.75f, 0.5f, 0.f, 1.f); // Guessed name; unused.
 static const CMaterialFilter skSeekerTargetFilter = CMaterialFilter::MakeIncludeExclude(
     CMaterialList(kMT_SeekerTarget), CMaterialList(kMT_NoPlatformCollision));
+static const ushort skBeamMorphSounds[2][4] = {
+    {CSfxManager::kInternalInvalidSfxId, 0x1fd2, 0x1fd6, 0x1fd4},
+    {CSfxManager::kInternalInvalidSfxId, 0x2596, 0x25dc, 0x25d9}};
+static const ushort skToBeamSounds[2][4] = {
+    {CSfxManager::kInternalInvalidSfxId, 0x1fd3, 0x1fd7, 0x1fd5},
+    {CSfxManager::kInternalInvalidSfxId, 0x2597, 0x25dd, 0x25da}};
 
 static inline bool just_froze(bool frozen, bool playerFrozen) {
   return (frozen ^ playerFrozen) & playerFrozen;
@@ -545,9 +551,10 @@ void CPlayerGun::DrawArm(const CStateManager& mgr, const CVector3f& cameraTransl
   }
 
   const CPlayer* player = GetPlayer(const_cast< CStateManager& >(mgr));
-  const CTransform4f armTransform = mGrappleArm->GetTransform();
+  const float dot = CVector3f::Dot(mGrappleArm->GetTransform().GetForward(),
+                                   player->GetTransform().GetForward());
   if (player->GetGrappleState() != CPlayer::kGS_None ||
-      CVector3f::Dot(armTransform.GetForward(), player->GetTransform().GetForward()) > 0.1f) {
+      (player->GetGrappleState() == CPlayer::kGS_None && dot > 0.1f)) {
     mGrappleArm->Render(mgr, cameraTranslation, flags, &mLights);
   }
 }
@@ -565,200 +572,199 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
     return;
   }
   CPlayerGunBase::Update(dt, mgr);
-  if (!mStateMachineInitialized) {
-    PollStateMachine(mgr);
-    return;
-  }
-
-  CPlayer* player = GetPlayer(mgr);
-  CPlayerState* playerState = player->GetPlayerState();
-  const bool isUnmorphed = player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
-  const bool justFroze = isUnmorphed ? just_froze(mFrozen, player->GetFrozenState()) : false;
-  const bool justThawed = isUnmorphed ? just_thawed(mFrozen, player->GetFrozenState()) : false;
-  mFrozen = isUnmorphed ? player->GetFrozenState() : false;
-  mFiring = false;
-  const float advDt = mFrozen ? 0.f : dt;
-  if (mCurrentBeam->IsSpecialAnimationPlaying() && !mCurrentBeam->GetSpeedUpAnimation()) {
-    mCurrentBeam->SetSpeedUpAnimation(mInputFlags != 0);
-  }
-  mCurrentBeam->Update(advDt, mgr);
-  mGunMotion->Update(advDt, mgr);
-  mGrappleArm->Update(advDt, mgr);
-  if (!mAuxWeapon->IsLoaded()) {
-    mAuxWeapon->LoadIdle();
-  }
-  if (!mCommonDependenciesLoaded && NWeaponTypes::are_tokens_ready(mCommonDependencies)) {
-    mCommonDependenciesLoaded = true;
-  }
-  mStateMachine.Update(mgr, *this, advDt);
-  UpdateTimers(dt);
-  if (!mCurrentBeam->IsLoaded()) {
-    return;
-  }
-
-  if (mMissileShotInterval == 0.f) {
-    mMissileShotInterval = mCurrentBeam->GetAnimDuration(NWeaponTypes::kGAT_MissileReload) +
-                           mCurrentBeam->GetAnimDuration(NWeaponTypes::kGAT_FromBeam);
-  }
-  const CTransform4f gunLocalXf =
-      GetLocatorTransform(mGunMotion->GetModelData(), rstl::string_l("GBSE_SDK"), true);
-  CModelData& beamModel = *mCurrentBeam->SolidModelData();
-  mBeamLocalXf =
-      GetLocatorTransform(beamModel, rstl::string_l(CGunWeapon::GetMuzzleLocatorName()), true);
-  mElbowLocalXf = GetLocatorTransform(beamModel, rstl::string_l("elbow"), false);
-  mGunWorldXf = mTransform * gunLocalXf;
-  CTransform4f beamWorldXf = mGunWorldXf * mBeamLocalXf;
-  if (player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed &&
-      !player->GetCameraManager()->IsInCinematicCamera()) {
-    TUniqueId bestId = kInvalidUniqueId;
-    const CVector3f direction = mGunWorldXf.GetForward().AsNormalized();
-    const CVector3f offset = -(0.5f * direction);
-    const CVector3f position = mGunWorldXf.GetTranslation() + offset;
-    rstl::reserved_vector< TUniqueId, 1024 > nearList;
-    CAABox bounds = CAABox::MakeMaxInvertedBox();
-    bounds.AccumulateBounds(position);
-    bounds.AccumulateBounds(position + 3.5f * direction);
-    mgr.BuildNearList(nearList, bounds, skWeaponCollisionFilter, player);
-    const CRayCastResult result = mgr.RayWorldIntersection(bestId, position, direction, 3.5f,
-                                                           skWeaponCollisionFilter, nearList);
-    mPointBlankWorldSurface = result.IsValid();
-    if (result.IsValid()) {
-      mElbowWorldXf = mGunWorldXf * mElbowLocalXf;
-      mElbowWorldXf.AddTranslation(offset);
-      beamWorldXf.SetTranslation(result.GetPoint());
+  if (mStateMachineInitialized) {
+    CPlayer* player = GetPlayer(mgr);
+    CPlayerState* playerState = player->GetPlayerState();
+    const bool isUnmorphed = player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
+    const bool justFroze = isUnmorphed ? just_froze(mFrozen, player->GetFrozenState()) : false;
+    const bool justThawed = isUnmorphed ? just_thawed(mFrozen, player->GetFrozenState()) : false;
+    mFrozen = isUnmorphed ? player->GetFrozenState() : false;
+    mFiring = false;
+    const float advDt = mFrozen ? 0.f : dt;
+    if (mCurrentBeam->IsSpecialAnimationPlaying() && !mCurrentBeam->GetSpeedUpAnimation()) {
+      mCurrentBeam->SetSpeedUpAnimation(mInputFlags != 0);
     }
-  } else {
-    mPointBlankWorldSurface = false;
-  }
-  CTransform4f beamTargetXf = mPointBlankWorldSurface ? mElbowWorldXf : beamWorldXf;
-  beamModel.AdvanceParticles(mGunWorldXf, advDt, mgr);
-  mCurrentBeam->UpdateGunFx(mShotSmokeTimer > 2.f && mTimeSinceFire > 0.15f, dt, mgr,
-                            mElbowLocalXf);
-  if (mSeekerSecondaryFx != CGunWeapon::kSFT_None && mMissileSecondaryGenerator.get()) {
-    mMissileSecondaryGenerator->SetGlobalOrientAndTrans(mElbowLocalXf);
-    mMissileSecondaryGenerator->Update(advDt);
-  }
-  if (justFroze) {
-    mCurrentBeam->EnableSecondaryFx(CGunWeapon::kSFT_None);
-    mCurrentBeam->EnableFrozenEffect(kFFT_Frozen);
-    if (mSeekerSecondaryFx != CGunWeapon::kSFT_None) {
-      mSeekerSecondaryFx = CGunWeapon::kSFT_None;
+    mCurrentBeam->Update(advDt, mgr);
+    mGunMotion->Update(advDt, mgr);
+    mGrappleArm->Update(advDt, mgr);
+    if (!mAuxWeapon->IsLoaded()) {
+      mAuxWeapon->LoadIdle();
     }
-  } else if (justThawed) {
-    mCurrentBeam->EnableFrozenEffect(kFFT_Thawed);
-  }
-  if (mBeamChangeState != kBCS_Idle) {
-    UpdateBeamChange(advDt, mgr);
-  }
-  UpdateFreeLook(advDt, mgr);
-  if (mGrappleArm->GetStateFlags() != 0 && !mGrappleArm->IsGrappling()) {
-    UpdateLeftArmTransform();
-  }
-  UpdateGunMotion(advDt, mgr);
+    if (!mCommonDependenciesLoaded && NWeaponTypes::are_tokens_ready(mCommonDependencies)) {
+      mCommonDependenciesLoaded = true;
+    }
+    mStateMachine.Update(mgr, *this, advDt);
+    UpdateTimers(dt, mgr);
+    if (!mCurrentBeam->IsLoaded()) {
+      return;
+    }
 
-  const CVector3f cameraTranslation =
-      player->GetCameraManager()->GetGlobalCameraTranslation(mgr, true);
-  beamWorldXf.AddTranslation(cameraTranslation);
-  beamTargetXf.AddTranslation(cameraTranslation);
-  if (mChargeEffectVisible) {
-    const bool emitting = mComboTransferFactor < 1.f;
-    const float scaleFactor = mComboFiring ? 2.f * (1.f - mComboTransferFactor) : 2.f;
-    const CVector3f scale(scaleFactor, scaleFactor, scaleFactor);
-    mCurrentBeam->UpdateMuzzleFx(advDt, scale, mBeamLocalXf.GetTranslation(), emitting);
-    if (mSeekerSecondaryFx != CGunWeapon::kSFT_None) {
-      if (mMissileAuxMuzzleGenerator.get()) {
-        mMissileAuxMuzzleGenerator->SetGlobalOrientAndTrans(mBeamLocalXf);
-        mMissileAuxMuzzleGenerator->SetGlobalScale(scale);
-        mMissileAuxMuzzleGenerator->SetParticleEmission(
-            mMissileAuxMuzzleGenerator->GetParticleEmission() && emitting);
-        mMissileAuxMuzzleGenerator->Update(advDt);
+    if (mMissileShotInterval == 0.f) {
+      mMissileShotInterval = mCurrentBeam->GetAnimDuration(NWeaponTypes::kGAT_MissileReload) +
+                             mCurrentBeam->GetAnimDuration(NWeaponTypes::kGAT_FromBeam);
+    }
+    const CTransform4f gunLocalXf =
+        GetLocatorTransform(mGunMotion->GetModelData(), rstl::string_l("GBSE_SDK"), true);
+    CModelData& beamModel = *mCurrentBeam->SolidModelData();
+    mBeamLocalXf =
+        GetLocatorTransform(beamModel, rstl::string_l(CGunWeapon::GetMuzzleLocatorName()), true);
+    mElbowLocalXf = GetLocatorTransform(beamModel, rstl::string_l("elbow"), false);
+    mGunWorldXf = mTransform * gunLocalXf;
+    CTransform4f beamWorldXf = mGunWorldXf * mBeamLocalXf;
+    if (player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed &&
+        !player->GetCameraManager()->IsInCinematicCamera()) {
+      TUniqueId bestId = kInvalidUniqueId;
+      const CVector3f direction = mGunWorldXf.GetForward().AsNormalized();
+      const CVector3f offset = -(0.5f * direction);
+      const CVector3f position = mGunWorldXf.GetTranslation() + offset;
+      rstl::reserved_vector< TUniqueId, 1024 > nearList;
+      CAABox bounds = CAABox::MakeMaxInvertedBox();
+      bounds.AccumulateBounds(position);
+      bounds.AccumulateBounds(position + 3.5f * direction);
+      mgr.BuildNearList(nearList, bounds, skWeaponCollisionFilter, player);
+      const CRayCastResult result = mgr.RayWorldIntersection(bestId, position, direction, 3.5f,
+                                                             skWeaponCollisionFilter, nearList);
+      mPointBlankWorldSurface = result.IsValid();
+      if (result.IsValid()) {
+        mElbowWorldXf = mGunWorldXf * mElbowLocalXf;
+        mElbowWorldXf.AddTranslation(offset);
+        beamWorldXf.SetTranslation(result.GetPoint());
       }
-      for (int i = 0; i < mSeekerMuzzleGenerators.size(); ++i) {
-        if (mSeekerMuzzleGenerators[i].get()) {
-          mSeekerMuzzleGenerators[i]->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
-          mSeekerMuzzleGenerators[i]->SetGlobalScale(scale);
-          mSeekerMuzzleGenerators[i]->SetParticleEmission(emitting);
-          mSeekerMuzzleGenerators[i]->Update(advDt);
+    } else {
+      mPointBlankWorldSurface = false;
+    }
+    CTransform4f beamTargetXf = mPointBlankWorldSurface ? mElbowWorldXf : beamWorldXf;
+    beamModel.AdvanceParticles(mGunWorldXf, advDt, mgr);
+    mCurrentBeam->UpdateGunFx(mShotSmokeTimer > 2.f && mTimeSinceFire > 0.15f, dt, mgr,
+                              mElbowLocalXf);
+    if (mSeekerSecondaryFx != CGunWeapon::kSFT_None && mMissileSecondaryGenerator.get()) {
+      mMissileSecondaryGenerator->SetGlobalOrientAndTrans(mElbowLocalXf);
+      mMissileSecondaryGenerator->Update(advDt);
+    }
+    if (justFroze) {
+      mCurrentBeam->EnableSecondaryFx(CGunWeapon::kSFT_None);
+      mCurrentBeam->EnableFrozenEffect(kFFT_Frozen);
+      if (mSeekerSecondaryFx != CGunWeapon::kSFT_None) {
+        mSeekerSecondaryFx = CGunWeapon::kSFT_None;
+      }
+    } else if (justThawed) {
+      mCurrentBeam->EnableFrozenEffect(kFFT_Thawed);
+    }
+    if (mBeamChangeState != kBCS_Idle) {
+      UpdateBeamChange(advDt, mgr);
+    }
+    UpdateFreeLook(advDt, mgr);
+    if (mGrappleArm->GetStateFlags() != 0 && !mGrappleArm->IsGrappling()) {
+      UpdateLeftArmTransform();
+    }
+    UpdateGunMotion(advDt, mgr);
+
+    const CVector3f cameraTranslation =
+        player->GetCameraManager()->GetGlobalCameraTranslation(mgr, true);
+    beamWorldXf.AddTranslation(cameraTranslation);
+    beamTargetXf.AddTranslation(cameraTranslation);
+    if (mChargeEffectVisible) {
+      const bool emitting = mComboTransferFactor < 1.f;
+      const float scaleFactor = mComboFiring ? 2.f * (1.f - mComboTransferFactor) : 2.f;
+      const CVector3f scale(scaleFactor, scaleFactor, scaleFactor);
+      mCurrentBeam->UpdateMuzzleFx(advDt, scale, mBeamLocalXf.GetTranslation(), emitting);
+      if (mSeekerSecondaryFx != CGunWeapon::kSFT_None) {
+        if (mMissileAuxMuzzleGenerator.get()) {
+          mMissileAuxMuzzleGenerator->SetGlobalOrientAndTrans(mBeamLocalXf);
+          mMissileAuxMuzzleGenerator->SetGlobalScale(scale);
+          mMissileAuxMuzzleGenerator->SetParticleEmission(
+              mMissileAuxMuzzleGenerator->GetParticleEmission() && emitting);
+          mMissileAuxMuzzleGenerator->Update(advDt);
+        }
+        for (int i = 0; i < mSeekerMuzzleGenerators.size(); ++i) {
+          if (mSeekerMuzzleGenerators[i].get()) {
+            mSeekerMuzzleGenerators[i]->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+            mSeekerMuzzleGenerators[i]->SetGlobalScale(scale);
+            mSeekerMuzzleGenerators[i]->SetParticleEmission(emitting);
+            mSeekerMuzzleGenerators[i]->Update(advDt);
+          }
         }
       }
-    }
-    if (mAuxMuzzleGenerators[mCurrentBeamId].get() && mChargePhase == kCP_ChargeFx) {
-      mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalOrientAndTrans(mBeamLocalXf);
-      mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalScale(scale);
-      mAuxMuzzleGenerators[mCurrentBeamId]->SetParticleEmission(emitting);
-      mAuxMuzzleGenerators[mCurrentBeamId]->Update(advDt);
-    }
+      if (mAuxMuzzleGenerators[mCurrentBeamId].get() && mChargePhase == kCP_ChargeFx) {
+        mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalOrientAndTrans(mBeamLocalXf);
+        mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalScale(scale);
+        mAuxMuzzleGenerators[mCurrentBeamId]->SetParticleEmission(emitting);
+        mAuxMuzzleGenerators[mCurrentBeamId]->Update(advDt);
+      }
 
-    const CScriptPlayerHint* hint =
-        TCastToConstPtr< CScriptPlayerHint >(player->GetPlayerHintManager()->GetCurrentHint(mgr));
-    if (hint && (hint->GetOverrideFlags() & 0x40000) && playerState->GetChargeBeamFactor() == 1.f) {
-      CTransform4f absorbXf = mPointBlankWorldSurface ? mElbowWorldXf : mGunWorldXf * mBeamLocalXf;
-      absorbXf.AddTranslation(player->GetCameraManager()->GetGlobalCameraTranslation(mgr, true));
-      if (absorbXf.GetForward().GetZ() > 0.35f) {
-        const float radius = gpTweakPlayerGun->GetPhazonShotAbsorbRadius();
-        rstl::reserved_vector< TUniqueId, 1024 > nearList;
-        CAABox bounds(CVector3f(-radius, 0.f, -radius), CVector3f(radius, 0.f, radius));
-        bounds = bounds.GetTransformedAABox(absorbXf);
-        mgr.BuildNearList(nearList, bounds,
-                          CMaterialFilter::MakeInclude(CMaterialList(kMT_Projectile)), player);
-        const float radiusSquared = radius * radius;
-        bool absorbed = false;
-        for (rstl::reserved_vector< TUniqueId, 1024 >::const_iterator it = nearList.begin();
-             it != nearList.end(); ++it) {
-          CGameProjectile* projectile =
-              TCastToPtr< CGameProjectile >(const_cast< CEntity* >(mgr.GetObjectById(*it)));
-          if (projectile && projectile->GetOwnerId() != mPlayerUniqueId &&
-              projectile->GetCurrentDamageInfo().GetWeaponMode().GetType() == kWT_Phazon &&
-              (projectile->GetTranslation() - absorbXf.GetTranslation()).MagSquared() <
-                  radiusSquared) {
-            mAbsorbedPhazonShots = rstl::min_val(mAbsorbedPhazonShots + 1,
-                                                 gpTweakPlayerGun->GetMaxAbsorbedPhazonShots());
-            mgr.DeleteObjectRequest(*it);
-            absorbed = true;
-            if (!mPhazonChargeGenerator.get() &&
-                mAbsorbedPhazonShots == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
-              const TCachedToken< CGenDescription > description =
-                  gpSimplePool->GetObj("PhazonCharge");
-              mPhazonChargeGenerator =
-                  rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
-              mCurrentBeam->ActivateCharge(false, false);
-              if (mChargeSfx) {
-                CSfxManager::SfxStop(mChargeSfx);
-                mChargeSfx = PlaySfxForPlayer(nullptr, 0x179, mSoundVolume, kInvalidAreaId.Value(),
-                                              mUnderwater, true);
+      const CScriptPlayerHint* hint =
+          TCastToConstPtr< CScriptPlayerHint >(player->GetPlayerHintManager()->GetCurrentHint(mgr));
+      if (hint && (hint->GetOverrideFlags() & 0x40000) && playerState->GetChargeBeamFactor() == 1.f) {
+        CTransform4f absorbXf = mPointBlankWorldSurface ? mElbowWorldXf : mGunWorldXf * mBeamLocalXf;
+        absorbXf.AddTranslation(player->GetCameraManager()->GetGlobalCameraTranslation(mgr, true));
+        if (absorbXf.GetForward().GetZ() > 0.35f) {
+          const float radius = gpTweakPlayerGun->GetPhazonShotAbsorbRadius();
+          rstl::reserved_vector< TUniqueId, 1024 > nearList;
+          CAABox bounds(CVector3f(-radius, 0.f, -radius), CVector3f(radius, 0.f, radius));
+          bounds = bounds.GetTransformedAABox(absorbXf);
+          mgr.BuildNearList(nearList, bounds,
+                            CMaterialFilter::MakeInclude(CMaterialList(kMT_Projectile)), player);
+          const float radiusSquared = radius * radius;
+          bool absorbed = false;
+          for (rstl::reserved_vector< TUniqueId, 1024 >::const_iterator it = nearList.begin();
+               it != nearList.end(); ++it) {
+            CGameProjectile* projectile =
+                TCastToPtr< CGameProjectile >(const_cast< CEntity* >(mgr.GetObjectById(*it)));
+            if (projectile && projectile->GetOwnerId() != mPlayerUniqueId &&
+                projectile->GetCurrentDamageInfo().GetWeaponMode().GetType() == kWT_Phazon &&
+                (projectile->GetTranslation() - absorbXf.GetTranslation()).MagSquared() <
+                    radiusSquared) {
+              mAbsorbedPhazonShots = rstl::min_val(mAbsorbedPhazonShots + 1,
+                                                   gpTweakPlayerGun->GetMaxAbsorbedPhazonShots());
+              mgr.DeleteObjectRequest(*it);
+              absorbed = true;
+              if (!mPhazonChargeGenerator.get() &&
+                  mAbsorbedPhazonShots == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
+                const TCachedToken< CGenDescription > description =
+                    gpSimplePool->GetObj("PhazonCharge");
+                mPhazonChargeGenerator =
+                    rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
+                mCurrentBeam->ActivateCharge(false, false);
+                if (mChargeSfx) {
+                  CSfxManager::SfxStop(mChargeSfx);
+                  mChargeSfx = PlaySfxForPlayer(nullptr, 0x179, mSoundVolume, kInvalidAreaId.Value(),
+                                                mUnderwater, true);
+                }
               }
             }
           }
-        }
-        if (absorbed) {
-          const TCachedToken< CGenDescription > description =
-              gpSimplePool->GetObj("PhazonAbsorbFlash");
-          mPhazonAbsorbFlashGenerator =
-              rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
-          PlaySfxForPlayer(GetPlayer(mgr), 0x1d1, mSoundVolume, mgr.GetNextAreaId().Value(),
-                           mUnderwater, false);
+          if (absorbed) {
+            const TCachedToken< CGenDescription > description =
+                gpSimplePool->GetObj("PhazonAbsorbFlash");
+            mPhazonAbsorbFlashGenerator =
+                rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
+            PlaySfxForPlayer(GetPlayer(mgr), 0x1d1, mSoundVolume, mgr.GetNextAreaId().Value(),
+                             mUnderwater, false);
+          }
         }
       }
-    }
-    if (mPhazonAbsorbFlashGenerator.get()) {
-      if (!mPhazonAbsorbFlashGenerator->IsSystemDeletable()) {
-        mPhazonAbsorbFlashGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
-        mPhazonAbsorbFlashGenerator->Update(advDt);
-      } else {
-        mPhazonAbsorbFlashGenerator = rstl::auto_ptr< CElementGen >();
+      if (mPhazonAbsorbFlashGenerator.get()) {
+        if (!mPhazonAbsorbFlashGenerator->IsSystemDeletable()) {
+          mPhazonAbsorbFlashGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+          mPhazonAbsorbFlashGenerator->Update(advDt);
+        } else {
+          mPhazonAbsorbFlashGenerator = rstl::auto_ptr< CElementGen >();
+        }
+      }
+      if (mPhazonChargeGenerator.get()) {
+        mPhazonChargeGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+        mPhazonChargeGenerator->Update(advDt);
       }
     }
-    if (mPhazonChargeGenerator.get()) {
-      mPhazonChargeGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
-      mPhazonChargeGenerator->Update(advDt);
+    if (playerState->ItemEnabled(CPlayerState::kIT_ChargeBeam)) {
+      UpdateAuxWeapons(advDt, beamTargetXf, mgr);
+      UpdateChargeState(advDt, mgr);
     }
+    UpdateGunLight(beamWorldXf, mgr);
+    DoUserAnimEvents(advDt, mgr);
+  } else {
+    PollStateMachine(mgr);
   }
-  if (playerState->ItemEnabled(CPlayerState::kIT_ChargeBeam)) {
-    UpdateAuxWeapons(advDt, beamTargetXf, mgr);
-    UpdateChargeState(advDt, mgr);
-  }
-  UpdateGunLight(beamWorldXf, mgr);
-  DoUserAnimEvents(advDt, mgr);
 }
 
 void CPlayerGun::UpdateLeftArmTransform() {
@@ -793,7 +799,7 @@ void CPlayerGun::UpdateFreeLook(float dt, CStateManager& mgr) {
   }
 }
 
-void CPlayerGun::UpdateTimers(float dt) {
+void CPlayerGun::UpdateTimers(float dt, CStateManager& mgr) {
   if (mBombReloadTimer > 0.f) {
     mBombReloadTimer -= dt;
     if (mBombReloadTimer <= 0.f) {
@@ -1120,13 +1126,13 @@ void CPlayerGun::UpdateBeamChange(float dt, CStateManager& mgr) {
   }
 }
 
-bool CPlayerGun::ProcessGunMorph(float dt, CStateManager& mgr) {
-  static const ushort beamSounds[2][4] = {{0, 0x1fd2, 0x1fd6, 0x1fd4}, {0, 0x2596, 0x25dc, 0x25d9}};
+uchar CPlayerGun::ProcessGunMorph(float dt, CStateManager& mgr) {
   static const ushort wipeSounds[2][2] = {{0xca, 0xcb}, {0x25cd, 0x25ce}};
   const CGunMorph::EGunState gunState = mGunMorph.mGunState;
   CPlayer* player = GetPlayer(mgr);
   const bool unmorphed = player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed;
   CPlayerState* playerState = GetPlayerFromAll(mgr)->GetPlayerState();
+  bool ret = false;
   const bool cinematic = player->GetCameraManager()->IsInCinematicCamera();
   switch (gunState) {
   case CGunMorph::kGS_InWipeDone:
@@ -1146,7 +1152,7 @@ bool CPlayerGun::ProcessGunMorph(float dt, CStateManager& mgr) {
       if (mLoadingBeam->IsLoaded() && mAuxWeapon->IsLoaded()) {
         mBeamLoadDelayFrames = 2;
         mBeamLoadRequested = false;
-        mOutgoingBeam = mLoadingBeam == mCurrentBeam ? nullptr : mCurrentBeam;
+        mOutgoingBeam = mLoadingBeam != mCurrentBeam ? mCurrentBeam : nullptr;
         mLoadingBeam = nullptr;
         mCurrentBeamId = mNextBeamId;
         mCurrentBeam = mSelectableBeams[mNextBeamId];
@@ -1178,20 +1184,21 @@ bool CPlayerGun::ProcessGunMorph(float dt, CStateManager& mgr) {
       mOutgoingBeam = nullptr;
     }
     if (unmorphed && !cinematic) {
-      PlaySfxForPlayer(GetPlayer(mgr), beamSounds[mSoundSetIndex][mCurrentBeamId], mSoundVolume,
+      PlaySfxForPlayer(GetPlayer(mgr), skBeamMorphSounds[mSoundSetIndex][mCurrentBeamId], mSoundVolume,
                        mgr.GetNextAreaId().Value(), mUnderwater, false);
     }
     mCurrentBeam->SetRainSplashGenerator(mRainSplashGenerator.get());
     mCurrentBeam->EnableFx(true);
     PlayAnim(mgr, 11, false);
+    ret = true;
     if (mInFreeLook) {
       mGrappleArm->SetStateFlags(CGrappleArm::kSF_FreeLook);
     } else if (mGrappleArm->GetStateFlags() != 0) {
       ReturnToDefault(mgr, false);
     }
-    return true;
+    break;
   }
-  return false;
+  return ret;
 }
 
 CPlayerGun::CGunMorph::CGunMorph(float transformTime, float holdTime)
@@ -1673,15 +1680,11 @@ void CPlayerGun::PlayAnim(CStateManager& mgr, int animation, bool loop) {
                                          {0x25d0, 0x25d3, 0x25d5, 0x25d7}};
   static const ushort fromMissile[2][4] = {{0x2fa, 0x34d, 0x34f, 0x351},
                                            {0x25d1, 0x25d4, 0x25d6, 0x25d8}};
-  static const ushort fromBeam[2][4] = {{0, 0x1fd3, 0x1fd7, 0x1fd5}, {0, 0x2597, 0x25dd, 0x25da}};
   static const ushort toBeam[2] = {0xc5, 0x25b3};
 
   mCurrentBeam->PlayAnim(NWeaponTypes::EGunAnimType(animation), loop);
   ushort sound = CSfxManager::kInternalInvalidSfxId;
   switch (animation) {
-  case NWeaponTypes::kGAT_ToMissile:
-    sound = toMissile[mSoundSetIndex][mCurrentBeamId];
-    break;
   case NWeaponTypes::kGAT_FromMissile:
     sound = fromMissile[mSoundSetIndex][mCurrentBeamId];
     break;
@@ -1689,7 +1692,10 @@ void CPlayerGun::PlayAnim(CStateManager& mgr, int animation, bool loop) {
     sound = toBeam[mSoundSetIndex];
     break;
   case NWeaponTypes::kGAT_ToBeam:
-    sound = fromBeam[mSoundSetIndex][mCurrentBeamId];
+    sound = skToBeamSounds[mSoundSetIndex][mCurrentBeamId];
+    break;
+  case NWeaponTypes::kGAT_ToMissile:
+    sound = toMissile[mSoundSetIndex][mCurrentBeamId];
     break;
   }
   if (sound != CSfxManager::kInternalInvalidSfxId) {

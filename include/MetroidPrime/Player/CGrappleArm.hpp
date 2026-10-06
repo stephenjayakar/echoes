@@ -91,7 +91,7 @@ public:
   void EnterStruck(CStateManager& mgr, float angle, bool bigStrike, bool notInFreeLook);
   void ReturnToDefault(CStateManager& mgr, float delay, bool reset);
   void SetStateFlags(uint flags); // Guessed name.
-  uint GetStateFlags() const { return mStateFlags; }
+  int GetStateFlags() const { return mStateFlags; }
   CGunController* GunController() { return mGunController.get(); }
   bool IsGrappling() const { return (mStateFlags & kSF_Grappling) != 0; }
   bool IsLoadingDependencies() const { return mDependenciesLoading; }
