@@ -40,7 +40,7 @@ static CVector2f sZeroVector(0.f, 0.f);
 static rstl::string sSlideShowMusic;
 
 static int GetStickDirection(float up, float down, float left, float right) {
-  uchar direction = 0;
+  uint direction = 0;
   if (up > 0.f) {
     direction |= 1;
   }
@@ -56,20 +56,20 @@ static int GetStickDirection(float up, float down, float left, float right) {
   switch (direction) {
   case 1:
     return 1;
-  case 2:
-    return 5;
-  case 4:
-    return 3;
   case 5:
     return 2;
+  case 4:
+    return 3;
   case 6:
     return 4;
+  case 2:
+    return 5;
+  case 10:
+    return 6;
   case 8:
     return 7;
   case 9:
     return 8;
-  case 10:
-    return 6;
   default:
     return 0;
   }
@@ -442,9 +442,10 @@ void CSlideShow::Draw() const {
     DrawControls();
   }
   if (mIntroFade || mOutroFade) {
-    float alpha = mFadeTimer / (mIntroFade ? gpTweakSlideShow->GetFadeInTime()
-                                           : gpTweakSlideShow->GetFadeOutTime());
-    alpha = CMath::Clamp(0.f, alpha, 1.f);
+    float alpha = CMath::Clamp(0.f,
+                               mFadeTimer / (mIntroFade ? gpTweakSlideShow->GetFadeInTime()
+                                                        : gpTweakSlideShow->GetFadeOutTime()),
+                               1.f);
     if (mOutroFade) {
       alpha = 1.f - alpha;
     }
@@ -903,7 +904,10 @@ const bool CSlideShow::SSlideData::IsLoaded() const {
   if (mTextures.empty()) {
     return false;
   }
-  const bool loaded = !mTextures.front().mToken.null() && mTextures.front().mToken->IsLoaded();
+  bool loaded = true;
+  if (mTextures.front().mToken.null() || !mTextures.front().mToken->IsLoaded()) {
+    loaded = false;
+  }
   if (!mStopLoading) {
     for (int i = 0; i < mTextures.size(); ++i) {
       if (!mTextures[i].mToken.null()) {
@@ -956,7 +960,8 @@ void CSlideShow::SSlideData::Reset() {
   mVpOffset = sZeroVector;
   mVpSize = sZeroVector;
   mCanvasSize = sZeroVector;
-  mMulColor = CColor::White().WithAlphaOf(0.f);
+  mMulColor = CColor::White();
+  mMulColor.SetAlpha(0.f);
 }
 
 bool CSlideShow::GetIsContinueDraw() const { return false; }
