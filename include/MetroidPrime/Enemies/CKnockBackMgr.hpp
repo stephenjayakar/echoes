@@ -136,6 +136,7 @@ public:
   void DeferFollowUp(float delay, EFollowUp followUp, float duration);
   float CalculateExtraHurlVelocity(CStateManager& mgr, float magnitude, float resistance) const;
 
+  EAnimReaction GetActiveReaction() const { return mActiveParameters.mReaction; } // Guessed name.
   EFollowUp GetFollowUp() const { return mActiveParameters.mFollowUp; }
 
   float GetFollowUpDuration() const { return mActiveParameters.mFollowUpDuration; }

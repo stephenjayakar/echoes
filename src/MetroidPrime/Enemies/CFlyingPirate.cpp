@@ -32,6 +32,8 @@
 #include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
 #include "MetroidPrime/Weapons/CEnergyProjectile.hpp"
 #include "MetroidPrime/Weapons/CGameProjectile.hpp"
+#include "MetroidPrime/Weapons/CImpactVisorEffect.hpp"
+#include "MetroidPrime/Weapons/CWeapon.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptLoader/SLdrFlyingPirate.hpp"
 #include "MetroidPrime/ScriptLoaderRel.hpp"
@@ -691,6 +693,61 @@ void CFlyingPirate::CheckFireMissiles(CStateManager& mgr) {
   mFireMissilesCheck %= mFireMissilesCheckInterval;
 }
 
+void CFlyingPirate::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
+  if (mAlive) {
+    KnockBackController().SetSeverity(mVerticalMovement ? pas::kS_Zero : pas::kS_One);
+  } else if (!IsOnGround()) {
+    const float chance = mData.mSpiralChance;
+    if (mgr.Random()->Range(0.f, 100.f) <= chance) {
+      mSpinToDeath = true;
+      SetMomentumWR(CVector3f::Zero());
+    } else {
+      UpdateParticleEffects(mgr, 0.f, false);
+      SetMomentumWR(CVector3f(0.f, 0.f, -GetGravityConstant() * GetMass()));
+    }
+    mBoneTracking.SetActive(false);
+    mVerticalMovement = false;
+  }
+  CPatterned::KnockBack(mgr, info);
+  if (mAlive) {
+    switch (GetKnockBackController().GetActiveReaction()) {
+    case CKnockBackMgr::kAR_Hurled:
+      if (!GetBodyController()->IsFrozen()) {
+        mStateMachine->SetState(mgr, *this, rstl::string_l("GetUpNow"));
+        mStateMachine->SetDelay(mData.mKnockBackDelay);
+      }
+      x6a1_28_ = false;
+      mVerticalMovement = false;
+      CSfxManager::AddEmitter(mData.mKnockBackSfx, GetTranslation(), 127,
+                              GetCurrentAreaId().Value(), true, false,
+                              CSfxManager::kMedPriority);
+      break;
+    }
+  } else {
+    if (!IsOnGround() && (mBurning || mLaggedBurnDeath)) {
+      mSpinToDeath = false;
+      mVerticalMovement = true;
+      SetMomentumWR(CVector3f::Zero());
+    } else {
+      switch (GetKnockBackController().GetActiveReaction()) {
+      case CKnockBackMgr::kAR_Hurled:
+        CSfxManager::AddEmitter(mData.mDeathSfx, GetTranslation(), 127,
+                                GetCurrentAreaId().Value(), true, false,
+                                CSfxManager::kMedPriority);
+        if (mFadeToDeath) {
+          mSpinToDeath = false;
+          UpdateParticleEffects(mgr, 0.f, false);
+          SetMomentumWR(CVector3f(0.f, 0.f, -GetGravityConstant() * GetMass()));
+        }
+        break;
+      }
+    }
+    if (mSpinToDeath) {
+      StartSpinToDeath(mgr);
+    }
+  }
+}
+
 void CFlyingPirate::MassiveDeath(CStateManager& mgr) {
   CExplosion* explosion = rs_new CExplosion(
       mParticleGenDesc, mgr.AllocateUniqueId(),
@@ -799,6 +856,29 @@ void CFlyingPirate::UpdatePatrolFacing(CStateManager& mgr) {
             CBCLocomotionCmd(CVector3f::Zero(), delta.AsNormalized(), 1.f));
       }
     }
+  }
+}
+
+void CFlyingPirate::StartSpinToDeath(CStateManager& mgr) {
+  BodyController()->CommandMgr().Reset();
+  BodyController()->CommandMgr().DeliverCmd(CBCLoopHitReactionCmd(pas::EReactionType(1)));
+  const CVector3f homingPos = mgr.GetPlayer(0)->GetHomingPosition(mgr, 0.f);
+  const CVector3f pos = GetTranslation();
+  SetMomentumWR(CVector3f::Zero());
+  const CVector3f delta = homingPos - pos;
+  CVector3f cross = CVector3f::Cross(delta, CVector3f::Up());
+  if (close_enough(cross, CVector3f::Zero(), 0.0001f)) {
+    cross = CVector3f::Cross(delta, CVector3f::Forward());
+  }
+  cross = mgr.Random()->Range(-5.f, 5.f) * cross.AsNormalized();
+  const CVector3f dir = (homingPos + cross) - pos;
+  if (dir.IsMagnitudeSafe()) {
+    const CVector3f velocity = 25.f * dir.AsNormalized();
+    SetVelocityWR(velocity);
+    SetTransform(CTransform4f::LookAt(pos, pos + dir, CVector3f::Up()));
+  } else {
+    const CVector3f fallDir = GetTransform().GetForward() - 0.5f * GetTransform().GetUp();
+    SetVelocityWR(25.f * fallDir.AsNormalized());
   }
 }
 
@@ -1575,6 +1655,86 @@ bool CFlyingPirate::HasAttackPattern(CStateManager& mgr, const CTriggerData& dat
 }
 
 CProjectileInfo* CFlyingPirate::ProjectileInfo() { return &mGunProjectileInfo; }
+
+bool CFlyingPirate::FireProjectile(CStateManager& mgr, float dt) {
+  bool fired = false;
+  const CTransform4f xf = GetLctrTransform(mGunSegId);
+  if (!mAlive) {
+    LaunchProjectile(xf, mgr, 8, CWeapon::kPA_None, false, CImpactVisorEffect(),
+                     CVector3f(1.f, 1.f, 1.f));
+    fired = true;
+  } else {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mTargetId))) {
+      CVector3f origin = actor->GetTranslation();
+      const CPlayer& player = *mgr.GetPlayer(0);
+      if (mTargetId == player.GetUniqueId()) {
+        origin = ProjectileInfo()->PredictInterceptPos(
+            xf.GetTranslation(), player.GetAimPosition(mgr, 0.f), player, true, dt);
+      }
+      CVector3f delta = origin - xf.GetTranslation();
+      float distance = delta.Magnitude();
+      delta *= 1.f / distance;
+      float dot = CVector3f::Dot(xf.GetForward(), delta);
+      if (dot > 0.707f || (distance < 6.f && dot > 0.5f)) {
+        if (LineOfSightTest(mgr, xf.GetTranslation(), origin,
+                            CMaterialList(kMT_Player, kMT_NoPlatformCollision))) {
+          origin += GetTransform().Rotate(mBurstFire.GetDistanceCompensatedError(distance, 6.f));
+          const CTransform4f aimXf =
+              CTransform4f::LookAt(xf.GetTranslation(), origin, CVector3f::Up());
+          LaunchProjectile(aimXf, mgr, 8, CWeapon::kPA_None, false, CImpactVisorEffect(),
+                           CVector3f(1.f, 1.f, 1.f));
+          fired = true;
+        }
+      }
+    }
+  }
+  if (fired) {
+    const CPASDatabase& database = GetBodyController()->GetPASDatabase();
+    const CPASAnimParmData parms(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(2));
+    const rstl::pair< float, int > anim = database.FindBestAnimation(parms, *mgr.Random(), -1);
+    if (anim.first > 0.f) {
+      ModelData()->AnimationData()->AddAdditiveAnimation(anim.second, 1.f, false, true);
+    }
+    CSfxManager::AddEmitter(mData.mGunSfx, GetTranslation(), GetCurrentAreaId().Value(), true,
+                            false, CSfxManager::kMedPriority);
+  }
+  const bool result = fired;
+  return result;
+}
+
+void CFlyingPirate::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
+                                    EUserEventType type, float dt) {
+  bool handled = false;
+  switch (type) {
+  case kUE_Projectile: {
+    CProjectileInfo& info = mIsAttackingObject ? mAltProjectileInfo2 : mAltProjectileInfo1;
+    if (info.Token().IsLoaded() && mgr.CanCreateProjectile(GetUniqueId(), kWT_AI, 16)) {
+      const CTransform4f xf = GetLctrTransform(node.GetLocatorName());
+      CEnergyProjectile* projectile = rs_new CEnergyProjectile(
+          true, info.Token(), kWT_AI, xf, kMT_Character, info.GetDamage(), mgr.AllocateUniqueId(),
+          GetCurrentAreaId(), GetUniqueId(),
+          mIsAttackingObject ? mAttackObjectId : mgr.GetPlayer(0)->GetUniqueId(),
+          CWeapon::kPA_None, false, CVector3f::One(), CImpactVisorEffect(), false, true, false,
+          1.f, 4.f, 4.f);
+      if (projectile != nullptr) {
+        mgr.AddObject(projectile);
+        if (!mIsAttackingObject && mIsAquaPirate) {
+          projectile->SetMinHomingDistance(mData.mProjectileHomingDistance);
+        }
+      }
+    }
+    handled = true;
+    break;
+  }
+  case kUE_BecomeRagDoll:
+    xbba_30_ = true;
+    handled = true;
+    break;
+  }
+  if (!handled) {
+    CPatterned::DoUserAnimEvent(mgr, node, type, dt);
+  }
+}
 
 void CFlyingPirate::PreRenderAllViewports(CStateManager& mgr) {
   CPatterned::PreRenderAllViewports(mgr);

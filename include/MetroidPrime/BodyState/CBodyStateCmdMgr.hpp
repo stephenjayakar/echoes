@@ -498,6 +498,11 @@ public:
     mProjectileAttack = cmd;
   }
 
+  void DeliverCmd(const CBCLoopHitReactionCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mLoopHitReaction = cmd;
+  }
+
   void DeliverCmd(const CBCHurledCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mHurled = cmd;
