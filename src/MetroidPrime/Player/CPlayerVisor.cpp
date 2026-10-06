@@ -302,6 +302,8 @@ void CPlayerVisor::DrawDarkEffect(const CStateManager& mgr) const {}
 
 void CPlayerVisor::DrawEchoEffect(const CStateManager& mgr) const {}
 
+static const float skViewportLayoutScale[3] = {1.f, 0.8f, 0.6f};
+
 void CPlayerVisor::DrawScanEffect(const CStateManager& mgr,
                                   const CTargetingManager* const tgtMgr) const {
   const CViewport& viewport = CGraphics::GetViewport();
@@ -322,7 +324,6 @@ void CPlayerVisor::DrawScanEffect(const CStateManager& mgr,
   const float divisor =
       transFactor * ((1.f - t) * mScanMagInterp + t * gpTweakGui->GetScanWindowScanningAspect()) +
       (1.f - transFactor);
-  static const float skViewportLayoutScale[3] = {1.f, 0.8f, 0.6f};
   const float layoutScale = skViewportLayoutScale[mgr.GetViewportLayoutIndex()];
   const float windowX = mInterpWindowDims.GetX();
   const float windowY = mInterpWindowDims.GetY();
@@ -585,7 +586,6 @@ CVector2i CPlayerVisor::GetScanWindowViewportSize(const CStateManager& mgr) cons
   const float divisor =
       transFactor * ((1.f - t) * mScanMagInterp + t * gpTweakGui->GetScanWindowScanningAspect()) +
       (1.f - transFactor);
-  static const float skViewportLayoutScale[3] = {1.f, 0.8f, 0.6f};
   const float layoutScale = skViewportLayoutScale[mgr.GetViewportLayoutIndex()];
   const float windowX = mInterpWindowDims.GetX();
   const float windowY = mInterpWindowDims.GetY();
