@@ -422,32 +422,41 @@ void CPlayer::UpdateOrbitInput(const CFinalInput& input, float dt, CStateManager
         if (result == kOVR_OK) {
           UpdateOrbitPosition(GetTweakPlayer()->GetOrbitNormalDistance(mOrbitType), mgr);
           mOrbitOcclusionTimer = 0.f;
-        } else if (result == kOVR_OccludedTarget) {
-          const float breakTime = GetTweakPlayer()->GetOrbitBreakOnOccludedTime();
-          if (breakTime != 0.f) {
-            mOrbitOcclusionTimer += dt;
-            if (mOrbitOcclusionTimer >= breakTime) {
-              ActivateOrbitSource(mgr);
-            }
-          }
-        } else if (result == kOVR_BrokenLookAngle) {
-          OrbitPoint(kOT_Far, mgr);
-          mOrbitOcclusionTimer = 0.f;
-        } else if (result == kOVR_ExtremeHorizonAngle) {
-          SetOrbitRequest(kOR_BadVerticalAngle, mgr);
-          mOrbitOcclusionTimer = 0.f;
-        } else if (result == kOVR_TargetingThroughDoor) {
-          SetOrbitRequest(kOR_TargetingThroughDoor, mgr);
         } else {
-          ActivateOrbitSource(mgr);
-          mOrbitOcclusionTimer = 0.f;
+          switch (result) {
+          case kOVR_OccludedTarget: {
+            const float breakTime = GetTweakPlayer()->GetOrbitBreakOnOccludedTime();
+            if (breakTime != 0.f) {
+              mOrbitOcclusionTimer += dt;
+              if (mOrbitOcclusionTimer >= breakTime) {
+                ActivateOrbitSource(mgr);
+              }
+            }
+            break;
+          }
+          case kOVR_BrokenLookAngle:
+            OrbitPoint(kOT_Far, mgr);
+            mOrbitOcclusionTimer = 0.f;
+            break;
+          case kOVR_ExtremeHorizonAngle:
+            SetOrbitRequest(kOR_BadVerticalAngle, mgr);
+            mOrbitOcclusionTimer = 0.f;
+            break;
+          case kOVR_TargetingThroughDoor:
+            SetOrbitRequest(kOR_TargetingThroughDoor, mgr);
+            break;
+          default:
+            ActivateOrbitSource(mgr);
+            mOrbitOcclusionTimer = 0.f;
+            break;
+          }
         }
       }
       UpdateOrbitSelection(input, mgr);
       break;
     case kOS_OrbitPoint:
       if (mControlMapper.GetPressInput(CControlMapper::kC_OrbitObject, input)) {
-        SetOrbitTargetId(mOrbitNextTargetId, mgr);
+        SetOrbitTargetId(GetOrbitNextTargetId(), mgr);
         if (mOrbitTargetId != kInvalidUniqueId) {
           if (ValidateAimTargetId(GetOrbitTargetId(), mgr)) {
             SetAimTarget(GetOrbitTargetId());
@@ -480,7 +489,7 @@ void CPlayer::UpdateOrbitInput(const CFinalInput& input, float dt, CStateManager
       break;
     case kOS_OrbitCarcass:
       if (mControlMapper.GetPressInput(CControlMapper::kC_OrbitObject, input)) {
-        SetOrbitTargetId(mOrbitNextTargetId, mgr);
+        SetOrbitTargetId(GetOrbitNextTargetId(), mgr);
         if (mOrbitTargetId != kInvalidUniqueId) {
           if (ValidateAimTargetId(GetOrbitTargetId(), mgr)) {
             SetAimTarget(GetOrbitTargetId());
@@ -520,6 +529,10 @@ void CPlayer::UpdateOrbitInput(const CFinalInput& input, float dt, CStateManager
       } else {
         BreakGrapple(kOR_StopOrbit, mgr);
       }
+      break;
+    case kOS_OrbitPoint:
+    case kOS_OrbitCarcass:
+      SetOrbitRequest(kOR_StopOrbit, mgr);
       break;
     case kOS_ForcedOrbitObject:
       UpdateOrbitPosition(GetTweakPlayer()->GetOrbitNormalDistance(mOrbitType), mgr);
