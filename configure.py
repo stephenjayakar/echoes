@@ -1508,6 +1508,7 @@ config.libs = [
         [
             Object(NonMatching, "MetroidPrime/Enemies/CPuffer.cpp"),
         ],
+        extra_cflags=["-pool off"],
     ),
 ]
 

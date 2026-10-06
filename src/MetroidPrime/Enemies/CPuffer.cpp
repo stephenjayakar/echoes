@@ -129,7 +129,8 @@ void CPuffer::Think(float dt, CStateManager& mgr) {
 
   if (mLastDestObj != GetDestObj()) {
     mLastDestObj = GetDestObj();
-    CSfxManager::AddEmitter(mSfxId, GetTranslation(), GetCurrentAreaId().Value(), true, false);
+    const ushort sfx = mSfxId;
+    CSfxManager::AddEmitter(sfx, GetTranslation(), GetCurrentAreaId().Value(), true, false);
   }
 
   BodyController()->CommandMgr().ClearLocomotionCmds();
@@ -152,11 +153,14 @@ void CPuffer::UpdateJets(CStateManager& mgr) {
   if (moveVector.CanBeNormalized()) {
     const CVector3f moveNorm = -moveVector.AsNormalized();
     CAnimData* animData = ModelData()->AnimationData();
+    bool enable;
     for (int i = 0; i < ARRAY_SIZE(skGasJetLocators); ++i) {
       CVector3f offset = GetTransform().Rotate(
           animData->GetLocatorTransform(mGasLocators[i], nullptr).GetColumn(kDY));
-      bool enable = CVector3f::Dot(moveNorm, offset) > CMath::FastCosR(1.0471976f);
-      if (IsParticleEnabled(i) != enable) {
+      const float ang = CMath::FastCosR(1.0471976f);
+      enable = CVector3f::Dot(moveNorm, offset) > ang;
+      const bool isEnabled = IsParticleEnabled(i);
+      if (isEnabled != enable) {
         ModelData()->AnimationData()->SetEffectState(rstl::string_l(skGasJetLocators[i]), enable,
                                                      mgr);
       }
