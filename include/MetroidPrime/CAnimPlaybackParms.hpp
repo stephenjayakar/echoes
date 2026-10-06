@@ -49,6 +49,10 @@ public:
   int GetAnimationId() const { return mAnimA; }
   int GetSecondAnimationId() const { return mAnimB; } // Guessed name.
   float GetBlendWeight() const { return mBlendWeight; } // Guessed name.
+  bool GetAnimating() const { return mAnimating; }       // Guessed name.
+  void SetAnimationId(int anim) { mAnimA = anim; }       // Guessed name.
+  void SetSecondAnimationId(int anim) { mAnimB = anim; } // Guessed name.
+  void SetBlendWeight(float weight) { mBlendWeight = weight; } // Guessed name.
 };
 CHECK_SIZEOF(CAnimPlaybackParms, 0x24)
 

@@ -271,7 +271,36 @@ CAnimData::BuildTransitionTree(const CAnimPlaybackParms& parms) const {
 }
 
 void CAnimData::SetAnimation(const CAnimPlaybackParms& parms, bool noTrans) {
-  // TODO: Construct the new tree/transition, reset POIs and set playback alignment.
+  const uint numChildren = mAnimRoot->VGetNumChildren();
+  if (parms.GetAnimationId() == mPlaybackParms.GetAnimationId() ||
+      (parms.GetSecondAnimationId() == mPlaybackParms.GetSecondAnimationId() &&
+       parms.GetSecondAnimationId() != -1) ||
+      (parms.GetBlendWeight() == mPlaybackParms.GetBlendWeight() &&
+       parms.GetBlendWeight() != 1.f)) {
+    if (mAnimationJustStarted) {
+      return;
+    }
+  }
+  if (numChildren >= x2a8_) {
+    return;
+  }
+  ResetPOILists();
+  mSpeedScale = 1.f;
+  mPlaybackParms.SetAnimationId(parms.GetAnimationId());
+  mPlaybackParms.SetSecondAnimationId(parms.GetSecondAnimationId());
+  mPlaybackParms.SetBlendWeight(parms.GetBlendWeight());
+  mCurrentAnim = parms.GetAnimationId();
+  const bool animating = parms.GetAnimating();
+  const rstl::ncrc_ptr< CAnimTreeNode > tree = BuildAnimationTree(parms);
+  if (!noTrans) {
+    mAnimRoot = mTransMgr->GetTransitionTree(mAnimRoot, tree);
+  } else {
+    mAnimRoot = tree;
+  }
+  mAnimating = animating;
+  CalcPlaybackAlignmentParms(parms, tree);
+  ResetPOILists();
+  mAnimationJustStarted = true;
 }
 
 void CAnimData::GetAnimationPrimitives(const CAnimPlaybackParms& parms,
