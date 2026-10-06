@@ -1,6 +1,167 @@
 #ifndef _CMETROID
 #define _CMETROID
 
+#include "Collision/CCollidableSphere.hpp"
+#include "MetroidPrime/CDamageVulnerability.hpp"
 #include "MetroidPrime/Enemies/CPatterned.hpp"
+#include "MetroidPrime/PathFinding/CPathFindSearch.hpp"
+
+class CStateManager;
+
+// Echoes layout recovered from the Metroid REL copy constructor (0xC8 bytes). Member names follow
+// the generated SLdrMetroidAlpha record where it has one.
+class CMetroidData {
+public:
+  CDamageVulnerability mFrozenVulnerability;
+  CDamageVulnerability mEnergyDrainVulnerability;
+  CDamageVulnerability mBabyMetroidGrowthVulnerability;
+  float x90_;
+  float x94_;
+  float mTelegraphAttackTime;
+  float mBabyMetroidScale;
+  float xa0_;
+  float xa4_;
+  float xa8_;
+  CAssetId mBabyMetroidTransformationParticleEffect;
+  float mStage2GrowthScale;
+  float mStage2GrowthEnergy;
+  float mExplosionGrowthEnergy;
+  float mDodgeCheckTimeInterval;
+  float mChanceToDodge;
+  bool xc4_24_ : 1;
+  bool mStartsInWall : 1;
+};
+CHECK_SIZEOF(CMetroidData, 0xC8)
+
+// Original class name from the Wii SEL exports (TypesMatch__8CMetroidCFi, TCastToPtr<8CMetroid>).
+class CMetroid : public CPatterned {
+public:
+  ~CMetroid() override;
+
+  // CEntity
+  CEntity* TypesMatch(int typeId) const override;
+  void Think(float dt, CStateManager& mgr) override;
+  void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
+
+  // CActor
+  void Render(const CStateManager& mgr) const override;
+  const CDamageVulnerability* GetDamageVulnerability() const override;
+  const CDamageVulnerability* GetDamageVulnerability(const CVector3f& position,
+                                                     const CVector3f& direction,
+                                                     const CDamageInfo& damage) const override;
+  EWeaponCollisionResponseTypes GetCollisionResponseType(const CVector3f& position,
+                                                         const CVector3f& direction,
+                                                         const CWeaponMode& mode,
+                                                         int attributes) const override;
+  void DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node, EUserEventType type,
+                       float dt) override;
+
+  // CPhysicsActor
+  const CCollisionPrimitive* GetCollisionPrimitive() const override;
+
+  // CAi
+  void Death(CStateManager& mgr, const CVector3f& direction, EScriptObjectState state) override;
+  void KnockBack(CStateManager& mgr, const CKnockBackInfo& info) override;
+  bool IsListening() const override { return true; }
+  CVector3f GetOrigin(const CStateManager& mgr, const CTeamAiRole& role,
+                      const CVector3f& aimPos) const override;
+
+  // CPatterned
+  CPathFindSearch* GetSearchPath() override { return &mPathFindSearch; }
+  void SetupStateMachine(CStateManager& mgr) override;
+  bool CanBeIngPossessed(CStateManager& mgr) const override;
+
+  // CMetroid
+  virtual bool ShouldDodge(CStateManager& mgr, const CTriggerData& data) const;
+  virtual void PathFind(CStateManager& mgr, EStateMsg msg, float dt);
+  virtual void Dodge(CStateManager& mgr, EStateMsg msg, float dt);
+
+  void OnDockTouch(CStateManager& mgr); // Guessed name.
+
+  // Triggers
+  bool StateOver(CStateManager& mgr, const CTriggerData& data) const;
+  bool AttackOver(CStateManager& mgr, const CTriggerData& data) const;
+  bool LostInterest(CStateManager& mgr, const CTriggerData& data) const;
+  bool PatternShagged(CStateManager& mgr, const CTriggerData& data) const;
+  bool Attacked(CStateManager& mgr, const CTriggerData& data) const;
+  bool ShotAt(CStateManager& mgr, const CTriggerData& data) const;
+  bool ShouldAttack(CStateManager& mgr, const CTriggerData& data) const;
+  bool InAttackPosition(CStateManager& mgr, const CTriggerData& data) const;
+  bool InPosition(CStateManager& mgr, const CTriggerData& data) const;
+  bool InRange(CStateManager& mgr, const CTriggerData& data) const;
+  bool InDetectionRange(CStateManager& mgr, const CTriggerData& data) const;
+  bool SpotPlayer(CStateManager& mgr, const CTriggerData& data) const;
+  bool AggressionCheck(CStateManager& mgr, const CTriggerData& data) const;
+  bool ShouldTurn(CStateManager& mgr, const CTriggerData& data) const;
+  bool Leash(CStateManager& mgr, const CTriggerData& data) const;
+  bool ShouldWallHang(CStateManager& mgr, const CTriggerData& data) const;
+
+  // States
+  void Patrol(CStateManager& mgr, EStateMsg msg, float dt);
+  void Generate(CStateManager& mgr, EStateMsg msg, float dt);
+  void SelectTarget(CStateManager& mgr, EStateMsg msg, float dt);
+  void TurnAround(CStateManager& mgr, EStateMsg msg, float dt);
+  void TelegraphAttack(CStateManager& mgr, EStateMsg msg, float dt);
+  void Attack(CStateManager& mgr, EStateMsg msg, float dt);
+  void WallHang(CStateManager& mgr, EStateMsg msg, float dt);
+
+  // Code functions
+  void SetTargetDest(CStateManager& mgr, float dt);
+  void SetPatrolDest(CStateManager& mgr, float dt);
+
+  bool IsSuckingEnergy() const;
+  bool CanStartAttack(CStateManager& mgr) const;
+  void SwarmAdd(CStateManager& mgr);
+  void SwarmRemove(CStateManager& mgr);
+  void UpdateAILogicTimers(float dt, CStateManager& mgr);
+  void SuckEnergyFromTarget(float dt, CStateManager& mgr);
+  void PreventWorldCollisions(float dt, CStateManager& mgr);
+  void RestoreSolidCollision(CStateManager& mgr);
+
+protected:
+  enum EAIState {
+    kAiState_Invalid = -1,
+    kAiState_Zero,
+    kAiState_One,
+    kAiState_Two,
+    kAiState_Over,
+  };
+
+  CVector3f x7c0_;
+  EAIState mState;
+  float x7d0_;
+  int x7d4_;
+  TUniqueId mTeamAiManagerId;
+  int x7dc_;
+  CMetroidData mMetroidData;
+  CCollidableSphere mCollisionPrimitive;
+  CPathFindSearch mPathFindSearch;
+  TUniqueId mAttackTarget;
+  float mAttackChance;
+  float mTelegraphAttackTime;
+  float mEnergyDrained;
+  float mEnergyDrainTime;
+  CVector3f mScale1;
+  CVector3f mScale2;
+  CVector3f mScale3;
+  float mGrowthDuration;
+  float mGrowthEnergy;
+  float mLastGrowthEnergy;
+  float mSeekTime;
+  float mMaxSeekTime;
+  float mLoopAttackDistance;
+  CVector3f mDetachPos;
+  CDamageVulnerability mStandingFaceHugVulnerability;
+  bool mAlert : 1;
+  bool mGrowing : 1;
+  bool mShotAt : 1;
+  bool xa40_27_ : 1;
+  bool xa40_28_ : 1;
+  bool xa40_29_ : 1; // Blocks Ing possession.
+  bool xa40_30_ : 1;
+  bool xa40_31_ : 1;
+  bool mIsEnergyDrainVulnerable : 1;
+};
+CHECK_SIZEOF(CMetroid, 0xA48)
 
 #endif // _CMETROID

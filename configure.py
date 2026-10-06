@@ -1506,8 +1506,10 @@ config.libs = [
     Rel(
         "Metroid",
         [
-            Object(NonMatching, "MetroidPrime/Enemies/CMetroidAlpha.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CMetroid.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CBabyMetroid.cpp"),
         ],
+        extra_cflags=["-pool off"],
     ),
 ]
 

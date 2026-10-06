@@ -28,7 +28,7 @@
 #include "MetroidPrime/Cameras/CFirstPersonCamera.hpp"
 #include "MetroidPrime/Cameras/CGameCamera.hpp"
 #include "MetroidPrime/Enemies/CBouncyGrenade.hpp"
-#include "MetroidPrime/Enemies/CMetroidAlpha.hpp"
+#include "MetroidPrime/Enemies/CMetroid.hpp"
 #include "MetroidPrime/Enemies/CPatterned.hpp"
 #include "MetroidPrime/Enemies/CSwarmBasics.hpp"
 #include "MetroidPrime/Player/CGrappleArm.hpp"
@@ -1067,7 +1067,7 @@ void CPlayerGun::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
         const TUniqueId attachedActor = player.GetAttachedActorId();
         if (attachedActor != kInvalidUniqueId) {
           metroidAttached =
-              TCastToConstPtr< CMetroidAlpha >(mgr.GetObjectById(attachedActor)) != nullptr;
+              TCastToConstPtr< CMetroid >(mgr.GetObjectById(attachedActor)) != nullptr;
         }
       }
     }
