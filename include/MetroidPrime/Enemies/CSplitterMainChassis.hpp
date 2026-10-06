@@ -37,6 +37,8 @@ public:
 
   float GetHeadHealth() const { return xd28_; } // Guessed name
   bool IsDocked() const { return mDockedCommandModule != kInvalidUniqueId; } // Guessed name
+  TUniqueId GetDockedCommandModule() const { return mDockedCommandModule; } // Guessed name
+  TUniqueId GetTargetId() const { return xcc0_; }                          // Guessed name
 
 private:
   CSplitterMainChassisData mData;

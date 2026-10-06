@@ -8,15 +8,22 @@
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CAnimData.hpp"
+#include "MetroidPrime/CCollisionActor.hpp"
 #include "MetroidPrime/CCollisionActorManager.hpp"
+#include "MetroidPrime/CHealthInfo.hpp"
+#include "MetroidPrime/CParticleGenInfo.hpp"
+#include "MetroidPrime/CGameArea.hpp"
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/Enemies/CSplitterMainChassis.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 static const char* const skBeamLocator = "Beam_LCTR";
+static const char* const skLightShield = "LightShield";
+static const char* const skDarkShield = "DarkShield";
 
 CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string& name,
                                                const CEntityInfo& info, const CTransform4f& xf,
@@ -34,8 +41,8 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , mLaserSweepProjectileInfo(data.laserSweepBeamInfo.weaponSystem, CDamageInfo())
 , mVulnerability(*CPatterned::GetDamageVulnerability())
 , xedc_(0)
-, xee0_(0)
-, xee4_(0)
+, mShieldType(kST_None)
+, mLastShieldType(kST_None)
 , mHoverDistance(0.f)
 , xeec_(-1)
 , xef0_(0.f)
@@ -61,7 +68,7 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , xf44_(CVector3f::Zero())
 , xf50_(CVector3f::Zero())
 , xf5c_(0)
-, xf60_(0)
+, mShieldSfx()
 , xf64_(0)
 , xf68_(kInvalidUniqueId)
 , xf6a_24_(true)
@@ -88,6 +95,55 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 
 CSplitterCommandModule::~CSplitterCommandModule() {}
 
+void CSplitterCommandModule::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  const EScriptObjectMessage message = msg.GetMessage();
+  CPatterned::AcceptScriptMsg(mgr, msg);
+  switch (message) {
+  case kSM_Create:
+    BodyController()->Activate(mgr, pas::kAS_Invalid);
+    SetupCollisionActors(mgr);
+    mLastShieldType = mgr.Random()->Range(0.f, 100.f) < 50.f ? kST_Light : kST_Dark;
+    break;
+  case kSM_Delete:
+    if (mCollisionActorManager.get() != nullptr) {
+      mCollisionActorManager->Destroy(mgr);
+    }
+    if (xf68_ != kInvalidUniqueId) {
+      mgr.DeleteObjectRequest(xf68_);
+    }
+    StopLaserSweep(mgr);
+    break;
+  case kSM_Activate:
+    if (mCollisionActorManager.get() != nullptr) {
+      mCollisionActorManager->SetActive(mgr, true);
+    }
+    break;
+  case kSM_Deactivate:
+    if (mCollisionActorManager.get() != nullptr) {
+      mCollisionActorManager->SetActive(mgr, false);
+    }
+    break;
+  case kSM_AIUpdateDisabled:
+    if (mCollisionActorManager.get() != nullptr) {
+      mCollisionActorManager->SetPhysicsActive(mgr, false);
+    }
+    break;
+  case kSM_Alert:
+    mHitByPlayerProjectile = true;
+    break;
+  case kSM_AreaLoaded:
+    mPathFindSearch.SetArea(
+        mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).GetPostConstructed()->mPathArea);
+    FindDockingTarget(mgr);
+    break;
+  case kSM_Damage:
+    OnDamaged(msg.GetSenderId());
+    break;
+  default:
+    break;
+  }
+}
+
 void CSplitterCommandModule::Think(float dt, CStateManager& mgr) {
   if (!GetActive()) {
     return;
@@ -96,7 +152,7 @@ void CSplitterCommandModule::Think(float dt, CStateManager& mgr) {
   CPatterned::Think(dt, mgr);
   mCollisionActorManager->Update(dt, mgr, CCollisionActorManager::kUO_ObjectSpace);
   UpdateDocking(mgr);
-  UpdateAutoDestruct(dt, mgr);
+  UpdateTimers(dt, mgr);
   UpdateShields(mgr);
   UpdateLaserSweep(dt, mgr);
   UpdateBeamEffect(dt, mgr);
@@ -739,6 +795,145 @@ void CSplitterCommandModule::RaiseShields(CStateManager& mgr, int arg) { xf6a_28
 void CSplitterCommandModule::ResetAttackTimes(CStateManager& mgr, int arg) {
   xf0c_ = mData.minLaserPulseAttackTime;
   xf20_ = mgr.Random()->Range(1, mData.maxLaserPulseShots);
+}
+
+void CSplitterCommandModule::FindDockingTarget(CStateManager& mgr) {
+  xefc_ = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+}
+
+void CSplitterCommandModule::UpdateTimers(float dt, CStateManager& mgr) {
+  xf10_ -= dt;
+  xf0c_ -= dt;
+  xf14_ -= dt;
+  xf18_ += dt;
+  xf1c_ += dt;
+  if (xf08_ > 0.f) {
+    xf08_ = rstl::max_val(xf08_ - dt, 0.f);
+    xf04_ = CColor::Lerp(CColor::White(), mDamageColor, rstl::min_val(1.f, xf08_));
+  }
+  if (xf6a_29_ && GetAlive()) {
+    xef0_ -= dt;
+    if (xef0_ <= 0.f) {
+      CPatterned::Death(mgr, GetTransform().GetForward(), kSS_DeathRattle);
+    }
+  }
+}
+
+void CSplitterCommandModule::UpdateDocking(CStateManager& mgr) {
+  if (mMainChassisId != kInvalidUniqueId) {
+    const CSplitterMainChassis* chassis =
+        TCastToConstPtr< CSplitterMainChassis >(mgr.GetObjectById(mMainChassisId));
+    if (chassis && chassis->GetDockedCommandModule() == GetUniqueId()) {
+      if (mTargetId != chassis->GetTargetId()) {
+        mTargetId = chassis->GetTargetId();
+        UpdateAlertEffect(mgr);
+      }
+      xf14_ = 3.f;
+    } else {
+      mMainChassisId = kInvalidUniqueId;
+      SetNextDrawNode(kInvalidUniqueId);
+    }
+  } else if ((mData.unknown_0xbd80fd94 & 8) != 0 && xf14_ <= 0.f &&
+             xefc_ == kInvalidUniqueId) {
+    FindChassisToDock(mgr);
+    xf14_ = 3.f;
+  } else if (xefc_ != kInvalidUniqueId) {
+    const CSplitterMainChassis* chassis =
+        TCastToConstPtr< CSplitterMainChassis >(mgr.GetObjectById(xefc_));
+    if (!chassis || !chassis->GetAlive()) {
+      xefc_ = kInvalidUniqueId;
+    }
+  }
+}
+
+void CSplitterCommandModule::UpdateShields(CStateManager& mgr) {
+  if (CParticleGenInfo* effect = GetShieldEffect()) {
+    effect->SetModulationColor(xf04_);
+  }
+  CSfxManager::UpdateEmitter(mShieldSfx, GetTranslation(), GetTransform().GetForward(), 127);
+  if (CCollisionActor* colAct = TCastToPtr< CCollisionActor >(mgr.ObjectById(xf00_))) {
+    if (mCollisionActorManager.get() != nullptr) {
+      mCollisionActorManager->SetActive(mgr, mMainChassisId == kInvalidUniqueId);
+    }
+    switch (mShieldType) {
+    case kST_Light:
+    case kST_Dark:
+      if (!xf6a_28_ || colAct->HealthInfo()->GetHP() <= 0.f) {
+        mShieldType = kST_None;
+        xf10_ = mData.resetShieldTime;
+        SetShieldState(mgr, false);
+      }
+      break;
+    case kST_None:
+    default:
+      if (xf6a_28_ && xf10_ <= 0.f) {
+        mShieldType = mLastShieldType == kST_Light ? kST_Dark : kST_Light;
+        mLastShieldType = mShieldType;
+        SetShieldState(mgr, true);
+      }
+      break;
+    }
+  }
+}
+
+void CSplitterCommandModule::SetShieldState(CStateManager& mgr, bool playSound) {
+  CAnimData* animData = AnimationData();
+  if (playSound) {
+    CSfxManager::AddEmitter(mData.sound_ShieldOn, GetTranslation(), 127,
+                            GetCurrentAreaId().Value(), true, false, CSfxManager::kMedPriority);
+  }
+  if (mShieldSfx) {
+    CSfxManager::RemoveEmitter(mShieldSfx);
+    mShieldSfx = CSfxHandle();
+  }
+  if (CCollisionActor* colAct = TCastToPtr< CCollisionActor >(mgr.ObjectById(xf00_))) {
+    colAct->HealthInfo()->SetHP(mData.shieldHP);
+    switch (mShieldType) {
+    case kST_Light:
+      colAct->AddMaterial(kMT_Character, mgr);
+      AddMaterial(kMT_Unknown54, mgr);
+      colAct->SetDamageVulnerability(mData.mLightShieldVulnerability);
+      animData->SetEffectState(rstl::string_l(skLightShield), true, mgr);
+      animData->SetEffectState(rstl::string_l(skDarkShield), false, mgr);
+      mShieldSfx = CSfxManager::AddEmitter(mData.sound_LightShield, GetTranslation(), 127,
+                                           GetCurrentAreaId().Value(), true, true,
+                                           CSfxManager::kMedPriority);
+      break;
+    case kST_Dark:
+      colAct->RemoveMaterial(kMT_Character, mgr);
+      AddMaterial(kMT_Unknown54, mgr);
+      colAct->SetDamageVulnerability(mData.mDarkShieldVulnerability);
+      animData->SetEffectState(rstl::string_l(skLightShield), false, mgr);
+      animData->SetEffectState(rstl::string_l(skDarkShield), true, mgr);
+      mShieldSfx = CSfxManager::AddEmitter(mData.sound_DarkShield, GetTranslation(), 127,
+                                           GetCurrentAreaId().Value(), true, true,
+                                           CSfxManager::kMedPriority);
+      break;
+    case kST_None:
+    default:
+      colAct->RemoveMaterial(kMT_Character, mgr);
+      RemoveMaterial(kMT_Unknown54, mgr);
+      colAct->SetDamageVulnerability(CDamageVulnerability::PassThroughVulnerabilty());
+      animData->SetEffectState(rstl::string_l(skLightShield), false, mgr);
+      animData->SetEffectState(rstl::string_l(skDarkShield), false, mgr);
+      break;
+    }
+  }
+}
+
+void CSplitterCommandModule::OnDamaged(TUniqueId sender) {
+  if (sender == xf00_) {
+    xf08_ = 1.f;
+  }
+}
+
+CParticleGenInfo* CSplitterCommandModule::GetShieldEffect() {
+  if (mShieldType != kST_None) {
+    const rstl::string name(mShieldType == kST_Light ? rstl::string_l(skLightShield)
+                                                     : rstl::string_l(skDarkShield));
+    return AnimationData()->GetFirstParticleEffect(name);
+  }
+  return nullptr;
 }
 
 void CSplitterCommandModule::UpdateStuckTimer(float dt, CStateManager& mgr) {

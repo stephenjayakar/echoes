@@ -2,6 +2,7 @@
 #define _CSPLITTERCOMMANDMODULE
 
 #include "Kyoto/Animation/CSegId.hpp"
+#include "Kyoto/Audio/CSfxHandle.hpp"
 #include "Kyoto/Graphics/CColor.hpp"
 #include "MetroidPrime/CDamageInfo.hpp"
 #include "MetroidPrime/CDamageVulnerability.hpp"
@@ -13,6 +14,7 @@
 #include "rstl/single_ptr.hpp"
 
 class CCollisionActorManager;
+class CParticleGenInfo;
 class CSplitterMainChassis;
 
 // Runtime copy of the loader record with converted damage data (layout from the REL copy
@@ -37,6 +39,13 @@ CHECK_SIZEOF(CSplitterCommandModuleData, 0x5AC)
 // AutoDestruct__22CSplitterCommandModuleFf). Member names are guessed.
 class CSplitterCommandModule : public CPatterned {
 public:
+  // Guessed names.
+  enum EShieldType {
+    kST_None,
+    kST_Light,
+    kST_Dark,
+  };
+
   CSplitterCommandModule(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                          const CTransform4f& xf, const CModelData& mData,
                          const CActorParameters& aParms, const CPatternedInfo& pInfo,
@@ -125,7 +134,8 @@ public:
 private:
   // Guessed names.
   void UpdateDocking(CStateManager& mgr);
-  void UpdateAutoDestruct(float dt, CStateManager& mgr);
+  void UpdateTimers(float dt, CStateManager& mgr);
+  void FindChassisToDock(CStateManager& mgr);
   void UpdateShields(CStateManager& mgr);
   void UpdateLaserSweep(float dt, CStateManager& mgr);
   void UpdateBeamEffect(float dt, CStateManager& mgr);
@@ -135,6 +145,11 @@ private:
   void MoveTo(const CVector3f& pos, float dt);
   void StopLaserSweep(CStateManager& mgr);
   CVector3f GetSeparation(CStateManager& mgr);
+  void SetupCollisionActors(CStateManager& mgr);
+  void FindDockingTarget(CStateManager& mgr);
+  void OnDamaged(TUniqueId sender);
+  void SetShieldState(CStateManager& mgr, bool playSound);
+  CParticleGenInfo* GetShieldEffect();
   void FireLaserPulse(CStateManager& mgr, const rstl::string& locator);
 
   CSplitterCommandModuleData mData;
@@ -144,8 +159,8 @@ private:
   CProjectileInfo mLaserSweepProjectileInfo;
   CDamageVulnerability mVulnerability;
   int xedc_;
-  int xee0_;
-  int xee4_;
+  EShieldType mShieldType;
+  EShieldType mLastShieldType;
   float mHoverDistance;
   int xeec_;
   float xef0_;
@@ -171,7 +186,7 @@ private:
   CVector3f xf44_;
   CVector3f xf50_;
   int xf5c_;
-  int xf60_;
+  CSfxHandle mShieldSfx;
   int xf64_;
   TUniqueId xf68_;
   bool xf6a_24_ : 1;
