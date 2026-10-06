@@ -344,8 +344,8 @@ void CCollisionActorManager::SetPhysicsActive(CStateManager& mgr, bool active) {
     CCollisionActor* actor =
         TCastToPtr< CCollisionActor >(mgr.ObjectById(mJointDescriptions[i].GetCollisionActorId()));
     if (actor != nullptr) {
-      actor->SetMovable(active);
-      actor->SetUseInSortedLists(active);
+      actor->SetMovable(mPhysicsActive);
+      actor->SetUseInSortedLists(mPhysicsActive);
     }
   }
 }

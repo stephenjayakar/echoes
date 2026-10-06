@@ -1049,9 +1049,11 @@ bool CActor::FindLoopedSound(ushort sfxId) {
 
 void CActor::SetValidTarget(int playerIndex, bool enabled) {
   if (enabled) {
-    mValidTargetPlayers |= 1 << playerIndex;
+    const uint cur = GetValidTargetPlayers();
+    mValidTargetPlayers = cur | (1 << playerIndex);
   } else {
-    mValidTargetPlayers &= ~(1 << playerIndex);
+    const uint cur = GetValidTargetPlayers();
+    mValidTargetPlayers = cur & ~((1 << playerIndex) & 0xf);
   }
 }
 
