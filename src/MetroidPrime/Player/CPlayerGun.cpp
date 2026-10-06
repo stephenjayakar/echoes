@@ -682,7 +682,7 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
     beamWorldXf.AddTranslation(cameraTranslation);
     beamTargetXf.AddTranslation(cameraTranslation);
     if (mChargeEffectVisible) {
-      const bool emitting = mComboTransferFactor < 1.f;
+      bool emitting = mComboTransferFactor < 1.f ? true : false;
       const float scaleFactor = mComboFiring ? 2.f * (1.f - mComboTransferFactor) : 2.f;
       const CVector3f scale(scaleFactor, scaleFactor, scaleFactor);
       mCurrentBeam->UpdateMuzzleFx(advDt, scale, mBeamLocalXf.GetTranslation(), emitting);
@@ -696,15 +696,15 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
         }
         for (int i = 0; i < mSeekerMuzzleGenerators.size(); ++i) {
           if (mSeekerMuzzleGenerators[i].get()) {
-            mSeekerMuzzleGenerators[i]->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+            mSeekerMuzzleGenerators[i].get()->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
             mSeekerMuzzleGenerators[i]->SetGlobalScale(scale);
             mSeekerMuzzleGenerators[i]->SetParticleEmission(emitting);
             mSeekerMuzzleGenerators[i]->Update(advDt);
           }
         }
       }
-      if (mAuxMuzzleGenerators[mCurrentBeamId].get() && mChargePhase == kCP_ChargeFx) {
-        mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalOrientAndTrans(mBeamLocalXf);
+      if (mAuxMuzzleGenerators[mCurrentBeamId].get() && mChargePhase == kCP_Charged) {
+        mAuxMuzzleGenerators[mCurrentBeamId].get()->SetGlobalOrientAndTrans(mBeamLocalXf);
         mAuxMuzzleGenerators[mCurrentBeamId]->SetGlobalScale(scale);
         mAuxMuzzleGenerators[mCurrentBeamId]->SetParticleEmission(emitting);
         mAuxMuzzleGenerators[mCurrentBeamId]->Update(advDt);
@@ -720,8 +720,8 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
           rstl::reserved_vector< TUniqueId, 1024 > nearList;
           CAABox bounds(CVector3f(-radius, 0.f, -radius), CVector3f(radius, 0.f, radius));
           bounds = bounds.GetTransformedAABox(absorbXf);
-          mgr.BuildNearList(nearList, bounds,
-                            CMaterialFilter::MakeInclude(CMaterialList(kMT_Projectile)), player);
+          const CMaterialFilter filter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Projectile));
+          mgr.BuildNearList(nearList, bounds, filter, player);
           const float radiusSquared = radius * radius;
           bool absorbed = false;
           for (rstl::reserved_vector< TUniqueId, 1024 >::const_iterator it = nearList.begin();
@@ -732,14 +732,14 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
                 projectile->GetCurrentDamageInfo().GetWeaponMode().GetType() == kWT_Phazon &&
                 (projectile->GetTranslation() - absorbXf.GetTranslation()).MagSquared() <
                     radiusSquared) {
-              mAbsorbedPhazonShots = rstl::min_val(mAbsorbedPhazonShots + 1,
-                                                   gpTweakPlayerGun->GetMaxAbsorbedPhazonShots());
+              mAbsorbedPhazonShots = rstl::min_val(gpTweakPlayerGun->GetMaxAbsorbedPhazonShots(),
+                                                   mAbsorbedPhazonShots + 1);
               mgr.DeleteObjectRequest(*it);
               absorbed = true;
               if (!mPhazonChargeGenerator.get() &&
                   mAbsorbedPhazonShots == gpTweakPlayerGun->GetMaxAbsorbedPhazonShots()) {
-                const TCachedToken< CGenDescription > description =
-                    gpSimplePool->GetObj("PhazonCharge");
+                const TCachedToken< CGenDescription > description(
+                    gpSimplePool->GetObj("PhazonCharge"), true);
                 mPhazonChargeGenerator =
                     rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
                 mCurrentBeam->ActivateCharge(false, false);
@@ -752,8 +752,8 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
             }
           }
           if (absorbed) {
-            const TCachedToken< CGenDescription > description =
-                gpSimplePool->GetObj("PhazonAbsorbFlash");
+            const TCachedToken< CGenDescription > description(
+                gpSimplePool->GetObj("PhazonAbsorbFlash"), true);
             mPhazonAbsorbFlashGenerator =
                 rstl::auto_ptr< CElementGen >(rs_new CElementGen(description));
             PlaySfxForPlayer(GetPlayer(mgr), 0x1d1, mSoundVolume, mgr.GetNextAreaId().Value(),
@@ -762,15 +762,15 @@ void CPlayerGun::Update(float dt, CStateManager& mgr) {
         }
       }
       if (mPhazonAbsorbFlashGenerator.get()) {
-        if (!mPhazonAbsorbFlashGenerator->IsSystemDeletable()) {
+        if (mPhazonAbsorbFlashGenerator->IsSystemDeletable()) {
+          mPhazonAbsorbFlashGenerator = rstl::auto_ptr< CElementGen >();
+        } else {
           mPhazonAbsorbFlashGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
           mPhazonAbsorbFlashGenerator->Update(advDt);
-        } else {
-          mPhazonAbsorbFlashGenerator = rstl::auto_ptr< CElementGen >();
         }
       }
       if (mPhazonChargeGenerator.get()) {
-        mPhazonChargeGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
+        mPhazonChargeGenerator.get()->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
         mPhazonChargeGenerator->Update(advDt);
       }
     }
