@@ -177,7 +177,7 @@ bool CInterpolationCamera::InterpolatePosition(float dt, CTransform4f& xf, const
   CVector3f delta = GetTranslation() - target;
   const float distance = delta.Magnitude();
   const float limit = mInitialDistance * remaining;
-  if (limit < distance && delta.CanBeNormalized()) {
+  if (distance > limit && delta.CanBeNormalized()) {
     delta = limit * delta.AsNormalized();
   }
   bool done = false;
