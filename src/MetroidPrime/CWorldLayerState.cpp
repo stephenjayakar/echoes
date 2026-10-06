@@ -15,7 +15,7 @@ CWorldLayerState::CWorldLayerState(CBitStreamReader& in) {
   }
 }
 
-void CWorldLayerState::PutTo(CBitStreamWriter& out) const {
+void CWorldLayerState::PutTo(CBitStreamWriter& out, const CWorldSaveGameInfo&) const {
   uint totalLayerCount = 0;
   const int areaCount = mAreaLayers.size();
   for (int i = 0; i < areaCount; ++i) {

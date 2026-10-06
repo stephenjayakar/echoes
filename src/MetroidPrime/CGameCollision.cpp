@@ -182,7 +182,7 @@ void CGameCollision::BuildAreaCollisionCache(const CStateManager& mgr, CAreaColl
   for (CGameArea::CConstChainIterator area = mgr.GetWorld()->GetChainHead(CWorld::kC_Alive);
        area != CWorld::skGlobalEnd; ++area) {
     const CAreaOctTree& tree = *area->GetPostConstructed()->mCollision;
-    CMetroidAreaCollider::COctreeLeafCache leaves(tree, area->GetId());
+    CMetroidAreaCollider::COctreeLeafCache leaves(tree, area->GetId().Value());
     CMetroidAreaCollider::BuildOctreeLeafCache(tree.GetRootNode(), cache.GetCacheBounds(), leaves);
     cache.AddOctreeLeafCache(leaves);
   }

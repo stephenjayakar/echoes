@@ -3,12 +3,19 @@
 #include "Kyoto/Animation/CCharAnimTime.hpp"
 #include "Kyoto/Math/CMath.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/CActorModelParticles.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CSimpleShadow.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
+#include "MetroidPrime/Weapons/CGameProjectile.hpp"
+#include "rstl/math.hpp"
 #include "MetroidPrime/CGenericFSM2State.hpp"
+
+#include <float.h>
 
 const float CPatterned::skDamageHitTime = 0.33f;
 const float CPatterned::skActorApproachDistance = 3.f;
@@ -173,41 +180,43 @@ void CPatterned::BuildBodyController(EBodyType) {
   // TODO: Construct the body controller and configure the additive-reaction knockback options.
 }
 
+static const CPatterned::StateMachine::STriggerFunction triggers[] = {
+    {"Leash", &CPatterned::Leash},
+    {"SpotPlayer", &CPatterned::SpotPlayer},
+    {"PlayerSpot", &CPatterned::PlayerSpot},
+    {"InRange", &CPatterned::InRange},
+    {"InMaxRange", &CPatterned::InMaxRange},
+    {"InDetectionRange", &CPatterned::InDetectionRange},
+    {"PathShagged", &CPatterned::PathShagged},
+    {"PathOver", &CPatterned::PathOver},
+    {"PathFound", &CPatterned::PathFound},
+    {"Delay", &CPatterned::Delay},
+    {"RandomDelay", &CPatterned::RandomDelay},
+    {"FixedDelay", &CPatterned::FixedDelay},
+    {"HasPatrolPath", &CPatterned::HasPatrolPath},
+    {"Attacked", &CPatterned::Attacked},
+    {"OffLine", &CPatterned::OffLine},
+    {"AnimOver", &CPatterned::AnimOver},
+    {"NoPathNodes", &CPatterned::NoPathNodes},
+    {"TooClose", &CPatterned::TooClose},
+    {"Landed", &CPatterned::Landed},
+    {"InPosition", &CPatterned::InPosition},
+    {"Stuck", &CPatterned::Stuck},
+    {"CodeTrigger", &CPatterned::CodeTrigger},
+    {"Random", &CPatterned::Random},
+    {"FixedRandom", &CPatterned::FixedRandom},
+};
+static const CPatterned::StateMachine::SStateFunction states[] = {
+    {"Start", &CPatterned::Start},
+    {"Dead", &CPatterned::Dead},
+    {"PathFind", &CPatterned::PathFind},
+    {"Patrol", &CPatterned::Patrol},
+};
+
 void CPatterned::SetupStateMachine(CStateManager&) {
-  static const StateMachine::STriggerFunction triggers[] = {
-      {"Leash", &CPatterned::Leash},
-      {"SpotPlayer", &CPatterned::SpotPlayer},
-      {"PlayerSpot", &CPatterned::PlayerSpot},
-      {"InRange", &CPatterned::InRange},
-      {"InMaxRange", &CPatterned::InMaxRange},
-      {"InDetectionRange", &CPatterned::InDetectionRange},
-      {"PathShagged", &CPatterned::PathShagged},
-      {"PathOver", &CPatterned::PathOver},
-      {"PathFound", &CPatterned::PathFound},
-      {"Delay", &CPatterned::Delay},
-      {"RandomDelay", &CPatterned::RandomDelay},
-      {"FixedDelay", &CPatterned::FixedDelay},
-      {"HasPatrolPath", &CPatterned::HasPatrolPath},
-      {"Attacked", &CPatterned::Attacked},
-      {"OffLine", &CPatterned::OffLine},
-      {"AnimOver", &CPatterned::AnimOver},
-      {"NoPathNodes", &CPatterned::NoPathNodes},
-      {"TooClose", &CPatterned::TooClose},
-      {"Landed", &CPatterned::Landed},
-      {"InPosition", &CPatterned::InPosition},
-      {"Stuck", &CPatterned::Stuck},
-      {"CodeTrigger", &CPatterned::CodeTrigger},
-      {"Random", &CPatterned::Random},
-      {"FixedRandom", &CPatterned::FixedRandom},
-  };
-  static const StateMachine::SStateFunction states[] = {
-      {"Start", &CPatterned::Start},
-      {"Dead", &CPatterned::Dead},
-      {"PathFind", &CPatterned::PathFind},
-      {"Patrol", &CPatterned::Patrol},
-  };
-  mStateMachine->SetTriggerFunctions(triggers, ARRAY_SIZE(triggers));
-  mStateMachine->SetStateFunctions(states, ARRAY_SIZE(states));
+  StateMachine* stateMachine = mStateMachine.get();
+  stateMachine->SetTriggerFunctions(triggers, ARRAY_SIZE(triggers));
+  stateMachine->SetStateFunctions(states, ARRAY_SIZE(states));
 }
 
 void CPatterned::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
@@ -218,23 +227,36 @@ void CPatterned::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 void CPatterned::SetDestPos(const CVector3f& position) { mDestPos = position; }
 
 CVector3f CPatterned::GetGunEyePos() const {
+  CVector3f translation = GetTranslation();
   const CAABox& bounds = GetBaseBoundingBox();
-  return GetTranslation() +
-         CVector3f(0.f, 0.f, 0.6f * (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ()));
+  translation[kDZ] += 0.6f * (bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ());
+  return translation;
 }
 
 bool CPatterned::ApplyBoneTracking() const {
-  // TODO: Also test the body controller's frozen state and knockback flinch timer.
-  return mAlive;
+  if (mAlive && !GetBodyController()->IsFrozen() &&
+      !(mKnockBackController.GetFlinchRemainingTime() > 0.f)) {
+    return true;
+  }
+  return false;
 }
 
-float CPatterned::GetAnimationDistance(const CPASAnimParmData&) const {
-  // TODO: Select the best PAS animation and read its root-motion displacement.
-  return 0.f;
+float CPatterned::GetAnimationDistance(const CPASAnimParmData& parms) const {
+  float distance = 1.f;
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    const CAnimData* animData = GetAnimationData();
+    distance = animData->GetAnimationDuration(best.second);
+    distance *= animData->GetAverageVelocity(best.second);
+  }
+  return distance;
 }
 
-float CPatterned::GetAnimationDuration(const CPASAnimParmData&) const {
-  // TODO: Select the best PAS animation and return its duration.
+float CPatterned::GetAnimationDuration(const CPASAnimParmData& parms) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->GetAnimationDuration(best.second);
+  }
   return 0.f;
 }
 
@@ -319,7 +341,8 @@ void CPatterned::UpdateAlphaDelta(CStateManager& mgr, float dt) {
   }
   Shadow()->SetUserAlpha(alpha);
   mColor.SetAlpha(alpha);
-  // TODO: Propagate alpha to the actor's particle database.
+  AnimationData()->GetParticleDB().SetModulationColorAllActiveEffects(
+      CColor(1.f, 1.f, 1.f, alpha));
 }
 
 void CPatterned::UpdateHitDamageTime(float dt) {
@@ -355,8 +378,15 @@ void CPatterned::InitializeStateMachine(CStateManager& mgr) {
   mStateMachine->SetState(mgr, *this, rstl::string("Start"));
 }
 
-void CPatterned::Touch(CActor&, CStateManager&) {
-  // TODO: Apply contact damage with the configured cooldown and actor material filter.
+void CPatterned::Touch(CActor& actor, CStateManager& mgr) {
+  if (!mAlive) {
+    return;
+  }
+  if (CGameProjectile* projectile = TCastToPtr< CGameProjectile >(actor)) {
+    if (TCastToPtr< CPlayer >(const_cast< CEntity* >(mgr.GetObjectById(projectile->GetOwnerId())))) {
+      mHitByPlayerProjectile = true;
+    }
+  }
 }
 
 void CPatterned::CollidedWith(const TUniqueId&, const CCollisionInfoList&, CStateManager&) {
@@ -386,25 +416,39 @@ void CPatterned::Freeze(CStateManager&, const CVector3f&, CUnitVector3f, float, 
 }
 
 float CPatterned::GetDeathTimeScale() const {
-  return CMath::Max(0.1f, mLaggedBurnDeath ? mBurnThinkRateTimer / 1.5f : 1.f);
+  return rstl::max_val(mLaggedBurnDeath ? mBurnThinkRateTimer / 1.5f : 1.f, 0.1f);
 }
 
 void CPatterned::DeathDelete(CStateManager& mgr) {
-  // TODO: Restore the special cases that retain or deactivate dead actors.
+  mSuppressKnockBack = true;
+  if (!mStateMachine->HasState()) {
+    InitializeStateMachine(mgr);
+  }
+  SendScriptMsgs(kSS_Dead, mgr, GetUniqueId(), kSM_None);
+  if (GetBodyController()->IsElectrocuting()) {
+    mPendingShockDamage = 0.f;
+    BodyController()->DouseElectrocuting();
+    mgr.ActorModelParticles()->StopElectric(*this);
+  }
   mgr.DeleteObjectRequest(GetUniqueId());
 }
 
-CDamageInfo CPatterned::GetContactDamage() const { return mAlive ? mContactDamage : CDamageInfo(); }
+CDamageInfo CPatterned::GetContactDamage() const {
+  if (!mAlive) {
+    return CDamageInfo();
+  }
+  return mContactDamage;
+}
 
 CTransform4f CPatterned::GetLctrTransform(const rstl::string& name) const {
-  return GetLctrTransform(GetAnimationData()->GetLocatorSegId(name));
+  return GetTransform() * GetScaledLocatorTransform(name);
 }
 
 CTransform4f CPatterned::GetLctrTransform(const CSegId& id) const {
   CTransform4f locator = GetAnimationData()->GetLocatorTransform(id, nullptr);
-  locator.SetTranslation(
-      CVector3f::ByElementMultiply(GetModelData()->GetScale(), locator.GetTranslation()));
-  return GetTransform() * locator;
+  CVector3f scaled =
+      CVector3f::ByElementMultiply(GetModelData()->GetScale(), locator.GetTranslation());
+  return GetTransform() * CTransform4f(locator.BuildMatrix3f(), scaled);
 }
 
 CVector3f CPatterned::GetAimPosition(const CStateManager& mgr, float dt) const {
@@ -422,8 +466,9 @@ void CPatterned::PreRender(CStateManager& mgr) {
 }
 
 bool CPatterned::CanRenderUnsorted(const CStateManager& mgr) const {
-  // TODO: Reject the animation's special sorted-render mode.
-  return CActor::CanRenderUnsorted(mgr);
+  return GetAnimationData()->GetParticleDB().AreAnySystemsDrawnWithModel()
+             ? false
+             : CActor::CanRenderUnsorted(mgr);
 }
 
 void CPatterned::PreRenderAllViewports(CStateManager& mgr) {
@@ -437,19 +482,27 @@ void CPatterned::Render(const CStateManager& mgr) const {
 }
 
 bool CPatterned::IsBeingSnatched() const {
-  return mIngPossessionBlend > 0.f && mIngPossessionBlend < 1.f && mIngModel.valid();
+  return mIngPossessionBlend > 0.f && mIngPossessionBlend < 1.f && mIngModel.valid() == true;
 }
 
-void CPatterned::RenderSystemsToBeDrawnFirst(const CStateManager&, uint, uint) const {
-  // TODO: Draw the animation particle database's first-pass systems.
+void CPatterned::RenderSystemsToBeDrawnFirst(const CStateManager&, uint mask, uint target) const {
+  if (mDrawParticles) {
+    GetAnimationData()->GetParticleDB().RenderSystemsToBeDrawnFirstPOICheck(mask, target);
+  }
 }
 
-void CPatterned::RenderSystemsToBeDrawnLast(const CStateManager&, uint, uint) const {
-  // TODO: Draw the animation particle database's last-pass systems.
+void CPatterned::RenderSystemsToBeDrawnLast(const CStateManager&, uint mask, uint target) const {
+  if (mDrawParticles) {
+    GetAnimationData()->GetParticleDB().RenderSystemsToBeDrawnLastPOICheck(mask, target);
+  }
 }
 
-void CPatterned::fn_80074e54(const CModelFlags&) const {
-  // TODO: Draw the animation's ice model with the adjusted model flags.
+void CPatterned::fn_80074e54(const CModelFlags& flags) const {
+  const CAnimData* animData = GetAnimationData();
+  const CModelFlags iceFlags = flags.UseShaderSet(0);
+  if (animData->GetIceModel().valid()) {
+    animData->Render(**animData->GetIceModel().data(), iceFlags);
+  }
 }
 
 void CPatterned::RenderIngSnatchingTransition(const CStateManager&) const {
@@ -461,7 +514,7 @@ CVector3f CPatterned::GetIngSnatchingNormal(float) const { return CVector3f::Up(
 CVector3f CPatterned::GetIngSnatchingPoint(float t) const {
   const CAABox bounds = GetBoundingBox();
   const float height = bounds.GetMaxPoint().GetZ() - bounds.GetMinPoint().GetZ();
-  return GetTranslation() + height * (1.f - t) * GetIngSnatchingNormal(t);
+  return GetTranslation() + height * ((1.f - t) * GetIngSnatchingNormal(t));
 }
 
 float CPatterned::GetIngSnatchingModelOverlapSize() const { return 0.f; }
@@ -482,8 +535,7 @@ void CPatterned::SetIngPossessed(bool possessed, CStateManager& mgr) {
 void CPatterned::SetIngPossessed(bool possessed, float duration, CStateManager&) {
   if (!IsIngPossessed() && possessed) {
     if (mIngPossessionData.unknown_0xb68c0aa3) {
-      *HealthInfo() = CHealthInfo(mIngPossessionData.ingPossessedHealth.health,
-                                  mIngPossessionData.ingPossessedHealth.hI_KnockBackResistance);
+      *HealthInfo() = LdrToHealthInfo(mIngPossessionData.ingPossessedHealth);
     }
     mIngPossessionDelay = 0.f;
     mIngPossessionDuration = duration;
@@ -498,16 +550,16 @@ bool CPatterned::IsIngPossessed() const {
 void CPatterned::UpdateIngPossession(float dt) {
   if (mIngPossessionBlend < mIngPossessionTarget) {
     const float delta = mIngPossessionDuration > 0.f ? dt / mIngPossessionDuration : 1.f;
-    if (mIngPossessionDelay > 0.f) {
-      mIngPossessionDelay -= dt;
-    } else {
-      mIngPossessionBlend = CMath::Min(1.f, mIngPossessionBlend + delta);
+    if (mIngPossessionDelay <= 0.f) {
+      mIngPossessionBlend = rstl::min_val(mIngPossessionBlend + delta, 1.f);
       if (mIngPossessionBlend == 1.f && mIngModel) {
         AnimationData()->SetSkinnedModel(*mIngModel);
       }
+    } else {
+      mIngPossessionDelay -= dt;
     }
   } else if (mIngPossessionBlend > mIngPossessionTarget) {
-    mIngPossessionBlend = CMath::Max(0.f, mIngPossessionBlend - dt);
+    mIngPossessionBlend = rstl::max_val(0.f, mIngPossessionBlend - dt);
     if (mIngPossessionBlend == 0.f) {
       AnimationData()->SetSkinnedModel(mNormalModel);
     }
@@ -515,7 +567,7 @@ void CPatterned::UpdateIngPossession(float dt) {
 }
 
 const CDamageVulnerability* CPatterned::GetDamageVulnerability() const {
-  if (mIngPossessionBlend < mIngPossessionTarget) {
+  if (mIngPossessionTarget > mIngPossessionBlend) {
     return &CDamageVulnerability::ImmuneVulnerabilty();
   }
   if (IsIngPossessed() && mIngPossessionData.unknown_0xb68c0aa3) {
@@ -530,8 +582,10 @@ const CDamageVulnerability* CPatterned::GetDamageVulnerability(const CVector3f&,
 }
 
 CScannableObjectInfo* CPatterned::GetScannableObjectInfo() const {
-  return IsIngPossessed() && !mIngScanInfo.null() ? **mIngScanInfo
-                                                  : CActor::GetScannableObjectInfo();
+  if (IsIngPossessed() && !mIngScanInfo.null()) {
+    return **mIngScanInfo;
+  }
+  return CActor::GetScannableObjectInfo();
 }
 
 CEnergyProjectile* CPatterned::LaunchProjectile(const CTransform4f&, CStateManager&, int, uint,
@@ -544,7 +598,9 @@ EWeaponCollisionResponseTypes CPatterned::GetCollisionResponseType(const CVector
                                                                    const CVector3f& direction,
                                                                    const CWeaponMode& mode,
                                                                    int attributes) const {
-  // TODO: Return no response for Dark shots while frozen.
+  if (GetBodyController()->IsFrozen() && mode.GetType() == kWT_Dark) {
+    return kWCR_None;
+  }
   return CAi::GetCollisionResponseType(position, direction, mode, attributes);
 }
 
@@ -554,7 +610,14 @@ void CPatterned::PreThink(float dt, CStateManager& mgr) {
 }
 
 void CPatterned::AddToRenderer(const CStateManager& mgr) const {
-  // TODO: Queue the animation particle database with the current render mask/target.
+  if (mDrawParticles && HasModelData()) {
+    uint mask;
+    uint target;
+    mgr.GetCharacterRenderMaskAndTarget(mask, target);
+    if (const CAnimData* animData = GetAnimationData()) {
+      animData->GetParticleDB().AddToRendererClippedMasked(mgr.GetFrustumPlanes(), mask, target);
+    }
+  }
   CActor::AddToRenderer(mgr);
 }
 
@@ -562,19 +625,29 @@ bool CPatterned::IsOnStaticGround() const { return mOnStaticGround; }
 
 bool CPatterned::TryToBeCaptured(CStateManager&) { return false; }
 
-CCharAnimTime CPatterned::GetTimeOfUserEventForAnimation(const CPASAnimParmData&,
-                                                         EUserEventType) const {
-  // TODO: Select the PAS animation and query its event time.
-  return CCharAnimTime();
+CCharAnimTime CPatterned::GetTimeOfUserEventForAnimation(const CPASAnimParmData& parms,
+                                                         EUserEventType type) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->GetTimeOfUserEventForAnimation(best.second, type);
+  }
+  return CCharAnimTime(CCharAnimTime::kT_Infinity, 1.f);
 }
 
-int CPatterned::GetNumUserEventsForAnimation(const CPASAnimParmData&, EUserEventType) const {
-  // TODO: Select the PAS animation and query its event count.
+int CPatterned::GetNumUserEventsForAnimation(const CPASAnimParmData& parms,
+                                             EUserEventType type) const {
+  const rstl::pair< float, int > best = GetAnimationData()->GetPASDatabase().FindBestAnimation(parms, -1);
+  if (best.first > FLT_EPSILON) {
+    return GetAnimationData()->CountUserEventsForAnimation(best.second, type);
+  }
   return 0;
 }
 
 float CPatterned::GetAverageAttackTime() const {
-  // TODO: Divide by the body's movement/time scale when positive.
+  const float timeScale = GetBodyController()->GetTimeScale();
+  if (timeScale > 0.f) {
+    return mAverageAttackTime / timeScale;
+  }
   return mAverageAttackTime;
 }
 

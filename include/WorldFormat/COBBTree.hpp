@@ -98,9 +98,6 @@ public:
   static COBBTree* GetPrebuiltTree(EPreBuiltTrees which);
 
 private:
-  // Guessed name for the array-view setup in both constructors.
-  void BindIndexData();
-
   uint mMagic;
   uint mVersion;
   uint mMemsize;

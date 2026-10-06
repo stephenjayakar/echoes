@@ -1568,7 +1568,7 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       if (!rot->IsPlaying()) {
         rot->UpdateActors(false, mgr);
       }
-      rot->SetCurrentTime(mSpinnerPosition * rot->GetDuration());
+      rot->SetCurrentTime(mSpinnerPosition * rot->GetDuration(), mgr);
       if (mSfx3Played || (mSfx2Played && !mSpinnerCanMove)) {
         rot->UpdateActorRotations(dt, mgr);
         rot->StopRotation();

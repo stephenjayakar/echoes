@@ -147,8 +147,6 @@ void CScriptEffect::Think(float dt, CStateManager& mgr) {
   }
 }
 
-CEffectWaypointPredicate::~CEffectWaypointPredicate() {}
-
 void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   const bool oldEmitting = mEmitting;
   bool handled = false;
@@ -192,8 +190,8 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
         }
       }
     }
-    const CEffectWaypointPredicate predicate;
-    if (FindConnectedObject_if(mgr, kSS_Connect, kSM_Attach, predicate) != kInvalidUniqueId) {
+    if (CheckConnectedObject_if(mgr, kSS_Connect, kSM_Attach, CEffectWaypointPredicate()) !=
+        kInvalidUniqueId) {
       mHasSpline = true;
       ScriptCameraSpline::Initialise(*this, kSS_Connect, kSM_Attach, kSS_CameraTarget, kSM_Follow,
                                      mgr, mSpline);

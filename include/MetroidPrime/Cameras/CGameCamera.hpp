@@ -18,7 +18,7 @@ public:
   ~CGameCamera() override;
   CEntity* TypesMatch(int typeId) const override;
   void AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) override;
-  void SetActive(bool active) override;
+  void SetActive(const bool active) override;
 
   // CActor
   void ClearFluidList(CStateManager& mgr) override;
@@ -64,24 +64,11 @@ public:
 private:
   // Guessed name
   struct SFovInterpolation {
+    // Both helpers are emitted out of line in the target.
     SFovInterpolation(float delay, float remaining, float duration, float current, float target,
-                      TUniqueId cameraId)
-    : mDelay(delay)
-    , mRemaining(remaining)
-    , mDuration(duration)
-    , mCurrent(current)
-    , mTarget(target)
-    , mCameraId(cameraId) {}
-
+                      TUniqueId cameraId);
     void Set(float delay, float remaining, float duration, float current, float target,
-             TUniqueId cameraId) {
-      mDelay = delay;
-      mRemaining = remaining;
-      mDuration = duration;
-      mCurrent = current;
-      mTarget = target;
-      mCameraId = cameraId;
-    }
+             TUniqueId cameraId);
 
     float mDelay;
     float mRemaining;

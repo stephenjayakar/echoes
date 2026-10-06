@@ -31,6 +31,7 @@ public:
   void EnableKnockBackPhysics(bool enabled);
   void SetAdditiveFlinchWeight(float weight);
   float GetAdditiveFlinchWeight() const;
+  float GetFlinchRemainingTime() const { return mFlinchRemainingTime; } // Guessed name
 
   // Guessed names, correlated with Prime's impulse implementation.
   void ApplyImpulse(float dt, CPhysicsActor& actor);

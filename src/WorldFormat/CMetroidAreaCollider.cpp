@@ -139,7 +139,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheck_Internal(const CAreaOctTree::Node
         ++gDupTrianglesProcessed;
       } else {
         spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-        const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+        const CCollisionSurface surf(owner.GetTriangle(triIdx));
         CMaterialList material(surf.GetSurfaceFlags());
         if (filter.Passes(material)) {
           if (CollisionUtil::TriBoxOverlap(cache.mCenter, cache.mHalfExtent, surf.GetVert(0),
@@ -269,7 +269,7 @@ CAABoxAreaCache::CAABoxAreaCache(const CAABox& aabb, const CPlane* pl,
 , mMaterial(material)
 , mCollisionList(collisionList)
 , mCenter(aabb.GetCenterPoint())
-, mHalfExtent(aabb.GetHalfExtent()) {}
+, mHalfExtent((aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f) {}
 
 bool CMetroidAreaCollider::AABoxCollisionCheck(const CAreaOctTree& octTree, const CAABox& aabb,
                                                const CMaterialFilter& filter,
@@ -302,7 +302,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Internal(
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
-            const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+            const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
             if (cache.mFilter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
               if (CollisionUtil::TriBoxOverlap(cache.mCenter, cache.mHalfExtent, surf.GetVert(0),
                                                surf.GetVert(1), surf.GetVert(2)) == true)
@@ -323,7 +323,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(const COctreeLeafCa
                                                              const CAABox& aabb,
                                                              const CMaterialFilter& filter) {
   CVector3f center = aabb.GetCenterPoint();
-  CVector3f halfExtent = aabb.GetHalfExtent();
+  CVector3f halfExtent = (aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f;
 
   for (int i = 0; i < leafCache.GetNumLeaves(); ++i) {
     const CAreaOctTree::Node& node = leafCache.GetLeaf(i);
@@ -333,7 +333,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(const COctreeLeafCa
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
-        const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+        const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
         if (filter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
           if (CollisionUtil::TriBoxOverlap(center, halfExtent, surf.GetVert(0), surf.GetVert(1),
                                            surf.GetVert(2)) == true)
@@ -359,7 +359,8 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(CCollisionCache& ca
       cache.SkipLeaf(iterator);
       continue;
     }
-    const CCollisionSurface& surface = readCache.NextTriangle(iterator)->GetSurface();
+    const CCachedCollisionSurface* tri = readCache.NextTriangle(iterator);
+    const CCollisionSurface& surface = tri->GetSurface();
     if (filter.Passes(CMaterialList(surface.GetSurfaceFlags())) &&
         CollisionUtil::TriBoxOverlap(center, halfExtent, surface.GetVert(0), surface.GetVert(1),
                                      surface.GetVert(2)) == true) {
@@ -370,13 +371,15 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(CCollisionCache& ca
 }
 
 CBooleanAABoxAreaCache::CBooleanAABoxAreaCache(const CAABox& aabb, const CMaterialFilter& filter)
-: mAabb(aabb), mFilter(filter), mCenter(aabb.GetCenterPoint()), mHalfExtent(aabb.GetHalfExtent()) {}
+: mAabb(aabb)
+, mFilter(filter)
+, mCenter(aabb.GetCenterPoint())
+, mHalfExtent((aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f) {}
 
 bool CMetroidAreaCollider::AABoxCollisionCheckBoolean(const CAreaOctTree& octTree,
                                                       const CAABox& aabb,
                                                       const CMaterialFilter& filter) {
   CBooleanAABoxAreaCache cache(aabb, filter);
-  ResetInternalCounters();
   return AABoxCollisionCheckBoolean_Internal(octTree.GetRootNode(), cache);
 }
 
@@ -402,7 +405,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Internal(const CAreaOctTree::Nod
               ++gDupTrianglesProcessed;
             } else {
               spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-              const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+              const CCollisionSurface surf(owner.GetTriangle(triIdx));
               CMaterialList material(surf.GetSurfaceFlags());
               if (cache.mFilter.Passes(material)) {
                 if (CollisionUtil::TriSphereIntersection(cache.mSphere, surf.GetVert(0),
@@ -450,7 +453,7 @@ bool CMetroidAreaCollider::SphereCollisionCheck_Cached(const COctreeLeafCache& l
           ++gDupTrianglesProcessed;
         } else {
           spDupTriangleList[triIdx] = sDupPrimitiveCheckCount;
-          const CCollisionSurface& surf = owner.GetTriangle(triIdx);
+          const CCollisionSurface surf(owner.GetTriangle(triIdx));
           CMaterialList material(surf.GetSurfaceFlags());
           if (filter.Passes(material)) {
             if (CollisionUtil::TriSphereIntersection(sphere, surf.GetVert(0), surf.GetVert(1),
@@ -519,7 +522,7 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Internal(
           int size = list.GetSize();
           for (int j = 0; j < size; ++j) {
             ++gTrianglesProcessed;
-            const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+            const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
             if (cache.mFilter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
               if (CollisionUtil::TriSphereOverlap(cache.mSphere, surf.GetVert(0), surf.GetVert(1),
                                                   surf.GetVert(2)) == true)
@@ -548,7 +551,7 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean_Cached(const COctreeLeafC
       int size = list.GetSize();
       for (int j = 0; j < size; ++j) {
         ++gTrianglesProcessed;
-        const CCollisionSurface& surf = owner.GetTriangle(list.GetAt(j));
+        const CCollisionSurface surf(owner.GetTriangle(list.GetAt(j)));
         if (filter.Passes(CMaterialList(surf.GetSurfaceFlags()))) {
           if (CollisionUtil::TriSphereOverlap(sphere, surf.GetVert(0), surf.GetVert(1),
                                               surf.GetVert(2)) == true)
@@ -587,7 +590,6 @@ bool CMetroidAreaCollider::SphereCollisionCheckBoolean(const CAreaOctTree& octTr
                                                        const CAABox& aabb, const CSphere& sphere,
                                                        const CMaterialFilter& filter) {
   CBooleanSphereAreaCache cache(aabb, sphere, filter);
-  ResetInternalCounters();
   return SphereCollisionCheckBoolean_Internal(octTree.GetRootNode(), cache);
 }
 
@@ -1122,7 +1124,7 @@ bool CMetroidAreaCollider::MovingAABoxCollisionCheck_Edge(
 }
 
 CMetroidAreaCollider::COctreeLeafCache::COctreeLeafCache(const CAreaOctTree& octTree,
-                                                         TAreaId areaId)
+                                                         int areaId)
 : mAreaId(areaId), mOctTree(octTree), mOverflow(false) {}
 
 void CMetroidAreaCollider::COctreeLeafCache::AddLeaf(const CAreaOctTree::Node& node) {

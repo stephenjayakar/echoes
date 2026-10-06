@@ -34,7 +34,7 @@ void CGameCamera::SetAspectRatio(float aspect) {
 }
 
 const CMatrix4f& CGameCamera::GetPerspectiveMatrix() const {
-  if (mPerspDirty) {
+  if (mPerspDirty == true) {
     mPerspectiveMatrix = CGraphics::CalculatePerspectiveMatrix(GetFov(), mAspect, mZnear, mZfar);
     mPerspDirty = false;
   }
@@ -94,7 +94,9 @@ CMatrix4f CMatrix4f::GetInverse() const {
 }
 
 CVector3f CGameCamera::ConvertToWorldSpace(const CVector3f& position) const {
-  return GetTransform() * GetPerspectiveMatrix().GetInverse().MultiplyOneOverW(position);
+  const CVector3f viewPos = GetPerspectiveMatrix().GetInverse().MultiplyOneOverW(position);
+  const CVector3f result = GetTransform() * viewPos;
+  return result;
 }
 
 float CCameraSpring::ApplyDistanceSpring(float target, float current, float dt) {
@@ -120,7 +122,7 @@ void CGameCamera::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
 }
 
-void CGameCamera::SetActive(bool active) {
+void CGameCamera::SetActive(const bool active) {
   CActor::SetActive(active);
   SetDrawEnabled(false);
 }
@@ -171,22 +173,23 @@ void CGameCamera::ResetFovInterpolation(float fov) {
 }
 
 void CGameCamera::InterpolateFOV(float fov, float duration, float delay) {
-  if (duration > 0.f) {
-    mFovInterpolation.Set(delay, duration, duration, GetFov(), fov, kInvalidUniqueId);
-  } else {
+  if (duration <= 0.f) {
     ResetFovInterpolation(fov);
+  } else {
+    mFovInterpolation.Set(delay, duration, duration, GetFov(), fov, kInvalidUniqueId);
   }
 }
 
 void CGameCamera::InterpolateFOV(float startFov, float duration, float delay, TUniqueId cameraId,
                                  CStateManager& mgr) {
-  CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(cameraId));
+  CGameCamera* camera =
+      TCastToPtr< CGameCamera >(const_cast< CEntity* >(mgr.GetObjectById(cameraId)));
   if (camera != nullptr) {
     const float target = camera->GetFov();
-    if (duration > 0.f) {
-      mFovInterpolation.Set(delay, duration, duration, startFov, target, cameraId);
-    } else {
+    if (duration <= 0.f) {
       ResetFovInterpolation(target);
+    } else {
+      mFovInterpolation.Set(delay, duration, duration, startFov, target, cameraId);
     }
   }
 }
@@ -195,20 +198,22 @@ void CGameCamera::UpdatePerspective(float dt, CStateManager& mgr) {
   if (mFovInterpolation.mDelay > 0.f) {
     mFovInterpolation.mDelay -= dt;
   } else if (mFovInterpolation.mRemaining > 0.f) {
-    CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(mFovInterpolation.mCameraId));
+    CGameCamera* camera = TCastToPtr< CGameCamera >(
+        const_cast< CEntity* >(mgr.GetObjectById(mFovInterpolation.mCameraId)));
     if (camera != nullptr && camera->GetUniqueId() != GetUniqueId()) {
       SetTargetFov(camera->GetFov());
     }
 
     mFovInterpolation.mRemaining -= dt;
-    if (mFovInterpolation.mRemaining > 0.f) {
+    if (mFovInterpolation.mRemaining <= 0.f) {
+      SetFov(GetTargetFov());
+    } else {
+      const float delta = GetFov() - GetTargetFov();
       const float t =
           CMath::Clamp(0.f, mFovInterpolation.mRemaining / mFovInterpolation.mDuration, 1.f);
-      SetFov((GetFov() - GetTargetFov()) * t + GetTargetFov());
-    } else {
-      SetFov(GetTargetFov());
+      SetFov(delta * t + GetTargetFov());
     }
-  } else if (CMath::AbsF(GetFov() - GetTargetFov()) >= 0.00001f) {
+  } else if (!(CMath::AbsF(GetFov() - GetTargetFov()) < 0.00001f)) {
     SetFov(GetTargetFov());
   }
 }
@@ -229,4 +234,23 @@ void CGameCamera::UnkVtable88(TUniqueId fluidId) {}
 void CGameCamera::ClearFluidList(CStateManager& mgr) {
   // TODO: Notify the camera's overlapping triggers before the inherited actor cleanup.
   CActor::ClearFluidList(mgr);
+}
+
+CGameCamera::SFovInterpolation::SFovInterpolation(float delay, float remaining, float duration,
+                                                  float current, float target, TUniqueId cameraId)
+: mDelay(delay)
+, mRemaining(remaining)
+, mDuration(duration)
+, mCurrent(current)
+, mTarget(target)
+, mCameraId(cameraId) {}
+
+void CGameCamera::SFovInterpolation::Set(float delay, float remaining, float duration,
+                                         float current, float target, TUniqueId cameraId) {
+  mDelay = delay;
+  mRemaining = remaining;
+  mDuration = duration;
+  mCurrent = current;
+  mTarget = target;
+  mCameraId = cameraId;
 }

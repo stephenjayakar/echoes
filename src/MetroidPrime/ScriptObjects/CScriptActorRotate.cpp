@@ -11,14 +11,8 @@ void CScriptActorRotate::StopRotation() { mPlaying = false; }
 
 void CScriptActorRotate::StartRotation() { mPlaying = true; }
 
-void CScriptActorRotate::SetCurrentTime(float time) {
-  if (time < 0.f) {
-    mCurrentTime = 0.f;
-  } else if (time > mDuration) {
-    mCurrentTime = mDuration;
-  } else {
-    mCurrentTime = time;
-  }
+void CScriptActorRotate::SetCurrentTime(float time, CStateManager&) {
+  mCurrentTime = CMath::Clamp(0.f, time, mDuration);
 }
 
 void CScriptActorRotate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
@@ -100,8 +94,7 @@ void CScriptActorRotate::Think(float dt, CStateManager& mgr) {
     mCurrentTime += dt;
   }
 
-  CEntity* target = mgr.GetObjectByIdFromListAll(mTargetId);
-  if (target != nullptr && target->TypesMatch(kET_ScriptActorRotate) != nullptr) {
+  if (TCastToPtr< CScriptActorRotate >(mgr.ObjectById(mTargetId))) {
     UpdateTargetRotation(mgr);
   } else {
     UpdateActorRotations(dt, mgr);
@@ -141,15 +134,14 @@ void CScriptActorRotate::UpdateActorRotations(float dt, CStateManager& mgr) {
 }
 
 void CScriptActorRotate::CheckEnd(CStateManager& mgr) {
-  if (mCurrentTime < mDuration) {
-    return;
-  }
-  SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
-  if ((mFlags & kF_Loop) != 0) {
-    mCurrentTime -= mDuration;
-  } else {
-    StopRotation();
-    mCurrentTime = mDuration;
+  if (mCurrentTime >= mDuration) {
+    SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+    if ((mFlags & kF_Loop) != 0) {
+      mCurrentTime -= mDuration;
+    } else {
+      StopRotation();
+      mCurrentTime = mDuration;
+    }
   }
 }
 
@@ -176,24 +168,14 @@ CScriptActorRotate::CScriptActorRotate(TUniqueId uid, const rstl::string& name,
   if ((mFlags & kF_DurationFromSplines) != 0) {
     mDuration = mXRotation.GetMaxTime();
     float maxTime = mYRotation.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mZRotation.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mXScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mYScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
     maxTime = mZScale.GetMaxTime();
-    if (maxTime > mDuration) {
-      mDuration = maxTime;
-    }
+    mDuration = maxTime < mDuration ? mDuration : maxTime;
   }
 }

@@ -39,9 +39,9 @@ private:
   int mNumDeathParticles;
   int mAttackerCount;
   float mAttackProximity;
+  float mAttackTimer;
   float mSafeZoneAvoidancePriority;
   float mTurnRate;
-  float mAttackTimer;
   ushort mLocomotionLoopedSound;
   ushort mAttackLoopedSound;
   float mSoundFallOff;

@@ -338,6 +338,8 @@ public:
   }
 
   const CFrustumPlanes& GetFrustumPlanes() const { return mPlanes; }
+  // Guessed name. Selects the particle render mask for the active visor.
+  void GetCharacterRenderMaskAndTarget(uint& mask, uint& target) const;
   const CTexture* GetShadowTex() const { return mShadowTex.GetObject(); }
   CFluidPlaneManager* GetFluidPlaneManager() const { return mFluidPlaneManager; }
   ERenderVisorMode GetRenderVisorMode() const { return mRenderVisorMode; }
