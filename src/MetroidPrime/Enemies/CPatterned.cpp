@@ -585,7 +585,14 @@ void CPatterned::PreThink(float dt, CStateManager& mgr) {
 }
 
 void CPatterned::AddToRenderer(const CStateManager& mgr) const {
-  // TODO: Queue the animation particle database with the current render mask/target.
+  if (mDrawParticles && HasModelData()) {
+    uint mask;
+    uint target;
+    mgr.GetCharacterRenderMaskAndTarget(mask, target);
+    if (const CAnimData* animData = GetAnimationData()) {
+      animData->GetParticleDB().AddToRendererClippedMasked(mgr.GetFrustumPlanes(), mask, target);
+    }
+  }
   CActor::AddToRenderer(mgr);
 }
 
