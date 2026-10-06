@@ -428,7 +428,7 @@ void CParasite::Think(float dt, CStateManager& mgr) {
     }
 
     if (x944_ > 0.f) {
-      mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), CDamageInfo(x928_, dt),
+      mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), x928_.WithNoImmunity(),
                       CMaterialFilter::MakeIncludeExclude(CMaterialList(skContactMaterial),
                                                           CMaterialList()),
                       CVector3f::Zero());
