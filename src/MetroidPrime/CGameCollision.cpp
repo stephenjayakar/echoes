@@ -206,9 +206,11 @@ bool CGameCollision::RayStaticLineOfSightTest(const CStateManager& mgr, const CV
   if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return false;
   }
-  const CLine line(position, CUnitVector3f(direction, CUnitVector3f::kN_No));
+  const CWorld* world = mgr.GetWorld();
+  const CUnitVector3f unitDir = CUnitVector3f(direction.GetX(), direction.GetY(), direction.GetZ());
+  const CLine line(position, unitDir);
   const float maxDistance = length > 0.f ? length : 100000.f;
-  for (CGameArea::CConstChainIterator area = mgr.GetWorld()->GetChainHead(CWorld::kC_Alive);
+  for (CGameArea::CConstChainIterator area = world->GetChainHead(CWorld::kC_Alive);
        area != CWorld::skGlobalEnd; ++area) {
     const CAreaOctTree& tree = *area->GetPostConstructed()->mCollision;
     if (!tree.GetRootNode().LineTest(line, staticFilter, maxDistance)) {
@@ -225,9 +227,14 @@ bool CGameCollision::RayStaticLineOfSightTest(const CGameArea& area, const CVect
   if (staticFilter.GetType() == CMaterialFilter::kFT_Never) {
     return false;
   }
-  const CLine line(position, CUnitVector3f(direction, CUnitVector3f::kN_No));
-  const CAreaOctTree& tree = *area.GetPostConstructed()->mCollision;
-  return tree.GetRootNode().LineTest(line, staticFilter, length > 0.f ? length : 100000.f);
+  const CUnitVector3f unitDir = CUnitVector3f(direction.GetX(), direction.GetY(), direction.GetZ());
+  const CLine line(position, unitDir);
+  const float maxDistance = length > 0.f ? length : 100000.f;
+  if (!area.GetPostConstructed()->mCollision->GetRootNode().LineTest(line, staticFilter,
+                                                                     maxDistance)) {
+    return false;
+  }
+  return true;
 }
 
 CRayCastResult CGameCollision::RayStaticIntersection(const CStateManager& mgr,
