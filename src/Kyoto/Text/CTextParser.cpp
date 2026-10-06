@@ -6,6 +6,7 @@
 #include "rstl/StringExtras.hpp"
 #include "rstl/algorithm.hpp"
 
+#include <stdio.h>
 #include <stdlib.h>
 
 CTextParser::CTextParser(IObjectStore& store) : mObjectStore(store) {}
@@ -87,7 +88,7 @@ CFontImageDef CTextParser::GetImage(const wchar_t* str, int len,
       rstl::vector< TToken< CTexture > > textures;
       textures.reserve(tokens.size() - 2);
       for (int i = 2; i < tokens.size(); ++i) {
-        textures.push_back(
+        textures.push_back_unsafe(
             mObjectStore.GetObj(SObjectTag('TXTR', GetAssetIdFromString(tokens[i], vec))));
       }
       return CFontImageDef(textures, fps, CVector2f(1.f, 1.f));
@@ -100,7 +101,7 @@ CFontImageDef CTextParser::GetImage(const wchar_t* str, int len,
       rstl::vector< TToken< CTexture > > textures;
       textures.reserve(tokens.size() - 4);
       for (int i = 4; i < tokens.size(); ++i) {
-        textures.push_back(
+        textures.push_back_unsafe(
             mObjectStore.GetObj(SObjectTag('TXTR', GetAssetIdFromString(tokens[i], vec))));
       }
       return CFontImageDef(textures, fps, CVector2f(cropX, cropY));
@@ -262,4 +263,10 @@ CTextColor CTextParser::ParseColor(const wchar_t* str, int len) {
   const int b = GetColorValue(str + 5);
   const int a = len == 9 ? GetColorValue(str + 7) : 255;
   return CTextColor(r, g, b, a);
+}
+
+// Guessed: an unreferenced helper (dead-stripped from the DOL) whose format string still leads
+// this TU's string pool; it is the inverse of GetAssetIdFromString.
+static void FormatAssetId(char* out, CAssetId id) {
+  sprintf(out, "%02x%02x%02x%02x", id >> 24, (id >> 16) & 0xff, (id >> 8) & 0xff, id & 0xff);
 }
