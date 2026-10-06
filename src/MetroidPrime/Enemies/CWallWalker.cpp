@@ -20,16 +20,6 @@
 #include "Kyoto/Math/CMath.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
 
-struct SSphereJointInfo {
-  const char* name;
-  float radius;
-};
-
-static const SSphereJointInfo skSphereJointList[] = {
-    {"LeftLeg_3", 2.f},
-    {"RightLeg_3", 2.f},
-};
-
 CWallWalker::CWallWalker(TUniqueId uid, const rstl::string& name, CEntityInfo& info,
                          const CTransform4f& xf, const CModelData& mData,
                          const CActorParameters& actParms, const CPatternedInfo& pInfo,
@@ -243,6 +233,16 @@ bool CWallWalker::ShouldShootProjectile(CStateManager& mgr, const CTriggerData& 
 void CWallWalker::SetNumberShots(CStateManager& mgr, float arg) {
   mNumShots = mgr.Random()->Range(1, 4);
 }
+
+struct SSphereJointInfo {
+  const char* name;
+  float radius;
+};
+
+static const SSphereJointInfo skSphereJointList[] = {
+    {"LeftLeg_3", 2.f},
+    {"RightLeg_3", 2.f},
+};
 
 void CWallWalker::SetupCollisionManager(CStateManager& mgr) {
   rstl::vector< CJointCollisionDescription > joints;
