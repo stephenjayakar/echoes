@@ -87,16 +87,17 @@ CScriptObjectLoaderHelper::LoadScriptObject(TAreaId area, FourCC type, uint leng
 
 CScriptObjectLoaderHelper::SGeneratedObject
 CScriptObjectLoaderHelper::GenerateScriptObject(const TEditorId& editorId, CStateManager& mgr) {
-  const bool wasGenerating = mGeneratingObject;
+  const bool wasGenerating = IsGeneratingObject();
   mGeneratingObject = true;
   const rstl::pair< const SScriptObjectStream*, TEditorId > build = GetBuildForScript(editorId);
-  const TAreaId areaId(build.second.AreaNum());
-  if (build.first != nullptr && mgr.World()->GetArea(areaId)->IsLoaded()) {
+  const int areaNum = build.second.AreaNum();
+  const CWorld* world = mgr.World();
+  if (build.first != nullptr && world->GetArea(TAreaId(areaNum))->IsLoaded()) {
     const rstl::pair< const uchar*, int > buffer =
-        mgr.World()->GetArea(areaId)->GetGeneratedScriptBuffer();
+        world->GetArea(TAreaId(areaNum))->GetGeneratedScriptBuffer();
     CMemoryInStream in(buffer.first + build.first->mPosition, build.first->mLength);
     const SGeneratedObject generated =
-        LoadScriptObject(areaId, build.first->mType, build.first->mLength, in, mgr);
+        LoadScriptObject(TAreaId(areaNum), build.first->mType, build.first->mLength, in, mgr);
     if (generated.mEntity != nullptr) {
       mgr.AddObject(generated.mEntity);
     }
