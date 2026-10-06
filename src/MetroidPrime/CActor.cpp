@@ -278,7 +278,7 @@ void CActor::PreRenderAllViewports(CStateManager& mgr) {
 
 void CActor::SetModelData(const CModelData& data, CStateManager& mgr) {
   if (data.IsNull()) {
-    if (GetModelData() && GetModelData()->HasAnimation()) {
+    if (HasAnimation()) {
       AnimationData()->GetParticleDB().DeleteAllLights(&mgr);
     }
     mModelData = nullptr;
