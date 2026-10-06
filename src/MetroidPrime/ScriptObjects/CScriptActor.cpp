@@ -282,7 +282,10 @@ CTransform4f CScriptActor::GetPrimitiveTransform() const {
 }
 
 bool CScriptActor::CheckActorRenderOnly() const {
-  return GetMaterialList().HasMaterial(kMT_Immovable) &&
-         GetMaterialList().HasMaterial(kMT_CameraPassthrough) &&
-         !GetMaterialList().HasMaterial(kMT_Unknown59);
+  const bool unknown59 = GetMaterialList().HasMaterial(kMT_Unknown59);
+  const bool passthrough = GetMaterialList().HasMaterial(kMT_CameraPassthrough);
+  if (!GetMaterialList().HasMaterial(kMT_Immovable) || !passthrough || unknown59) {
+    return false;
+  }
+  return true;
 }
