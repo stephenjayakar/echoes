@@ -427,7 +427,7 @@ CVector3f CFirstPersonCamera::GetScanObjectIndicatorPosition(const CStateManager
   return GetTranslation() + 5.f * GetTransform().GetForward();
 }
 
-void CFirstPersonCamera::UnkVtable84() {}
+void CFirstPersonCamera::UnkVtable84(TUniqueId fluidId, CStateManager& mgr) {}
 
 void CFirstPersonCamera::UnkVtable88(TUniqueId fluidId, CStateManager& mgr) {
   mFluidEffectsPending = true;

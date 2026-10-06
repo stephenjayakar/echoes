@@ -23,7 +23,7 @@ public:
   // CGameCamera
   void ProcessInput(const CFinalInput& input, CStateManager& mgr) override;
   void Reset(const CTransform4f& xf, CStateManager& mgr) override;
-  void UnkVtable84() override;
+  void UnkVtable84(TUniqueId fluidId, CStateManager& mgr) override;
   void UnkVtable88(TUniqueId fluidId, CStateManager& mgr) override;
 
   void UpdateElevation(CStateManager& mgr);

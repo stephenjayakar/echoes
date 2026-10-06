@@ -29,7 +29,7 @@ public:
   virtual void ProcessInput(const CFinalInput& input, CStateManager& mgr) = 0;
   virtual void Reset(const CTransform4f& xf, CStateManager& mgr) = 0;
   // Empty base implementations; names and unused parameters remain unresolved.
-  virtual void UnkVtable84();
+  virtual void UnkVtable84(TUniqueId fluidId, CStateManager& mgr);
   virtual void UnkVtable88(TUniqueId fluidId, CStateManager& mgr);
 
   void SetAspectRatio(float aspect);

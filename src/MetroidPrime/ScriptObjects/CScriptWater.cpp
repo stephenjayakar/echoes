@@ -259,7 +259,7 @@ void CScriptWater::Touch(CActor& actor, CStateManager& mgr) {
   if (!GetActive()) {
     return;
   }
-  const int fluidCount = actor.GetFluidCount();
+  const bool inFluid = !(actor.GetFluidCount() == 0);
   CScriptTrigger::Touch(actor, mgr);
   if (actor.GetMaterialList().HasMaterial(kMT_Trigger)) {
     return;
@@ -271,14 +271,14 @@ void CScriptWater::Touch(CActor& actor, CStateManager& mgr) {
       return;
     }
   }
-  const rstl::optional_object< CAABox > bounds = actor.GetTouchBounds();
+  const rstl::optional_object< CAABox >& bounds = actor.GetTouchBounds();
   if (!bounds) {
     return;
   }
   mWaterInhabitants.push_back(rstl::pair< TUniqueId, bool >(actor.GetUniqueId(), true));
-  if (fluidCount == 0) {
+  if (!inFluid) {
     const float surfaceZ = GetTriggerBoundsWR().GetMaxPoint().GetZ();
-    if (bounds->GetMinPoint().GetZ() <= surfaceZ && surfaceZ <= bounds->GetMaxPoint().GetZ()) {
+    if (bounds->GetMinPoint().GetZ() <= surfaceZ && bounds->GetMaxPoint().GetZ() >= surfaceZ) {
       actor.FluidFXThink(kFS_EnteredFluid, *this, mgr);
     }
   }
@@ -381,19 +381,15 @@ void CScriptWater::Think(float dt, CStateManager& mgr) {
 }
 
 void CScriptWater::CalculateRenderBounds() {
-  const CVector3f& min = mBounds.GetMinPoint();
-  const CVector3f& max = mBounds.GetMaxPoint();
-  mSurfaceBounds = CAABox(CVector3f(min.GetX(), min.GetY(), max.GetZ() - 1.f) + GetTranslation(),
-                          CVector3f(max.GetX(), max.GetY(), max.GetZ() + 1.f) + GetTranslation());
+  mSurfaceBounds = CAABox(CVector3f(mBounds.GetMinPoint().GetX(), mBounds.GetMinPoint().GetY(), mBounds.GetMaxPoint().GetZ() - 1.f) + GetTranslation(),
+                          CVector3f(mBounds.GetMaxPoint().GetX(), mBounds.GetMaxPoint().GetY(), mBounds.GetMaxPoint().GetZ() + 1.f) + GetTranslation());
 }
 
 void CScriptWater::PreRenderAllViewports(CStateManager& mgr) {
   const float fogHeight = rstl::max_val(0.01f, mFogBias + mFogMagnitude);
-  const CVector3f& localMin = mBounds.GetMinPoint();
-  const CVector3f& localMax = mBounds.GetMaxPoint();
   const CAABox visibleBounds(
-      CVector3f(localMin.GetX(), localMin.GetY(), localMax.GetZ()) + GetTranslation(),
-      CVector3f(localMax.GetX(), localMax.GetY(), localMax.GetZ() + fogHeight) + GetTranslation());
+      CVector3f(mBounds.GetMinPoint().GetX(), mBounds.GetMinPoint().GetY(), mBounds.GetMaxPoint().GetZ()) + GetTranslation(),
+      CVector3f(mBounds.GetMaxPoint().GetX(), mBounds.GetMaxPoint().GetY(), mBounds.GetMaxPoint().GetZ() + fogHeight) + GetTranslation());
   SetOtherBounds(visibleBounds);
   SetRenderBounds(visibleBounds);
   UpdatePortalSystemState(mgr);
@@ -403,17 +399,16 @@ void CScriptWater::PreRenderAllViewports(CStateManager& mgr) {
   const CAABox triggerBounds = GetTriggerBoundsWR();
   const float height = cameraXf.Get23() - triggerBounds.GetMaxPoint().GetZ();
   if (fabsf(height) > 0.5f) {
-    if (height <= 0.f) {
-      if (x32c_6_ || mFluidPlane->GetFluidType() == 2) {
-        const CVector3f localCamera = cameraXf.GetTranslation() - GetTranslation();
-        if (mBounds.PointInside(localCamera)) {
-          mgr.SetAreaClipPlane(GetCurrentAreaId(),
-                               CPlane(triggerBounds.GetMaxPoint().GetZ() + 0.01f, CVector3f::Up()));
-        }
+    if (height > 0.f) {
+      if (x32c_6_) {
+        mgr.SetAreaClipPlane(GetCurrentAreaId(),
+                             CPlane(-triggerBounds.GetMaxPoint().GetZ(), CVector3f::Down()));
       }
-    } else if (x32c_6_) {
-      mgr.SetAreaClipPlane(GetCurrentAreaId(),
-                           CPlane(-triggerBounds.GetMaxPoint().GetZ(), CVector3f::Down()));
+    } else if (x32c_6_ || mFluidPlane->GetFluidType() == 2) {
+      if (mBounds.PointInside(cameraXf.GetTranslation() - GetTranslation())) {
+        mgr.SetAreaClipPlane(GetCurrentAreaId(),
+                             CPlane(triggerBounds.GetMaxPoint().GetZ() + 0.01f, CVector3f::Up()));
+      }
     }
   }
 }
@@ -435,31 +430,31 @@ void CScriptWater::AddToRenderer(const CStateManager& mgr) const {
   if (mFluidPlane->GetFluidType() == 2) {
     Render(mgr);
   } else {
-    const CPlane plane(mBounds.GetMaxPoint().GetZ() + GetTranslation().GetZ(),
-                       CUnitVector3f(0.f, 0.f, 1.f, CUnitVector3f::kN_Yes));
+    const float transZ = GetTranslation().GetZ();
+    const float maxZ = mBounds.GetMaxPoint().GetZ();
+    const CPlane plane(maxZ + transZ, CUnitVector3f(0.f, 0.f, 1.f, CUnitVector3f::kN_Yes));
     mgr.AddDrawableActorPlane(*this, plane, GetSortingBounds(mgr));
   }
 }
 
 void CScriptWater::PreRender(CStateManager& mgr) {
-  if (!mAllowRender) {
-    SetPreRenderClipped(true);
-    return;
-  }
-  SetPreRenderClipped(!mgr.fn_800366e4(this));
-  if (GetPreRenderClipped() || GetCurrentAreaId() == kInvalidAreaId) {
-    return;
-  }
-  if (ActorLights()->GetMaxAreaLights() != 0 &&
-      (GetPreRenderHasMoved() || ActorLights()->GetNeedsRelight())) {
-    const CGameArea& area = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId());
-    if (area.IsLoaded()) {
-      ActorLights()->BuildAreaLightList(mgr, area, GetTriggerBoundsWR());
-      SetPreRenderHasMoved(false);
+  if (mAllowRender) {
+    SetPreRenderClipped(!mgr.IsActorVisible(*this));
+    if (!GetPreRenderClipped() && GetCurrentAreaId() != kInvalidAreaId) {
+      if (ActorLights()->GetMaxAreaLights() != 0u &&
+          (GetPreRenderHasMoved() || ActorLights()->GetNeedsRelight())) {
+        if (mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()).IsLoaded()) {
+          ActorLights()->BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()),
+                                            GetTriggerBoundsWR());
+          SetPreRenderHasMoved(false);
+        }
+      }
+      ActorLights()->BuildDynamicLightList(mgr, GetTriggerBoundsWR());
+      mFluidPlane->PreRender(mgr, GetFluidUVExtent(mSurfaceBounds));
     }
+  } else {
+    SetPreRenderClipped(true);
   }
-  ActorLights()->BuildDynamicLightList(mgr, GetTriggerBoundsWR());
-  mFluidPlane->PreRender(mgr, GetFluidUVExtent(mSurfaceBounds));
 }
 
 void CScriptWater::Render(const CStateManager& mgr) const {
@@ -640,9 +635,9 @@ void CScriptWater::SetupGridClipping(CStateManager& mgr, int computeVerts) {
 
 void CScriptWater::SetupGrid(bool recomputeClipping) {
   const CAABox xBounds = GetTriggerBoundsWR();
-  const int dimX = static_cast< int >(CMath::FloorF((3.f + xBounds.GetWidth() - 0.01f) / 3.f));
+  const int dimX = static_cast< int >(static_cast< float >(floor((3.f + xBounds.GetWidth() - 0.01f) / 3.f)));
   const CAABox yBounds = GetTriggerBoundsWR();
-  const int dimY = static_cast< int >(CMath::FloorF((3.f + yBounds.GetHeight() - 0.01f) / 3.f));
+  const int dimY = static_cast< int >(static_cast< float >(floor((3.f + yBounds.GetHeight() - 0.01f) / 3.f)));
   mGridCellCount = (dimX + 1) * (dimY + 1);
   mComputedGridCellCount = mGridCellCount;
   mVertIntersects = static_cast< bool* >(nullptr);
@@ -652,9 +647,9 @@ void CScriptWater::SetupGrid(bool recomputeClipping) {
   mGridDimX = dimX;
   mGridDimY = dimY;
   for (int y = 0; y < mGridDimY; ++y) {
-    char* row = mTileIntersects.get() + y * mGridDimX;
-    for (int x = 0; x < mGridDimX; ++x) {
-      row[x] = 1;
+    char* row = &mTileIntersects.get()[y * mGridDimX];
+    for (int x = 0; x < mGridDimX; ++x, ++row) {
+      *row = 1;
     }
   }
   if (mPatchIntersects.null() || mPatchDimX != 0 || mPatchDimY != 0) {
@@ -663,8 +658,8 @@ void CScriptWater::SetupGrid(bool recomputeClipping) {
   for (int i = 0; i < 32; ++i) {
     mPatchIntersects.get()[i] = 1;
   }
-  mPatchDimX = 0;
   mPatchDimY = 0;
+  mPatchDimX = 0;
   mRecomputeClipping = recomputeClipping;
 }
 
@@ -672,12 +667,13 @@ bool CScriptWater::CanRippleAtPoint(const CVector3f& point) const {
   if (mTileIntersects.null()) {
     return true;
   }
-  const CAABox bounds = GetTriggerBoundsWR();
-  const int x = static_cast< int >((point.GetX() - bounds.GetMinPoint().GetX()) / 3.f);
+  const CAABox xBounds = GetTriggerBoundsWR();
+  const int x = static_cast< int >((point.GetX() - xBounds.GetMinPoint().GetX()) / 3.f);
   if (x < 0 || x >= mGridDimX) {
     return false;
   }
-  const int y = static_cast< int >((point.GetY() - bounds.GetMinPoint().GetY()) / 3.f);
+  const CAABox yBounds = GetTriggerBoundsWR();
+  const int y = static_cast< int >((point.GetY() - yBounds.GetMinPoint().GetY()) / 3.f);
   if (y < 0 || y >= mGridDimY) {
     return false;
   }
@@ -686,12 +682,12 @@ bool CScriptWater::CanRippleAtPoint(const CVector3f& point) const {
 
 void CScriptWater::InhabitantAdded(CActor& actor, CStateManager& mgr) {
   CScriptTrigger::InhabitantAdded(actor, mgr);
-  const int previousFluidCount = actor.GetFluidCount();
+  const bool wasInFluid = actor.GetFluidCount() != 0;
   actor.SetInFluid(mgr, true, GetUniqueId());
-  if (previousFluidCount == 0 && ShouldSendScriptMsgs(actor, mgr)) {
+  if (!wasInFluid && ShouldSendScriptMsgs(actor, mgr)) {
     mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XENF, kInvalidUniqueId);
     if (CGameCamera* camera = TCastToPtr< CGameCamera >(actor)) {
-      camera->UnkVtable84();
+      camera->UnkVtable84(GetUniqueId(), mgr);
     }
   }
 }

@@ -302,7 +302,7 @@ void CActor::PreRender(CStateManager& mgr) {
         lightsDirty = true;
       } else if (mWorldLightingDirty) {
         lightsDirty = true;
-      } else if (HasActorLights() && GetActorLights()->GetNeedsRelight()) {
+      } else if (HasActorLights() && GetActorLights()->GetNeedsRelight() == true) {
         lightsDirty = true;
       }
 

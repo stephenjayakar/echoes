@@ -227,7 +227,7 @@ rstl::optional_object< CAABox > CGameCamera::GetTouchBounds() const {
   return CAABox(GetTranslation(), GetTranslation());
 }
 
-void CGameCamera::UnkVtable84() {}
+void CGameCamera::UnkVtable84(TUniqueId fluidId, CStateManager& mgr) {}
 
 void CGameCamera::UnkVtable88(TUniqueId fluidId, CStateManager& mgr) {}
 
