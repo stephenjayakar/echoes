@@ -282,15 +282,18 @@ void CInterpolationCamera::Think(float dt, CStateManager& mgr) {
     return;
   }
 
-  const CVector3f position = target->GetTranslation();
+  const CVector3f position = target->GetTransform().GetTranslation();
   mLookPosition = target->GetScanObjectIndicatorPosition(mgr);
-  bool done = true;
+  bool done;
   switch (mPositionMode) {
   case kPM_Direct:
     done = InterpolatePosition(dt, xf, position, mgr);
     break;
   case kPM_Spline:
     done = InterpolateSpline(dt, xf, position, mgr);
+    break;
+  default:
+    done = true;
     break;
   }
   xf = ValidateCameraTransform(xf, oldXf);
@@ -306,10 +309,11 @@ void CInterpolationCamera::Think(float dt, CStateManager& mgr) {
       } else {
         direction = xf.GetForward();
       }
-      if (mgr.RayStaticIntersection(GetTranslation(), direction, 3.f, skCollisionFilter)
-              .IsValid()) {
+      const CRayCastResult result =
+          mgr.RayStaticIntersection(GetTranslation(), direction, 3.f, skCollisionFilter);
+      if (result.IsValid()) {
         EndInterpolation(kER_Obstruction, mgr);
-        CameraManager(mgr).StartScreenFlash();
+        const_cast< CCameraManager& >(GetCameraManager(mgr)).StartScreenFlash();
       }
     }
   }
