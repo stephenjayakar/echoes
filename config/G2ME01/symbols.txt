@@ -15354,7 +15354,7 @@ SetHighestPrioritySerialState__17CAuxEffectManagerFiQ217CAuxEffectManager6EState
 FadeOut__17CAuxEffectManagerFiQ217CAuxEffectManager9ECategory = .text:0x80340BBC; // type:function size:0xC4 align:4
 Cleanup__17CAuxEffectManagerFv = .text:0x80340C80; // type:function size:0x188
 Shutdown__17CAuxEffectManagerFv = .text:0x80340E08; // type:function size:0x160
-fn_80340F68 = .text:0x80340F68; // type:function size:0x34
+clear__Q24rstl81reserved_vector<Q24rstl53reserved_vector<Q217CAuxEffectManager11SEffectSlot,4>,3>Fv = .text:0x80340F68; // type:function size:0x34
 Initialize__17CAuxEffectManagerFv = .text:0x80340F9C; // type:function size:0x2A0
 push_back__Q24rstl81reserved_vector<Q24rstl53reserved_vector<Q217CAuxEffectManager11SEffectSlot,4>,3>FRCQ24rstl53reserved_vector<Q217CAuxEffectManager11SEffectSlot,4> = .text:0x8034123C; // type:function size:0x48 scope:weak
 construct<Q24rstl53reserved_vector<Q217CAuxEffectManager11SEffectSlot,4>>__4rstlFPvRCQ24rstl53reserved_vector<Q217CAuxEffectManager11SEffectSlot,4> = .text:0x80341284; // type:function size:0x20 scope:weak
