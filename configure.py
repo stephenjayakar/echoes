@@ -1533,6 +1533,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "Parasite",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CParasite.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Ripper",
         [
             Object(Matching, "MetroidPrime/Enemies/CRipper.cpp"),
