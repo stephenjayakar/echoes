@@ -231,10 +231,13 @@ rstl::vector< int > CMapWorld::GetVisibleAreas(const IWorld& wld,
     if (!IsMapAreaValid(wld, i, true)) {
       continue;
     }
+    const TAreaId areaId = i;
     const CMapArea* area = GetMapArea(i);
-    if (area->GetIsVisibleToAutoMapper(mwInfo.IsWorldVisible(i, area->IsInDarkWorld()),
-                                       mwInfo.IsAreaVisible(i))) {
-      areas.push_back(i);
+    const TAreaId worldAreaId = i;
+    const CMapArea* visArea = GetMapArea(i);
+    if (visArea->GetIsVisibleToAutoMapper(mwInfo.IsWorldVisible(worldAreaId, area->IsInDarkWorld()),
+                                          mwInfo.IsAreaVisible(areaId))) {
+      areas.push_back_unsafe(i);
     }
   }
   return areas;
