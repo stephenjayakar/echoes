@@ -398,14 +398,14 @@ void CPatterned::DeathDelete(CStateManager& mgr) {
 CDamageInfo CPatterned::GetContactDamage() const { return mAlive ? mContactDamage : CDamageInfo(); }
 
 CTransform4f CPatterned::GetLctrTransform(const rstl::string& name) const {
-  return GetLctrTransform(GetAnimationData()->GetLocatorSegId(name));
+  return GetTransform() * GetScaledLocatorTransform(name);
 }
 
 CTransform4f CPatterned::GetLctrTransform(const CSegId& id) const {
   CTransform4f locator = GetAnimationData()->GetLocatorTransform(id, nullptr);
-  locator.SetTranslation(
-      CVector3f::ByElementMultiply(GetModelData()->GetScale(), locator.GetTranslation()));
-  return GetTransform() * locator;
+  CVector3f scaled =
+      CVector3f::ByElementMultiply(GetModelData()->GetScale(), locator.GetTranslation());
+  return GetTransform() * CTransform4f(locator.BuildMatrix3f(), scaled);
 }
 
 CVector3f CPatterned::GetAimPosition(const CStateManager& mgr, float dt) const {
