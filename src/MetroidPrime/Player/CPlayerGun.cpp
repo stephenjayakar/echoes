@@ -1375,7 +1375,7 @@ void CPlayerGun::EnableSeekerFx(CStateManager& mgr, bool enable) {
   }
 }
 
-void CPlayerGun::UpdateSeekerEffects(float dt) {
+void CPlayerGun::UpdateSeekerEffects(float dt, CStateManager& mgr) {
   if (!mChargeEffectVisible) {
     return;
   }
@@ -2740,10 +2740,12 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
   CPlayer* player = GetPlayer(mgr);
   CPlayerState* playerState = player->GetPlayerState();
   if (playerState->HasPowerUp(CPlayerState::kIT_SeekerLauncher)) {
-    if (mSeekerChargeState == kSCS_NotCharging) {
+    if (mSeekerChargeState != kSCS_NotCharging) {
+      if (mSeekerChargeState > kSCS_NotCharging && mSeekerChargeState < kSCS_FullyCharged) {
+        mSeekerChargeFactor = CMath::Clamp(0.f, mSeekerChargeFactor + kChargeDtFactor * dt, 1.f);
+      }
+    } else {
       mSeekerChargeFactor = CMath::Clamp(0.f, mSeekerChargeFactor - kChargeDtFactor * dt, 1.f);
-    } else if (mSeekerChargeState > kSCS_NotCharging && mSeekerChargeState < kSCS_FullyCharged) {
-      mSeekerChargeFactor = CMath::Clamp(0.f, mSeekerChargeFactor + kChargeDtFactor * dt, 1.f);
     }
     if (mSeekerVisor != playerState->GetCurrentVisor()) {
       mCurrentSeekerTarget = kInvalidUniqueId;
@@ -2757,7 +2759,7 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
     if (mReleasedInputFlags & 2) {
       mSeekerChargeState = kSCS_Fire;
     }
-    UpdateSeekerEffects(dt);
+    UpdateSeekerEffects(dt, mgr);
 
     switch (mSeekerChargeState) {
     case kSCS_NotCharging:
@@ -2767,7 +2769,7 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
       mSeekerChargeState = kSCS_Requested;
       mSeekerChargeFactor = 0.f;
     case kSCS_Requested:
-      if (!(playerState->GetChargeAnimStart() < mSeekerChargeFactor)) {
+      if (mSeekerChargeFactor <= playerState->GetChargeAnimStart()) {
         break;
       }
       mSeekerChargeState = kSCS_Opening;
@@ -2790,8 +2792,8 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
     case kSCS_FullyCharged: {
       typedef rstl::reserved_vector< rstl::pair< TUniqueId, float >, 5 > TargetList;
       for (TargetList::iterator it = mSeekerTargets.begin(); it != mSeekerTargets.end();) {
-        CActor* target = TCastToPtr< CActor >(const_cast< CEntity* >(mgr.GetObjectById(it->first)));
         bool remove = true;
+        CActor* target = TCastToPtr< CActor >(const_cast< CEntity* >(mgr.GetObjectById(it->first)));
         if (target && target->GetActive() == true &&
             target->GetMaterialList().HasMaterial(kMT_SeekerTarget) == true &&
             IsSeekerTargetInRange(*target, *player, mgr, 100.f) == true) {
@@ -2824,17 +2826,17 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
       }
       const CVector3f eyePosition = player->GetEyePosition();
       if (targetId != kInvalidUniqueId) {
-        if (CActor* target =
-                TCastToPtr< CActor >(const_cast< CEntity* >(mgr.GetObjectById(targetId)))) {
+        CActor* target = TCastToPtr< CActor >(const_cast< CEntity* >(mgr.GetObjectById(targetId)));
+        if (target) {
           if (!target->GetMaterialList().HasMaterial(kMT_SeekerTarget) ||
               !IsSeekerTargetInRange(*target, *player, mgr, 100.f)) {
             break;
           }
           const CVector3f delta = target->GetAimPosition(mgr, 0.f) - eyePosition;
           const float distance = delta.Magnitude();
-          if (mgr.RayStaticIntersection(eyePosition, delta.AsNormalized(), distance,
-                                        skWeaponCollisionFilter)
-                  .IsValid()) {
+          const CRayCastResult result = mgr.RayStaticIntersection(
+              eyePosition, delta.AsNormalized(), distance, skWeaponCollisionFilter);
+          if (result.IsValid()) {
             break;
           }
         }
@@ -2866,23 +2868,27 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
               continue;
             }
             const uint visorFlags = target->GetTargetableVisorFlags();
-            bool visible = true;
             switch (player->GetPlayerState()->GetCurrentVisor()) {
             case CPlayerState::kPV_Combat:
-              visible = (visorFlags & 1) != 0;
-              break;
-            case CPlayerState::kPV_Echo:
-              visible = (visorFlags & 8) != 0;
+              if ((visorFlags & 1) == 0) {
+                continue;
+              }
               break;
             case CPlayerState::kPV_Dark:
-              visible = (visorFlags & 2) != 0;
+              if ((visorFlags & 2) == 0) {
+                continue;
+              }
               break;
             case CPlayerState::kPV_Scan:
-              visible = (visorFlags & 4) != 0;
+              if ((visorFlags & 4) == 0) {
+                continue;
+              }
               break;
-            }
-            if (!visible) {
-              continue;
+            case CPlayerState::kPV_Echo:
+              if ((visorFlags & 8) == 0) {
+                continue;
+              }
+              break;
             }
             if (CBouncyGrenade* grenade = TCastToPtr< CBouncyGrenade >(target)) {
               if (grenade->GetFlags() & 8) {
@@ -2901,9 +2907,10 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
             }
             const CVector3f orbitPosition = target->GetOrbitPosition(mgr);
             const CVector3f screenPosition = camera->ConvertToScreenSpace(orbitPosition);
-            const float screenY = screenPosition.GetY() * CGraphics::GetViewport().mHeight * 0.5f;
             const float screenX = screenPosition.GetX() * CGraphics::GetViewport().mWidth * 0.5f;
-            if (screenX * screenX + screenY * screenY < 2500.f &&
+            const float screenY = screenPosition.GetY() * CGraphics::GetViewport().mHeight * 0.5f;
+            float screenZ = 0.f;
+            if (screenX * screenX + screenY * screenY + screenZ * screenZ < 2500.f &&
                 mgr.RayCollideWorld(eyePosition, orbitPosition, nearList, skWeaponCollisionFilter,
                                     target)) {
               targetId = *it;
@@ -2937,19 +2944,23 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
         const float yawStep = 360.f / mSeekerTargets.size();
         for (int i = 0; i < mSeekerTargets.size(); ++i) {
           uint attributes = 0x400000;
-          ushort sound = CSfxManager::kInternalInvalidSfxId;
-          if (i == 0) {
-            if (!mgr.IsMultiplayer()) {
-              if (mSeekerTargets.size() == 1) {
-                sound = 0x17f;
-              } else if (mSeekerTargets.size() > 1 && mSeekerTargets.size() < 4) {
-                sound = 0x181;
-              } else if (mSeekerTargets.size() >= 4 && mSeekerTargets.size() < 6) {
-                sound = 0x182;
-              }
+          int sound = CSfxManager::kInternalInvalidSfxId;
+          if (i != 0) {
+            attributes |= 0x1800000;
+          } else if (!mgr.IsMultiplayer()) {
+            switch (mSeekerTargets.size()) {
+            case 1:
+              sound = 0x17f;
+              break;
+            case 2:
+            case 3:
+              sound = 0x181;
+              break;
+            case 4:
+            case 5:
+              sound = 0x182;
+              break;
             }
-          } else {
-            attributes = 0x1c00000;
           }
           const CTransform4f spread =
               CTransform4f::RotateY(CRelAngle::FromDegrees(yawStep * i + yaw)) *
@@ -2969,26 +2980,26 @@ void CPlayerGun::UpdateSeeker(float dt, CStateManager& mgr) {
     mMissileExitTimer -= dt;
   }
   const CAnimData& animData = *mCurrentBeam->GetSolidModelData().GetAnimationData();
-  if (mMissileState == kMS_Ready) {
-    if (allowMissileFire && (mPressedInputFlags & 2)) {
-      FireSecondary(dt, mgr, kInvalidUniqueId, 0, nullptr, CSfxManager::kInternalInvalidSfxId);
-    }
-  } else if (!animData.IsAnimTimeRemaining(0.001f, rstl::string_l("Whole Body"))) {
-    switch (mMissileState) {
-    case kMS_Reloading:
-      mMissileState = kMS_Ready;
-      break;
-    case kMS_Shot:
-      if (playerState->GetItemAmount(CPlayerState::kIT_Missile, true) < 1) {
+  if (mMissileState != kMS_Ready) {
+    if (!animData.IsAnimTimeRemaining(0.001f, rstl::string_l("Whole Body"))) {
+      switch (mMissileState) {
+      case kMS_Shot:
+        if (playerState->GetItemAmount(CPlayerState::kIT_Missile, true) > 0) {
+          PlayAnim(mgr, NWeaponTypes::kGAT_FromBeam, false);
+          mMissileState = kMS_Reloading;
+        } else {
+          mMissileState = kMS_Ready;
+        }
+        break;
+      case kMS_Reloading:
         mMissileState = kMS_Ready;
-      } else {
-        PlayAnim(mgr, NWeaponTypes::kGAT_FromBeam, false);
-        mMissileState = kMS_Reloading;
+        break;
+      default:
+        break;
       }
-      break;
-    default:
-      break;
     }
+  } else if (allowMissileFire && (mPressedInputFlags & 2)) {
+    FireSecondary(dt, mgr, kInvalidUniqueId, 0, nullptr, CSfxManager::kInternalInvalidSfxId);
   }
 }
 

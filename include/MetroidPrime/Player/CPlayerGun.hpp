@@ -138,7 +138,7 @@ public:
   void UpdateChargeState(float dt, CStateManager& mgr);
   void ResetSeeker(CStateManager& mgr);
   void UpdateSeeker(float dt, CStateManager& mgr);
-  void UpdateSeekerEffects(float dt);
+  void UpdateSeekerEffects(float dt, CStateManager& mgr);
   void EnableSeekerFx(CStateManager& mgr, bool enable);
   void FireSecondary(float dt, CStateManager& mgr, TUniqueId target, uint attributes,
                      const CTransform4f* transform, ushort sound);
