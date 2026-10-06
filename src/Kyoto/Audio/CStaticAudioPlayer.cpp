@@ -44,9 +44,7 @@ void CStaticAudioPlayer::AICallback() {
 
 void CStaticAudioPlayer::RunDMACallback(const FAudioCallback callback) {
   CInterruptGuard interrupts;
-  const rstl::reserved_vector< FAudioCallback, 4 >::iterator it =
-      rstl::find(sAICallbacks.begin(), sAICallbacks.end(), callback);
-  if (it == sAICallbacks.end()) {
+  if (rstl::find(sAICallbacks.begin(), sAICallbacks.end(), callback) == sAICallbacks.end()) {
     sAICallbacks.push_back(callback);
   }
 

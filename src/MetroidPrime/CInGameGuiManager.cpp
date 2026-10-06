@@ -193,10 +193,10 @@ void CInGameGuiManager::PreDraw(CStateManager& mgr, bool cameraActive) {
 }
 
 void CInGameGuiManager::DrawDarkVisorMask() const {
-  if (mDarkMaskFrame.get() != nullptr) {
+  if (mDarkOuterMask != nullptr) {
     CGraphics::SetDepthRange(1.f / 512.f, 1.f / 256.f);
-    mSamusHud->GetLoadedHudFrame()->GetRootWidget()->Draw(CGuiWidgetDrawParms::Default());
-    mDarkMaskFrame->GetRootWidget()->Draw(CGuiWidgetDrawParms::Default());
+    mSamusHud->GetLoadedHudFrame()->GetFrameCamera()->Draw(CGuiWidgetDrawParms::Default());
+    mDarkOuterMask->Draw(CGuiWidgetDrawParms::Default());
   }
 }
 
