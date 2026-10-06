@@ -43,21 +43,21 @@ CScriptColorModulate::CScriptColorModulate(
 TUniqueId CScriptColorModulate::FadeInHelper(CStateManager& mgr, TUniqueId obj, float fadeTime) {
   const CEntity* entity = mgr.GetObjectById(obj);
   const TAreaId area = entity ? entity->GetCurrentAreaId() : mgr.GetNextAreaId();
+  const rstl::string name;
   const CActor* actor = TCastToConstPtr< CActor >(entity);
   const CModelFlags flags = actor ? actor->GetModelFlags() : CModelFlags::Normal();
-  const uint depthFlags = flags.GetOtherFlags();
   const TUniqueId uid = mgr.AllocateUniqueId();
-  CScriptColorModulate* mod = rs_new CScriptColorModulate(
-      uid, rstl::string(), CEntityInfo(area, NullConnectionList, true), CColor(1.f, 1.f, 1.f, 0.f),
-      CColor::White(), kBM_Alpha, fadeTime, 0.f, false, true,
-      (depthFlags & CModelFlags::kF_DepthCompare) != 0,
-      (depthFlags & CModelFlags::kF_DepthUpdate) != 0,
-      (depthFlags & CModelFlags::kF_DepthGreater) != 0, true, true, false, false, false,
+  CScriptColorModulate* const mod = rs_new CScriptColorModulate(
+      uid, name, CEntityInfo(area, NullConnectionList, true), CColor(1.f, 1.f, 1.f, 0.f),
+      CColor(1.f, 1.f, 1.f, 1.f), kBM_Alpha, fadeTime, 0.f, false, true,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthCompare) != 0,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthUpdate) != 0,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthGreater) != 0, true, true, false, false, false,
       SLdrSpline());
   mod->mParent = obj;
   mod->mEnable = true;
   mod->mDieOnEnd = true;
-  mgr.AddObject(mod);
+  mgr.AddObject(*mod);
   mod->Think(0.f, mgr);
   return uid;
 }
@@ -65,22 +65,22 @@ TUniqueId CScriptColorModulate::FadeInHelper(CStateManager& mgr, TUniqueId obj, 
 TUniqueId CScriptColorModulate::FadeOutHelper(CStateManager& mgr, TUniqueId obj, float fadeTime) {
   const CEntity* entity = mgr.GetObjectById(obj);
   const TAreaId area = entity ? entity->GetCurrentAreaId() : mgr.GetNextAreaId();
+  const rstl::string name;
   const CActor* actor = TCastToConstPtr< CActor >(entity);
   const CModelFlags flags = actor ? actor->GetModelFlags() : CModelFlags::Normal();
-  const uint depthFlags = flags.GetOtherFlags();
   const TUniqueId uid = mgr.AllocateUniqueId();
-  CScriptColorModulate* mod = rs_new CScriptColorModulate(
-      uid, rstl::string(), CEntityInfo(area, NullConnectionList, true), CColor::White(),
+  CScriptColorModulate* const mod = rs_new CScriptColorModulate(
+      uid, name, CEntityInfo(area, NullConnectionList, true), CColor(1.f, 1.f, 1.f, 1.f),
       CColor(1.f, 1.f, 1.f, 0.f), kBM_Alpha, fadeTime, 0.f, false, true,
-      (depthFlags & CModelFlags::kF_DepthCompare) != 0,
-      (depthFlags & CModelFlags::kF_DepthUpdate) != 0,
-      (depthFlags & CModelFlags::kF_DepthGreater) != 0, true, true, true, false, false,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthCompare) != 0,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthUpdate) != 0,
+      (flags.GetOtherFlags() & CModelFlags::kF_DepthGreater) != 0, true, true, true, false, false,
       SLdrSpline());
   mod->mParent = obj;
   mod->mEnable = true;
   mod->mDieOnEnd = true;
   mod->mIsFadeOutHelper = true;
-  mgr.AddObject(mod);
+  mgr.AddObject(*mod);
   mod->Think(0.f, mgr);
   return uid;
 }
@@ -107,19 +107,19 @@ void CScriptColorModulate::SetTargetFlags(CStateManager& mgr, const CModelFlags&
 
 void CScriptColorModulate::End(CStateManager& mgr) {
   bool done = false;
-  if (mControlSpline.GetKnots().empty()) {
+  if (!mControlSpline.GetKnots().empty()) {
+    if (mLoopForever) {
+      mCurTime -= mControlSpline.GetMaxTime();
+      return;
+    }
+    done = true;
+  } else {
     if (mDoReverse && !mReversing) {
       mReversing = true;
       mFadeState = mFadeState == kFS_AtoB ? kFS_BtoA : kFS_AtoB;
     } else {
       done = true;
     }
-  } else {
-    if (mLoopForever) {
-      mCurTime -= mControlSpline.GetMaxTime();
-      return;
-    }
-    done = true;
   }
   mCurTime = 0.f;
   if (!done) {
@@ -130,13 +130,12 @@ void CScriptColorModulate::End(CStateManager& mgr) {
   if (mResetTargetWhenDone) {
     CModelFlags flags = CModelFlags::Normal().DepthCompareUpdate(mDepthCompare, mDepthUpdate);
     if (mDepthBackwards) {
-      flags = CModelFlags(flags, flags.GetOtherFlags() | CModelFlags::kF_DepthGreater |
-                                     CModelFlags::kF_Unknown200);
+      flags = flags.DepthBackwards();
     }
     SetTargetFlags(mgr, flags);
   }
   if (mIsFadeOutHelper) {
-    mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), mParent, kSM_Deactivate));
+    mgr.SendScriptMsg(mParent, GetUniqueId(), kSM_Deactivate);
   }
   SendScriptMsgs(kSS_MaxReached, mgr);
   if (mDieOnEnd) {
