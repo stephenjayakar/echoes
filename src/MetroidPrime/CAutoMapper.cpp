@@ -2484,7 +2484,7 @@ void CAutoMapper::UpdateTempleKeys(const CStateManager& mgr) {
 }
 
 void CAutoMapper::SetCurAreaId(int areaId) {
-  if (mCurAreaId.Value() != areaId &&
+  if (mCurAreaId != TAreaId(areaId) &&
       (close_enough(mDarkWorldBlend, 0.f) || close_enough(mDarkWorldBlend, 1.f)) &&
       mState != kAMS_MiniMap) {
     if (mTransitionState == kTS_Idle) {
