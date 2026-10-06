@@ -326,13 +326,17 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
   rstl::vector< CMapObjectSortInfo > sortInfos;
   int surfaceCount = 0;
   int objectCount = 0;
-  for (int i = 0; i < bfsInfos.size(); ++i) {
+  const int numInfos = bfsInfos.size();
+  for (int i = 0; i < numInfos; ++i) {
     const CMapArea* area = GetMapArea(bfsInfos[i].GetAreaIndex());
     surfaceCount += area->GetNumSurfaces();
     objectCount += area->GetNumMappableObjects();
   }
-  sortInfos.reserve(parms.GetIsSortDoorSurfaces() ? surfaceCount + objectCount * 7
-                                                  : bfsInfos.size() + objectCount);
+  if (parms.GetIsSortDoorSurfaces()) {
+    sortInfos.reserve(surfaceCount + objectCount + objectCount * 6);
+  } else {
+    sortInfos.reserve(numInfos + objectCount);
+  }
   const CStateManager& mgr = parms.GetStateManager();
   const CMapWorldInfo& mwInfo = parms.GetMapWorldInfo();
   int playerArea = mgr.GetNextAreaId().Value();
@@ -362,25 +366,34 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
     bool visited = mwInfo.IsAreaVisited(areaIdx);
     float alphaSurf = visited ? alphaSurfVisited : alphaSurfUnvisited;
     float alphaOutline = visited ? alphaOutlineVisited : alphaOutlineUnvisited;
-    const bool dark = area->IsInDarkWorld();
-    const CColor surfaceColor = visited ? (dark ? gpTweakAutoMapper->GetSurfaceDarkVisitedColor()
-                                                : gpTweakAutoMapper->GetSurfaceVisitedColor())
-                                        : (dark ? gpTweakAutoMapper->GetSurfaceDarkUnvisitedColor()
-                                                : gpTweakAutoMapper->GetSurfaceUnvisitedColor());
-    const CColor outlineColor = visited ? (dark ? gpTweakAutoMapper->GetOutlineDarkVisitedColor()
-                                                : gpTweakAutoMapper->GetOutlineVisitedColor())
-                                        : (dark ? gpTweakAutoMapper->GetOutlineDarkUnvisitedColor()
-                                                : gpTweakAutoMapper->GetOutlineUnvisitedColor());
-    const CColor surfaceSelect =
-        visited ? (dark ? gpTweakAutoMapper->GetSurfaceDarkVisitedSelectColor()
-                        : gpTweakAutoMapper->GetSurfaceVisitedSelectColor())
-                : (dark ? gpTweakAutoMapper->GetSurfaceDarkUnvisitedSelectColor()
-                        : gpTweakAutoMapper->GetSurfaceUnvisitedSelectColor());
-    const CColor outlineSelect =
-        visited ? (dark ? gpTweakAutoMapper->GetOutlineDarkVisitedSelectColor()
-                        : gpTweakAutoMapper->GetOutlineVisitedSelectColor())
-                : (dark ? gpTweakAutoMapper->GetOutlineDarkUnvisitedSelectColor()
-                        : gpTweakAutoMapper->GetOutlineUnvisitedSelectColor());
+    const CColor& surfaceVisited = area->IsInDarkWorld()
+                                       ? gpTweakAutoMapper->GetSurfaceDarkVisitedColor()
+                                       : gpTweakAutoMapper->GetSurfaceVisitedColor();
+    const CColor& surfaceUnvisited = area->IsInDarkWorld()
+                                         ? gpTweakAutoMapper->GetSurfaceDarkUnvisitedColor()
+                                         : gpTweakAutoMapper->GetSurfaceUnvisitedColor();
+    const CColor& outlineVisited = area->IsInDarkWorld()
+                                       ? gpTweakAutoMapper->GetOutlineDarkVisitedColor()
+                                       : gpTweakAutoMapper->GetOutlineVisitedColor();
+    const CColor& outlineUnvisited = area->IsInDarkWorld()
+                                         ? gpTweakAutoMapper->GetOutlineDarkUnvisitedColor()
+                                         : gpTweakAutoMapper->GetOutlineUnvisitedColor();
+    const CColor& surfaceSelectVisited =
+        area->IsInDarkWorld() ? gpTweakAutoMapper->GetSurfaceDarkVisitedSelectColor()
+                              : gpTweakAutoMapper->GetSurfaceVisitedSelectColor();
+    const CColor& surfaceSelectUnvisited =
+        area->IsInDarkWorld() ? gpTweakAutoMapper->GetSurfaceDarkUnvisitedSelectColor()
+                              : gpTweakAutoMapper->GetSurfaceUnvisitedSelectColor();
+    const CColor& outlineSelectVisited =
+        area->IsInDarkWorld() ? gpTweakAutoMapper->GetOutlineDarkVisitedSelectColor()
+                              : gpTweakAutoMapper->GetOutlineVisitedSelectColor();
+    const CColor& outlineSelectUnvisited =
+        area->IsInDarkWorld() ? gpTweakAutoMapper->GetOutlineDarkUnvisitedSelectColor()
+                              : gpTweakAutoMapper->GetOutlineUnvisitedSelectColor();
+    const CColor& surfaceColor = visited ? surfaceVisited : surfaceUnvisited;
+    const CColor& outlineColor = visited ? outlineVisited : outlineUnvisited;
+    const CColor& surfaceSelect = visited ? surfaceSelectVisited : surfaceSelectUnvisited;
+    const CColor& outlineSelect = visited ? outlineSelectVisited : outlineSelectUnvisited;
     CColor hintFlash =
         CColor::Lerp(CColor(0u), CColor(uchar(255), uchar(255), uchar(255), uchar(0)),
                      parms.GetHintAreaFlashIntensity());
@@ -403,18 +416,18 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
         cameraXf.GetQuickInverse() * area->GetAreaPostTransform(parms.GetWorld(), areaIdx);
     int j;
     int count = area->GetNumSurfaces();
-    if (!parms.GetIsSortDoorSurfaces()) {
-      sortInfos.push_back(CMapObjectSortInfo(modelView.GetTranslation().GetY(), areaIdx,
-                                             CMapObjectSortInfo::kOC_Area, 0, finalSurface,
-                                             finalOutline));
-    } else {
+    if (parms.GetIsSortDoorSurfaces()) {
       for (j = 0; j < count; ++j) {
         const CMapArea::CMapAreaSurface& surface = area->GetSurface(j);
         const CVector3f center = surface.GetCenterPosition();
         const CVector3f pos = modelView * center;
-        sortInfos.push_back(CMapObjectSortInfo(pos.GetY(), areaIdx, CMapObjectSortInfo::kOC_Surface,
+        sortInfos.push_back_unsafe(CMapObjectSortInfo(pos.GetY(), areaIdx, CMapObjectSortInfo::kOC_Surface,
                                                j, finalSurface, finalOutline));
       }
+    } else {
+      const float y = modelView.GetTranslation().GetY();
+      sortInfos.push_back_unsafe(CMapObjectSortInfo(y, areaIdx, CMapObjectSortInfo::kOC_Area, 0,
+                                                    finalSurface, finalOutline));
     }
     int surfaceBase = 0;
     for (j = 0; j < area->GetNumMappableObjects(); surfaceBase += 6, ++j) {
@@ -432,9 +445,9 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
           int objectFace, face;
           for (face = 0, objectFace = surfaceBase; face < 6; ++face, ++objectFace) {
             const CVector3f& center = object.BuildSurfaceCenterPoint(face);
-            const CVector3f translated = area->GetMapAdjustment() + center;
+            const CVector3f translated = area->GetAreaPostTranslate(parms.GetWorld()) + center;
             const CVector3f pos = modelView * translated;
-            sortInfos.push_back(CMapObjectSortInfo(pos.GetY(), areaIdx,
+            sortInfos.push_back_unsafe(CMapObjectSortInfo(pos.GetY(), areaIdx,
                                                    CMapObjectSortInfo::kOC_DoorSurface, objectFace,
                                                    CColor(), CColor()));
           }
@@ -442,17 +455,18 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
         continue;
       }
       const CVector3f origin = object.GetTransform().GetTranslation();
-      const CVector3f translated = area->GetMapAdjustment() + origin;
+      const CVector3f translated = area->GetAreaPostTranslate(parms.GetWorld()) + origin;
       const CVector3f pos = modelView * translated;
-      CMapObjectSortInfo::EObjectCode code = CMapObjectSortInfo::kOC_Object;
-      sortInfos.push_back(CMapObjectSortInfo(pos.GetY(), areaIdx, code, j, CColor(), CColor()));
+      CMapObjectSortInfo::EObjectCode code =
+          door ? CMapObjectSortInfo::kOC_Door : CMapObjectSortInfo::kOC_Object;
+      sortInfos.push_back_unsafe(CMapObjectSortInfo(pos.GetY(), areaIdx, code, j, CColor(), CColor()));
     }
   }
 
   const CTransform4f& modelXf = parms.GetPlaneProjectionTransform();
   const CTransform4f& cameraXf = parms.GetCameraTransform();
   float outlineWidth = parms.GetOutlineWidthScale();
-  if (sortInfos.size() > 0) {
+  if (sortInfos.size() != 0) {
     rstl::sort(sortInfos.begin(), sortInfos.end(), CMapObjectSortInfoGreaterThan());
     // Guessed names for the renderer's cached vertex-state modes.
     enum EDrawMode { kDM_Invalid = -1, kDM_Surface = 1, kDM_Door, kDM_DoorSurface, kDM_Object };
@@ -470,8 +484,8 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
       const CColor& surfaceColor = info.GetSurfaceColor();
       const CColor& outlineColor = info.GetOutlineColor();
       CMapArea* area = GetMapArea(areaIdx);
-      const CTransform4f& areaXf = area->GetAreaPostTransform(parms.GetWorld(), areaIdx);
       const float worldAlpha = area->IsInDarkWorld() ? darkWorldBlend : 1.f - darkWorldBlend;
+      const CTransform4f& areaXf = area->GetAreaPostTransform(parms.GetWorld(), areaIdx);
       if (type == CMapObjectSortInfo::kOC_Area) {
         area->Draw(surfaceColor, outlineColor, areaXf, modelXf, selArea, mwInfo, parms.GetAlpha());
       } else if (type == CMapObjectSortInfo::kOC_Surface) {
@@ -496,7 +510,7 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
         const CMappableObject& object = area->GetMappableObject(idx);
         bool needsVertices = lastMode != mode;
         const CTransform4f objXf =
-            CTransform4f::Translate(area->GetMapAdjustment()) * object.GetTransform();
+            CTransform4f::Translate(area->GetAreaPostTranslate(parms.GetWorld())) * object.GetTransform();
         gpRender->SetModelMatrix(
             type == CMapObjectSortInfo::kOC_Door
                 ? modelXf * objXf
@@ -508,7 +522,7 @@ void CMapWorld::DrawAreas(const CMapWorldDrawParms& parms, int selArea,
         lastMode = mode;
       } else if (type == CMapObjectSortInfo::kOC_DoorSurface) {
         const CMappableObject& object = area->GetMappableObject(idx / 6);
-        gpRender->SetModelMatrix(modelXf * CTransform4f::Translate(area->GetMapAdjustment()) *
+        gpRender->SetModelMatrix(modelXf * CTransform4f::Translate(area->GetAreaPostTranslate(parms.GetWorld())) *
                                  object.GetTransform());
         object.DrawDoorSurface(selArea, mwInfo, worldAlpha * parms.GetAlpha(), idx % 6,
                                lastMode != kDM_DoorSurface);

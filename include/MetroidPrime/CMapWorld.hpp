@@ -50,6 +50,14 @@ public:
 
     CMapObjectSortInfo(float zDist, int areaIdx, EObjectCode type, int idx, CColor surfColor,
                        CColor outlineColor);
+    CMapObjectSortInfo& operator=(const CMapObjectSortInfo& other) {
+      mZDist = other.mZDist;
+      mAreaIdx = other.mAreaIdx;
+      mTypeAndIdx = other.mTypeAndIdx;
+      mSurfColor = other.mSurfColor;
+      mOutlineColor = other.mOutlineColor;
+      return *this;
+    }
     float GetZDistance() const { return mZDist; }
     int GetAreaIndex() const { return mAreaIdx; }
     EObjectCode GetObjectCode() const { return EObjectCode(mTypeAndIdx & 0xffff0000); }
