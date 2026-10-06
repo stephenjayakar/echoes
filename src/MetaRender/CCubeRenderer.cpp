@@ -487,8 +487,7 @@ void CCubeRenderer::GenerateSphereRampTex() {
   const int width = 32;
   const float halfRes = (height - 1) / 2.f;
   uchar* data = static_cast< uchar* >(mSphereRamp.Lock());
-  for (int y = 0; y < height; ++y) {
-    const int start = y * width;
+  for (int y = 0, start = 0; y < height; ++y, start += width) {
     for (int x = 0; x < width; ++x) {
       float fx = static_cast< float >(((y % 4) << 3) + (x & 7));
       float fy = static_cast< float >(((y / 4) << 2) + (x >> 3));
