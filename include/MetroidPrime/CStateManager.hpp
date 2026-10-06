@@ -155,6 +155,7 @@ public:
   void SpawnPlayer(CScriptSpawnPoint& spawnPoint, uint playerIndex);
   void CreateStandardGameObjects(); // Prime-correlated name; per-player construction in Echoes.
   void DeleteSaveGameScreen();
+  void CreateSaveGameScreen(); // Guessed name.
   int SpecialSkipCinematic(); // Prime-correlated name; Echoes returns a three-way result.
   bool PrepareAreaTransition(TAreaId area);                      // Guessed name.
   rstl::single_ptr< CPortalTransition >& TakePortalTransition(); // Guessed name.

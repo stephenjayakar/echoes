@@ -178,9 +178,19 @@ enum EScriptObjectState {
   kSS_ScanSource = 0x53434e53,
   // Guessed names; GUI widget/menu states sent by the ScriptGui REL.
   kSS_InternalState02 = 0x49533032,
+  kSS_InternalState07 = 0x49533037,
+  kSS_InternalState08 = 0x49533038,
+  kSS_InternalState09 = 0x49533039,
   kSS_InternalState10 = 0x49533130,
   kSS_InternalState11 = 0x49533131,
   kSS_InternalState12 = 0x49533132,
+  kSS_InternalState13 = 0x49533133,
+  kSS_InternalState14 = 0x49533134,
+  kSS_InternalState15 = 0x49533135,
+  kSS_InternalState16 = 0x49533136,
+  kSS_InternalState17 = 0x49533137,
+  kSS_InternalState18 = 0x49533138,
+  kSS_InternalState19 = 0x49533139,
   kSS_Locked = 0x4c4f434b,
   kSS_Unlocked = 0x554c434b,
   kSS_Frozen = 0x4652455a,
@@ -192,6 +202,12 @@ enum EScriptObjectState {
   kSS_PressY = 0x50525359,
   kSS_PressZ = 0x5052535a,
   kSS_PressStart = 0x50525354,
+  kSS_Left = 0x4c454654,
+  kSS_Right = 0x52474854,
+  kSS_AIS1 = 0x41495331, // Native GUI connection tags; meaning unresolved.
+  kSS_AIS2 = 0x41495332,
+  kSS_AIS3 = 0x41495333,
+  kSS_DGNR = 0x44474e52, // Native save-screen failure tag; meaning unresolved.
   kSS_InvalidState = 0xffffffff,
 };
 
@@ -226,6 +242,18 @@ enum EScriptObjectMessage {
   kSM_InternalMessage00 = 0x494d3030,
   kSM_InternalMessage01 = 0x494d3031,
   kSM_InternalMessage02 = 0x494d3032, // Guessed name; GUI menu item-state refresh.
+  kSM_InternalMessage03 = 0x494d3033, // Guessed name.
+  kSM_InternalMessage04 = 0x494d3034, // Guessed name.
+  kSM_InternalMessage05 = 0x494d3035, // Guessed name.
+  kSM_InternalMessage06 = 0x494d3036, // Guessed name.
+  kSM_InternalMessage07 = 0x494d3037, // Guessed name.
+  kSM_InternalMessage08 = 0x494d3038, // Guessed name.
+  kSM_InternalMessage09 = 0x494d3039, // Guessed name.
+  kSM_InternalMessage10 = 0x494d3130, // Guessed name.
+  kSM_InternalMessage11 = 0x494d3131, // Guessed name.
+  kSM_InternalMessage12 = 0x494d3132, // Guessed name.
+  kSM_InternalMessage13 = 0x494d3133, // Guessed name.
+  kSM_InternalMessage14 = 0x494d3134, // Guessed name.
   kSM_Escape = 0x45534350,            // Guessed name; clears a GUI widget's controllers.
   kSM_Alert = 0x414c5254,             // Guessed name; GUI widget relays it as kSS_Attack.
 
