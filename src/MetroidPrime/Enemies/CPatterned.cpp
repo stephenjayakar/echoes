@@ -9,6 +9,7 @@
 #include "MetroidPrime/ScriptLoader.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
+#include "rstl/math.hpp"
 #include "MetroidPrime/CGenericFSM2State.hpp"
 
 const float CPatterned::skDamageHitTime = 0.33f;
@@ -225,8 +226,11 @@ CVector3f CPatterned::GetGunEyePos() const {
 }
 
 bool CPatterned::ApplyBoneTracking() const {
-  // TODO: Also test the body controller's frozen state and knockback flinch timer.
-  return mAlive;
+  if (mAlive && !GetBodyController()->IsFrozen() &&
+      !(mKnockBackController.GetFlinchRemainingTime() > 0.f)) {
+    return true;
+  }
+  return false;
 }
 
 float CPatterned::GetAnimationDistance(const CPASAnimParmData&) const {
@@ -388,7 +392,7 @@ void CPatterned::Freeze(CStateManager&, const CVector3f&, CUnitVector3f, float, 
 }
 
 float CPatterned::GetDeathTimeScale() const {
-  return CMath::Max(0.1f, mLaggedBurnDeath ? mBurnThinkRateTimer / 1.5f : 1.f);
+  return rstl::max_val(mLaggedBurnDeath ? mBurnThinkRateTimer / 1.5f : 1.f, 0.1f);
 }
 
 void CPatterned::DeathDelete(CStateManager& mgr) {
@@ -429,8 +433,9 @@ void CPatterned::PreRender(CStateManager& mgr) {
 }
 
 bool CPatterned::CanRenderUnsorted(const CStateManager& mgr) const {
-  // TODO: Reject the animation's special sorted-render mode.
-  return CActor::CanRenderUnsorted(mgr);
+  return GetAnimationData()->GetParticleDB().AreAnySystemsDrawnWithModel()
+             ? false
+             : CActor::CanRenderUnsorted(mgr);
 }
 
 void CPatterned::PreRenderAllViewports(CStateManager& mgr) {
@@ -536,8 +541,10 @@ const CDamageVulnerability* CPatterned::GetDamageVulnerability(const CVector3f&,
 }
 
 CScannableObjectInfo* CPatterned::GetScannableObjectInfo() const {
-  return IsIngPossessed() && !mIngScanInfo.null() ? **mIngScanInfo
-                                                  : CActor::GetScannableObjectInfo();
+  if (IsIngPossessed() && !mIngScanInfo.null()) {
+    return **mIngScanInfo;
+  }
+  return CActor::GetScannableObjectInfo();
 }
 
 CEnergyProjectile* CPatterned::LaunchProjectile(const CTransform4f&, CStateManager&, int, uint,
@@ -550,7 +557,9 @@ EWeaponCollisionResponseTypes CPatterned::GetCollisionResponseType(const CVector
                                                                    const CVector3f& direction,
                                                                    const CWeaponMode& mode,
                                                                    int attributes) const {
-  // TODO: Return no response for Dark shots while frozen.
+  if (GetBodyController()->IsFrozen() && mode.GetType() == kWT_Dark) {
+    return kWCR_None;
+  }
   return CAi::GetCollisionResponseType(position, direction, mode, attributes);
 }
 
@@ -580,7 +589,10 @@ int CPatterned::GetNumUserEventsForAnimation(const CPASAnimParmData&, EUserEvent
 }
 
 float CPatterned::GetAverageAttackTime() const {
-  // TODO: Divide by the body's movement/time scale when positive.
+  const float timeScale = GetBodyController()->GetTimeScale();
+  if (timeScale > 0.f) {
+    return mAverageAttackTime / timeScale;
+  }
   return mAverageAttackTime;
 }
 
