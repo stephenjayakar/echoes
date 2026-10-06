@@ -40,12 +40,23 @@ static const char* const skArmJointNames[] = {
     "Arm_8", "Arm_9", "Arm_10", "Arm_11", "Arm_12", "Arm_end",
 };
 
+struct SSphereJointInfo {
+  const char* name;
+  float radius;
+};
+
+static const SSphereJointInfo skSphereJointInfoList[] = {
+    {"Arm_4", 1.5f}, {"Arm_6", 1.f},  {"Arm_7", 1.f},        {"Arm_8", 1.f},
+    {"Arm_9", 1.f},  {"Arm_11", 1.f}, {"swoosh_LCTR", 1.5f},
+};
+
+
 // Guessed name. An unused actor that tests touching actors against spheres around the owning
 // spank weed's arm joints.
 class CSpankWeedCollisionActor : public CActor {
 public:
-  CSpankWeedCollisionActor(TUniqueId uid, TAreaId areaId, const CMaterialList& materials,
-                           TUniqueId owner);
+  CSpankWeedCollisionActor(const TUniqueId uid, const TAreaId areaId, const CMaterialList& materials,
+                           const TUniqueId owner);
 
   // CEntity
   ~CSpankWeedCollisionActor() override;
@@ -65,9 +76,9 @@ private:
 
 CSpankWeedCollisionActor::~CSpankWeedCollisionActor() {}
 
-CSpankWeedCollisionActor::CSpankWeedCollisionActor(TUniqueId uid, TAreaId areaId,
+CSpankWeedCollisionActor::CSpankWeedCollisionActor(const TUniqueId uid, const TAreaId areaId,
                                                    const CMaterialList& materials,
-                                                   TUniqueId owner)
+                                                   const TUniqueId owner)
 : CActor(uid, rstl::string_l("Spank Weed Collision "),
          CEntityInfo(areaId, CEntity::NullConnectionList, true, kInvalidEditorId), 0,
          CTransform4f::Identity(), CModelData::CModelDataNull(), materials, CActorParameters(),
@@ -91,9 +102,13 @@ void CSpankWeedCollisionActor::Touch(CActor& actor, CStateManager& mgr) {
     if (!weed) {
       return;
     }
+    const CTransform4f& xf = weed->GetTransform();
     for (uint i = 0; i < ARRAY_SIZE(skArmJointNames); ++i) {
-      if (CollisionUtil::AABoxSphereIntersection(
-              *touchBounds, CSphere(weed->GetTransform() * mArmPositions[i], 1.f))) {
+      const CVector3f pos = xf * mArmPositions[i];
+      if (CollisionUtil::AABoxSphereIntersection(*touchBounds, CSphere(pos, 1.f))) {
+
+
+
         hit = true;
         break;
       }
@@ -149,9 +164,10 @@ void CSpankWeedCollisionActor::UpdateBounds(CStateManager& mgr) {
         maxZ = pos.GetZ();
       }
     }
-    mTouchBounds = rstl::optional_object< CAABox >(
-        CAABox(minX - halfWidth, minY, minZ - halfDepth, maxX + halfWidth, maxY, maxZ + halfDepth)
-            .GetTransformedAABox(weed->GetTransform()));
+    const CAABox localBounds(minX - halfWidth, minY, minZ - halfDepth, maxX + halfWidth, maxY,
+                             maxZ + halfDepth);
+    mTouchBounds = rstl::optional_object< CAABox >(localBounds.GetTransformedAABox(weed->GetTransform()));
+
   }
 }
 
@@ -182,14 +198,17 @@ CSpankWeed::CSpankWeed(TUniqueId uid, const rstl::string& name, const CEntityInf
 
   const CVector3f modelScale = GetModelData()->GetScale();
   if (modelScale.GetX() != modelScale.GetY() || modelScale.GetX() != modelScale.GetZ()) {
-    const float scale = modelScale.Magnitude() / CMath::SqrtF(3.f);
-    ModelData()->SetScale(CVector3f(scale, scale, scale));
+    const float mag = modelScale.Magnitude();
+    const float scale = mag / CMath::SqrtF(3.f);
+    const CVector3f newScale(scale, scale, scale);
+    ModelData()->SetScale(newScale);
 
     char buf[1024];
     sprintf(buf,
             "WARNING: Non-uniform scale (%.2f, %.2f, %.2f) applied to Spank Weed...changing scale "
             "to (%.2f, %.2f, %.2f)\n",
-            modelScale.GetX(), modelScale.GetY(), modelScale.GetZ(), scale, scale, scale);
+            modelScale.GetX(), modelScale.GetY(), modelScale.GetZ(), newScale.GetX(),
+            newScale.GetY(), newScale.GetZ());
   }
 
   CMaterialList exclude = GetMaterialFilter().GetExcludeList();
@@ -200,8 +219,10 @@ CSpankWeed::CSpankWeed(TUniqueId uid, const rstl::string& name, const CEntityInf
   const CSegId segId = GetAnimationData()->GetLocatorSegId(rstl::string_l("lockon_target_LCTR"));
   if (segId != 0xFF) {
     const CTransform4f locatorXf = GetAnimationData()->GetLocatorTransform(segId, nullptr);
-    const CVector3f scale = GetModelData()->GetScale();
-    const CTransform4f scaledXf = GetTransform() * (CTransform4f::Scale(scale) * locatorXf);
+    const CVector3f& scale = GetModelData()->GetScale();
+
+    const CTransform4f scaledXf
+ = GetTransform() * (CTransform4f::Scale(scale) * locatorXf);
     mLockonTarget = scaledXf.GetTranslation();
     mLockonOffset = scaledXf.GetTranslation() - GetTranslation();
   }
@@ -329,7 +350,7 @@ void CSpankWeed::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     KnockBackController().EnableFreeze(false);
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
-    RemoveMaterial(SolidMaterial, kMT_Scannable, mgr);
+    RemoveMaterial(kMT_Unknown59, kMT_Scannable, mgr);
     RemoveMaterial(kMT_Orbit, kMT_Target, mgr);
     mCollisionMgr->SetActive(mgr, false);
     mIsHiding = true;
@@ -412,7 +433,7 @@ void CSpankWeed::Lurk(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     KnockBackController().EnableFreeze(true);
     BodyController()->SetLocomotionType(pas::kLT_Lurk);
-    RemoveMaterial(SolidMaterial, mgr);
+    RemoveMaterial(kMT_Unknown59, mgr);
     mState = 1;
     break;
   case kStateMsg_Deactivate:
@@ -425,7 +446,7 @@ void CSpankWeed::TargetPatrol(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
   case kStateMsg_Activate:
     BodyController()->SetLocomotionType(pas::kLT_Combat);
-    RemoveMaterial(SolidMaterial, mgr);
+    RemoveMaterial(kMT_Unknown59, mgr);
     mState = 2;
     break;
   case kStateMsg_Deactivate:
@@ -453,13 +474,17 @@ void CSpankWeed::Attack(CStateManager& mgr, EStateMsg msg, float dt) {
 
 bool CSpankWeed::IsPlayerInRange(CStateManager& mgr, float range) const {
   const float rangeSq = range * range;
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
-    const CVector3f& playerPos = mgr.GetPlayer(i)->GetTranslation();
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+    const CVector3f playerPos
+ = mgr.GetPlayer(i)->GetTranslation();
+
     if (mDetectionHeightRange > 0.f &&
-        !(CMath::AbsF(playerPos.GetZ() - GetTranslation().GetZ()) < mDetectionHeightRange)) {
+        CMath::AbsF(playerPos.GetZ() - GetTranslation().GetZ()) >= mDetectionHeightRange) {
+
       continue;
     }
-    const CVector3f delta = playerPos - mLockonTarget;
+    const CVector3f& delta = playerPos - mLockonTarget;
+
     if (delta.MagSquared() < rangeSq) {
       return true;
     }
@@ -564,11 +589,13 @@ void CSpankWeed::Render(const CStateManager& mgr) const {
   const CAnimData* animData = GetModelData()->GetAnimationData();
   if (animData->GetSpatialPrimitive()) {
     const CSpatialPrimitive& primitive = ***animData->GetSpatialPrimitive();
+    const CTransform4f& xf = GetTransform();
     const uint count = primitive.GetBoxes().size();
     for (uint i = 0; i < count; ++i) {
-      const CSpatialPrimitive::SBox& box = primitive.GetBoxes()[i];
-      const CTransform4f locatorXf = GetScaledLocatorTransform(box.mFirstSegment);
-      const COBBox obb(GetTransform() * locatorXf * box.mBox.GetTransform(), box.mBox.GetSize());
+      const CSegId segId = primitive.GetBoxes()[i].mFirstSegment;
+      const COBBox& localObb = primitive.GetBoxes()[i].mBox;
+      const CTransform4f locatorXf = GetScaledLocatorTransform(segId);
+      const COBBox obb(xf * locatorXf * localObb.GetTransform(), localObb.GetSize());
       DrawDebugOBB(obb, 1.f, 1.f, 1.f, 1.f);
     }
   }

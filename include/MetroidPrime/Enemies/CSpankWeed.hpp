@@ -3,11 +3,12 @@
 
 #include "types.h"
 
+#include "MetroidPrime/CCollisionActorManager.hpp"
 #include "MetroidPrime/Enemies/CPatterned.hpp"
 
 #include "rstl/single_ptr.hpp"
 
-class CCollisionActorManager;
+
 
 // Original class name from the Wii SEL exports (TypesMatch__10CSpankWeedCFi). Prime 1 has the
 // same class; the Echoes version builds its arm collision from the model's spatial primitive
