@@ -153,6 +153,8 @@ public:
   void PreventWorldCollisions(float dt, CStateManager& mgr);
   void RestoreSolidCollision(CStateManager& mgr);
   void DisableSolidCollision(CMetroid& target);
+  void ApplyGrowth(float damage, CStateManager& mgr);
+  bool ShouldReleaseFromTarget(CStateManager& mgr);
   void InterpolateToPosRot(CStateManager& mgr, float dt);
   void ComputeSuckTargetPosRot(CStateManager& mgr, CVector3f& pos, CQuaternion& rot) const;
   void ComputeSuckPlayerPosRot(const CPlayer& player, CStateManager& mgr, CVector3f& pos,
@@ -212,7 +214,7 @@ protected:
   bool mShotAt : 1;
   bool xa40_27_ : 1; // Set when leaving the wall-hang state.
   bool xa40_28_ : 1;
-  bool xa40_29_ : 1; // Blocks Ing possession.
+  bool mIsAttacking : 1;
   bool mRestoreSolidCollision : 1;
   bool mRestoreCharacterCollision : 1;
   bool mIsEnergyDrainVulnerable : 1;
