@@ -403,6 +403,21 @@ void CSporbBase::PreRender(CStateManager& mgr) { CPatterned::PreRender(mgr); }
 
 void CSporbBase::PreRenderAllViewports(CStateManager& mgr) {
   CPatterned::PreRenderAllViewports(mgr);
+  if (mState != 6 && mState != 7) {
+    CAABox box = GetOtherBounds();
+    box.AccumulateBounds(x960_);
+    if (!mTendrilGen.null()) {
+      const rstl::optional_object< CAABox > tendrilBounds = mTendrilGen->GetBounds();
+      if (tendrilBounds) {
+        const CAABox tendrilBox = *tendrilBounds;
+        if (!tendrilBox.Invalid()) {
+          box.Include(tendrilBox);
+        }
+      }
+    }
+    SetOtherBounds(box);
+    SetRenderBounds(box);
+  }
 }
 
 void CSporbBase::AddToRenderer(const CStateManager& mgr) const {
@@ -839,13 +854,38 @@ bool CSporbBase::AttackOver(CStateManager&, const CTriggerData&) const {
 
 bool CSporbBase::SpitOver(CStateManager&, const CTriggerData&) const { return true; }
 
-void CSporbBase::SelectTarget(CStateManager& mgr) {}
+void CSporbBase::SelectTarget(CStateManager& mgr) {
+  x800_ = kInvalidUniqueId;
+  float bestScore = 3.4028235e38f;
+  const CVector3f forward = GetTransform().GetForward();
+  const float angleWeight = (mMaxAttackRange * mMaxAttackRange) / M_PIF;
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+    CPlayer* player = mgr.Player(i);
+    if (IsInRange(*player, mMaxAttackRange) && !IsInRange(*player, mMinAttackRange)) {
+      const CVector3f delta = player->GetTranslation() - GetTranslation();
+      const float angle = CVector3f::GetAngleDiff(delta, forward);
+      const float score = angle * angleWeight + delta.MagSquared();
+      if (score < bestScore) {
+        bestScore = score;
+        x800_ = player->GetUniqueId();
+      }
+    }
+  }
+}
 
 bool CSporbBase::IsInRange(const CActor& actor, float range) const {
   return (actor.GetTranslation() - GetTranslation()).MagSquared() < range * range;
 }
 
-float CSporbBase::GetAimAngle(CStateManager& mgr) const { return 0.f; }
+float CSporbBase::GetAimAngle(CStateManager& mgr) const {
+  const CTransform4f& xf = GetTransform();
+  const CTransform4f locatorXf = GetScaledLocatorTransform(rstl::string_l(skTopAttachLocator));
+  const CVector3f up = xf.GetUp();
+  const CVector3f locatorPos = xf * locatorXf.GetTranslation();
+  const CVector3f delta = x914_ - locatorPos;
+  const CVector3f dir = delta.AsNormalized();
+  return CVector3f::GetAngleDiff(up, dir);
+}
 
 void CSporbBase::UpdateAttack(CStateManager& mgr, float dt) {
   switch (x90c_) {
@@ -860,7 +900,23 @@ void CSporbBase::UpdateAttack(CStateManager& mgr, float dt) {
 
 void CSporbBase::UpdateGrabber(CStateManager& mgr, float dt) {}
 
-void CSporbBase::AttachPlayer(CStateManager& mgr) {}
+void CSporbBase::AttachPlayer(CStateManager& mgr) {
+  if (mProjectileId != kInvalidUniqueId) {
+    if (CSporbProjectile* projectile =
+            TCastToPtr< CSporbProjectile >(mgr.ObjectById(mProjectileId))) {
+      CPlayer* player = mgr.Player(0);
+      const CVector3f playerPos = player->GetTranslation();
+      const CVector3f aimPos = player->GetAimPosition(mgr, 0.f);
+      const CTransform4f projectileXf = projectile->GetTransform();
+      const CVector3f attachPos =
+          projectile->GetScaledLocatorTransform(rstl::string_l("ball_attach_LCTR"))
+              .GetTranslation();
+      const CVector3f offset = aimPos - playerPos;
+      const CVector3f worldAttach = projectileXf * attachPos;
+      player->SetTranslation(worldAttach - offset);
+    }
+  }
+}
 
 CVector3f CSporbBase::GetTopAttachPosition() const {
   const CTransform4f xf =
@@ -871,9 +927,43 @@ CVector3f CSporbBase::GetTopAttachPosition() const {
 
 void CSporbBase::UpdateFiring(CStateManager& mgr, float dt) {}
 
-void CSporbBase::ResetAttackTimers(CStateManager& mgr) {}
+void CSporbBase::ResetAttackTimers(CStateManager& mgr) {
+  mMinTimeBetweenAttacks2 =
+      xa0c_ * (mMinTimeBetweenAttacks +
+               (mMaxTimeBetweenAttacks - mMinTimeBetweenAttacks) * mgr.Random()->Float());
+  mMinTimeBetweenShots2 =
+      xa0c_ *
+      (mMinTimeBetweenShots + (mMaxTimeBetweenShots - mMinTimeBetweenShots) * mgr.Random()->Float());
+  const float extraShots = (mMaxShotsInABurst - mMinShotsInABurst) * mgr.Random()->Float();
+  mMinShotsInABurst2 = mMinShotsInABurst + static_cast< uchar >(extraShots);
+  mMaxTimeBetweenShots2 = mMinTimeBetweenShots2;
+  x886_ = 0;
+  x887_ = 0;
+  x888_ = false;
+  if (CSporbTop* top = TCastToPtr< CSporbTop >(mgr.ObjectById(mTopId))) {
+    top->OnBaseEvent(mgr, false);
+  }
+  x88a_ = false;
+  x85c_ = 0.f;
+  x88c_ = true;
+  x88b_ = true;
+  x88d_ = false;
+  x860_ = 0.f;
+  x8cc_ = 0.f;
+  x8d4_ = 0.f;
+  mInitialGrabberInSpeed = x8e0_;
+  mInitialGrabberOutSpeed = x8dc_;
+  xa74_25_ = false;
+}
 
-CVector3f CSporbBase::GetTopLaunchPosition(CStateManager& mgr) const { return GetTranslation(); }
+CVector3f CSporbBase::GetTopLaunchPosition(CStateManager& mgr) const {
+  if (const CSporbTop* top = TCastToConstPtr< CSporbTop >(mgr.GetObjectById(mTopId))) {
+    const CVector3f pos = top->GetTransform().GetTranslation();
+    const CTransform4f locatorXf = top->GetScaledLocatorTransform(CSegId(1));
+    return pos + top->GetTransform().Rotate(locatorXf.GetTranslation());
+  }
+  return GetTranslation();
+}
 
 void CSporbBase::UpdateAimBlend(CStateManager& mgr) {}
 
@@ -900,7 +990,28 @@ void CSporbBase::ReleaseGrabber(CStateManager& mgr, const CVector3f& pos) {
   x88e_ = false;
 }
 
-CVector3f CSporbBase::GetSpitTarget(CStateManager& mgr) const { return x914_; }
+CVector3f CSporbBase::GetSpitTarget(CStateManager& mgr) const {
+  const uint count = x9e0_.size();
+  rstl::vector< TUniqueId > activeIds;
+  activeIds.reserve(count);
+  for (uint i = 0; i < count; ++i) {
+    const CEntity* ent = mgr.GetObjectById(x9e0_[i]);
+    if (ent != nullptr && ent->GetActive()) {
+      activeIds.push_back_unsafe(x9e0_[i]);
+    }
+  }
+  const uint activeCount = activeIds.size();
+  if (activeCount != 0) {
+    int idx = 0;
+    if (activeCount > 1) {
+      idx = mgr.Random()->Next() % activeCount;
+    }
+    if (const CActor* act = static_cast< const CActor* >(mgr.GetObjectById(activeIds[idx]))) {
+      return act->GetTranslation();
+    }
+  }
+  return x914_;
+}
 
 void CSporbBase::SpitBall(CStateManager& mgr, float force) {}
 
@@ -927,7 +1038,21 @@ CVector3f CSporbBase::GetAimDirection(float a, float b, float c, float d) {
   return CVector3f(d - c, a - b, 0.f).AsNormalized();
 }
 
-CVector3f CSporbBase::GetGrabberAimOffset(CStateManager& mgr) const { return CVector3f::Zero(); }
+CVector3f CSporbBase::GetGrabberAimOffset(CStateManager& mgr) {
+  if (mTopId != kInvalidUniqueId) {
+    if (const CSporbTop* top = TCastToConstPtr< CSporbTop >(mgr.GetObjectById(mTopId))) {
+      if (top->GetAlive()) {
+        const CVector3f aimDir = GetAimDirection(x7ec_, x7f0_, x7f4_, x7f8_);
+        const CVector3f forward(x950_.GetX(), x950_.GetY(), 0.f);
+        const CQuaternion rot = CQuaternion::LookAt(CUnitVector3f(forward), CUnitVector3f(aimDir),
+                                                    CRelAngle::FromRadians(6.2831855f));
+        const CVector3f delta = top->mOrbitPosition - GetTranslation();
+        return rot.BuildTransform() * delta + GetTranslation();
+      }
+    }
+  }
+  return CVector3f::Zero();
+}
 
 CSporbPowerBomb* CSporbBase::CreatePowerBomb(CStateManager& mgr,
                                              const TToken< CWeaponDescription >& desc,
@@ -980,11 +1105,37 @@ CVector3f CSporbBase::GetScanObjectIndicatorPosition(const CStateManager& mgr) c
 
 CAABox CSporbBase::GetScanVisorRenderBounds(const CStateManager& mgr) const {
   CAABox box = GetModelBounds();
+  if (mState != 7 && mState != 0) {
+    const CTransform4f locatorXf = GetScaledLocatorTransform(rstl::string_l(skTopAttachLocator));
+    const CTransform4f topXf =
+        CTransform4f::Translate(-GetTranslation()) * GetTransform() * locatorXf;
+    if (const CSporbTop* top = TCastToConstPtr< CSporbTop >(mgr.GetObjectById(mTopId))) {
+      const CAABox topBox = top->GetModelBounds();
+      box.Include(
+          topBox.GetTransformedAABox(CTransform4f::Translate(topXf.GetTranslation())));
+    }
+  }
   return box;
 }
 
 void CSporbBase::ScanVisorRender(const CStateManager& mgr, const CTransform4f& xf,
-                                 const CModelFlags& flags) const {}
+                                 const CModelFlags& flags) const {
+  CSporbBase* self = const_cast< CSporbBase* >(this);
+  const CTransform4f oldXf = GetTransform();
+  const CModelFlags oldFlags = GetModelFlags();
+  self->SetTransformRaw(xf);
+  self->SetModelFlags(flags);
+  const TUniqueId scanningId = mgr.GetPlayer(0)->GetScanningObject();
+  CPatterned::Render(mgr);
+  self->SetTransformRaw(oldXf);
+  self->SetModelFlags(oldFlags);
+  if (scanningId == GetUniqueId() && mState != 7 && mState != 0) {
+    const CTransform4f topXf = xf * GetScaledLocatorTransform(rstl::string_l(skTopAttachLocator));
+    if (const CSporbTop* top = TCastToConstPtr< CSporbTop >(mgr.GetObjectById(mTopId))) {
+      top->ScanVisorRender(mgr, topXf, flags);
+    }
+  }
+}
 
 CAABox CSporbBase::GetModelBounds() const {
   CAABox box = CAABox::MakeMaxInvertedBox();
@@ -994,13 +1145,70 @@ CAABox CSporbBase::GetModelBounds() const {
   return box;
 }
 
-void CSporbBase::ResetTendrilParticles() {}
+void CSporbBase::ResetTendrilParticles() {
+  if (!mTendrilGen.null()) {
+    const CVector3f pos = GetTranslation();
+    const uint count = mTendrilGen->GetParticleCount();
+    for (uint i = 0; i < count; ++i) {
+      CElementGen::CParticle& particle = mTendrilGen->mParticles[i];
+      particle.mPos = pos;
+      particle.mPrevPos = pos;
+    }
+  }
+}
 
 void CSporbBase::Think(float dt, CStateManager& mgr) { CPatterned::Think(dt, mgr); }
 
 
 CEntity* REL_LoadSporbBase(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
-  return nullptr;
+  SLdrSporbBase sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrSporbBase.inc"
+
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+  CSporbBase::StageList stages;
+  if (sldrThis.isPowerBombGuardian) {
+    stages.reserve(4);
+    stages.push_back_unsafe(rs_new CPowerBombGuardianStageData(
+        LdrToPowerBombGuardianStageData(sldrThis.stage1Data)));
+    stages.push_back_unsafe(rs_new CPowerBombGuardianStageData(
+        LdrToPowerBombGuardianStageData(sldrThis.stage2Data)));
+    stages.push_back_unsafe(rs_new CPowerBombGuardianStageData(
+        LdrToPowerBombGuardianStageData(sldrThis.stage3Data)));
+    stages.push_back_unsafe(rs_new CPowerBombGuardianStageData(
+        LdrToPowerBombGuardianStageData(sldrThis.stage4Data)));
+  }
+  return rs_new CSporbBase(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties),
+      LdrToTransform4f(sldrThis.editorProperties), *modelData,
+      LdrToPatternedInfo(sldrThis.patterned, nullptr),
+      LdrToActorParameters(sldrThis.actorInformation), sldrThis.minTimeBetweenAttacks,
+      sldrThis.maxTimeBetweenAttacks, sldrThis.minTimeBetweenShots, sldrThis.maxTimeBetweenShots,
+      static_cast< uchar >(sldrThis.minShotsInABurst), static_cast< uchar >(sldrThis.maxShotsInABurst),
+      sldrThis.shotAngleVariance,
+      sldrThis.attackAimOffset, sldrThis.grabberOutAcceleration, sldrThis.grabberInAcceleration,
+      sldrThis.initialGrabberOutSpeed, sldrThis.initialGrabberInSpeed,
+      sldrThis.grabberAttachTime, sldrThis.minGrabberGrabTime, sldrThis.maxGrabberGrabTime,
+      sldrThis.spitForce, sldrThis.tendrilParticleEffect, sldrThis.grabberFireSound,
+      sldrThis.grabberFlightSound, sldrThis.grabberHitPlayerSound, sldrThis.grabberHitWorldSound,
+      sldrThis.grabberRetractSound, sldrThis.grabberRetractMissedPlayerSound,
+      sldrThis.morphballSpitSound, sldrThis.grabberExplosionSound, sldrThis.ballEscapeSound,
+      sldrThis.needleTelegraphSound, sldrThis.grabberTelegraphSound, sldrThis.spitDamage,
+      sldrThis.grabDamage, sldrThis.unknown_0x2cfade2c, sldrThis.maxGrabberGrabRange,
+      sldrThis.minGrabberGrabRange, sldrThis.isPowerBombGuardian,
+      sldrThis.powerBombProjectileParticleEffect,
+      LdrToDamageInfo(sldrThis.powerBombProjectileDamage),
+      sldrThis.maxPowerBombProjectileHeight, sldrThis.powerBombProjectileFuseTime,
+      sldrThis.powerBombProjectileSound, sldrThis.unknown_0x48df4182,
+      sldrThis.unknown_0xe39482ad, sldrThis.powerBombProjectileStartDamageTime,
+      sldrThis.powerBombProjectileEndDamageTime, stages, sldrThis.unknown_0xdd8502cc,
+      sldrThis.unknown_0x4ab8cf7d, sldrThis.unknown_0xf5e28404,
+      sldrThis.powerBombProjectileDamageWaitTime);
 }
 
 static SSporb_FuncPtrs sSporbFuncPtrs; // Guessed name.

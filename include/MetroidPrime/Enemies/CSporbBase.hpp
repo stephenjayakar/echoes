@@ -140,8 +140,8 @@ private:
   CVector3f PredictBallPosition(CStateManager& mgr, const CVector3f& from, float maxHeight) const;
   CSporbPowerBomb* CreatePowerBomb(CStateManager& mgr, const TToken< CWeaponDescription >& desc,
                                    const CTransform4f& xf, const CDamageInfo& damage);
-  CVector3f GetGrabberAimOffset(CStateManager& mgr) const;
-  static CVector3f GetAimDirection(float a, float b, float c, float d);
+  CVector3f GetGrabberAimOffset(CStateManager& mgr);
+  CVector3f GetAimDirection(float a, float b, float c, float d);
   void ResetTendril();
   CVector3f GetPowerBombTarget(CStateManager& mgr, bool) const;
   void SpitBall(CStateManager& mgr, float force);
