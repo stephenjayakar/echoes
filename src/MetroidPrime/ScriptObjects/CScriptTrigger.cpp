@@ -211,10 +211,11 @@ rstl::optional_object< CAABox > CScriptTrigger::GetTouchBounds() const {
 }
 
 void CScriptTrigger::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  if (msg.GetMessage() == kSM_AreaLoaded) {
+  const EScriptObjectMessage message = msg.GetMessage();
+  if (message == kSM_AreaLoaded) {
     mAttachedTrigger = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
   }
-  if (GetActive() && (msg.GetMessage() == kSM_Deactivate || msg.GetMessage() == kSM_Delete)) {
+  if (GetActive() && (message == kSM_Deactivate || message == kSM_Delete)) {
     ClearInhabitants(mgr);
     for (int i = 0; i < 4; ++i) {
       SetPlayerInside(mgr, false, i);
@@ -237,7 +238,7 @@ bool CScriptTrigger::BoundsOverlap(const CAABox& bounds) const {
 void CScriptTrigger::ClearInhabitants(CStateManager& mgr) {
   for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
        ++it) {
-    int playerIndex = -1;
+    int playerIndex = kInvalidPlayerIndex;
     for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       if (mgr.GetPlayer(i)->GetUniqueId() == it->GetObjectId()) {
         playerIndex = i;
@@ -245,7 +246,7 @@ void CScriptTrigger::ClearInhabitants(CStateManager& mgr) {
       }
     }
     if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(it->GetObjectId()))) {
-      if (playerIndex != -1) {
+      if (playerIndex != kInvalidPlayerIndex) {
         SetPlayerInside(mgr, false, playerIndex);
       }
       NotifyInhabitantExited(*actor, mgr);

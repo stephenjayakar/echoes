@@ -27,7 +27,7 @@ public:
   class CObjectTracker {
   public:
     CObjectTracker(TUniqueId id, TUniqueId triggerId);
-    TUniqueId GetObjectId() const { return mId; }
+    const TUniqueId& GetObjectId() const { return mId; }
     void SetObjectId(TUniqueId id) { mId = id; }
     const rstl::list< TUniqueId >& GetTriggers() const { return mTriggers; }
     rstl::list< TUniqueId >& Triggers() { return mTriggers; }
