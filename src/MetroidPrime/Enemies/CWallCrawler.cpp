@@ -92,20 +92,13 @@ CVector3f CWallCrawler::ProjectVectorToPlane(const CVector3f& vec, const CVector
   return vec - CVector3f::Dot(vec, planeDir) * planeDir;
 }
 
-static CVector3f CrossProduct(const CVector3f& lhs, const CVector3f& rhs) {
-  const float x = (lhs.GetY() * rhs.GetZ()) - (rhs.GetY() * lhs.GetZ());
-  const float y = (lhs.GetZ() * rhs.GetX()) - (rhs.GetZ() * lhs.GetX());
-  const float z = (lhs.GetX() * rhs.GetY()) - (rhs.GetX() * lhs.GetY());
-  return CVector3f(x, y, z);
-}
-
 static bool PointOnSurface(const CCollisionSurface& surface, const CVector3f& point) {
   const CVector3f projected = ProjectPointToPlane(point, surface.GetVert(0), surface.GetNormal());
   const CVector3f normal = surface.GetNormal();
   for (int i = 0; i < 3; ++i) {
     const CVector3f edge = surface.GetVert((i + 2) % 3) - surface.GetVert(i);
     const CVector3f delta = projected - surface.GetVert(i);
-    const CVector3f cross = CrossProduct(delta, edge);
+    const CVector3f cross = CVector3f::Cross(delta, edge);
     if (CVector3f::Dot(normal, cross) < 0.f) {
       return false;
     }
