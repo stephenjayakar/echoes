@@ -347,12 +347,13 @@ void CScriptFrontEndDataNetwork::BuildNetwork(CStateManager& mgr) {
   mNodes.push_back_unsafe(SDataNetworkNode(GetUniqueId(), 0, -1, false, false));
   for (int i = 0; i < mNodes.size(); ++i) {
     rstl::vector< TUniqueId > ids(
-        mgr.GetObjectById(mNodes[i].mId)->FindConnectedObjects(mgr, kSS_Connect, kSM_Attach));
+        mgr.GetObjectById(mNodes[i].GetId())->FindConnectedObjects(mgr, kSS_Connect, kSM_Attach));
     for (rstl::vector< TUniqueId >::iterator it = ids.begin(); it != ids.end(); ++it) {
       if (CScriptFrontEndDataNetwork* net =
               TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(*it))) {
         net->SetRootId(GetUniqueId());
-        mNodes[i].AddChild(AddNode(mgr, *it, i));
+        const int child = AddNode(mgr, *it, i);
+        mNodes[i].AddChild(child);
       }
     }
   }
@@ -360,16 +361,17 @@ void CScriptFrontEndDataNetwork::BuildNetwork(CStateManager& mgr) {
 }
 
 int CScriptFrontEndDataNetwork::AddNode(CStateManager& mgr, TUniqueId id, int parent) {
-  const CScriptFrontEndDataNetwork* net;
   const int count = mNodes.size();
   for (int i = 0; i < count; ++i) {
     if (id == mNodes[i].mId) {
       return i;
     }
   }
-  net = TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(id));
-  mNodes.push_back_unsafe(SDataNetworkNode(id, count, parent, net->mIsProxy,
-                                           mNodes[parent].GetConstNetwork(mgr)->mIsProxy));
+  const CScriptFrontEndDataNetwork* net =
+      TCastToConstPtr< CScriptFrontEndDataNetwork >(mgr.GetObjectById(id));
+  const bool parentIsProxy = mNodes[parent].GetConstNetwork(mgr)->mIsProxy;
+  const bool isProxy = net->mIsProxy;
+  mNodes.push_back_unsafe(SDataNetworkNode(id, count, parent, isProxy, parentIsProxy));
   return count;
 }
 
