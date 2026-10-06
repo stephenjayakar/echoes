@@ -703,11 +703,13 @@ CSamusHud::CSamusHud(const CStateManager& mgr, CGuiFrameLoader& hud, CGuiFrameLo
 }
 
 void CSamusHud::RefreshBeamMenu(const CStateManager& mgr, int playerIndex) {
-  CSamusHud* hud = gpSamusHud[playerIndex];
-  if (hud != nullptr) {
-    const rstl::reserved_vector< bool, 4 > enables = hud->BuildPlayerHasBeams(mgr);
-    if (!hud->mBeamMenu.null()) {
-      hud->mBeamMenu->SetPlayerHas(enables, mgr.GetPlayerState(playerIndex)->GetCurrentBeam());
+  if (gpSamusHud[playerIndex] != nullptr) {
+    const rstl::reserved_vector< bool, 4 > enables =
+        gpSamusHud[playerIndex]->BuildPlayerHasBeams(mgr);
+    CHudVisorBeamMenu* menu = gpSamusHud[playerIndex]->mBeamMenu.get();
+    const CPlayerState::EBeamId beam = mgr.GetPlayerState(playerIndex)->GetCurrentBeam();
+    if (menu != nullptr) {
+      menu->SetPlayerHas(enables, beam);
     }
   }
 }

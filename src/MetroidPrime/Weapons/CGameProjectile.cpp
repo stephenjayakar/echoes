@@ -94,7 +94,7 @@ void CGameProjectile::Render(const CStateManager& mgr) const {
 }
 
 CAABox CGameProjectile::GetProjectileBounds() const {
-  const CVector3f& position = GetTranslation();
+  const CVector3f position = GetTranslation();
   return CAABox(rstl::min_val(mPreviousPos.GetX(), position.GetX()) - mProjExtent,
                 rstl::min_val(mPreviousPos.GetY(), position.GetY()) - mProjExtent,
                 rstl::min_val(mPreviousPos.GetZ(), position.GetZ()) - mProjExtent,
