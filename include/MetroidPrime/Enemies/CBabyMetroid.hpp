@@ -49,8 +49,8 @@ public:
   void SetEnergySourceDest(CStateManager& mgr, float dt);
 
   void ApplyContactDamage(CStateManager& mgr, CActor& target,
-                          const CDamageInfo& info); // Guessed name.
-  void TryJoinHive(CStateManager& mgr);             // Guessed name.
+                          const CDamageInfo& info);               // Guessed name.
+  void TryJoinHive(CStateManager& mgr);                           // Guessed name.
   CVector3f FindAIHintPosition(CStateManager& mgr, int hintType); // Guessed name.
 
 private:

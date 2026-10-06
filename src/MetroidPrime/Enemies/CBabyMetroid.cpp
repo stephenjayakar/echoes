@@ -1,17 +1,19 @@
 #include "MetroidPrime/Enemies/CBabyMetroid.hpp"
 
 #include "Kyoto/CSimplePool.hpp"
+#include "Kyoto/Graphics/CColor.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
 #include "Kyoto/SObjectTag.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
+#include "MetroidPrime/CExplosion.hpp"
 #include "MetroidPrime/CModelData.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
-#include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptAIHint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptActor.hpp"
-#include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCounter.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptEffect.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptTeamAiMgr.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
@@ -340,6 +342,52 @@ void CBabyMetroid::AbsorbEnergy(CStateManager& mgr, EStateMsg msg, float dt) {
     const float scale = mInitialScale * (1.f - t) + mBabyMetroidScale * t;
     ModelData()->SetScale(CVector3f(scale, scale, scale));
     break;
+  case kStateMsg_Deactivate:
+    break;
   }
+  }
+}
+
+void CBabyMetroid::ExitHive(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate: {
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::EGenerateType(9), -1));
+    TryJoinHive(mgr);
+    break;
+  }
+  case kStateMsg_Update:
+    if (mAnimationState.CanIssueCommand(*BodyController(), pas::kAS_Generate)) {
+      BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::EGenerateType(9), -1));
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CBabyMetroid::TransformIntoMetroid(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    SendScriptMsgs(kSS_MaxReached, mgr, GetUniqueId(), kSM_None);
+    if (mTransformationParticle) {
+      CExplosion* explosion = rs_new CExplosion(
+          *mTransformationParticle, mgr.AllocateUniqueId(),
+          CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true, kInvalidEditorId),
+          rstl::string_l("Baby Metroid Transformation"), GetTransform(), 0,
+          GetModelData()->GetScale(), CColor::White(), -1);
+      mgr.AddObject(explosion);
+    }
+    if (CScriptEffect* effect = TCastToPtr< CScriptEffect >(mgr.ObjectById(xa68_))) {
+      effect->SetTransform(GetTransform());
+    case kStateMsg_Deactivate:
+      break;
+    }
+    break;
+  case kStateMsg_Update:
+    StopLoopedSounds();
+    mgr.DeleteObjectRequest(GetUniqueId());
+    break;
   }
 }
