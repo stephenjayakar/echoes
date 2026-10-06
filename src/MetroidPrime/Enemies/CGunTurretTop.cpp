@@ -212,10 +212,7 @@ void CGunTurretTop::PowerUp(CStateManager& mgr, EStateMsg msg, float dt) {
   case kStateMsg_Activate:
     mState = kS_PowerUp;
     mStateTime = 0.f;
-    const int sfx = mPowerUpSfx;
-    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f,
-                      20, 127, GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
+    PlayLoopedSfx(mPowerUpSfx, mgr);
     break;
   case kStateMsg_Update: {
     mStateTime += dt;
@@ -234,9 +231,7 @@ void CGunTurretTop::PowerDown(CStateManager& mgr, EStateMsg msg, float dt) {
     mState = kS_PowerDown;
     mStateTime = 0.f;
     StopLoopedSounds();
-    ProcessSoundEvent(mPowerDownSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f,
-                      20, 127, GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
+    PlaySfx(mPowerDownSfx, mgr);
     break;
   case kStateMsg_Update: {
     mStateTime += dt;

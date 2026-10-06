@@ -443,10 +443,7 @@ void CGunTurretBase::IntoPan(CStateManager& mgr, EStateMsg msg, float dt) {
     BodyController()->CommandMgr().DeliverCmd(CBCGenerateCmd(pas::kGType_Two, -1));
     mState = kS_IntoPan;
     if (!mGunDestroyed) {
-      const int sfx = mGunPanSfx;
-      ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                        mgr.GetNextAreaId().Value(), mgr, true);
+      PlayLoopedSfx(mGunPanSfx, mgr);
     }
     break;
   case kStateMsg_Update:
@@ -510,15 +507,10 @@ void CGunTurretBase::Withdraw(CStateManager& mgr, EStateMsg msg, float dt) {
     mGunHit = false;
     StopLoopedSounds();
     mState = kS_Withdraw;
-    ushort sfx;
-    if (mGunDestroyed) {
-      sfx = mIsPirateTurret ? mPirateGunDeathLowerLoopedSfx : mGFGunDeathLowerLoopedSfx;
-    } else {
-      sfx = mGunLowerLoopedSfx;
-    }
-    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
+    PlayLoopedSfx(mGunDestroyed ? (mIsPirateTurret ? mPirateGunDeathLowerLoopedSfx
+                                                   : mGFGunDeathLowerLoopedSfx)
+                                : mGunLowerLoopedSfx,
+                  mgr);
     break;
   }
   case kStateMsg_Update:
@@ -537,9 +529,7 @@ void CGunTurretBase::Withdraw(CStateManager& mgr, EStateMsg msg, float dt) {
     }
     StopLoopedSounds();
     if (!mGunDestroyed) {
-      ProcessSoundEvent(mGunLowerOffSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                        mgr.GetNextAreaId().Value(), mgr, true);
+      PlaySfx(mGunLowerOffSfx, mgr);
     }
     if (mGunDestroyed) {
       AnimationData()->SetEffectState(rstl::string_l("sparks"), false, mgr);
@@ -559,19 +549,14 @@ void CGunTurretBase::Spawn(CStateManager& mgr, EStateMsg msg, float dt) {
       top->AddMaterial(kMT_Unknown59, mgr);
       top->AddMaterial(kMT_RadarObject, mgr);
     }
-    const int sfx = mGunRaiseLoopedSfx;
-    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
+    PlayLoopedSfx(mGunRaiseLoopedSfx, mgr);
     break;
   case kStateMsg_Update:
     RaiseGun(dt);
     break;
   case kStateMsg_Deactivate:
     StopLoopedSounds();
-    ProcessSoundEvent(mGunRaiseOffSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                      mgr.GetNextAreaId().Value(), mgr, true);
+    PlaySfx(mGunRaiseOffSfx, mgr);
     break;
   }
 }
@@ -732,9 +717,7 @@ void CGunTurretBase::Think(float dt, CStateManager& mgr) {
     CActor* target = FindTarget(mgr);
     const CPhysicsActor* current = TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(mHitTarget));
     if (target && target != current && (mState == kS_Patrol || mState == kS_Attack)) {
-      ProcessSoundEvent(mLockOnSfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                        GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                        mgr.GetNextAreaId().Value(), mgr, true);
+      PlaySfx(mLockOnSfx, mgr);
     }
     if (target) {
       mHitTarget = target->GetUniqueId();
@@ -761,10 +744,7 @@ void CGunTurretBase::DestroyGun(CStateManager& mgr) {
   mGunDestroyed = true;
   mGunHit = false;
   AnimationData()->SetEffectState(rstl::string_l("sparks"), true, mgr);
-  const int sfx = mPoleSparksSfx;
-  ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
-                    GetClosestCameraDistanceSq(mgr), GetTranslation(),
-                    mgr.GetNextAreaId().Value(), mgr, true);
+  PlayLoopedSfx(mPoleSparksSfx, mgr);
   ResetAttack(mgr);
   CSfxManager::RemoveEmitter(mChargeSfx);
 }

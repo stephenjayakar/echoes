@@ -71,6 +71,16 @@ public:
   CAABox GetModelBounds() const;
 
 private:
+  void PlaySfx(const ushort& sfx, CStateManager& mgr) {
+    ProcessSoundEvent(sfx, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20, 127,
+                      GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
+  }
+  void PlayLoopedSfx(ushort sfx, CStateManager& mgr) {
+    ProcessSoundEvent(sfx | 0x80000000, 1.f, 0, mSfxFallOff, mSfxMaxDistance, CSegId(0), 0, 0, 0.f, 20,
+                      127, GetClosestCameraDistanceSq(mgr), GetTranslation(),
+                      mgr.GetNextAreaId().Value(), mgr, true);
+  }
   float GetClosestCameraDistanceSq(CStateManager& mgr) const;
 
   TUniqueId mBaseId;
