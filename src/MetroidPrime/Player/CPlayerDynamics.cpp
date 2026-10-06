@@ -1302,7 +1302,7 @@ void CPlayer::PrepareToEnterMorphBallState(float dt, CStateManager& mgr) {
     ballCamera->TeleportCamera(xf, mgr);
     ballCamera->ResetToTweaks(mgr);
     mCameraManager->SetPlayerCamera(mgr, ballCamera->GetUniqueId());
-    mCameraManager->SetCurrentCameraId(ballCamera->GetUniqueId());
+    mCameraManager->SetCurrentCameraId(ballCamera->GetUniqueId(), mgr);
   }
 }
 

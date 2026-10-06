@@ -275,7 +275,7 @@ void CScriptTrigger::NotifyInhabitantIdle(CActor& actor, CStateManager& mgr) {
   }
 }
 
-void CScriptTrigger::UpdateCameraInhabitant(TUniqueId id, CStateManager& mgr) {
+void CScriptTrigger::UpdateCameraInhabitant(const TUniqueId& id, CStateManager& mgr) {
   CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(id));
   if (!camera || !(mFlags & kTFL_DetectCamera)) {
     return;

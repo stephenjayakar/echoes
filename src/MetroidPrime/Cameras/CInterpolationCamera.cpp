@@ -240,7 +240,7 @@ void CInterpolationCamera::EndInterpolation(EEndReason reason, CStateManager& mg
     if (reason == kER_Completed) {
       cameraManager.TransferCameraState(*this, *target, mgr);
     }
-    cameraManager.SetCurrentCameraId(mTargetId);
+    cameraManager.SetCurrentCameraId(mTargetId, mgr);
   } else {
     const CPlayer::EPlayerMorphBallState state = GetPlayer(mgr).GetMorphballTransitionState();
     if (state == CPlayer::kMS_Unmorphed || state == CPlayer::kMS_Unmorphing) {
@@ -248,7 +248,7 @@ void CInterpolationCamera::EndInterpolation(EEndReason reason, CStateManager& mg
       if (reason == kER_Completed) {
         cameraManager.TransferCameraState(*this, *camera, mgr);
       }
-      cameraManager.SetCurrentCameraId(camera->GetUniqueId());
+      cameraManager.SetCurrentCameraId(camera->GetUniqueId(), mgr);
     } else {
       const CBallCamera* camera = cameraManager.GetBallCamera();
       cameraManager.SetupInterpolation(GetTransform(), GetUniqueId(), camera->GetUniqueId(), false,

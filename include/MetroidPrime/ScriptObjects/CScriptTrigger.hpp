@@ -68,7 +68,7 @@ public:
   bool HasInhabitant(TUniqueId id) const; // Guessed name
   void UpdateInhabitants(float dt, CStateManager& mgr);
   void SetPlayerInside(CStateManager& mgr, bool inside, int playerIndex); // Guessed name
-  void UpdateCameraInhabitant(TUniqueId id, CStateManager& mgr);          // Guessed name
+  void UpdateCameraInhabitant(const TUniqueId& id, CStateManager& mgr);          // Guessed name
   void NotifyInhabitantIdle(CActor& actor, CStateManager& mgr);           // Guessed name
   void NotifyInhabitantAdded(CActor& actor, CStateManager& mgr);          // Guessed name
   void NotifyInhabitantExited(CActor& actor, CStateManager& mgr);         // Guessed name
