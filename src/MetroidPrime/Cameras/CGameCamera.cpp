@@ -94,7 +94,9 @@ CMatrix4f CMatrix4f::GetInverse() const {
 }
 
 CVector3f CGameCamera::ConvertToWorldSpace(const CVector3f& position) const {
-  return GetTransform() * GetPerspectiveMatrix().GetInverse().MultiplyOneOverW(position);
+  const CVector3f viewPos = GetPerspectiveMatrix().GetInverse().MultiplyOneOverW(position);
+  const CVector3f result = GetTransform() * viewPos;
+  return result;
 }
 
 float CCameraSpring::ApplyDistanceSpring(float target, float current, float dt) {
@@ -196,20 +198,22 @@ void CGameCamera::UpdatePerspective(float dt, CStateManager& mgr) {
   if (mFovInterpolation.mDelay > 0.f) {
     mFovInterpolation.mDelay -= dt;
   } else if (mFovInterpolation.mRemaining > 0.f) {
-    CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(mFovInterpolation.mCameraId));
+    CGameCamera* camera = TCastToPtr< CGameCamera >(
+        const_cast< CEntity* >(mgr.GetObjectById(mFovInterpolation.mCameraId)));
     if (camera != nullptr && camera->GetUniqueId() != GetUniqueId()) {
       SetTargetFov(camera->GetFov());
     }
 
     mFovInterpolation.mRemaining -= dt;
-    if (mFovInterpolation.mRemaining > 0.f) {
+    if (mFovInterpolation.mRemaining <= 0.f) {
+      SetFov(GetTargetFov());
+    } else {
+      const float delta = GetFov() - GetTargetFov();
       const float t =
           CMath::Clamp(0.f, mFovInterpolation.mRemaining / mFovInterpolation.mDuration, 1.f);
-      SetFov((GetFov() - GetTargetFov()) * t + GetTargetFov());
-    } else {
-      SetFov(GetTargetFov());
+      SetFov(delta * t + GetTargetFov());
     }
-  } else if (CMath::AbsF(GetFov() - GetTargetFov()) >= 0.00001f) {
+  } else if (!(CMath::AbsF(GetFov() - GetTargetFov()) < 0.00001f)) {
     SetFov(GetTargetFov());
   }
 }
