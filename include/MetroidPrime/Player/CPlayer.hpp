@@ -486,7 +486,7 @@ public:
   void PrepareToEnterMorphBallState(float dt, CStateManager& mgr);
   void SetOutOfBallReadyAnimation(float dt, CStateManager& mgr);
   void UpdatePlayerBodyController(float dt, CStateManager& mgr);
-  bool UpdatePlayerRagDoll(float dt, CStateManager& mgr);
+  uchar UpdatePlayerRagDoll(float dt, CStateManager& mgr);
   void SetIntoBallReadyAnimation(float dt, EPlayerMorphBallState state);
   float UpdateCameraBob(float dt, CStateManager& mgr);
   void SetEyeZBias(float bias);

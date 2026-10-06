@@ -1147,7 +1147,7 @@ void CPlayer::SetIntoBallReadyAnimation(float dt, EPlayerMorphBallState state) {
   }
 }
 
-bool CPlayer::UpdatePlayerRagDoll(float dt, CStateManager& mgr) {
+uchar CPlayer::UpdatePlayerRagDoll(float dt, CStateManager& mgr) {
   bool updated = false;
   if (mRagDoll.get()) {
     if (!mRagDoll->IsPrimed()) {
@@ -1157,7 +1157,7 @@ bool CPlayer::UpdatePlayerRagDoll(float dt, CStateManager& mgr) {
       SetTranslation(position);
       AnimationData()->SetPlaybackRate(0.f);
     } else {
-      float waterTop = -0.5f * FLT_MAX;
+      float waterTop = -1.7014117e38f;
       if (InFluidId() != kInvalidUniqueId) {
         if (const CScriptWater* water =
                 TCastToConstPtr< CScriptWater >(mgr.GetObjectById(InFluidId()))) {
