@@ -698,9 +698,9 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
     return true;
   }
 
-  rstl::reserved_vector< TUniqueId, 1024 > nearList;
   TUniqueId hitId = kInvalidUniqueId;
-  const int count = int(1.f + spline.GetLength() / step);
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  int count = int(1.f + spline.GetLength() / step);
   switch (mode) {
   case 0: {
     CVector3f previous = spline.GetPositionByLength(0.f);
@@ -742,17 +742,16 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
     for (int i = 0; i < count; ++i) {
       const CVector3f next = spline.GetPositionByLength((i + 1) * step);
       const CVector3f delta = next - previous;
-      if (delta.Magnitude() <= 0.1f) {
-        forward.push_back_unsafe(CRayCastResult());
-        reverse.push_back_unsafe(CRayCastResult());
-      } else {
+      if (delta.Magnitude() > 0.1f) {
         mgr.BuildNearList(nearList, previous, delta.AsNormalized(), delta.Magnitude(), filter,
                           nullptr);
         forward.push_back_unsafe(mgr.RayWorldIntersection(hitId, previous, delta.AsNormalized(),
                                                           delta.Magnitude(), filter, nearList));
-        const CVector3f direction = -delta.AsNormalized();
-        reverse.push_back_unsafe(
-            mgr.RayWorldIntersection(hitId, next, direction, delta.Magnitude(), filter, nearList));
+        reverse.push_back_unsafe(mgr.RayWorldIntersection(hitId, next, -delta.AsNormalized(),
+                                                          delta.Magnitude(), filter, nearList));
+      } else {
+        forward.push_back_unsafe(CRayCastResult::MakeInvalid());
+        reverse.push_back_unsafe(CRayCastResult::MakeInvalid());
       }
       previous = next;
     }
@@ -760,7 +759,8 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
       if (forward[i].IsValid()) {
         CVector3f span = forward[i].GetPoint() - reverse[i].GetPoint();
         if (CMath::IsEpsilon(span.Magnitude(), 0.f, 0.00001f)) {
-          span = spline.GetPositionByLength((i + 1) * step) - forward[i].GetPoint();
+          const CVector3f pos = spline.GetPositionByLength((i + 1) * step);
+          span = pos - forward[i].GetPoint();
         }
         if (span.Magnitude() > thickness) {
           hitMaterial = forward[i].GetMaterial();
