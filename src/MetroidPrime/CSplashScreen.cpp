@@ -188,10 +188,14 @@ void CSplashScreen::Draw() const {
   const CColor tint = mSplash == kSplashScreen_Nintendo
                           ? CColor(uchar(220), uchar(0), uchar(0), uchar(255))
                           : CColor::White();
-  const float fadeStart = mSplash == kSplashScreen_HealthWarning ? 60.5f : 1.5f;
-  const float alpha = mSplashTimeout > fadeStart ? 1.f - (mSplashTimeout - fadeStart) / 0.5f
-                      : mSplashTimeout > 0.5f    ? 1.f
-                                                 : mSplashTimeout / 0.5f;
+  const float alpha =
+      mSplash == kSplashScreen_HealthWarning
+          ? (mSplashTimeout > 60.5f ? 1.f - (mSplashTimeout - 60.5f) / 0.5f
+             : mSplashTimeout > 0.5f ? 1.f
+                                     : mSplashTimeout / 0.5f)
+          : (mSplashTimeout > 1.5f ? 1.f - (mSplashTimeout - 1.5f) / 0.5f
+             : mSplashTimeout > 0.5f ? 1.f
+                                     : mSplashTimeout / 0.5f);
 
   CGraphics::SetAlphaCompare(kAF_Always, 0, kAO_And, kAF_Always, 0);
   gpRender->SetModelMatrix(CTransform4f::Identity());
@@ -212,8 +216,10 @@ void CSplashScreen::Draw() const {
     CGraphics::SetOrtho(-10.f, 650.f, -5.5f, 484.5f, -1.f, 1.f);
   } else if (mSplash == kSplashScreen_Nintendo) {
     gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
-    const CVector2f topLeft = SplashToScreen(CVector2f(117.f, 258.f), false);
-    const CVector2f bottomRight = SplashToScreen(CVector2f(493.f, 154.f), false);
+    const CVector2f splashTopLeft(117.f, 258.f);
+    const CVector2f splashBottomRight(493.f, 154.f);
+    const CVector2f topLeft = SplashToScreen(splashTopLeft, false);
+    const CVector2f bottomRight = SplashToScreen(splashBottomRight, false);
     DrawSplashTexture(*tex, color, topLeft.GetX(), topLeft.GetY(), bottomRight.GetX(),
                       bottomRight.GetY());
   } else if (mSplash == kSplashScreen_HealthWarning) {
@@ -234,8 +240,10 @@ void CSplashScreen::Draw() const {
     }
   } else if (mSplash == kSplashScreen_Dolby) {
     gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
-    const CVector2f topLeft = SplashToScreen(CVector2f(189.f, 262.f), false);
-    const CVector2f bottomRight = SplashToScreen(CVector2f(421.f, 150.f), false);
+    const CVector2f splashTopLeft(189.f, 262.f);
+    const CVector2f splashBottomRight(421.f, 150.f);
+    const CVector2f topLeft = SplashToScreen(splashTopLeft, false);
+    const CVector2f bottomRight = SplashToScreen(splashBottomRight, false);
     DrawSplashTexture(*tex, color, topLeft.GetX(), topLeft.GetY(), bottomRight.GetX(),
                       bottomRight.GetY());
   } else if (tex != nullptr) {

@@ -756,7 +756,7 @@ void CEnvFxManager::UpdateBlockedGrids(CStateManager& mgr, EEnvFxType type,
           grid.SetVisibility(rstl::pair< bool, float >(visible, visible ? -10000.f : 0.f));
         } else {
           best = CGameCollision::RayStaticIntersection(mgr, start, down, 1000.f, filter);
-          const CMaterialFilter floorOrTrigger =
+          const CMaterialFilter& floorOrTrigger =
               CMaterialFilter::MakeInclude(CMaterialList(kMT_Trigger, kMT_Floor));
           if (!floorOrTrigger.Passes(best.GetMaterial())) {
             best = CRayCastResult(CRayCastResult::kI_Invalid);
