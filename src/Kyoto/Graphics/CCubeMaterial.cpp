@@ -314,10 +314,10 @@ static void SetupAlphaMaskVtxDesc(uint vtxDesc) {
 }
 
 static void ModulateKColor(const CModelFlags& flags) {
-  CGX::SetTevKColor(GX_KCOLOR0,
-                    CColor::Modulate(flags.GetColor(), reinterpret_cast< const CColor& >(
-                                                           CGX::GetTevKColor(GX_KCOLOR0)))
-                        .GetGXColor());
+  const CColor flagsColor = flags.GetColor();
+  const CColor color = CColor::Modulate(
+      flagsColor, reinterpret_cast< const CColor& >(CGX::GetTevKColor(GX_KCOLOR0)));
+  CGX::SetTevKColor(GX_KCOLOR0, color.GetGXColor());
 }
 
 static bool TryModulateKColor(uint tevCount, uint& kColorCount, const CModelFlags& flags) {
