@@ -199,7 +199,7 @@ void CEnergyProjectile::Think(float dt, CStateManager& mgr) {
       mgr.ApplyDamageToWorld(GetOwnerId(), *this, GetTranslation(), GetCurrentDamageInfo(),
                              GetFilter());
     }
-    mLastResolvedObj = kInvalidUniqueId;
+    SetLastResolvedObject(kInvalidUniqueId);
   }
   mProjectile.UpdateParticleFX();
   if (mActive && mExplodePending) {
@@ -234,7 +234,7 @@ void CEnergyProjectile::Think(float dt, CStateManager& mgr) {
 
 void CEnergyProjectile::ResolveCollisionWithActor(const CRayCastResult& result, CActor& actor,
                                                   CStateManager& mgr) {
-  mLastResolvedObj = actor.GetUniqueId();
+  SetLastResolvedObject(actor.GetUniqueId());
   const CDamageVulnerability vulnerability = *actor.GetDamageVulnerability(
       result.GetPoint(), GetTransform().GetForward(), GetCurrentDamageInfo());
   const EWeaponCollisionResponseTypes type =
@@ -260,7 +260,7 @@ void CEnergyProjectile::ResolveCollisionWithActor(const CRayCastResult& result, 
 
 void CEnergyProjectile::ResolveCollisionWithWorld(const CRayCastResult& result,
                                                   CStateManager& mgr) {
-  mLastResolvedObj = kInvalidUniqueId;
+  SetLastResolvedObject(kInvalidUniqueId);
   const EWeaponCollisionResponseTypes type =
       CCollisionResponseData::GetWorldCollisionResponseType(CMaterialList::BitPosition(
           (kCheckMaterial.GetValue() & result.GetMaterial().GetValue()) & 0xffffffff));

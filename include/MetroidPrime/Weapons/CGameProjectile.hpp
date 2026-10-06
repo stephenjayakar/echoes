@@ -87,6 +87,7 @@ public:
   static EProjectileAttrib GetBeamAttribType(EWeaponType type);
 
 protected:
+  void SetLastResolvedObject(TUniqueId uid) { mLastResolvedObj = uid; }
   CTransform4f mInitialTransform; // Guessed name
   CImpactVisorEffect mVisorEffect;
   CProjectileWeapon mProjectile;
