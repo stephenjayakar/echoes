@@ -589,7 +589,6 @@ public:
 
   const CVector3f& GetTargetVector() const { return mTarget; }
   void SetTargetVector(const CVector3f& target) { mTarget = target; }
-  void SetSteeringBlendMode(ESteeringBlendMode mode) { mSteeringMode = mode; }
 
   const CVector3f& GetAdditiveTargetVector() const { return mAdditiveTarget; }
   void DeliverAdditiveTargetVector(const CVector3f& target) { mAdditiveTarget = target; }
