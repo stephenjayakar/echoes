@@ -921,18 +921,19 @@ TUniqueId CPlayer::CheckEnemyAgainstOrbitZone(TUniqueId target, EPlayerZoneInfo 
 }
 
 TUniqueId CPlayer::FindAimTargetId(CStateManager& mgr) {
-  const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(mAimTarget));
+  const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(GetAimTarget()));
   if (act) {
     const CVector3f eyePosition = GetEyePosition();
     CVector3f forward = GetTransform().GetForward();
     forward.Normalize();
-    const float halfWidth = CCast::LtoF(CGraphics::GetViewport().mWidth / 2);
-    const float halfHeight = CCast::LtoF(CGraphics::GetViewport().mHeight / 2);
-    const float idealX =
-        (CCast::LtoF(GetTweakPlayer()->GetOrbitZoneIdealX(kZI_Targeting)) - halfWidth) / halfWidth;
-    const float idealY =
-        (CCast::LtoF(GetTweakPlayer()->GetOrbitZoneIdealY(kZI_Targeting)) - halfHeight) /
-        halfHeight;
+    const int width = CGraphics::GetViewport().mWidth;
+    const float idealX = (float(GetTweakPlayer()->GetOrbitZoneIdealX(kZI_Targeting)) -
+                          float(width / 2)) /
+                         float(CGraphics::GetViewport().mWidth / 2);
+    const int height = CGraphics::GetViewport().mHeight;
+    const float idealY = (float(GetTweakPlayer()->GetOrbitZoneIdealY(kZI_Targeting)) -
+                          float(height / 2)) /
+                         float(CGraphics::GetViewport().mHeight / 2);
     if (ValidateObjectForMode(act->GetUniqueId(), mgr)) {
       const CVector3f aimPosition = act->GetAimPosition(mgr, 0.f);
       const CVector3f screenPosition =
@@ -1112,7 +1113,7 @@ void CPlayer::UpdateAimTarget(CStateManager& mgr) {
       }
     }
   } else {
-    const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(mAimTarget));
+    const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(GetAimTarget()));
     if (GetTweakPlayerControls()->GetAimWhenOrbitingPoint()) {
       switch (mOrbitState) {
       case kOS_OrbitObject:

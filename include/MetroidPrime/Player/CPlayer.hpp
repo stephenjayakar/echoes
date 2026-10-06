@@ -241,6 +241,7 @@ public:
   }
   TUniqueId GetScanningObject() const { return mScanningObject; }
   TUniqueId GetOrbitNextTargetId() const { return mOrbitNextTargetId; }
+  TUniqueId GetAimTarget() const { return mAimTarget; }
   CMorphBall* GetMorphBall() { return mMorphBall.get(); }
   const CMorphBall* GetMorphBall() const { return mMorphBall.get(); }
   CPlayerState* GetPlayerState() { return mPlayerState; }
