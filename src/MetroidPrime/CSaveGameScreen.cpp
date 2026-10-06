@@ -220,7 +220,7 @@ CSaveGameScreen::CSaveGameScreen(ESaveContext saveContext, u64 cardSerial)
     TToken< CWorldSaveGameInfo > token =
         gpSimplePool->GetObj(SObjectTag('SAVW', it->second.GetSaveWorldAssetId()));
     token.Lock();
-    mSaveWorlds.push_back(token);
+    mSaveWorlds.push_back_unsafe(token);
   }
 }
 
