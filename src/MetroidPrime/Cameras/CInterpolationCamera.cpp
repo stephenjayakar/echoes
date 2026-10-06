@@ -56,13 +56,12 @@ CTransform4f CInterpolationCamera::CalculateOrientation(float dt, const CVector3
   CTransform4f xf = GetTransform();
   if (mInterpolateRotation) {
     const CGameCamera* target = TCastToConstPtr< CGameCamera >(mgr.GetObjectById(mTargetId));
-    if (!target) {
-      return xf;
-    }
-
+    if (target) {
     float remaining;
     switch (mRotationMode) {
     case kRM_Linear:
+      remaining = CMath::Clamp(0.f, 1.f - mTime / mDuration, 1.f);
+      break;
     case kRM_LinearSlerp:
       remaining = CMath::Clamp(0.f, 1.f - mTime / mDuration, 1.f);
       break;
@@ -97,29 +96,35 @@ CTransform4f CInterpolationCamera::CalculateOrientation(float dt, const CVector3
     } else {
       direction = GetTransform().GetForward();
     }
-    if (direction.DropZ().IsMagnitudeSafe()) {
+    CVector3f flat = direction;
+    flat.SetZ(0.f);
+    if (flat.IsMagnitudeSafe()) {
       const float projection =
           CMath::Limit(CVector3f::Dot(GetTransform().GetForward(), direction), 1.f);
-      xf = CTransform4f::LookAt(position, position + direction);
-      if (projection >= 0.999999f || mRotationFinished) {
-        mRotationFinished = true;
-      } else {
-        const CRelAngle angle = CRelAngle::FromRadians(mInitialAngle * remaining);
+      const float angle = mInitialAngle * remaining;
+      CTransform4f lookXf = CTransform4f::LookAt(position, position + direction);
+      if (projection < 0.999999f && !mRotationFinished) {
         CVector3f rotated;
         if (mRotationMode == kRM_LinearSlerp) {
-          rotated = CVector3f::Slerp(direction, mStartTransform.GetForward(), angle);
+          rotated = CVector3f::Slerp(direction, mStartTransform.GetForward(), CRelAngle::FromRadians(angle));
         } else {
           const CQuaternion rotation =
-              CQuaternion::LookAt(direction, mStartTransform.GetForward(), angle);
+              CQuaternion::LookAt(direction, mStartTransform.GetForward(), CRelAngle::FromRadians(angle));
           rotated = rotation.Transform(direction);
         }
-        xf = CTransform4f::LookAt(position, position + rotated);
+        lookXf = CTransform4f::LookAt(position, position + rotated);
+      } else {
+        mRotationFinished = true;
+        xf = CTransform4f::LookAt(position, position + direction);
       }
+      xf = lookXf;
     } else {
+      xf = GetTransform();
       xf.SetTranslation(position);
     }
     if (mTime >= mDuration) {
       done = true;
+    }
     }
   } else {
     CVector3f direction = mLookPosition - position;
@@ -128,30 +133,32 @@ CTransform4f CInterpolationCamera::CalculateOrientation(float dt, const CVector3
     } else {
       direction = GetTransform().GetForward();
     }
-    if (direction.DropZ().IsMagnitudeSafe()) {
+    CVector3f flat = direction;
+    flat.SetZ(0.f);
+    if (flat.IsMagnitudeSafe()) {
       const float projection =
           CMath::Limit(CVector3f::Dot(GetTransform().GetForward(), direction), 1.f);
-      const float angle = acosf(projection);
+      const float angle = acos(projection);
       float speedScale = 1.f;
       const float slowdownAngle = CRelAngle::FromDegrees(15.f).AsRadians();
       if (angle < slowdownAngle) {
         const float progress = CMath::Clamp(0.f, angle / slowdownAngle, 1.f);
         speedScale = CMath::Limit(0.001f + sinf(M_PIF * 0.5f * progress), 1.f);
       }
-      const float timeScale = CMath::Limit(mTime / (0.2f * mDuration), 1.f);
-      if (projection >= 0.999999f || mRotationFinished) {
+      float step = dt * (mAngularSpeed * speedScale);
+      step *= CMath::Limit(mTime / (0.2f * mDuration), 1.f);
+      if (projection < 0.999999f && !mRotationFinished) {
+        const CQuaternion rotation =
+            CQuaternion::LookAt(GetTransform().GetForward(), direction, CRelAngle::FromRadians(step));
+        const CVector3f rotated = rotation.Transform(GetTransform().GetForward());
+        xf = CTransform4f::LookAt(position, position + rotated);
+      } else {
         mRotationFinished = true;
         done = true;
         xf = CTransform4f::LookAt(position, position + direction);
-      } else {
-        const CRelAngle step =
-            CRelAngle::FromRadians(dt * (mAngularSpeed * speedScale) * timeScale);
-        const CQuaternion rotation =
-            CQuaternion::LookAt(GetTransform().GetForward(), direction, step);
-        xf = CTransform4f::LookAt(position,
-                                  position + rotation.Transform(GetTransform().GetForward()));
       }
     } else {
+      xf = GetTransform();
       xf.SetTranslation(position);
     }
   }
