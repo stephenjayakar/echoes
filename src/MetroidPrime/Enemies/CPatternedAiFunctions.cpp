@@ -23,7 +23,8 @@ void CPatterned::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
 }
 
 void CPatterned::Dead(CStateManager& mgr, EStateMsg msg, float) {
-  if (msg == kStateMsg_Update) {
+  switch (msg) {
+  case kStateMsg_Update:
     mBodyController->CommandMgr().DeliverCmd(CBodyStateCmd(kBSC_Die));
     if (!mFadeToDeath && mBodyController->GetBodyStateInfo().GetCurrentState()->IsDead()) {
       mFadeToDeath = true;
@@ -31,6 +32,7 @@ void CPatterned::Dead(CStateManager& mgr, EStateMsg msg, float) {
       RemoveMaterial(kMT_Character, kMT_Unknown59, kMT_Target, kMT_Orbit, mgr);
       AddMaterial(kMT_NoPlatformCollision, mgr);
     }
+    break;
   }
 }
 
@@ -129,11 +131,11 @@ bool CPatterned::Leash(CStateManager&, const CTriggerData&) const {
 bool CPatterned::SpotPlayer(CStateManager& mgr, const CTriggerData&) const {
   const CVector3f eye = GetGunEyePos();
   const CVector3f forward = GetTransform().GetForward();
-  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
     const CVector3f delta = mgr.GetPlayer(i)->GetAimPosition(mgr, 0.f) - eye;
     const float forwardDistance = CVector3f::Dot(delta, forward);
     if (forwardDistance > 0.f &&
-        delta.MagSquared() * mDetectionAngle < forwardDistance * forwardDistance) {
+        forwardDistance * forwardDistance > delta.MagSquared() * mDetectionAngle) {
       return true;
     }
   }
@@ -163,8 +165,8 @@ bool CPatterned::PlayerSpot(CStateManager& mgr, const CTriggerData&) const {
 }
 
 bool CPatterned::Landed(CStateManager&, const CTriggerData&) const {
-  const bool landed = mOnGround && !mPrevOnGround;
-  mPrevOnGround = mOnGround;
+  bool landed = mOnGround && !mPrevOnGround;
+  const_cast< CPatterned* >(this)->mPrevOnGround = mOnGround;
   return landed;
 }
 
@@ -233,7 +235,8 @@ bool CPatterned::RandomDelay(CStateManager&, const CTriggerData& data) const {
 }
 
 bool CPatterned::FixedDelay(CStateManager&, const CTriggerData&) const {
-  return mStateMachine->GetTime() > mStateMachine->GetDelay();
+  const StateMachine* machine = mStateMachine.get();
+  return machine->GetTime() > machine->GetDelay();
 }
 
 bool CPatterned::CodeTrigger(CStateManager&, const CTriggerData&) const {
@@ -356,9 +359,7 @@ void CPatterned::ApplyScreenShake(CStateManager& mgr, const CVector3f& position,
   if (uid == kInvalidUniqueId) {
     uid = FindConnectedObject(mgr, kSS_Footstep, kSM_Attach);
   }
-  CScriptCameraShaker* shaker = static_cast< CScriptCameraShaker* >(
-      TryCast(mgr.ObjectById(uid), kET_ScriptCameraShaker));
-  if (shaker) {
+  if (CScriptCameraShaker* shaker = TCastToPtr< CScriptCameraShaker >(mgr.ObjectById(uid))) {
     CCameraShakerData data = shaker->GetShakeData();
     data.SetPosition(position);
     mgr.CameraManager(0)->CameraShakerManager()->AddCameraShaker(data, mgr, false, false);

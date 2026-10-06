@@ -1057,6 +1057,7 @@ MetroidPrime/BodyState/CABSReaction.cpp:
 
 MetroidPrime/Enemies/CPatternedAiFunctions.cpp:
 	.text       start:0x80150FE8 end:0x80152950
+	.sdata2     start:0x8041C2E0 end:0x8041C308
 
 MetroidPrime/ScriptObjects/CScriptColorModulate.cpp:
 	.text       start:0x80152950 end:0x801545F0
@@ -1171,7 +1172,7 @@ MetroidPrime/ScriptObjects/CScriptTeamAiMgr.cpp:
 	.text       start:0x801724CC end:0x8017645C
 	.rodata     start:0x803A9A20 end:0x803A9A38
 	.data       start:0x803B5600 end:0x803B5630
-	.sdata2     start:0x8041C818 end:0x8041C81C
+	.sdata2     start:0x8041C818 end:0x8041C840
 
 MetroidPrime/ScriptObjects/CScriptMemoryRelay.cpp:
 	.text       start:0x8017645C end:0x801767BC

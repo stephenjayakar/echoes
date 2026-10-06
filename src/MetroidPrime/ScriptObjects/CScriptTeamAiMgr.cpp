@@ -12,26 +12,6 @@
 #include <float.h>
 #include <limits.h>
 
-CEntity* LoadTeamAI(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
-  SLdrTeamAI sldrThis;
-#include "MetroidPrime/ScriptLoader/SLdrTeamAI.inc"
-
-  CScriptTeamAiMgr::CTeamAiData data;
-  data.mAiCount = sldrThis.maxTeamSize;
-  data.mMeleeCount = sldrThis.maxMeleeAttackers;
-  data.mProjectileCount = sldrThis.maxRangedAttackers;
-  data.mOtherRoleCount = sldrThis.unknown_0x9fa9c457;
-  data.mMaxMeleeAttackerCount = sldrThis.maxSimultaneousMeleeAttacks;
-  data.mMaxProjectileAttackerCount = sldrThis.maxSimultaneousRangedAttacks;
-  data.mPositionMode = sldrThis.teamFormation;
-  data.mMeleeTimeInterval = sldrThis.minTimeBetweenMeleeAttacks;
-  data.mProjectileTimeInterval = sldrThis.minTimeBetweenRangedAttacks;
-  LdrToEntityInfo(info, sldrThis.editorProperties);
-  info.SetActive(true);
-  return rs_new CScriptTeamAiMgr(mgr.AllocateUniqueId(), sldrThis.editorProperties.name, info,
-                                 data);
-}
-
 // Guessed name
 class CTeamAiPredicate : public CValidEntityPredicate {
 public:
@@ -62,12 +42,13 @@ bool CRoleSorter::operator()(const CTeamAiRole& a, const CTeamAiRole& b) const {
     return a.GetOwnerId().Value() < b.GetOwnerId().Value();
   case 1:
     return aDist < bDist;
-  default:
-    if (a.GetTeamAiRole() == b.GetTeamAiRole()) {
-      return aDist < bDist;
-    }
-    return a.GetTeamAiRole() < b.GetTeamAiRole();
+  case 2:
+    break;
   }
+  if (a.GetTeamAiRole() == b.GetTeamAiRole()) {
+    return aDist < bDist;
+  }
+  return a.GetTeamAiRole() < b.GetTeamAiRole();
 }
 
 CScriptTeamAiMgr::CTeamAiData::CTeamAiData()
@@ -126,7 +107,7 @@ const CTeamAiRole* CScriptTeamAiMgr::GetTeamAiRole(const CStateManager& mgr, TUn
 bool CScriptTeamAiMgr::CanStartAttack(EAttackType type, CStateManager& mgr, TUniqueId teamId,
                                       TUniqueId memberId) {
   if (CScriptTeamAiMgr* team =
-          TCastToPtr< CScriptTeamAiMgr >(mgr.GetObjectByIdFromListAll(teamId))) {
+          TCastToPtr< CScriptTeamAiMgr >(mgr.ObjectById(teamId))) {
     if (team->HasTeamAiRole(memberId)) {
       if (type == kAT_Melee) {
         return team->CanStartMeleeAttack(memberId);
@@ -142,7 +123,7 @@ bool CScriptTeamAiMgr::CanStartAttack(EAttackType type, CStateManager& mgr, TUni
 bool CScriptTeamAiMgr::StartAttack(EAttackType type, CStateManager& mgr, TUniqueId teamId,
                                    TUniqueId memberId) {
   if (CScriptTeamAiMgr* team =
-          TCastToPtr< CScriptTeamAiMgr >(mgr.GetObjectByIdFromListAll(teamId))) {
+          TCastToPtr< CScriptTeamAiMgr >(mgr.ObjectById(teamId))) {
     if (team->HasTeamAiRole(memberId)) {
       if (type == kAT_Melee) {
         return team->StartMeleeAttack(memberId);
@@ -158,7 +139,7 @@ bool CScriptTeamAiMgr::StartAttack(EAttackType type, CStateManager& mgr, TUnique
 void CScriptTeamAiMgr::EndAttack(EAttackType type, CStateManager& mgr, TUniqueId teamId,
                                  TUniqueId memberId, bool clearRole) {
   if (CScriptTeamAiMgr* team =
-          TCastToPtr< CScriptTeamAiMgr >(mgr.GetObjectByIdFromListAll(teamId))) {
+          TCastToPtr< CScriptTeamAiMgr >(mgr.ObjectById(teamId))) {
     if (team->HasTeamAiRole(memberId)) {
       if (type == kAT_Melee) {
         team->EndMeleeAttack(memberId);
@@ -384,7 +365,7 @@ void CScriptTeamAiMgr::PositionTeam(CStateManager& mgr) {
   } else {
     for (int i = 0; i < mRoles.size(); ++i) {
       CTeamAiRole& role = mRoles[i];
-      if (CPatterned* ai = TCastToPtr< CPatterned >(mgr.GetObjectByIdFromListAll(role.mOwnerId))) {
+      if (CPatterned* ai = TCastToPtr< CPatterned >(mgr.ObjectById(role.mOwnerId))) {
         role.mPosition = ai->GetOrigin(mgr, role, position);
       }
     }
@@ -397,7 +378,7 @@ void CScriptTeamAiMgr::SpacingSort(CStateManager& mgr, const CVector3f& position
   float tierStagger = 4.5f;
   for (int i = 0; i < mRoles.size(); ++i) {
     if (const CPatterned* ai =
-            TCastToPtr< CPatterned >(mgr.GetObjectByIdFromListAll(mRoles[i].mOwnerId))) {
+            TCastToPtr< CPatterned >(mgr.ObjectById(mRoles[i].mOwnerId))) {
       const CAABox& bounds = ai->GetBaseBoundingBox();
       const float length = (bounds.GetMaxPoint().GetY() - bounds.GetMinPoint().GetY()) * 1.5f;
       if (length > tierStagger) {
@@ -412,7 +393,7 @@ void CScriptTeamAiMgr::SpacingSort(CStateManager& mgr, const CVector3f& position
   for (int i = 0; i < mRoles.size(); ++i) {
     CTeamAiRole& role = mRoles[i];
     if (const CPatterned* ai =
-            TCastToPtr< CPatterned >(mgr.GetObjectByIdFromListAll(role.mOwnerId))) {
+            TCastToPtr< CPatterned >(mgr.ObjectById(role.mOwnerId))) {
       CVector3f delta = ai->GetTranslation() - position;
       delta.SetZ(0.f);
       CVector3f newPosition =
@@ -488,9 +469,9 @@ TUniqueId CScriptTeamAiMgr::FindBestIndividualAttackTarget(CStateManager& mgr, c
 
 TUniqueId CScriptTeamAiMgr::ChoosePlayer(const CStateManager& mgr, const CActor& actor) {
   TUniqueId target = kInvalidUniqueId;
-  float bestScore = FLT_MAX;
+  float bestScore = 3.402823466e+38f;
   const CVector3f forward = actor.GetTransform().GetForward();
-  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
     const CPlayer& player = *mgr.GetPlayer(i);
     const CVector3f delta = player.GetTranslation() - actor.GetTranslation();
     const float distanceSquared = delta.MagSquared();
@@ -538,7 +519,8 @@ void CScriptTeamAiMgr::StartTeamAction(TUniqueId id, ETeamAction action) {
 void CScriptTeamAiMgr::EndTeamAction(TUniqueId id, ETeamAction action) {
   for (rstl::vector< STeamAction >::iterator it = mTeamActions.begin(); it != mTeamActions.end();
        ++it) {
-    if (it->mOwnerId == id && it->mAction == action) {
+    const STeamAction& teamAction = *it;
+    if (teamAction.mOwnerId == id && teamAction.mAction == action) {
       mTeamActions.erase(it);
       return;
     }
@@ -547,8 +529,10 @@ void CScriptTeamAiMgr::EndTeamAction(TUniqueId id, ETeamAction action) {
 
 int CScriptTeamAiMgr::GetTeamActionCount(ETeamAction action) const {
   int count = 0;
-  for (int i = 0; i < mTeamActions.size(); ++i) {
-    if (mTeamActions[i].mAction == action) {
+  for (rstl::vector< STeamAction >::const_iterator it = mTeamActions.begin();
+       it != mTeamActions.end(); ++it) {
+    const STeamAction& teamAction = *it;
+    if (teamAction.mAction == action) {
       ++count;
     }
   }
@@ -557,8 +541,10 @@ int CScriptTeamAiMgr::GetTeamActionCount(ETeamAction action) const {
 
 // Guessed name
 bool CScriptTeamAiMgr::IsPerformingTeamAction(TUniqueId id, ETeamAction action) const {
-  for (int i = 0; i < mTeamActions.size(); ++i) {
-    if (mTeamActions[i].mOwnerId == id && mTeamActions[i].mAction == action) {
+  for (rstl::vector< STeamAction >::const_iterator it = mTeamActions.begin();
+       it != mTeamActions.end(); ++it) {
+    const STeamAction& teamAction = *it;
+    if (teamAction.mOwnerId == id && teamAction.mAction == action) {
       return true;
     }
   }
@@ -578,14 +564,14 @@ void CScriptTeamAiMgr::RemoveInvalidTeamActions(CStateManager& mgr) {
         break;
       }
     }
-  } while (removed);
+  } while (removed == true);
 }
 
 bool CScriptTeamAiMgr::AnyMembersInCircle(CStateManager& mgr, const CVector3f& position,
                                           float radius, TUniqueId excludeId) const {
   for (int i = 0; i < mRoles.size(); ++i) {
     if (mRoles[i].mOwnerId != excludeId) {
-      const CActor* actor = TCastToPtr< CActor >(mgr.GetObjectByIdFromListAll(mRoles[i].mOwnerId));
+      const CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mRoles[i].mOwnerId));
       if ((actor->GetTranslation() - position).MagSquared() < radius * radius) {
         return true;
       }
@@ -630,4 +616,24 @@ TUniqueId CScriptTeamAiMgr::TouchingAnyTeammates(CStateManager& mgr, TUniqueId i
     }
   }
   return kInvalidUniqueId;
+}
+
+CEntity* LoadTeamAI(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrTeamAI sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrTeamAI.inc"
+
+  CScriptTeamAiMgr::CTeamAiData data;
+  data.mAiCount = sldrThis.maxTeamSize;
+  data.mMeleeCount = sldrThis.maxMeleeAttackers;
+  data.mProjectileCount = sldrThis.maxRangedAttackers;
+  data.mOtherRoleCount = sldrThis.unknown_0x9fa9c457;
+  data.mMaxMeleeAttackerCount = sldrThis.maxSimultaneousMeleeAttacks;
+  data.mMaxProjectileAttackerCount = sldrThis.maxSimultaneousRangedAttacks;
+  data.mPositionMode = sldrThis.teamFormation;
+  data.mMeleeTimeInterval = sldrThis.minTimeBetweenMeleeAttacks;
+  data.mProjectileTimeInterval = sldrThis.minTimeBetweenRangedAttacks;
+  LdrToEntityInfo(info, sldrThis.editorProperties);
+  info.SetActive(true);
+  return rs_new CScriptTeamAiMgr(mgr.AllocateUniqueId(), sldrThis.editorProperties.name, info,
+                                 data);
 }
