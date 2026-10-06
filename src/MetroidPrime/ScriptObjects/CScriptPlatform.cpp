@@ -180,25 +180,28 @@ void CScriptPlatform::AddRider(rstl::vector< SRiders >& riders, TUniqueId id,
   rstl::vector< SRiders >::iterator it =
       rstl::find(riders.begin(), riders.end(),
                  SRiders(id, CTransform4f::Identity(), rstl::optional_object< float >()));
-  if (it != riders.end()) {
-    it->mDecayTimer = decayTimer;
-    return;
-  }
-
-  SRiders rider(id, CTransform4f::Identity(), decayTimer);
-  if (ridee) {
-    if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(id))) {
-      rider.mTransform = CTransform4f::Translate(
-          ridee->GetTransform().TransposeRotate(actor->GetTranslation() - ridee->GetTranslation()));
-      mgr.DeliverScriptMsg(CScriptMsg(ridee->GetUniqueId(), kInvalidUniqueId, actor->GetUniqueId(),
+  if (it == riders.end()) {
+    SRiders rider(id, CTransform4f::Identity(), rstl::optional_object< float >(decayTimer));
+    if (ridee) {
+      if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(id))) {
+        const CVector3f offset = ridee->GetTransform().TransposeRotate(
+            actor->GetTranslation() - ridee->GetTranslation());
+        rider.mTransform = CTransform4f::Translate(offset);
+        if (ridee) {
+          mgr.DeliverScriptMsg(CScriptMsg(ridee->GetUniqueId(), kInvalidUniqueId,
+                                          actor->GetUniqueId(), EScriptObjectMessage('XONP'),
+                                          kSS_InvalidState));
+        }
+      }
+    } else {
+      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, id,
                                       EScriptObjectMessage('XONP'), kSS_InvalidState));
     }
+    riders.reserve(riders.size() + 1);
+    riders.push_back_unsafe(rider);
   } else {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, id,
-                                    EScriptObjectMessage('XONP'), kSS_InvalidState));
+    it->mDecayTimer = decayTimer;
   }
-  riders.reserve(riders.size() + 1);
-  riders.push_back_unsafe(rider);
 }
 
 CScriptPlatform::TNearList
