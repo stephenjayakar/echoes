@@ -457,36 +457,43 @@ CVector3f CMotionSpline::GetPositionByTime(float time) const {
 }
 
 CVector3f CMotionSpline::GetPositionInSegment(uint index, float t) const {
-  if (mControlPoints.empty()) {
-    return CVector3f::Zero();
-  }
-  uint segment = index;
-  if (segment > GetControlPointCount() - 1) {
-    segment = GetControlPointCount() - 1;
-  }
-  t = CMath::Clamp(0.f, t, 1.f);
-  if (mControlPoints.size() == 1) {
-    return mControlPoints[0];
-  }
-  if (mControlPoints.size() == 2) {
-    return mControlPoints[index] + t * (mControlPoints[(index + 1) % 2] - mControlPoints[index]);
-  }
-  if (mType == kST_Bezier) {
-    segment = (segment / 3) * 3;
-  }
-  rstl::reserved_vector< CVector3f, 4 > points;
-  GetSurroundingPoints(segment, points);
-  switch (mType) {
-  case kST_CatmullRom:
-    return CMath::GetCatmullRomSplinePoint(points[0], points[1], points[2], points[3], t);
-  case kST_BSpline:
-    return CMath::GetBSplinePoint(points[0], points[1], points[2], points[3], t);
-  case kST_Linear:
-    return points[1] + t * (points[2] - points[1]);
-  case kST_Bezier:
-    return CMath::GetBezierPoint(points[0], points[1], points[2], points[3], t);
-  case kST_RoundedCatmullRom:
-    return CMath::GetRoundedCatmullRomSplinePoint(points[0], points[1], points[2], points[3], t);
+  const uint count = GetControlPointCount();
+  if (count != 0) {
+    uint segment = CMath::Clamp< uint >(0, index, count - 1);
+    t = CMath::Clamp(0.f, t, 1.f);
+    if (count == 1) {
+      return mControlPoints[0];
+    }
+    if (count == 2) {
+      const CVector3f a = mControlPoints[index];
+      const CVector3f b = mControlPoints[(index + 1) % count];
+      return a + t * (b - a);
+    }
+    if (mType == kST_Bezier) {
+      segment = (segment / 3) * 3;
+    }
+    rstl::reserved_vector< CVector3f, 4 > points;
+    GetSurroundingPoints(segment, points);
+    switch (mType) {
+    case kST_CatmullRom: {
+      const CVector3f& last = points[3];
+      return CMath::GetCatmullRomSplinePoint(points[0], points[1], points[2], last, t);
+    }
+    case kST_BSpline: {
+      const CVector3f& last = points[3];
+      return CMath::GetBSplinePoint(points[0], points[1], points[2], last, t);
+    }
+    case kST_Linear:
+      return points[1] + t * (points[2] - points[1]);
+    case kST_Bezier: {
+      const CVector3f& last = points[3];
+      return CMath::GetBezierPoint(points[0], points[1], points[2], last, t);
+    }
+    case kST_RoundedCatmullRom: {
+      const CVector3f& last = points[3];
+      return CMath::GetRoundedCatmullRomSplinePoint(points[0], points[1], points[2], last, t);
+    }
+    }
   }
   return CVector3f::Zero();
 }
