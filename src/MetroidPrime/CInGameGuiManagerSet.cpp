@@ -46,9 +46,9 @@ bool CInGameGuiManagerSet::CheckPlayerGuiLoadComplete(const CStateManager& mgr) 
 
 CMultiplayerGui::~CMultiplayerGui() {}
 
-CInGameQuitScreen::~CInGameQuitScreen() {}
+inline CInGameQuitScreen::~CInGameQuitScreen() {}
 
-CSamusFaceReflection::~CSamusFaceReflection() {}
+inline CSamusFaceReflection::~CSamusFaceReflection() {}
 
 CInGameGuiManager::~CInGameGuiManager() {}
 
