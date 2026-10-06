@@ -75,7 +75,21 @@ short CSortedListManager::FindInListUpper(ESortedLists list, float value) const 
 
 void CSortedListManager::InsertInList(ESortedLists list, SNode& node) {
   SSortedList& sorted = mSortedLists[list];
-  const short first = FindInListLower(list, GetPointForSL(list, node.mBox));
+  const float value = GetPointForSL(list, node.mBox);
+  int count = sorted.mSize;
+  int half;
+  int first = 0;
+  while (count > 0) {
+    half = count / 2;
+    const int middle = first + half;
+    if (GetPointForSL(list, mNodes[sorted.mIds[middle]].mBox) < value) {
+      first = middle + 1;
+      count = count - half - 1;
+    } else {
+      count = half;
+    }
+  }
+
   for (int i = sorted.mSize; i > first; --i) {
     mNodes[sorted.mIds[i - 1]].mSelfIdxs[list] = i;
     sorted.mIds[i] = sorted.mIds[i - 1];

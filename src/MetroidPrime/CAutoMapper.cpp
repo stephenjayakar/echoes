@@ -110,42 +110,56 @@ void CAutoMapper::SAutoMapperRenderState::InterpolateWithClamp(const SAutoMapper
                                                                SAutoMapperRenderState& out,
                                                                const SAutoMapperRenderState& b,
                                                                float t) {
-  const float ct = CMath::Clamp(0.f, t, 1.f);
-  const float easeIn = CMath::Clamp(0.f, ct * ct * ct, 1.f);
-  const float omt = 1.f - ct;
-  const float easeOut = CMath::Clamp(0.f, 1.f - omt * omt * omt, 1.f);
+  float ct = CMath::Clamp(0.f, t, 1.f);
+  float easeIn = CMath::Clamp(0.f, ct * ct * ct, 1.f);
+  float omt = 1.f - ct;
+  float omtCubed = omt * omt * omt;
+  float easeOut = CMath::Clamp(0.f, 1.f - omtCubed, 1.f);
+
   float easeInOut;
-  if (ct < 0.5f) {
-    easeInOut = CMath::Clamp(0.f, 1.f - (0.5f * CMath::SqrtF(2.f * omt - 1.f) + 0.5f), 1.f);
-  } else {
+  if (ct >= 0.5f) {
     easeInOut = CMath::Clamp(0.f, 0.5f * CMath::SqrtF(2.f * ct - 1.f) + 0.5f, 1.f);
+  } else {
+    easeInOut = CMath::Clamp(0.f, 1.f - (0.5f * CMath::SqrtF(2.f * omt - 1.f) + 0.5f), 1.f);
   }
-  const float eases[5] = {0.f, ct, easeOut, easeIn, easeInOut};
+
+  float eases[5] = {0.f, ct, easeOut, easeIn, easeInOut};
 
   if (b.mViewportEase != kE_None) {
-    out.mViewportSize = CVector2i::Lerp(a.mViewportSize, b.mViewportSize, eases[b.mViewportEase]);
+    float easeB = eases[b.mViewportEase];
+    out.mViewportSize = CVector2i::Lerp(a.mViewportSize, b.mViewportSize, easeB);
   }
+
   if (b.mCamEase != kE_None) {
-    const float ease = eases[b.mCamEase];
-    out.mCamOrientation = CQuaternion::Slerp(a.mCamOrientation, b.mCamOrientation, ease);
-    out.mCamDist = Lerp(a.mCamDist, b.mCamDist, ease);
-    out.mCamAngle = Lerp(a.mCamAngle, b.mCamAngle, ease);
+    float easeB = eases[b.mCamEase];
+    out.mCamOrientation = CQuaternion::Slerp(a.mCamOrientation, b.mCamOrientation, easeB);
+    out.mCamDist = Lerp(a.mCamDist, b.mCamDist, easeB);
+    out.mCamAngle = Lerp(a.mCamAngle, b.mCamAngle, easeB);
   }
+
   if (b.mPointEase != kE_None) {
-    out.mAreaPoint = CVector3f::Lerp(a.mAreaPoint, b.mAreaPoint, eases[b.mPointEase]);
+    float eB = eases[b.mPointEase];
+    out.mAreaPoint = CVector3f::Lerp(a.mAreaPoint, b.mAreaPoint, eB);
   }
+
   if (b.mDepth1Ease != kE_None) {
-    out.mDrawDepth1 = Lerp(a.mDrawDepth1, b.mDrawDepth1, eases[b.mDepth1Ease]);
+    float eB = eases[b.mDepth1Ease];
+    out.mDrawDepth1 = Lerp(a.mDrawDepth1, b.mDrawDepth1, eB);
   }
+
   if (b.mDepth2Ease != kE_None) {
-    out.mDrawDepth2 = Lerp(a.mDrawDepth2, b.mDrawDepth2, eases[b.mDepth2Ease]);
+    float eB = eases[b.mDepth2Ease];
+    out.mDrawDepth2 = Lerp(a.mDrawDepth2, b.mDrawDepth2, eB);
   }
+
   if (b.mAlphaEase != kE_None) {
-    const float ease = eases[b.mAlphaEase];
-    out.mAlphaSurfaceVisited = Lerp(a.mAlphaSurfaceVisited, b.mAlphaSurfaceVisited, ease);
-    out.mAlphaOutlineVisited = Lerp(a.mAlphaOutlineVisited, b.mAlphaOutlineVisited, ease);
-    out.mAlphaSurfaceUnvisited = Lerp(a.mAlphaSurfaceUnvisited, b.mAlphaSurfaceUnvisited, ease);
-    out.mAlphaOutlineUnvisited = Lerp(a.mAlphaOutlineUnvisited, b.mAlphaOutlineUnvisited, ease);
+    float eB = eases[b.mAlphaEase];
+    out.mAlphaSurfaceVisited = Lerp(a.mAlphaSurfaceVisited, b.mAlphaSurfaceVisited, eB);
+    out.mAlphaOutlineVisited = Lerp(a.mAlphaOutlineVisited, b.mAlphaOutlineVisited, eB);
+    out.mAlphaSurfaceUnvisited =
+        Lerp(a.mAlphaSurfaceUnvisited, b.mAlphaSurfaceUnvisited, eB);
+    out.mAlphaOutlineUnvisited =
+        Lerp(a.mAlphaOutlineUnvisited, b.mAlphaOutlineUnvisited, eB);
   }
 }
 

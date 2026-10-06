@@ -1192,6 +1192,9 @@ void CCubeRenderer::SetWireframeFlags(int flags) {
 }
 
 void CCubeRenderer::SetWorldFog(ERglFogMode mode, float start, float end, const CColor& color) {
+  if (mDisableFog) {
+    mode = static_cast< ERglFogMode >(0);
+  }
   CGraphics::SetFog(mode, start, end, color);
 }
 

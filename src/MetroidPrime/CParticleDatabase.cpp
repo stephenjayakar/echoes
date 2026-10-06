@@ -80,20 +80,35 @@ void CParticleDatabase::CacheParticleDesc(const SObjectTag& tag) {
 void CParticleDatabase::InsertParticleGen(bool oneShot, int flags, uint name,
                                           const rstl::auto_ptr< CParticleGenInfo >& gen) {
   DrawMap* map;
-  switch (flags & 0x60) {
-  case 0x20:
-    map = oneShot ? &mFirstDraw : &mFirstDrawLoop;
-    break;
-  case 0x40:
-    map = oneShot ? &mLastDraw : &mLastDrawLoop;
-    break;
-  default:
-    map = oneShot ? &mRendererDraw : &mRendererDrawLoop;
-    break;
+  if (oneShot) {
+    switch (flags & 0x60) {
+    case 0x20:
+      map = &mFirstDraw;
+      break;
+    case 0x40:
+      map = &mLastDraw;
+      break;
+    default:
+      map = &mRendererDraw;
+      break;
+    }
+  } else {
+    switch (flags & 0x60) {
+    case 0x20:
+      map = &mFirstDrawLoop;
+      break;
+    case 0x40:
+      map = &mLastDrawLoop;
+      break;
+    default:
+      map = &mRendererDrawLoop;
+      break;
+    }
   }
   map->insert(DrawMap::value_type(name, gen));
-  if (flags & 0x60)
+  if ((flags & 0x60) != 0) {
     mAnySystemsDrawnWithModel = true;
+  }
 }
 
 void CParticleDatabase::AddParticleEffect(uint name, int flags, const CParticleData& data,

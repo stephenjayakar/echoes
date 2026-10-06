@@ -265,16 +265,18 @@ void CScriptDock::UpdateAreaActivateFlags(CStateManager& mgr) {
   if (mArea.Value() >= mgr.GetWorld()->GetNumAreas()) {
     return;
   }
-  const CGameArea& area = mgr.GetWorld()->GetAreaAlways(mArea);
-  if (mDock >= area.GetDockCount()) {
+  const CGameArea* area = mgr.GetWorld()->GetArea(mArea);
+  if (mDock >= area->GetDockCount()) {
     return;
   }
 
-  const IGameArea::Dock& dock = area.GetDock(mDock);
-  for (int i = 0; i < dock.GetDockRefs().size(); ++i) {
+  const IGameArea::Dock& dock = area->GetDock(mDock);
+  const int count = dock.GetDockRefs().size();
+  for (int i = 0; i < count; ++i) {
+    const bool active = dock.GetReferenceCount() == i;
     const TAreaId connectedArea = dock.GetConnectedAreaId(i);
     if (connectedArea != kInvalidAreaId) {
-      mgr.World()->Area(connectedArea)->SetActive(dock.GetReferenceCount() == i);
+      mgr.World()->Area(connectedArea)->SetActive(active);
     }
   }
   mgr.SetCurrentAreaId(mgr.GetNextAreaId());
