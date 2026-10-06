@@ -400,7 +400,7 @@ bool CPlayerGun::ActivateMissile(CStateManager& mgr, const float& argument) {
 }
 
 bool CPlayerGun::CloseMissile(CStateManager& mgr, const float& argument) {
-  return (mPressedInputFlags & 0xd) != 0 || mMissileExitTimer <= 0.f;
+  return (mPressedInputFlags & 0xd) != 0 || !(mMissileExitTimer > 0.f);
 }
 
 bool CPlayerGun::ChargeDone(CStateManager& mgr, const float& argument) {
@@ -702,17 +702,22 @@ void CPlayerGun::MissileClosing(CStateManager& mgr, int message, float dt) {
 }
 
 void CPlayerGun::EventHandler(CStateManager& mgr, int message, float dt) {
-  if (message == kSM_Enter) {
+  switch (message) {
+  case kSM_Enter:
     mInterruptEvent = false;
     if (mChargePhase != kCP_NotCharging) {
       ResetCharge(mgr, false);
     }
+    break;
+  case kSM_Update:
+  case kSM_Exit:
+    break;
   }
 }
 
 void CPlayerGun::DamageRumble(const CVector3f& position, float damage, const CStateManager& mgr) {
-  mDamageLocation = position;
   mDamageAmount = damage;
+  mDamageLocation = position;
 }
 
 bool CPlayerGun::IsOutOfAmmoToShoot(CStateManager& mgr) const {
@@ -1487,9 +1492,16 @@ void CPlayerGun::ProcessInput(const CFinalInput& input, CStateManager& mgr) {
                      mgr.GetNextAreaId().Value(), mUnderwater, false);
     state->SetCurrentBeam(CPlayerState::kBI_Power);
   }
-  if (player->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed &&
-      mBeamChangeState == kBCS_Idle) {
-    HandleWeaponChange(input, mgr);
+  switch (player->GetMorphballTransitionState()) {
+  case CPlayer::kMS_Unmorphed:
+    if (mBeamChangeState == kBCS_Idle) {
+      HandleWeaponChange(input, mgr);
+    }
+    break;
+  case CPlayer::kMS_Morphed:
+  case CPlayer::kMS_Morphing:
+  case CPlayer::kMS_Unmorphing:
+    break;
   }
 }
 
@@ -1498,7 +1510,8 @@ CVector3f CPlayerGun::GetRainSplashPosition() const {
 }
 
 int CPlayerGun::GetBombsAvailable(CStateManager& mgr) const {
-  return 3 - mgr.GetWeaponMgr()->GetNumActive(GetPlayerUniqueId(), kWT_Bomb);
+  const TUniqueId playerId = GetPlayerUniqueId();
+  return 3 - mgr.GetWeaponMgr()->GetNumActive(playerId, kWT_Bomb);
 }
 
 TUniqueId CPlayerGun::DropPowerBomb(CStateManager& mgr) const {
@@ -2251,7 +2264,7 @@ void CPlayerGun::UpdateGunLight(const CTransform4f& transform, CStateManager& mg
 
 void CPlayerGun::SetBeam(CPlayerState::EBeamId beam, CStateManager& mgr) {
   for (int i = 0; i < 4; ++i) {
-    mSelectableBeams[i]->Unload(mgr);
+    mSelectableBeams[i]->InitializeResources(mgr);
   }
   mNextBeamId = beam;
   mCurrentBeamId = beam;
@@ -2323,7 +2336,7 @@ void CPlayerGun::ChangeWeapon(CStateManager& mgr) {
   mLoadingBeam = mSelectableBeams[mNextBeamId];
   mCurrentBeam->EnableFx(false);
   mCurrentBeam->ReleaseResources(mgr);
-  mShotSmokeTimer = 0.f;
+  mMuzzleEffectVisTimer = 0.f;
   mBeamLoadDelayFrames = mgr.IsMultiplayer() ? 0 : 2;
   PlayBeamFireSfx(mgr, *GetPlayerFromAll(mgr), true);
   mGunMorph.StartWipe(CGunMorph::kMD_In);
@@ -2626,7 +2639,7 @@ void CPlayerGun::UpdateGunMotion(float dt, CStateManager& mgr) {
   CPlayer* player = GetPlayer(mgr);
   if (player->GetOrbitState() == CPlayer::kOS_OrbitObject && GetTargetId(mgr) != kInvalidUniqueId &&
       !mComboFiring) {
-    if (mMotionState.mMotionState == CMotionState::kMS_Zero) {
+    if (mMotionState.mMotionState == CMotionState::kMS_Zero && !mComboFiring) {
       mMotionState.mMotionState = CMotionState::kMS_LockOn;
       ReturnArmAndGunToDefault(mgr, true);
     }
