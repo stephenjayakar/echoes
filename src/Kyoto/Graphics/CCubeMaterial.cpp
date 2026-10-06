@@ -953,7 +953,7 @@ void CCubeMaterial::EnsureViewDepStateCached(const CCubeSurface* surface) {
   CGX::LoadTexMtxImm(xf.GetCStyleMatrix(), GX_TEXMTX6, GX_MTX3x4);
   CGX::LoadTexMtxImm(texMtx1, GX_PTTEXMTX6, GX_MTX3x4);
 
-  CVector3f dir = distVec / reflDist;
+  CVector3f dir = (1.f / reflDist) * distVec;
   CVector3f right = CVector3f::Cross(dir, CVector3f(0.f, 0.f, 1.f));
   float xScale = 0.32258067f;
   float yScale = 0.32258067f;
