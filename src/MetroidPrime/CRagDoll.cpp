@@ -221,13 +221,12 @@ bool CRagDoll::SatisfyWorldConstraints(CStateManager& mgr, int pass) {
   rstl::reserved_vector< TUniqueId, 1024 > nearList;
   mgr.BuildNearList(nearList, bounds, filter, nullptr);
   for (int i = 0; i < mParticles.size(); ++i) {
-    CRagDollParticle& particle = mParticles[i];
-    if (pass == 1 || particle.mImpactPending) {
-      CVector3f delta = particle.mCurPos - particle.mPrevPos;
+    if (pass == 1 || mParticles[i].mImpactPending) {
+      CVector3f delta = mParticles[i].mCurPos - mParticles[i].mPrevPos;
       float magnitude = delta.Magnitude();
       if (magnitude > 0.0001f) {
         delta *= 1.f / magnitude;
-        CSphere sphere(particle.mPrevPos, particle.mRadius);
+        CSphere sphere(mParticles[i].mPrevPos, mParticles[i].mRadius);
         double distance = magnitude;
         CCollisionInfo info;
         CGameCollision::DetectCollision_Cached_Moving(
@@ -239,22 +238,22 @@ bool CRagDoll::SatisfyWorldConstraints(CStateManager& mgr, int pass) {
           case 1: {
             int material = GetMaterialIndex(info.GetMaterialRight());
             float restitution = mRestitution * sRestitution[material];
-            particle.mImpactPending = true;
-            particle.mDamping = mDamping * sDamping[material];
+            mParticles[i].mImpactPending = true;
+            mParticles[i].mDamping = mDamping * sDamping[material];
             float dot = CVector3f::Dot(delta, info.GetNormalLeft());
-            particle.mImpactFrameVel = -dot * magnitude;
-            particle.mImpactResponseDelta = magnitude * (-restitution * dot) * info.GetNormalLeft();
+            mParticles[i].mImpactFrameVel = -dot * magnitude;
+            mParticles[i].mImpactResponseDelta = magnitude * (-restitution * dot) * info.GetNormalLeft();
             float penetration = (magnitude - static_cast< float >(distance)) * dot;
-            particle.mCurPos += (0.0001f - penetration) * info.GetNormalLeft();
+            mParticles[i].mCurPos += (0.0001f - penetration) * info.GetNormalLeft();
             break;
           }
           case 2:
-            particle.mCurPos = particle.mPrevPos + static_cast< float >(distance - 0.0001) * delta;
+            mParticles[i].mCurPos = mParticles[i].mPrevPos + static_cast< float >(distance - 0.0001) * delta;
             break;
           }
         }
       } else if (!mContinueSmallMovements) {
-        particle.mCurPos = particle.mPrevPos;
+        mParticles[i].mCurPos = mParticles[i].mPrevPos;
       }
     }
   }
