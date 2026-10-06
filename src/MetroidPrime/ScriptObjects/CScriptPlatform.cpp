@@ -188,14 +188,12 @@ void CScriptPlatform::AddRider(rstl::vector< SRiders >& riders, TUniqueId id,
             actor->GetTranslation() - ridee->GetTranslation());
         rider.mTransform = CTransform4f::Translate(offset);
         if (ridee) {
-          mgr.DeliverScriptMsg(CScriptMsg(ridee->GetUniqueId(), kInvalidUniqueId,
-                                          actor->GetUniqueId(), EScriptObjectMessage('XONP'),
-                                          kSS_InvalidState));
+          mgr.DeliverScriptMsg(
+              CScriptMsg(ridee->GetUniqueId(), actor->GetUniqueId(), EScriptObjectMessage('XONP')));
         }
       }
     } else {
-      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, id,
-                                      EScriptObjectMessage('XONP'), kSS_InvalidState));
+      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP')));
     }
     riders.reserve(riders.size() + 1);
     riders.push_back_unsafe(rider);
@@ -224,8 +222,7 @@ void CScriptPlatform::DecayRiders(rstl::vector< SRiders >& riders, float dt, CSt
       if (*it->mDecayTimer <= 0.f) {
         const TUniqueId id = it->mUid;
         it = riders.erase(it);
-        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, id,
-                                        EScriptObjectMessage('XONP'), kSS_InvalidState));
+        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, id, EScriptObjectMessage('XONP')));
         continue;
       }
     }
@@ -355,7 +352,7 @@ void CScriptPlatform::PreThink(float dt, CStateManager& mgr) {
       MoveRiders(mgr, dt, GetActive(), mRiders, collidedRiders, nearList, newXf, oldXf, -mDragDelta,
                  mRotationDelta.BuildInverted());
       mDragDelta = CVector3f::Zero();
-      SendScriptMsgs(EScriptObjectState('MDFY'), mgr, kSM_None);
+      SendScriptMsgs(EScriptObjectState('MDFY'), mgr);
       mSquishedRider = true;
       AdvanceMotionTime(-dt);
     }
@@ -650,7 +647,7 @@ void CScriptPlatform::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg)
     break;
   case kSM_Increment:
     if (!GetActive()) {
-      mgr.SendScriptMsg(this, GetUniqueId(), kSM_Activate, kInvalidUniqueId);
+      mgr.SendScriptMsg(this, GetUniqueId(), kSM_Activate);
     }
     CScriptColorModulate::FadeInHelper(mgr, GetUniqueId(), mFadeInTime);
     break;

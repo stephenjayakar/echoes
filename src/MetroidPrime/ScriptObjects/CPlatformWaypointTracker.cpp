@@ -78,7 +78,7 @@ void CPlatformWaypointTracker::SendArrivals(float time, bool passedEnd, bool pas
     CScriptWaypoint* waypoint =
         TCastToPtr< CScriptWaypoint >(mgr.ObjectById(mWaypoints[i].GetWaypointId()));
     if (waypoint && sendArrival) {
-      mgr.SendScriptMsg(waypoint, mOwnerId, EScriptObjectMessage('ARRV'), kInvalidUniqueId);
+      mgr.SendScriptMsg(waypoint, mOwnerId, EScriptObjectMessage('ARRV'));
     }
   }
   mLastTime = time;

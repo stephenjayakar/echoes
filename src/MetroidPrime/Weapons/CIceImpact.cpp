@@ -244,7 +244,7 @@ void CIceImpact::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   }
   CActor::AcceptScriptMsg(mgr, msg);
   if (mLightId != kInvalidUniqueId) {
-    mgr.SendScriptMsg(mLightId, sender, message, kInvalidUniqueId);
+    mgr.SendScriptMsg(mLightId, sender, message);
   }
 }
 
@@ -284,7 +284,7 @@ void CIceImpact::Touch(CActor& actor, CStateManager& mgr) {
     }
 
     if (CPlayer* player = TCastToPtr< CPlayer >(&actor)) {
-      mgr.SendScriptMsg(player->GetUniqueId(), kInvalidUniqueId, kSM_XINS, kInvalidUniqueId);
+      mgr.SendScriptMsg(player->GetUniqueId(), kInvalidUniqueId, kSM_XINS);
     }
   }
 }

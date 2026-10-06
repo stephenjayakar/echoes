@@ -702,13 +702,13 @@ void CActor::FluidFXThink(EFluidState, CScriptWater&, CStateManager&) {}
 void CActor::OnScanStateChange(EScanState state, CStateManager& mgr) {
   switch (state) {
   case kSS_Start:
-    SendScriptMsgs(kSS_ScanProcessing, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_ScanProcessing, mgr);
     break;
   case kSS_Processing:
-    SendScriptMsgs(kSS_ScanStart, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_ScanStart, mgr);
     break;
   case kSS_Done:
-    SendScriptMsgs(kSS_ScanDone, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_ScanDone, mgr);
     break;
   }
 }

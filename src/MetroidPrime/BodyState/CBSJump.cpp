@@ -88,10 +88,8 @@ void CBSJump::PlayJumpLoop(CStateManager& mgr, CBodyController& bc) {
   }
 
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor->GetUniqueId(),
-                                    kSM_Falling, kSS_InvalidState));
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor->GetUniqueId(),
-                                    kSM_Launching, kSS_InvalidState));
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Falling));
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor->GetUniqueId(), kSM_Launching));
     const CVector3f velocity = actor->GetVelocityWR();
     mApplyLaunchVel = false;
     mVelocity = velocity;
@@ -199,7 +197,7 @@ pas::EAnimationState CBSJump::UpdateBody(float dt, CBodyController& bc, CStateMa
         actor->SetMomentumWR(CVector3f::Zero());
       }
       if (bc.IsAnimationOver()) {
-        mgr.SendScriptMsg(&bc.GetOwner(), kInvalidUniqueId, kSM_Falling, kInvalidUniqueId);
+        mgr.SendScriptMsg(&bc.GetOwner(), kInvalidUniqueId, kSM_Falling);
         mState = pas::kJS_Loop;
         bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_Jump, CPASAnimParm::FromEnum(mState),
                                               CPASAnimParm::FromEnum(mJumpType),
@@ -238,7 +236,7 @@ void CBSJump::CheckForLand(CBodyController& bc, CStateManager& mgr) {
                                             CPASAnimParm::FromEnum(mJumpType),
                                             CPASAnimParm::FromEnum(mAnimationVariant)),
                            *mgr.Random());
-      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
     }
   }
 }
@@ -252,7 +250,7 @@ void CBSJump::ForceLand(CBodyController& bc, CStateManager& mgr) {
                                           CPASAnimParm::FromEnum(mJumpType),
                                           CPASAnimParm::FromEnum(mAnimationVariant)),
                          *mgr.Random());
-    mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+    mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
   }
 }
 
@@ -268,7 +266,7 @@ uchar CBSJump::CheckForWallJump(CBodyController& bc, CStateManager& mgr) {
                                               CPASAnimParm::FromEnum(mJumpType),
                                               CPASAnimParm::FromEnum(mAnimationVariant)),
                              *mgr.Random());
-        mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+        mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
         ret = true;
       }
     }

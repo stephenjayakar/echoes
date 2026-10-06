@@ -99,7 +99,7 @@ void CScriptLayerController::Think(float dt, CStateManager& mgr) {
     if (area != nullptr && area->GetLayerPhase(layer) == CGameArea::kLP_Ready) {
       if (mWaitingForLoad) {
         mWaitingForLoad = false;
-        SendScriptMsgs(kSS_Arrived, mgr, kSM_None);
+        SendScriptMsgs(kSS_Arrived, mgr);
       }
       if (mActivateWhenLoaded) {
         mActivateWhenLoaded = false;

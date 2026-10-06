@@ -108,7 +108,7 @@ public:
 
 private:
   void UpdateGrenadeFX(float dt, CStateManager& mgr);
-  void Explode(CStateManager& mgr, TUniqueId uid);
+  void Explode(CStateManager& mgr, TUniqueId uid = kInvalidUniqueId);
   void UpdateExplodeChecks(float dt, CStateManager& mgr);
   void Bounce(CStateManager& mgr, const CVector3f& normal, bool consumeBounce, bool home);
   bool IsArmed() const;

@@ -215,8 +215,7 @@ void CScriptDock::Think(float dt, CStateManager& mgr) {
     const CGameArea& area = mgr.GetWorld()->GetAreaAlways(connectedArea);
     if (mAreaPostConstructed != area.IsLoaded()) {
       mAreaPostConstructed = area.IsLoaded();
-      SendScriptMsgs(mAreaPostConstructed ? kSS_MaxReached : kSS_Zero, mgr, kInvalidUniqueId,
-                     kSM_None);
+      SendScriptMsgs(mAreaPostConstructed ? kSS_MaxReached : kSS_Zero, mgr);
     }
   }
 

@@ -144,13 +144,13 @@ void CScriptHUDHint::Think(float dt, CStateManager& mgr) {
 
 void CScriptHUDHint::SetAnimationToZero(CStateManager& mgr) {
   mAnimationPosition = 0.f;
-  SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+  SendScriptMsgs(kSS_Zero, mgr);
   mAnimationState = kAS_Stopped;
 }
 
 void CScriptHUDHint::SetAnimationToMax(CStateManager& mgr) {
   mAnimationPosition = mAnimationTime;
-  SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+  SendScriptMsgs(kSS_MaxReached, mgr);
   mAnimationState = kAS_Stopped;
 }
 

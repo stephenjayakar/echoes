@@ -106,7 +106,7 @@ void CScriptSoundModifier::Think(float dt, CStateManager& mgr) {
     mElapsedTime += dt;
     if (mElapsedTime >= mDuration) {
       mRunning = false;
-      SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_MaxReached, mgr);
       if (mAutoReset) {
         mElapsedTime = 0.f;
         if (mAutoStart) {

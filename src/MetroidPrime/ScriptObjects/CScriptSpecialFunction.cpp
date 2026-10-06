@@ -348,11 +348,11 @@ void CScriptSpecialFunction::AcceptShotSpinner(CStateManager& mgr, const CScript
   switch (msg.GetMessage()) {
   case kSM_Increment:
     mShotSpinnerImpulse = rstl::max_val(0.f, rstl::min_val(mShotSpinnerImpulse + 1.f, 1.f));
-    SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Play, mgr);
     break;
   case kSM_SetToMax:
     mShotSpinnerImpulse = mValue3;
-    SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Play, mgr);
     break;
   case kSM_SetToZero:
     mShotSpinnerImpulse = -0.5f * mValue3;
@@ -407,7 +407,7 @@ void CScriptSpecialFunction::AcceptSaveStation(CStateManager& mgr, const CScript
       const bool noCard = gpGameState->GetCardSerial() == 0;
       mgr.PlayerState(0)->IncrPickUp(CPlayerState::kIT_EnergyTanks, 1);
       if (noCard) {
-        SendScriptMsgs(kSS_Closed, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Closed, mgr);
       } else if (!noCard) {
         mgr.EnterSaveGameScreen();
         mDoSave = true;
@@ -542,7 +542,7 @@ void CScriptSpecialFunction::AcceptInventoryActivator(CStateManager& mgr, const 
   if (msg.GetMessage() == kSM_Action) {
     for (int i = 0; i < static_cast< uint >(mgr.GetNumPlayers()); ++i) {
       if (mgr.PlayerState(i)->HasPowerUp(mItem)) {
-        SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Zero, mgr);
         return;
       }
     }
@@ -592,7 +592,7 @@ void CScriptSpecialFunction::AcceptPlayerInArea(CStateManager& mgr, const CScrip
   case kSM_Action:
   case kSM_SetToZero:
     if (!mgr.IsMultiplayer() && mgr.GetPlayer(0)->GetCurrentAreaId() == GetCurrentAreaId()) {
-      SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Zero, mgr);
     }
     break;
   }
@@ -646,7 +646,7 @@ void CScriptSpecialFunction::AcceptEnding(CStateManager& mgr, const CScriptMsg& 
         break;
       }
       if (send) {
-        SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Zero, mgr);
       }
     }
   }
@@ -668,9 +668,9 @@ void CScriptSpecialFunction::AcceptDarkWorld(CStateManager& mgr, const CScriptMs
   case kSM_AreaLoaded:
     if (GetActive()) {
       if (mgr.GetIsDarkWorld()) {
-        SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Zero, mgr);
       } else {
-        SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_MaxReached, mgr);
       }
     }
     break;
@@ -995,10 +995,10 @@ void CScriptSpecialFunction::AcceptEnvironmentVariable(CStateManager& mgr, const
       break;
     case kSM_SetToZero:
       if (var->GetValue() == var->GetMaximum()) {
-        SendScriptMsgs(kSS_Opened, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Opened, mgr);
       }
       if (var->GetValue() == var->GetMinimum()) {
-        SendScriptMsgs(kSS_Closed, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Closed, mgr);
       }
       break;
     }
@@ -1018,8 +1018,8 @@ void CScriptSpecialFunction::AcceptMultiplayerResult(CStateManager& mgr, const C
           CStateManager::TIdList::const_iterator current = search.first;
           CStateManager::TIdList::const_iterator end = search.second;
           while (current != end) {
-            mgr.SendScriptMsg(
-                CScriptMsg(GetUniqueId(), msg.GetOriginator(), current->second, conn.msg, conn.state));
+            mgr.SendScriptMsg(CScriptMsg(GetUniqueId(), current->second, conn.msg,
+                                         msg.GetOriginator(), conn.state));
             ++current;
           }
         }
@@ -1386,9 +1386,9 @@ void CScriptSpecialFunction::ThinkSaveStation(float dt, CStateManager& mgr) {
   if (mDoSave && !mgr.GetWantsToEnterSaveGameScreen()) {
     mDoSave = false;
     if (mgr.GetInSaveUI()) {
-      SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_MaxReached, mgr);
     } else {
-      SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Zero, mgr);
     }
   }
 }
@@ -1455,7 +1455,7 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       float mag = angVel.CanBeNormalized() ? angVel.Magnitude() : 0.f;
       const float spinImpulse = isMorphed ? 0.025f * mag : 0.f;
       if (spinImpulse > mPreviousSpinnerSpeed) {
-        SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Play, mgr);
       }
 
       mPreviousSpinnerSpeed = spinImpulse;
@@ -1502,7 +1502,7 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       mSfx3Played = true;
     }
 
-    SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_MaxReached, mgr);
     noSfxPlayed = false;
   } else {
     mSfx3Played = false;
@@ -1514,7 +1514,7 @@ void CScriptSpecialFunction::ThinkSpinnerController(float dt, CStateManager& mgr
       mSfx2Played = true;
     }
 
-    SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Zero, mgr);
     noSfxPlayed = false;
   } else {
     mSfx2Played = false;
@@ -1708,9 +1708,9 @@ void CScriptSpecialFunction::ThinkChaffTarget(float dt, CStateManager& mgr) {
 
 void CScriptSpecialFunction::ThinkRainSimulator(float dt, CStateManager& mgr) {
   if (static_cast< float >(static_cast< uint >(mgr.GetUpdateFrameIdx()) % 3600) / 3600.f < 0.5f) {
-    SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_MaxReached, mgr);
   } else {
-    SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Zero, mgr);
   }
 }
 
@@ -1725,7 +1725,7 @@ void CScriptSpecialFunction::ThinkAreaDamage(float dt, CStateManager& mgr) {
     if (!inArea || immune) {
       mInAreaDamage = false;
       player->PopSustainedDamage();
-      SendScriptMsgs(kSS_Exited, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Exited, mgr);
       mgr.SetIsFullThreat(false);
       return;
     }
@@ -1734,7 +1734,7 @@ void CScriptSpecialFunction::ThinkAreaDamage(float dt, CStateManager& mgr) {
   } else {
     mInAreaDamage = true;
     player->PushSustainedDamage();
-    SendScriptMsgs(kSS_Entered, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Entered, mgr);
     mgr.SetIsFullThreat(true);
   }
 
@@ -1777,11 +1777,11 @@ void CScriptSpecialFunction::ThinkPlayerInArea(float dt, CStateManager& mgr) {
   if (mgr.GetPlayer(0)->GetCurrentAreaId() == GetCurrentAreaId()) {
     if (!mPlayerInArea) {
       mPlayerInArea = true;
-      SendScriptMsgs(kSS_Entered, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Entered, mgr);
     }
   } else if (mPlayerInArea) {
     mPlayerInArea = false;
-    SendScriptMsgs(kSS_Exited, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Exited, mgr);
   }
 }
 
@@ -1865,13 +1865,10 @@ void CScriptSpecialFunction::ThinkMapTeleport(float dt, CStateManager& mgr) {
       if (CScriptWorldTeleporter* teleporter =
               TCastToPtr< CScriptWorldTeleporter >(mgr.ObjectById(*it))) {
         bool active = teleporter->GetWorldId() == worldId;
-        mgr.SendScriptMsg(teleporter, GetUniqueId(),
-                          active ? kSM_Activate : kSM_Deactivate,
-                          kInvalidUniqueId);
+        mgr.SendScriptMsg(teleporter, GetUniqueId(), active ? kSM_Activate : kSM_Deactivate);
       }
     }
-    SendScriptMsgs(mgr.World()->GetWorldAssetId() == worldId ? kSS_Zero : kSS_MaxReached, mgr,
-                   kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(mgr.World()->GetWorldAssetId() == worldId ? kSS_Zero : kSS_MaxReached, mgr);
     mgr.SetMapTeleportWorldId(kInvalidAssetId);
   }
 }
@@ -1900,9 +1897,9 @@ void CScriptSpecialFunction::ThinkAreaOcclusion(float dt, CStateManager& mgr) {
   int state = mgr.World()->Area(GetCurrentAreaId())->GetOcclusionState();
   if (state != mIntParm1) {
     if (state == CGameArea::kOS_Occluded) {
-      SendScriptMsgs(kSS_InternalState00, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_InternalState00, mgr);
     } else if (state == CGameArea::kOS_Visible) {
-      SendScriptMsgs(kSS_InternalState01, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_InternalState01, mgr);
     }
     mIntParm1 = state;
   }
@@ -1913,7 +1910,7 @@ void CScriptSpecialFunction::ThinkMultiplayerEndConditions(float dt, CStateManag
     float elapsed = gpGameState->GetGameMode().GetElapsedTime();
     if (gpGameState->GetGameMode().GetMatchTimeLimit() - elapsed <= 61.f) {
       mIntParm1 = 1;
-      SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_MaxReached, mgr);
     }
   }
   if (mIntParm2 == 0) {
@@ -1921,7 +1918,7 @@ void CScriptSpecialFunction::ThinkMultiplayerEndConditions(float dt, CStateManag
       if (gpGameState->GetGameMode().GetGameModeType() == 'DTHM' &&
           gpGameState->GetGameMode().IsNearScoreLimit(mgr, i)) {
         mIntParm2 = 1;
-        SendScriptMsgs(kSS_Arrived, mgr, kInvalidUniqueId, kSM_None);
+        SendScriptMsgs(kSS_Arrived, mgr);
       }
     }
   }
@@ -2009,7 +2006,7 @@ void CScriptSpecialFunction::DeleteEmitter(CSfxHandle& handle) {
 }
 
 void CScriptSpecialFunction::SkipCinematic(CStateManager& mgr) {
-  SendScriptMsgs(kSS_Zero, mgr, kInvalidUniqueId, kSM_None);
+  SendScriptMsgs(kSS_Zero, mgr);
   mgr.SetSkipCinematicSpecialFunction(kInvalidUniqueId);
 }
 
@@ -2051,11 +2048,11 @@ void CScriptSpecialFunction::OnItemDepleted(CStateManager& mgr, int playerIndex,
 void CScriptSpecialFunction::SendFrustumMessages(CStateManager& mgr) {
   if (mFrustumEntered) {
     mFrustumEntered = false;
-    SendScriptMsgs(kSS_Entered, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Entered, mgr);
   }
   if (mFrustumExited) {
     mFrustumExited = false;
-    SendScriptMsgs(kSS_Exited, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Exited, mgr);
   }
 }
 

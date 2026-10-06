@@ -182,7 +182,7 @@ public:
   void SendScriptMsg(CEntity* target, TUniqueId sender, EScriptObjectMessage message,
                      TUniqueId actor = kInvalidUniqueId);
   void SendScriptMsg(TUniqueId target, TUniqueId sender, EScriptObjectMessage message,
-                     TUniqueId actor); // Guessed overload name.
+                     TUniqueId actor = kInvalidUniqueId); // Guessed overload name.
 
   void AddObject(CEntity*);
   void AddObject(CEntity&);

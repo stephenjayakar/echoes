@@ -179,7 +179,7 @@ void CHomingBlob::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
 
   CActor::AcceptScriptMsg(mgr, msg);
   if (mLightId != kInvalidUniqueId) {
-    mgr.SendScriptMsg(mLightId, sender, message, kInvalidUniqueId);
+    mgr.SendScriptMsg(mLightId, sender, message);
   }
 }
 

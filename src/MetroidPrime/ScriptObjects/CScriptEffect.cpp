@@ -171,7 +171,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Activate:
     handled = true;
     if (!mEmitting) {
-      SendScriptMsgs(kSS_Active, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Active, mgr);
     }
     mEmitting = true;
     if (mRebuildSystemsOnActivate && !mParticleSystem.null()) {
@@ -183,18 +183,20 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   case kSM_Deactivate:
     handled = true;
     if (mEmitting) {
-      SendScriptMsgs(kSS_Inactive, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Inactive, mgr);
     }
     if (mDestroyParticlesOnDeactivate && !mParticleSystem.null()) {
       mParticleSystem->DestroyParticles();
     }
     mEmitting = false;
     break;
-  case kSM_ToggleActive:
+  case kSM_ToggleActive: {
     handled = true;
-    AcceptScriptMsg(mgr, CScriptMsg(msg.GetSenderId(), msg.GetOriginator(), msg.GetId(),
-                                    mEmitting ? kSM_Deactivate : kSM_Activate, msg.GetState()));
+    EScriptObjectMessage next = mEmitting ? kSM_Deactivate : kSM_Activate;
+    AcceptScriptMsg(
+        mgr, CScriptMsg(msg.GetSenderId(), msg.GetId(), next, msg.GetOriginator(), msg.GetState()));
     break;
+  }
   case kSM_AreaLoaded: {
     for (int i = 0; i < GetConnectionList().size(); ++i) {
       const SConnection& conn = GetConnectionList()[i];
@@ -241,7 +243,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     CActor::AcceptScriptMsg(mgr, msg);
   }
   CActor* light = TCastToPtr< CActor >(mgr.ObjectById(mLightId));
-  mgr.SendScriptMsg(light, msg.GetSenderId(), msg.GetMessage(), kInvalidUniqueId);
+  mgr.SendScriptMsg(light, msg.GetSenderId(), msg.GetMessage());
   if (oldEmitting == mEmitting) {
     return;
   }

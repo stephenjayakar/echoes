@@ -96,7 +96,7 @@ void CScriptRandomRelay::SendLocalScriptMsgs(EScriptObjectState state, CStateMan
     break;
   }
   default:
-    SendScriptMsgs(state, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(state, mgr);
     break;
   }
 }

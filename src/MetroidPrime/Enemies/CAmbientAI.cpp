@@ -64,7 +64,7 @@ void CAmbientAI::Think(float dt, CStateManager& mgr) {
       RotateToOR(deltas.GetOrientationDelta(), dt);
     }
     if (!hasAnimTime && mAnimating && !isLooping) {
-      SendScriptMsgs(kSS_MaxReached, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_MaxReached, mgr);
       mAnimating = false;
     }
   }
@@ -101,7 +101,7 @@ void CAmbientAI::Think(float dt, CStateManager& mgr) {
       ModelData()->EnableLooping(true);
       RandomizePlaybackRate(mgr);
     } else if (inExplodeRange) {
-      SendScriptMsgs(kSS_Dead, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Dead, mgr);
       StopLoopedSounds();
       SetActive(false);
     }
@@ -122,7 +122,7 @@ void CAmbientAI::Think(float dt, CStateManager& mgr) {
   }
   if (GetHealthInfo()->GetHP() <= 0.f) {
     mDead = true;
-    SendScriptMsgs(kSS_Dead, mgr, kInvalidUniqueId, kSM_None);
+    SendScriptMsgs(kSS_Dead, mgr);
     StopLoopedSounds();
     SetActive(false);
   }

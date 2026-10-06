@@ -51,7 +51,7 @@ void CScriptActorKeyframe::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
       }
       mPlaying = true;
       mLifetime = mInitialLifetime;
-      SendScriptMsgs(kSS_Play, mgr, kInvalidUniqueId, kSM_None);
+      SendScriptMsgs(kSS_Play, mgr);
     }
     break;
   default:
@@ -69,8 +69,7 @@ void CScriptActorKeyframe::UpdateEntity(TUniqueId uid, CStateManager& mgr) {
 
   if (actor) {
     if (!actor->GetActive()) {
-      mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), kInvalidUniqueId, actor->GetUniqueId(),
-                                      kSM_Activate, kSS_InvalidState));
+      mgr.DeliverScriptMsg(CScriptMsg(GetUniqueId(), actor->GetUniqueId(), kSM_Activate));
     }
     if (actor->HasAnimation()) {
       CAnimData* animation = actor->AnimationData();
