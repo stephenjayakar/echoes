@@ -122,7 +122,7 @@ CScriptFrontEndDataNetwork::CScriptFrontEndDataNetwork(
 , mSpin(CVector2f::Zero())
 , mSpinAccel(CVector2f::Zero())
 , mOrientation(CQuaternion::NoRotation())
-, mTransitionState(0)
+, mTransitionState(kTS_Idle)
 , mTransitionForward(1)
 , mTransitionT(0.f)
 , mTransitionDuration(1.f)
@@ -402,7 +402,7 @@ void CScriptFrontEndDataNetwork::ResetTransition(CStateManager& mgr) {
   mNodes[0].SetSelectedChild(-1);
   mSpin = CVector2f::Zero();
   mSpinAccel = CVector2f::Zero();
-  mTransitionState = 3;
+  mTransitionState = kTS_Expand;
   mTransitionT = 1.f;
   mTransitionDuration = mExpandTime;
 }
@@ -432,7 +432,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
         if (duration > 0.f) {
           mTransitionT = 1.f;
           mTransitionDuration = duration;
-          mTransitionState = 2;
+          mTransitionState = kTS_Move;
           EScriptObjectState state = kSS_Up;
           if (mTransitionForward == 1) {
             state = kSS_Down;
@@ -444,7 +444,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
       case 2: {
         mTransitionT = 1.f;
         mTransitionDuration = net->mExpandTime;
-        mTransitionState = 3;
+        mTransitionState = kTS_Expand;
         EScriptObjectState state = kSS_Retreat;
         if (mTransitionForward == 1) {
           state = kSS_Approach;
@@ -461,7 +461,7 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
         }
       }
       case 3:
-        mTransitionState = 0;
+        mTransitionState = kTS_Idle;
         net->SendScriptMsgs(kSS_Arrived, mgr);
         break;
       }
@@ -602,8 +602,8 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
 
     if (CScriptFrontEndDataNetwork* net =
             TCastToPtr< CScriptFrontEndDataNetwork >(mgr.ObjectById(it->GetId()))) {
-      if (CScriptPlatform* platform =
-              TCastToPtr< CScriptPlatform >(mgr.ObjectById(net->GetPlatformId()))) {
+      const TUniqueId& platformId = net->GetPlatformId();
+      if (CScriptPlatform* platform = TCastToPtr< CScriptPlatform >(mgr.ObjectById(platformId))) {
         SDataNetworkNode& current = mNodes[mCurIndex];
         bool selected = false;
         if (it->mIndex == current.mIndex) {
@@ -621,15 +621,17 @@ void CScriptFrontEndDataNetwork::UpdateTransition(CStateManager& mgr, float dt) 
         }
         CVector3f center = current.GetRenderPos();
         switch (mTransitionState) {
-        case 0:
+        case kTS_Idle:
           break;
-        case 1:
+        case kTS_Shrink:
           center = mNodes[mPrevIndex].GetRenderPos();
           break;
-        case 2:
+        case kTS_Move:
           if (mTransitionForward == 1) {
             center = mNodes[mPrevIndex].GetRenderPos();
           }
+          break;
+        case kTS_Expand:
           break;
         }
         const CTransform4f nodeXf(CTransform4f::Translate(center) *
@@ -1173,7 +1175,7 @@ void CScriptFrontEndDataNetwork::SetSelection(CStateManager& mgr, int index, boo
   mPrevIndex = mCurIndex;
   mCurIndex = index;
   if (immediate) {
-    mTransitionState = 0;
+    mTransitionState = kTS_Idle;
     mTransitionT = 0.f;
     mTransitionDuration = 1.f;
   } else {
@@ -1184,7 +1186,7 @@ void CScriptFrontEndDataNetwork::SetSelection(CStateManager& mgr, int index, boo
     } else {
       mTransitionForward = 1;
     }
-    mTransitionState = 1;
+    mTransitionState = kTS_Shrink;
     mTransitionDuration = time;
     if (node.mChildren.size() == 0) {
       mTransitionT = 0.f;

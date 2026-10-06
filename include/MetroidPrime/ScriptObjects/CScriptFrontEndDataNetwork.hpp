@@ -60,6 +60,14 @@ CHECK_SIZEOF(SDataNetworkNode, 0x6c)
 
 class CScriptFrontEndDataNetwork : public CActor {
 public:
+  // Guessed names.
+  enum ETransitionState {
+    kTS_Idle,
+    kTS_Shrink,
+    kTS_Move,
+    kTS_Expand,
+  };
+
   CScriptFrontEndDataNetwork(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                              const CTransform4f& xf, const CMayaSpline& shrinkSpline,
                              const CMayaSpline& moveSpline, const CMayaSpline& expandSpline,
@@ -126,7 +134,7 @@ private:
   CVector2f mSpin;
   CVector2f mSpinAccel;
   CQuaternion mOrientation;
-  int mTransitionState;
+  ETransitionState mTransitionState;
   int mTransitionForward;
   float mTransitionT;
   float mTransitionDuration;
