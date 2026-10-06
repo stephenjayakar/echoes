@@ -418,8 +418,9 @@ void CParasite::Think(float dt, CStateManager& mgr) {
           blur.SetBlur(CCameraBlurPass::kBT_LoBlur, 4.f, 0.f, false);
           blur.DisableBlur(2.f);
           CCameraFilterPass& filter = mgr.CameraFilterPass(0, 3);
+          const CColor color(static_cast< uchar >(140), 255, 109);
           filter.SetFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen, 0.f,
-                           CColor(static_cast< uchar >(140), 255, 109).WithAlphaOf(0.25f), -1);
+                           color.WithAlphaOf(0.25f), -1);
           filter.DisableFilter(2.f);
         }
         mCurDamageRemTime = mDamageWaitTime;
