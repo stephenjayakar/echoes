@@ -289,7 +289,7 @@ void CWorldTransManager::UpdatePortalTransition(float dt) {
   }
   if (mPortalTransition->IsReady()) {
     const float direction = mPortalTransition->IsFinished() ? -1.f : 1.f;
-    mPortalFade = CMath::Clamp(0.f, mPortalFade + 0.5f * dt * direction, 1.f);
+    mPortalFade = CMath::Clamp(0.f, mPortalFade + (dt / 2.f) * direction, 1.f);
   }
   mPortalTransition->Update(dt);
   if (mPortalTransition->IsFinished() && mPortalFade <= 0.f) {
