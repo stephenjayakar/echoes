@@ -1300,8 +1300,8 @@ void CCubeRenderer::RenderFogVolume(const CColor& color, const CAABox& bounds,
                                     const TLockedToken< CModel >* model,
                                     const CSkinnedModel* skinnedModel) {
   if (!mDisableFog) {
-    mFogVolumes.push_back(
-        CFogVolumeListItem(CGraphics::GetModelMatrix(), color, bounds, model, skinnedModel));
+    mFogVolumes.push_back(CFogVolumeListItem(CGraphics::GetModelMatrix(), CColor(color), bounds,
+                                             model, skinnedModel));
   }
 }
 
@@ -1670,9 +1670,10 @@ void CCubeRenderer::PostRenderFogs() {
   mFogVolumes.sort(fog_sorter());
   for (rstl::list< CFogVolumeListItem >::iterator fog = mFogVolumes.begin();
        fog != mFogVolumes.end(); ++fog) {
-    CGraphics::SetModelMatrix(fog->mTransform);
-    ReallyRenderFogVolume(fog->mColor, fog->mBounds, fog->mModel ? **fog->mModel : nullptr,
-                          fog->mSkinnedModel);
+    const CFogVolumeListItem& item = *fog;
+    CGraphics::SetModelMatrix(item.mTransform);
+    ReallyRenderFogVolume(item.mColor, item.mBounds, item.mModel ? **item.mModel : nullptr,
+                          item.mSkinnedModel);
   }
   mFogVolumes.clear();
 }
@@ -1908,10 +1909,14 @@ int CCubeRenderer::DrawScanSurface(int areaSurfaceIndex, const CCubeModel& model
                                    ushort group, bool intersects) {
   const ushort count = groups.GetSurfaceCount(group);
   const ushort* indices = groups.GetSurfaceIndices(group);
-  const int result = intersects ? 2 : 1;
+  int result = 1;
+  if (intersects) {
+    result = 2;
+  }
   for (int i = 0; i < count; ++i) {
     const CCubeSurface surface(model.GetModelInstance().Surfaces()[indices[i]]);
-    if (!(model.GetMaterial(surface).GetFlags() & kStateFlag_DepthSorting)) {
+    if (!(model.GetMaterialByIndex(surface.GetMaterialIndex()).GetFlags() &
+          kStateFlag_DepthSorting)) {
       model.DrawSurfaceFlat(surface);
     }
   }
@@ -3952,8 +3957,8 @@ void CCubeRenderer::DrawModelWithTextureMask(const SModelRenderData& model, cons
 
 void CCubeRenderer::CopyTextureRegion(void* dest, int format, int left, int top, int width,
                                       int height) {
-  const uint copyWidth = static_cast< uint >(width) < 8 ? 8 : width & 0xfffe;
-  const uint copyHeight = static_cast< uint >(height) < 8 ? 8 : height & 0xfffe;
+  ushort copyWidth = static_cast< uint >(width) < 8 ? 8 : width & 0xfffe;
+  ushort copyHeight = static_cast< uint >(height) < 8 ? 8 : height & 0xfffe;
   GXSetTexCopySrc(left & 0xfffe, top & 0xfffe, copyWidth, copyHeight);
   switch (format) {
   case 0:
