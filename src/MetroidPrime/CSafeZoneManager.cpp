@@ -55,8 +55,7 @@ void CSafeZoneManager::RemoveSafeZone(const TUniqueId& id) {
 void CSafeZoneManager::Render(CStateManager& mgr) const {
   rstl::reserved_vector< rstl::pair< float, CScriptSafeZone* >, 64 > visibleZones;
   const CVector3f forward = CGraphics::GetViewMatrix().GetForward();
-  const int count = rstl::min_val(mZones.size(), mZones.capacity());
-  for (int i = 0; i < count; ++i) {
+  for (int i = 0; i < rstl::min_val(mZones.capacity(), mZones.size()); ++i) {
     CScriptSafeZone* zone =
         TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(mZones[i].mId)));
     if (zone && mgr.IsActorVisible(*zone) &&
@@ -86,9 +85,10 @@ bool CSafeZoneManager::IsObjectInSafeZone(const CActor& actor, const CStateManag
 
 bool CSafeZoneManager::IsObjectInHurtfulSafeZone(const CActor& actor,
                                                  const CStateManager& mgr) const {
-  for (int i = 0; i < mZones.size(); ++i) {
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
     const CScriptSafeZone* zone =
-        TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(mZones[i].mId));
+        TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(it->mId)));
     if (zone && zone->IsHurtful() && zone->HasInhabitant(actor.GetUniqueId())) {
       return true;
     }
@@ -102,9 +102,10 @@ bool CSafeZoneManager::PointIsInSafeZone(const CStateManager& mgr, const CVector
 
 bool CSafeZoneManager::PointIsInHurtfulSafeZone(const CStateManager& mgr,
                                                 const CVector3f& point) const {
-  for (int i = 0; i < mZones.size(); ++i) {
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
     const CScriptSafeZone* zone =
-        TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(mZones[i].mId));
+        TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(it->mId)));
     if (zone && zone->IsHurtful() && zone->IsPointInside(point)) {
       return true;
     }
@@ -114,9 +115,10 @@ bool CSafeZoneManager::PointIsInHurtfulSafeZone(const CStateManager& mgr,
 
 TUniqueId CSafeZoneManager::PointIsInWhichSafeZone(const CStateManager& mgr,
                                                    const CVector3f& point) const {
-  for (int i = 0; i < mZones.size(); ++i) {
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
     const CScriptSafeZone* zone =
-        TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(mZones[i].mId));
+        TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(it->mId)));
     if (zone && zone->IsPointInside(point)) {
       return zone->GetUniqueId();
     }
@@ -126,9 +128,10 @@ TUniqueId CSafeZoneManager::PointIsInWhichSafeZone(const CStateManager& mgr,
 
 TUniqueId CSafeZoneManager::SphereTouchingWhichSafeZone(const CStateManager& mgr,
                                                         const CSphere& sphere) const {
-  for (int i = 0; i < mZones.size(); ++i) {
+  for (rstl::reserved_vector< SZone, 64 >::const_iterator it = mZones.begin(); it != mZones.end();
+       ++it) {
     const CScriptSafeZone* zone =
-        TCastToConstPtr< CScriptSafeZone >(mgr.GetObjectById(mZones[i].mId));
+        TCastToPtr< CScriptSafeZone >(const_cast< CEntity* >(mgr.GetObjectById(it->mId)));
     if (zone) {
       const CVector3f delta = sphere.GetCenter() - zone->GetTranslation();
       const float radius = zone->GetScale().GetX() + sphere.GetRadius();
