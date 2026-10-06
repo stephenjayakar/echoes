@@ -18,7 +18,7 @@
 CCinematicCamera::CCinematicCamera(TUniqueId uid, const CTransform4f& xf, bool active, float fov,
                                    float nearZ, float farZ, float aspect, int index,
                                    int controllerIdx)
-: CGameCamera(uid, rstl::string("Cinematic Camera"),
+: CGameCamera(uid, rstl::string_l("Cinematic Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, active), xf, fov, nearZ, farZ, aspect,
               kInvalidUniqueId, index, controllerIdx)
 , mTime(0.f)
@@ -38,11 +38,12 @@ void CCinematicCamera::Reset(const CTransform4f& xf, CStateManager& mgr) {
   mSlowMotionScale = 1.f;
   if (const CScriptCamera* camera =
           TCastToConstPtr< CScriptCamera >(mgr.GetObjectById(mScriptCameraId))) {
-    float fov = camera->GetSpline().GetFovByTime(mTime);
-    if ((mFlags & CScriptCamera::kF_VerticalFov) == 0) {
-      fov /= GetAspectRatio();
+    CScriptCameraSpline& spline = camera->GetSpline();
+    if ((mFlags & CScriptCamera::kF_VerticalFov) != 0) {
+      SetFovAndTarget(spline.GetFovByTime(mTime));
+    } else {
+      SetFovAndTarget(spline.GetFovByTime(mTime) / GetAspectRatio());
     }
-    SetTargetFov(fov);
     mMoveIntoEyePos = CalculateMoveOutofIntoEyePosition(false, mgr);
     Think(0.f, mgr);
   }
