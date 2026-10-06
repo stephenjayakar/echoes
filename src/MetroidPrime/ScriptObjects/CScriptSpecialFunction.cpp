@@ -1914,7 +1914,7 @@ void CScriptSpecialFunction::ThinkMultiplayerEndConditions(float dt, CStateManag
     }
   }
   if (mIntParm2 == 0) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       if (gpGameState->GetGameMode().GetGameModeType() == 'DTHM' &&
           gpGameState->GetGameMode().IsNearScoreLimit(mgr, i)) {
         mIntParm2 = 1;

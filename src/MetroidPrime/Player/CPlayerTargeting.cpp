@@ -179,7 +179,7 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
   }
 
   if (mgr.IsMultiplayer()) {
-    for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
       const CPlayer* player = mgr.GetPlayer(i);
       if (player->GetUniqueId() != mPlayerId) {
         AddScanObject(*player, mgr);
