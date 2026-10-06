@@ -159,28 +159,27 @@ bool CInGameGuiManager::CheckLoadComplete(const CStateManager& mgr) {
       mapWidget->SetVisibility(false, kTM_Children);
     }
   }
-  if ((!mAutoMapper.null() && !mAutoMapper->CheckLoadComplete()) ||
-      !mSamusHud->CheckLoadComplete(mgr) || !mDeathDot.IsLoaded()) {
-    return false;
-  }
-
-  if (!mAutoMapper.null()) {
-    CGuiWidget* root = mSamusHud->GetAutomapperRoot();
-    CGuiCamera* camera = mSamusHud->GetHudCamera();
-    if (root && camera) {
-      CTransform4f rotation = root->GetWorldTransform();
-      rotation.Orthonormalize();
-      mAutoMapperRotation = CQuaternion::FromMatrix(rotation);
-      mAutoMapperOffset = root->GetWorldTransform().GetTranslation();
-      mCameraRotation = CQuaternion::NoRotation();
-      mCameraOffset = camera->GetWorldTransform().GetTranslation() +
-                      CVector3f(0.f, skMapScreenCameraOffset, gpTweakAutoMapper->GetCamVerticalOffset());
-      mMapCameraTransform = CTransform4f(mCameraRotation.BuildTransform(), mCameraOffset);
+  if ((mAutoMapper.null() || mAutoMapper->CheckLoadComplete()) &&
+      mSamusHud->CheckLoadComplete(mgr) && mDeathDot.IsLoaded()) {
+    if (!mAutoMapper.null()) {
+      CGuiWidget* root = mSamusHud->GetAutomapperRoot();
+      CGuiCamera* camera = mSamusHud->GetHudCamera();
+      if (root && camera) {
+        CTransform4f rotation = root->GetWorldTransform();
+        rotation.Orthonormalize();
+        mAutoMapperRotation = CQuaternion::FromMatrix(rotation);
+        mAutoMapperOffset = root->GetWorldTransform().GetTranslation();
+        mCameraRotation = CQuaternion::NoRotation();
+        mCameraOffset = camera->GetWorldTransform().GetTranslation() +
+                        CVector3f(0.f, skMapScreenCameraOffset, gpTweakAutoMapper->GetCamVerticalOffset());
+        mMapCameraTransform = CTransform4f(mCameraRotation.BuildTransform(), mCameraOffset);
+      }
     }
+    InitializeDumpableARAMTextures();
+    mLoaded = true;
+    return true;
   }
-  InitializeDumpableARAMTextures();
-  mLoaded = true;
-  return true;
+  return false;
 }
 
 bool CInGameGuiManager::GetIsGameDraw() const {
