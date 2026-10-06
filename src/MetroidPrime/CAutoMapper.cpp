@@ -990,8 +990,10 @@ void CAutoMapper::ProcessMapRotateInput(const CFinalInput& input, const CStateMa
     float minCamRotateX = gpTweakAutoMapper->GetMinCamRotateX();
     float maxCamRotateX = gpTweakAutoMapper->GetMaxCamRotateX();
     const CEulerAngles eulers = CEulerAngles::FromQuaternion(mRenderState0.mCamOrientation);
-    CAbsAngle angX = CAbsAngle::FromRadians(eulers.GetX());
-    CAbsAngle angZ = CAbsAngle::FromRadians(eulers.GetZ());
+    float ez = eulers.GetZ();
+    float ex = eulers.GetX();
+    CAbsAngle angX = CAbsAngle::FromRadians(ex);
+    CAbsAngle angZ = CAbsAngle::FromRadians(ez);
 
     float dt = deltaFrames * gpTweakAutoMapper->GetRotateDegPerFrame();
 
@@ -2079,11 +2081,11 @@ void CAutoMapper::ResetInterpolationTimer(float duration) {
 CAutoMapper::SAutoMapperRenderState
 CAutoMapper::BuildMiniMapWorldRenderState(const CStateManager& mgr, const CQuaternion& rot,
                                           int areaId) const {
-  const CTweakAutoMapper* tweak = gpTweakAutoMapper.get();
   SAutoMapperRenderState ret(
       GetMiniMapViewportSize(),
       CQuaternion::MadeLocalToFirst(rot, GetMiniMapCameraOrientation(mgr)),
-      tweak->GetMiniCamDistance(), tweak->GetMiniCamAngle(), GetAreaPointOfInterest(mgr, areaId),
+      gpTweakAutoMapper->GetMiniCamDistance(), gpTweakAutoMapper->GetMiniCamAngle(),
+      GetAreaPointOfInterest(mgr, areaId),
       GetMapAreaMiniMapDrawDepth(), GetMapAreaMiniMapDrawDepth(),
       GetMapAreaMiniMapDrawAlphaSurfaceVisited(mgr), GetMapAreaMiniMapDrawAlphaOutlineVisited(mgr),
       GetMapAreaMiniMapDrawAlphaSurfaceUnvisited(mgr),
@@ -2139,9 +2141,9 @@ CAutoMapper::SAutoMapperRenderState::SAutoMapperRenderState(const SAutoMapperRen
 CAutoMapper::SAutoMapperRenderState
 CAutoMapper::BuildMapScreenUniverseRenderState(const CStateManager& mgr, const CQuaternion& rot,
                                                int areaId) const {
-  const CTweakAutoMapper* tweak = gpTweakAutoMapper.get();
-  SAutoMapperRenderState ret(GetMapScreenViewportSize(), rot, tweak->GetMapScreenMapUniverseDefaultCameraDistance(),
-                             tweak->GetCamAngle(), GetAreaPointOfInterest(mgr, areaId),
+  SAutoMapperRenderState ret(GetMapScreenViewportSize(), rot,
+                             gpTweakAutoMapper->GetMapScreenMapUniverseDefaultCameraDistance(),
+                             gpTweakAutoMapper->GetCamAngle(), GetAreaPointOfInterest(mgr, areaId),
                              GetMapAreaMaxDrawDepth(mgr, areaId),
                              GetMapAreaMaxDrawDepth(mgr, areaId), 0.f, 0.f, 0.f, 0.f);
   ret.mViewportEase = SAutoMapperRenderState::kE_Out;

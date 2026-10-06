@@ -1505,6 +1505,13 @@ config.libs = [
         ],
     ),
     Rel(
+        "Ripper",
+        [
+            Object(Matching, "MetroidPrime/Enemies/CRipper.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "ScriptCannonBall",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptCannonBall.cpp"),
@@ -1540,6 +1547,14 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "SwarmBasics",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSwarmBasics.cpp"),
+        ],
+        # The native module addresses each float constant separately.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),
@@ -1552,6 +1567,27 @@ config.libs = [
         [
             Object(NonMatching, "MetroidPrime/Enemies/CMetroid.cpp"),
             Object(NonMatching, "MetroidPrime/Enemies/CBabyMetroid.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "Puffer",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CPuffer.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "Tryclops",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CTryclops.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
+        "WallWalker",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CWallWalker.cpp"),
         ],
         extra_cflags=["-pool off"],
     ),

@@ -16,7 +16,7 @@ CAnimTreeTransition::CAnimTreeTransition(const bool characterSpaceBlend,
 , mTransDur(duration)
 , mTimeInTrans(0.f)
 , mRunA(runA)
-, mLoopA(a->VGetBoolPOIState(GetLoopPOIHash()))
+, mLoopA(a->GetBoolPOIState(GetLoopPOIHash()))
 , mInitialized(false) {}
 
 CAnimTreeTransition::CAnimTreeTransition(const bool characterSpaceBlend,

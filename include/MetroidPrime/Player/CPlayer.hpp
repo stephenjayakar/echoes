@@ -299,9 +299,10 @@ public:
   float GetMorphBallTransitionFactor() const {
     return mMorphDuration == 0.f ? 0.f : CMath::Clamp(0.f, mMorphTime / mMorphDuration, 1.f);
   }
-  bool CanEnterMorphBallState() const;
+  bool CanEnterMorphBallState(CStateManager& mgr, float dt) const;
   bool CanLeaveMorphBallState(CStateManager& mgr, CVector3f& position) const;
   bool AttachActorToPlayer(TUniqueId actor, bool disableGun);
+  void EnableLeaveMorphBall(bool enabled) { mCanStartUnmorphTransition = enabled; } // Prime name.
   void DetachActorFromPlayer();
   void UpdateScanningState(const CFinalInput& input, CStateManager& mgr, float dt);
   bool ValidateScanning(const CFinalInput& input, CStateManager& mgr) const;
@@ -330,6 +331,13 @@ public:
   static int SfxIdFromMaterial(const CMaterialList& mat, const ushort* idList, int tableLen,
                                ushort defId);
   static const float skDefaultHudFadeInSpeed;
+  // Guessed names. Morph-transition scan-line filter timing, defined beside the HUD fade speeds.
+  static const float skTransitionFilterStartTime;
+  static const float skTransitionFilterFadeInTime;
+  static const float skTransitionFilterFadeOutTime;
+  static const float skTransitionFilterHoldTime;
+  static const float skTransitionFilterEndTime;
+  static const float skTransitionFilterMaxAlpha;
   void SetHudDisable(float staticTimer, float fadeOutSpeed = skDefaultHudFadeOutSpeed,
                      float fadeInSpeed = skDefaultHudFadeInSpeed);
   float GetStaticTimer() const { return mStaticTimer; }
@@ -384,6 +392,8 @@ public:
   const CControlMapper& GetControlMapper() const { return mControlMapper; }
   CPlayerGun* GetPlayerGun();
   const CPlayerGun* GetPlayerGun() const;
+  // Guessed name: inline gun access used by REL code (the out-of-line accessors above are DOL-only).
+  const CPlayerGun* GetGun() const { return mGun.get(); }
   ETurretState GetTurretState() const { return mTurretState; }
   float GetTurretTimer() const { return mTurretTimer; }
   bool IsInTurret() const;
@@ -481,7 +491,7 @@ public:
   void PrepareToEnterMorphBallState(float dt, CStateManager& mgr);
   void SetOutOfBallReadyAnimation(float dt, CStateManager& mgr);
   void UpdatePlayerBodyController(float dt, CStateManager& mgr);
-  bool UpdatePlayerRagDoll(float dt, CStateManager& mgr);
+  uchar UpdatePlayerRagDoll(float dt, CStateManager& mgr);
   void SetIntoBallReadyAnimation(float dt, EPlayerMorphBallState state);
   float UpdateCameraBob(float dt, CStateManager& mgr);
   void SetEyeZBias(float bias);
@@ -498,15 +508,16 @@ public:
   void CalculatePlayerMovementDirection(float dt, const CVector3f& displacement);
   void SetMoveState(NPlayer::EPlayerMovementState state, CStateManager& mgr);
   float JumpInput(const CFinalInput& input, CStateManager& mgr);
-  float TurnInput(const CFinalInput& input) const;
+  float TurnInput(const CFinalInput& input, CStateManager& mgr) const;
   float StrafeInput(const CFinalInput& input) const;
   float ForwardInput(const CFinalInput& input, float turnInput) const;
   void ComputeMovement(const CFinalInput& input, CStateManager& mgr, float dt);
   void ComputeDash(const CFinalInput& input, float dt, CStateManager& mgr);
   CVector3f CalculateLeftStickEdgePosition(float strafeInput, float forwardInput) const;
   void BeginSidewaysDash(float strafeInput, CStateManager& mgr);
-  void FinishSidewaysDash();
-  bool SidewaysDashAllowed(float strafeInput, float forwardInput, const CFinalInput& input) const;
+  void FinishSidewaysDash(CStateManager& mgr);
+  bool SidewaysDashAllowed(float strafeInput, float forwardInput, const CFinalInput& input,
+                           CStateManager& mgr) const;
   void UpdateStepCameraZBias(float dt, CStateManager& mgr);
   void UpdateBombJumpStuff();
   float GetGravity() const;
