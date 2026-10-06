@@ -27,7 +27,7 @@ public:
     , mAudio(static_cast< uchar* >(audio))
     , mAudioSamples(0)
     , mAudioSamplesConsumed(0) {}
-    ~CTHPTextureSet();
+    ~CTHPTextureSet() {}
 
     void* Y() { return mY.get(); }
 
