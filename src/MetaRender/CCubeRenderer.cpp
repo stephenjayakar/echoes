@@ -46,8 +46,8 @@ static DrawableList* sData;
 static BucketList* sBuckets;
 static PlaneList* sPlaneObjectData;
 static PlaneBucketList* sPlaneObjectBucket;
-static rstl::reserved_vector< ushort, 50 > sBucketIndex;
 static const rstl::pair< float, float > skWorstMinMaxDistance(99999.f, -99999.f);
+static rstl::reserved_vector< ushort, 50 > sBucketIndex;
 static rstl::pair< float, float > sMinMaxDistance = skWorstMinMaxDistance;
 
 void Shutdown();
@@ -3947,8 +3947,8 @@ void CCubeRenderer::DisablePVS(int areaId) {
 void CCubeRenderer::DrawModelWithTextureMask(const SModelRenderData& model, const CTexture& texture,
                                              const CVector3f& origin, const CColor& color,
                                              float scale) {
-  const CModelFlags flags = CModelFlags::AlphaBlended(color);
   const CCubeModel& instance = *model.mModel->GetModelInstance();
+  const CModelFlags flags = CModelFlags::AlphaBlended(color);
   CCubeMaterial::KillCachedViewDepState();
   CCubeMaterial::ResetCachedMaterials();
   const CCubeMaterial material = instance.GetMaterialByIndex(0);

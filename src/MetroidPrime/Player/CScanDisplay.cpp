@@ -522,64 +522,45 @@ void CScanDisplay::ProcessInput(const CFinalInput& input) {
 }
 
 void CScanDisplay::Draw(const CStateManager& mgr) const {
-  if (mPreparePending ||
-      (mWorldModels.empty() && mModelObject == kInvalidUniqueId && !mScanModel.get())) {
-    return;
-  }
-  CGraphics::SetCullMode(kCM_None);
-  const CGuiCamera* camera = mSelHud->GetFrameCamera();
-  CGraphics::DisableAllLights();
-  const float translation =
-      gpTweakGui->GetScanObjectTranslateTransitionSpline().EvaluateAt(mModelTransition);
-  const float rotation =
-      gpTweakGui->GetScanObjectRotationTransitionSpline().EvaluateAt(mModelTransition);
-  const float scale = gpTweakGui->GetScanObjectScaleTransitionSpline().EvaluateAt(mModelTransition);
-  const CVector3f position = CVector3f::Lerp(mStartPosition, mEndPosition, translation);
-  const float fov = mStartFov * (1.f - mModelTransition) + mEndFov * mModelTransition;
-  const CQuaternion orientation = CQuaternion::Slerp(mStartRotation, mEndRotation, rotation);
-  const CVector3f modelScale = CVector3f::Lerp(mStartScale, mEndScale, scale);
-  const CRelAngle yaw = CRelAngle::FromDegrees(mModelYaw);
-  const CVector3f cameraOffset = (1.f - mModelTransition) * camera->GetLocalPosition();
-  const CTransform4f xf = CTransform4f::Translate(cameraOffset) * CTransform4f::RotateZ(yaw) *
-                          CTransform4f::Scale(modelScale) * orientation.BuildTransform4f() *
-                          CTransform4f::Translate(position) * mModelRotation.BuildTransform4f();
-  CGraphics::SetPerspective(fov, camera->GetParms().mPerspective.mAspect,
-                            camera->GetParms().mPerspective.mNear,
-                            camera->GetParms().mPerspective.mFar);
-  CGraphics::SetDepthRange(1.f / 512.f, 1.f / 256.f);
-  const CColor ambient(0.2f, 0.2f, 0.2f, 0.6f * mModelTransition);
-  const CModelFlags flags = CModelFlags::Additive(CColor(0.6f, 0.4f, 0.3f, 0.7f * mModelTransition))
-                                .DepthCompareUpdate(false, false);
-  CGraphics::SetModelMatrix(xf);
-  for (rstl::vector< rstl::pair< TAreaId, int > >::const_iterator it = mWorldModels.begin();
-       it != mWorldModels.end(); ++it) {
-    gpRender->DrawAreaModel(it->first.Value(), it->second, flags);
-  }
-  if (mScannableInfo && mScannableInfo->UsesScanModel()) {
-    if (mScanModel.get() && !mScanModel->IsNull() && mScanModel->IsLoaded(0)) {
-      CGraphics::SetModelMatrix(CTransform4f::Identity());
-      mScanModel->Render(CModelData::kWM_Normal, xf, nullptr, flags);
+  if (!mPreparePending &&
+      (!mWorldModels.empty() || mModelObject != kInvalidUniqueId || mScanModel.get())) {
+    CGraphics::SetCullMode(kCM_None);
+    const CGuiCamera* camera = mSelHud->GetFrameCamera();
+    CGraphics::DisableAllLights();
+    const float translation =
+        gpTweakGui->GetScanObjectTranslateTransitionSpline().EvaluateAt(mModelTransition);
+    const float rotation =
+        gpTweakGui->GetScanObjectRotationTransitionSpline().EvaluateAt(mModelTransition);
+    const float scale = gpTweakGui->GetScanObjectScaleTransitionSpline().EvaluateAt(mModelTransition);
+    const float fov = mStartFov * (1.f - mModelTransition) + mEndFov * mModelTransition;
+    const CVector3f position = CVector3f::Lerp(mStartPosition, mEndPosition, translation);
+    const CQuaternion orientation = CQuaternion::Slerp(mStartRotation, mEndRotation, rotation);
+    const CVector3f modelScale = CVector3f::Lerp(mStartScale, mEndScale, scale);
+    const CRelAngle yaw = CRelAngle::FromDegrees(mModelYaw);
+    const CTransform4f xf = CTransform4f::Translate(camera->GetLocalPosition() * (1.f - mModelTransition)) * CTransform4f::RotateZ(yaw) *
+                            CTransform4f::Scale(modelScale) * orientation.BuildTransform4f() *
+                            CTransform4f::Translate(position) * mModelRotation.BuildTransform4f();
+    CGraphics::SetPerspective(fov, camera->GetParms().mPerspective.mAspect,
+                              camera->GetParms().mPerspective.mNear,
+                              camera->GetParms().mPerspective.mFar);
+    CGraphics::SetDepthRange(1.f / 512.f, 1.f / 256.f);
+    const CColor ambient(0.2f, 0.2f, 0.2f, 0.6f * mModelTransition);
+    const CModelFlags flags = CModelFlags::Additive(CColor(0.6f, 0.4f, 0.3f, 0.7f * mModelTransition))
+                                  .DepthCompareUpdate(false, false);
+    CGraphics::SetModelMatrix(xf);
+    for (rstl::vector< rstl::pair< TAreaId, int > >::const_iterator it = mWorldModels.begin();
+         it != mWorldModels.end(); ++it) {
+      gpRender->DrawAreaModel(it->first.Value(), it->second, flags);
     }
-  } else if (mModelObject != kInvalidUniqueId) {
-    const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mModelObject));
-    const CPatterned* patterned = TCastToConstPtr< CPatterned >(actor);
-    if (patterned && patterned->IsScanVisorSelfRender()) {
-      CGraphics::SetModelMatrix(CTransform4f::Identity());
-      if (mScanTexture) {
-        if (mScanTexture->GetObject()) {
-          const CModelFlags textureFlags =
-              CModelFlags::Additive(CColor(0.6f, 0.4f, 0.3f, 0.7f * mModelTransition))
-                  .DepthCompareUpdate(false, false)
-                  .DontLoadTextures();
-          mScanTexture->GetObject()->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-          patterned->ScanVisorRender(mgr, xf, textureFlags);
-        }
-      } else {
-        patterned->ScanVisorRender(mgr, xf, flags);
+    if (mScannableInfo && mScannableInfo->UsesScanModel()) {
+      if (mScanModel.get() && !mScanModel->IsNull() && mScanModel->IsLoaded(0)) {
+        CGraphics::SetModelMatrix(CTransform4f::Identity());
+        mScanModel->Render(CModelData::kWM_Normal, xf, nullptr, flags);
       }
-    } else if (actor) {
-      const CModelData& model = *actor->GetModelData();
-      if (!model.IsNull()) {
+    } else if (mModelObject != kInvalidUniqueId) {
+      const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mModelObject));
+      const CPatterned* const patterned = TCastToConstPtr< CPatterned >(actor);
+      if (patterned && patterned->IsScanVisorSelfRender()) {
         CGraphics::SetModelMatrix(CTransform4f::Identity());
         if (mScanTexture) {
           if (mScanTexture->GetObject()) {
@@ -588,15 +569,32 @@ void CScanDisplay::Draw(const CStateManager& mgr) const {
                     .DepthCompareUpdate(false, false)
                     .DontLoadTextures();
             mScanTexture->GetObject()->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
-            model.Render(CModelData::kWM_Normal, xf, nullptr, textureFlags);
+            patterned->ScanVisorRender(mgr, xf, textureFlags);
           }
         } else {
-          model.Render(CModelData::kWM_Normal, xf, nullptr, flags);
+          patterned->ScanVisorRender(mgr, xf, flags);
+        }
+      } else if (actor) {
+        const CModelData& model = *actor->GetModelData();
+        if (!model.IsNull()) {
+          CGraphics::SetModelMatrix(CTransform4f::Identity());
+          if (mScanTexture) {
+            if (mScanTexture->GetObject()) {
+              const CModelFlags textureFlags =
+                  CModelFlags::Additive(CColor(0.6f, 0.4f, 0.3f, 0.7f * mModelTransition))
+                      .DepthCompareUpdate(false, false)
+                      .DontLoadTextures();
+              mScanTexture->GetObject()->Load(GX_TEXMAP0, CTexture::kCM_Repeat);
+              model.Render(CModelData::kWM_Normal, xf, nullptr, textureFlags);
+            }
+          } else {
+            model.Render(CModelData::kWM_Normal, xf, nullptr, flags);
+          }
         }
       }
     }
+    CGraphics::SetCullMode(kCM_Front);
   }
-  CGraphics::SetCullMode(kCM_Front);
 }
 
 float CScanDisplay::GetTotalDownloadTime() const {

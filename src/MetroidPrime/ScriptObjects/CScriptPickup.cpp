@@ -98,8 +98,7 @@ CScriptPickup::CScriptPickup(TUniqueId uid, const rstl::string& name, const CEnt
   }
 
   if (mFadeTime) {
-    CModelFlags flags = CModelFlags::AlphaBlended(0.f);
-    SetModelFlags(flags.DepthCompareUpdate(true, false));
+    SetModelFlags(CModelFlags::AlphaBlended(0.f).DepthCompareUpdate(true, false));
   }
 
   AllocateEchoEmitter(true, CAABox(GetTranslation(), GetTranslation()), echo);

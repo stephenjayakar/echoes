@@ -1755,18 +1755,18 @@ void COrbitPointMarker::Draw(const CStateManager& mgr) const {
       if (mLastFreeOrbit) {
         scale = 1.f - mInterpolationTimer / gpTweakTargeting->GetOrbitPointInterpolateInTime();
       } else {
-        scale = mInterpolationTimer / gpTweakTargeting->GetOrbitPointInterpolateOutTime();
+        const float t = mInterpolationTimer / gpTweakTargeting->GetOrbitPointInterpolateOutTime();
+        scale = t;
       }
 
-      CColor color = gpTweakTargeting->GetOrbitPointModelColor();
+      const CColor& color = gpTweakTargeting->GetOrbitPointModelColor();
       CTransform4f modelXf = CTransform4f::RotateZ(CRelAngle::FromRadians(mLagAzimuth));
       modelXf.ScaleBy(scale);
       modelXf.AddTranslation(mLagTargetPosition);
       gpRender->SetModelMatrix(modelXf);
       CModel* model = mOrbitPointModel.GetObject();
-      CModelFlags flags =
-          CModelFlags::Additive(color.WithAlphaModulatedBy(scale)).DepthCompareUpdate(false, false);
-      model->Draw(flags);
+      model->Draw(
+          CModelFlags::Additive(color.WithAlphaModulatedBy(scale)).DepthCompareUpdate(false, false));
     }
   }
 }

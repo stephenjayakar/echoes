@@ -109,7 +109,9 @@ public:
   static CModelFlags ColorModulate(const CColor& color) { return CModelFlags(kT_One, color); }
 
 private:
-  uint x0_;
+  // Unknown word, never initialized by the constructors. Its enum type (not an integer type)
+  // keeps MWCC from scalarizing it out of temporaries, so copies load it from the stack.
+  ETrans x0_;
   uchar mBlendMode;
   char mMatSetIdx;
   ushort mFlags;
