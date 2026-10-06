@@ -204,7 +204,7 @@ public:
   bool mParticleEmission;
   float mGeneratorRemainder;
   int mMAXP;
-  ushort mRandomSeed;
+  short mRandomSeed;
   float mGeneratorRate;
   float mExternalVars[16];
   CVector3f mTranslation;

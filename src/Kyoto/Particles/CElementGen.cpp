@@ -214,7 +214,10 @@ CElementGen::CElementGen(TToken< CGenDescription > description, EModelOrientatio
   if (mLoadedGenDesc->mMAXP) {
     mLoadedGenDesc->mMAXP->GetValue(mCurFrame, mMAXP);
   }
-  const int initialCapacity = rstl::min_val(mMAXP, 256);
+  int initialCapacity = mMAXP;
+  if (initialCapacity > 256) {
+    initialCapacity = 256;
+  }
   mParticles.reserve(initialCapacity);
   if (mEnableADV) {
     mAdvValues.assign(initialCapacity);
