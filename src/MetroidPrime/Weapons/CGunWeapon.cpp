@@ -884,9 +884,9 @@ void CGunWeapon::BuildAnimationIdList(const CAnimData& animData) {
 }
 
 CPlayer* CGunWeapon::GetPlayer(CStateManager& mgr) const {
-  return TCastToPtr< CPlayer >(mgr.ObjectById(mPlayerId));
+  return const_cast< CPlayer* >(TCastToConstPtr< CPlayer >(mgr.GetObjectById(mPlayerId)));
 }
 
 CPlayer* CGunWeapon::GetPlayerFromAll(CStateManager& mgr) const {
-  return TCastToPtr< CPlayer >(mgr.GetObjectByIdFromListAll(mPlayerId));
+  return TCastToPtr< CPlayer >(mgr.ObjectById(mPlayerId));
 }
