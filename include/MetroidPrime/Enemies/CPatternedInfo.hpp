@@ -24,6 +24,9 @@ public:
   const CHealthInfo& GetHealthInfo() const { return mHealthInfo; }
   const CDamageVulnerability& GetDamageVulnerability() const { return mDamageVulnerability; }
   uint GetPathfindingIndex() const { return mPathfindingIndex; }
+  float GetHalfExtent() const { return mHalfExtent; }
+  float GetHeight() const { return mHeight; }
+  const CVector3f& GetBodyOrigin() const { return mBodyOrigin; }
 
 private:
   float mMass;

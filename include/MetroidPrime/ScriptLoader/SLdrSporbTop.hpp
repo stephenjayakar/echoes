@@ -17,6 +17,9 @@ struct SLdrSporbTop {
 };
 
 inline SLdrSporbTop::SLdrSporbTop() : editorProperties(), patterned(), actorInformation() {
+  patterned.health.hI_KnockBackResistance = 2.0f;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
 }
 
 inline SLdrSporbTop::~SLdrSporbTop() {}

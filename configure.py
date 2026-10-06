@@ -1540,6 +1540,16 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "Sporb",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CSporbTop.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CSporbBase.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CSporbProjectile.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CSporbNeedle.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),

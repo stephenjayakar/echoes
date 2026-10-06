@@ -142,6 +142,8 @@ public:
 
   const CTransform4f& GetTransform() const { return mTransform; }
   void SetTransform(const CTransform4f& xf);
+  // Guessed name; replaces the transform without the dirty/bounds updates of SetTransform.
+  void SetTransformRaw(const CTransform4f& xf) { mTransform = xf; }
   void SetRotation(const CQuaternion& rot) { SetTransform(rot.BuildTransform4f(GetTranslation())); }
   CQuaternion GetRotation() const { return CQuaternion::FromMatrix(GetTransform()); }
   const CVector3f& GetTranslation() const { return mPosition; }
