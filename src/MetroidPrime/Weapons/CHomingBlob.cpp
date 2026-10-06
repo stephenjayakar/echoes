@@ -3,6 +3,7 @@
 #include "Kyoto/Graphics/CGraphics.hpp"
 #include "Kyoto/Particles/CElementGen.hpp"
 #include "Kyoto/Particles/CGenDescription.hpp"
+#include "MetroidPrime/CGameCollision.hpp"
 #include "MetroidPrime/CGameLight.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
@@ -106,7 +107,9 @@ void CHomingBlob::Render(const CStateManager& mgr) const {
 
 void CHomingBlob::Think(float dt, CStateManager& mgr) {
   mElapsedTime += dt;
-  // TODO: update the packed cache against the native near-list adapter.
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  mgr.BuildNearList(nearList, mCollisionBounds, GetMaterialFilter(), this);
+  CGameCollision::UpdateCollisionCache(mgr, *mCollisionCache, nearList, CGameCollision::kCUP_KeepNearListIds);
   mParticleGen->Update(dt);
   UpdateParticles(mgr);
 
