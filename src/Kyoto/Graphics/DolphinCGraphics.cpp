@@ -337,11 +337,19 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
   }
   GXRenderModeObj* mode = nullptr;
   switch (VIGetTvFormat()) {
-  case VI_NTSC:
-    mode = progressive ? &GXNtsc480Prog : &GXNtsc480IntDf;
-    break;
   case VI_MPAL:
-    mode = progressive ? &GXNtsc480Prog : &GXMpal480IntDf;
+    if (!progressive) {
+      mode = &GXMpal480IntDf;
+    } else {
+      mode = &GXNtsc480Prog;
+    }
+    break;
+  case VI_NTSC:
+    if (!progressive) {
+      mode = &GXNtsc480IntDf;
+    } else {
+      mode = &GXNtsc480Prog;
+    }
     break;
   case VI_PAL:
   case VI_EURGB60:
@@ -349,10 +357,10 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
     break;
   }
   GXAdjustForOverscan(mode, &mRenderModeObj, 0, 16);
-  mRenderModeObj.viWidth += 20;
-  mRenderModeObj.viXOrigin -= 10;
   mPixelAspectRatio = 1.f;
   sIs50Hz = false;
+  mRenderModeObj.viWidth += 20;
+  mRenderModeObj.viXOrigin -= 10;
   if (progressive) {
     SetProgressiveFilter(mRenderModeObj);
   }
@@ -362,11 +370,12 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
   sSpareAllocation = nullptr;
   CGXTransientBuffer::SetBuffer(nullptr, 0);
   ResetGraphicsArena();
-  const int frameBufferSize = ((mRenderModeObj.fbWidth + 15) & ~15) * mRenderModeObj.xfbHeight * 2;
+  const int frameBufferSize =
+      ((mRenderModeObj.fbWidth + 15) & 0xfff0) * mRenderModeObj.xfbHeight * 2;
   mpFrameBuf1 = AllocateGraphicsArena(frameBufferSize);
   mpFrameBuf2 = AllocateGraphicsArena(frameBufferSize);
-  mFifoSize = 0x60000;
   sSpareAllocationSize = 0x46000;
+  mFifoSize = 0x60000;
   mpFifo = AllocateGraphicsArena(mFifoSize);
   sSpareAllocation = AllocateGraphicsArena(sSpareAllocationSize);
   CGXTransientBuffer::SetBuffer(AllocateGraphicsArena(0x40000), 0x40000);
@@ -376,6 +385,8 @@ void CGraphics::ConfigureVideo(bool initial, bool progressive) {
     mRenderModeObj.viWidth += mScreenStretch * 2;
     mRenderModeObj.viXOrigin += mScreenPositionX - mScreenStretch;
     mRenderModeObj.viYOrigin += mScreenPositionY;
+  }
+  if (!initial) {
     VIWaitForRetrace();
     VIWaitForRetrace();
   }
