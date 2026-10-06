@@ -565,8 +565,9 @@ void CPlasmaProjectile::UpdateLights(float expansion, float dt, CStateManager& m
     for (rstl::vector< TUniqueId >::const_iterator it = mLights.begin(); it != mLights.end();
          ++it) {
       if (CGameLight* gameLight = TCastToPtr< CGameLight >(mgr.ObjectById(*it))) {
+        const CVector3f offset(0.f, y, 0.f);
         gameLight->SetTransform(CTransform4f::Identity());
-        gameLight->SetTranslation(GetBeamTransform() * CVector3f(0.f, y, 0.f));
+        gameLight->SetTranslation(GetBeamTransform() * offset);
         gameLight->SetLight(light);
       }
       y += spacing;

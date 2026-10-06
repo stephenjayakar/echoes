@@ -1583,7 +1583,7 @@ void CSamusHud::UpdateHudDynamicLights(float dt, const CStateManager& mgr) {
   if (mgr.GetViewportLayoutIndex() != 0) {
     return;
   }
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     return;
@@ -2533,7 +2533,7 @@ CSamusHud::EHudState CSamusHud::GetDesiredHudState(const CStateManager& mgr) con
 
 CRelAngle CSamusHud::GetRelativeDirection(const CVector3f& position,
                                           const CStateManager& mgr) const {
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     return CRelAngle::FromRadians(0.f);
@@ -2547,7 +2547,10 @@ CRelAngle CSamusHud::GetRelativeDirection(const CVector3f& position,
   const CVector3f direction = flatPosition.AsNormalized();
   const float angle = acosf(CVector3f::Dot(forward, direction));
   const CVector3f cross = CVector3f::Cross(forward, direction);
-  return CRelAngle::FromRadians(cross.GetZ() <= 0.f ? angle : 2.f * M_PIF - angle);
+  if (cross.GetZ() > 0.f) {
+    return CRelAngle::FromRadians(2.f * M_PIF - angle);
+  }
+  return CRelAngle::FromRadians(angle);
 }
 
 void CSamusHud::ShowDamage(CVector3f position, float damage, float previousDamage,
@@ -2620,7 +2623,7 @@ void CSamusHud::UpdateHudLag(float dt, const CStateManager& mgr) {
   }
 
   CUnitVector3f cameraDirection(mPreviousCameraDirection, CUnitVector3f::kN_No);
-  const CFirstPersonCamera* const camera = TCastToConstPtr< CFirstPersonCamera >(
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
       mgr.GetCameraManager(mPlayerIndex)->GetCurrentCamera(mgr, true));
   if (camera == nullptr) {
     mHudLag = CQuaternion::NoRotation();

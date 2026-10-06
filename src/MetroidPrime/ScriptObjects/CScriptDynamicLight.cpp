@@ -98,7 +98,7 @@ void CScriptDynamicLight::FindLightReceivers(CStateManager& mgr) {
 void CScriptDynamicLight::FindParent(CStateManager& mgr) {
   const rstl::vector< TUniqueId > parents = FindConnectedObjects(mgr, kSS_Connect, kSM_Attach);
   for (int i = 0; i < parents.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(parents[i]))) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(parents[i]))) {
       mParentId = actor->GetUniqueId();
       mParentTransform = ConvertEditorEulerToTransform4f(mDescription.mParentRotation,
                                                          mDescription.mParentTranslation);
@@ -107,8 +107,7 @@ void CScriptDynamicLight::FindParent(CStateManager& mgr) {
       if (!mDescription.mUseParentRotation) {
         mParentTransform = actor->GetTransform() * mParentTransform;
         SetTransform(mParentTransform);
-        mParentTransform.SetTranslation(mParentTransform.GetTranslation() +
-                                        actor->GetTranslation() * -1.f);
+        mParentTransform.AddTranslation(actor->GetTranslation() * -1.f);
       }
       break;
     }
