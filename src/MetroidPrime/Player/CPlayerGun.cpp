@@ -1357,16 +1357,21 @@ void CPlayerGun::EnableSeekerFx(CStateManager& mgr, bool enable) {
   mChargeEffectVisible = enable;
   SetGunLightActive(enable, mgr);
   mSeekerSecondaryFx = enable ? CGunWeapon::kSFT_Charge : CGunWeapon::kSFT_CancelCharge;
-  if (mSeekerSecondaryFx == CGunWeapon::kSFT_Charge) {
-    mMissileSecondaryGenerator =
-        rstl::auto_ptr< CElementGen >(rs_new CElementGen(*mMissileSecondaryEffect));
-    mMissileSecondaryGenerator->SetGlobalScale(mScale);
-  } else {
+  switch (mSeekerSecondaryFx) {
+  case CGunWeapon::kSFT_None:
+  case CGunWeapon::kSFT_ToCombo:
+  case CGunWeapon::kSFT_CancelCharge:
     if (mSeekerSecondaryFx != CGunWeapon::kSFT_None &&
         mMissileSecondaryGenerator.get() != nullptr) {
       mMissileSecondaryGenerator->SetParticleEmission(false);
     }
     mSeekerSecondaryFx = CGunWeapon::kSFT_None;
+    break;
+  case CGunWeapon::kSFT_Charge:
+    mMissileSecondaryGenerator =
+        rstl::auto_ptr< CElementGen >(rs_new CElementGen(*mMissileSecondaryEffect));
+    mMissileSecondaryGenerator->SetGlobalScale(mScale);
+    break;
   }
 
   if (enable) {
