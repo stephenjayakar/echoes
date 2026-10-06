@@ -1509,6 +1509,15 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "GunTurret",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CGunTurretBase.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CGunTurretTop.cpp"),
+        ],
+        # The loaders address each float constant separately.
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "Tweaks",
         [
             Object(Matching, "MetroidPrime/Tweaks/Tweaks.cpp"),
