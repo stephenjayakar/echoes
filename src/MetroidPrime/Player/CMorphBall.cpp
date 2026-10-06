@@ -2572,8 +2572,10 @@ void CMorphBall::SwitchToTire() {
 }
 
 void CMorphBall::SwitchToMarble() {
-  const CUnitVector3f axis(mPlayer.GetTransform().TransposeRotate(mPlayer.GetLookDir()));
-  const CQuaternion rotation = CQuaternion::AxisAngle(axis, CRelAngle::FromRadians(mBallTiltAngle));
+  const CVector3f lookDir = mPlayer.GetLookDir();
+  const CQuaternion rotation = CQuaternion::AxisAngle(
+      CUnitVector3f(mPlayer.GetTransform().TransposeRotate(lookDir)),
+      CRelAngle::FromRadians(mBallTiltAngle));
   mPlayer.SetTransform(mPlayer.GetTransform() * rotation.BuildTransform4f());
   mTireMode = false;
   mTireInterpolating = true;
@@ -3519,13 +3521,6 @@ bool CMorphBall::IsMovementAllowed() const {
 
 void CMorphBall::ComputeBallMovement(const CFinalInput& input, CStateManager& mgr, float dt) {
   switch (mBallState) {
-  case kBS_ScrewAttackRecovery:
-    UpdateScrewAttackRecovery(dt);
-    break;
-  case kBS_ScrewAttack:
-  case kBS_ScrewAttackWallJump:
-    ComputeScrewAttackMovement(input, mgr, dt);
-    break;
   case kBS_Normal:
   case kBS_Boost:
   case kBS_Spider:
@@ -3533,6 +3528,13 @@ void CMorphBall::ComputeBallMovement(const CFinalInput& input, CStateManager& mg
   case kBS_Projectile:
     ComputeBoostBallMovement(input, mgr, dt);
     ComputeMarioMovement(input, mgr, dt);
+    break;
+  case kBS_ScrewAttack:
+  case kBS_ScrewAttackWallJump:
+    ComputeScrewAttackMovement(input, mgr, dt);
+    break;
+  case kBS_ScrewAttackRecovery:
+    UpdateScrewAttackRecovery(dt);
     break;
   }
 }
