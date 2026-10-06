@@ -2662,8 +2662,8 @@ void CCubeRenderer::RenderSilhouette(
 void CCubeRenderer::AllocatePhazonSuitMaskTexture() {
   mRequestRGBA6 = true;
   if (!mSilhouetteMask.get()) {
-    const CViewport& viewport = CGraphics::GetViewport();
-    mSilhouetteMask = rs_new CTexture(kTF_I8, viewport.mWidth >> 2, viewport.mHeight >> 2, 1);
+    mSilhouetteMask = rs_new CTexture(kTF_I8, CGraphics::GetViewport().mWidth >> 2,
+                                      CGraphics::GetViewport().mHeight >> 2, 1);
   }
   mSilhouetteMaskCountdown = 2;
 }
