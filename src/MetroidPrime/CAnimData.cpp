@@ -6,6 +6,7 @@
 #include "Kyoto/Animation/CAnimationManager.hpp"
 #include "Kyoto/Animation/CCharLayoutInfo.hpp"
 #include "Kyoto/Animation/CJointData_LinearStorage.hpp"
+#include "Kyoto/Animation/CPrimitive.hpp"
 #include "Kyoto/Animation/CTransitionManager.hpp"
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
@@ -147,7 +148,21 @@ float CAnimData::GetAverageVelocity(int anim) const {
 
 // Guessed name.
 void CAnimData::CollectAnimationResources(rstl::vector< SObjectTag >& tagsOut) const {
-  // TODO: Collect unique ANIM resource tags from every character animation's primitives.
+  rstl::set< SObjectTag > tags;
+  rstl::vector< uint >::const_iterator it = mCharInfo.GetAnimationIndexList().begin();
+  for (; it != mCharInfo.GetAnimationIndexList().end(); ++it) {
+    const rstl::rc_ptr< IMetaAnim > anim = mAnimMgr->GetMetaAnimation(*it);
+    rstl::set< CPrimitive > primitives;
+    anim->GetUniquePrimitives(primitives);
+    rstl::set< CPrimitive >::const_iterator begin = primitives.begin();
+    rstl::set< CPrimitive >::const_iterator end = primitives.end();
+    rstl::set< CPrimitive >::const_iterator prim = begin;
+    for (; prim != primitives.end(); ++prim) {
+      tags.insert(SObjectTag('ANIM', prim->GetAnimResId()));
+    }
+  }
+  tagsOut.reserve(tagsOut.size() + tags.size());
+  tagsOut.insert(tagsOut.end(), tags.begin(), tags.end());
 }
 
 // Guessed name.
