@@ -302,12 +302,13 @@ CGameArchitectureSupport::CGameArchitectureSupport(COsContext& osContext)
   CAudioSys::TrkSetSampleRate(kTSR_One);
   gpMain->SetMaxSpeed(false);
   gpMain->ResetGameState();
+  CIOWinManager& mgr = mIoWinMgr;
+  gpIOWinManager = &mgr;
   gpController = mInputGenerator.GetController();
-  gpIOWinManager = &mIoWinMgr;
-  mIoWinMgr.AddIOWin(rs_new CMainFlow(), 0, 0);
-  mIoWinMgr.AddIOWin(rs_new CConsoleOutputWindow(8, 5.f, 0.75f), 100, 0);
-  mIoWinMgr.AddIOWin(rs_new CAudioStateWin(), 100, -1);
-  mIoWinMgr.AddIOWin(rs_new CErrorOutputWindow(CErrorOutputWindow::kF_Zero), 10000, 100000);
+  mgr.AddIOWin(rs_new CMainFlow(), 0, 0);
+  mgr.AddIOWin(rs_new CConsoleOutputWindow(8, 5.f, 0.75f), 100, 0);
+  mgr.AddIOWin(rs_new CAudioStateWin(), 100, -1);
+  mgr.AddIOWin(rs_new CErrorOutputWindow(CErrorOutputWindow::kF_Zero), 10000, 100000);
   gpGameState->GameOptions().EnsureOptions();
   sInfiniteLoopTime = 0.f;
   OSSetPeriodicAlarm(&mInfiniteLoopAlarm, OSGetTime(), static_cast< float >(OS_TIMER_CLOCK),
@@ -824,6 +825,7 @@ void CMain::EnsureWorldPaksReady() {
 
 void CMain::StreamNewGameState(bool forceReloadSave) {
   const CPersistentOptions systemOptions = gpGameState->SystemOptions();
+  const int saveIdx = systemOptions.GetSaveIdx();
   const u64 cardSerial = gpGameState->GetCardSerial();
   const rstl::reserved_vector< rstl::vector< uchar >, 3 > states =
       gpGameState->GetCompressedGameStates();
@@ -837,14 +839,13 @@ void CMain::StreamNewGameState(bool forceReloadSave) {
   mGameGlobalObjects->GameState() = nullptr;
   gpGameState = nullptr;
   {
-    const rstl::vector< uchar >& savedState =
-        useCheckpoint ? checkpoint : states[systemOptions.GetSaveIdx()];
+    const rstl::vector< uchar >& savedState = useCheckpoint ? checkpoint : states[saveIdx];
     CMemoryInStream stream(savedState.data(), savedState.size());
     CBitStreamReader reader(stream);
     mGameGlobalObjects->GameState() = rs_new CGameState(reader);
   }
   gpGameState = mGameGlobalObjects->GameState().get();
-  gpGameState->SetSystemOptions(systemOptions);
+  gpGameState->SystemOptions() = systemOptions;
   gpGameState->SetCompressedGameStates(states);
   gpGameState->SetCompressedGameOptions(options);
   gpGameState->SetCompressedMultiplayerOptions(multiplayerOptions);
@@ -852,7 +853,7 @@ void CMain::StreamNewGameState(bool forceReloadSave) {
   gpGameState->GameOptions().EnsureOptions();
   gpGameState->SetCardSerial(cardSerial);
   if (useCheckpoint) {
-    gpGameState->ClearCheckpoint();
+    gpGameState->RecordCheckpoint();
   }
 }
 
