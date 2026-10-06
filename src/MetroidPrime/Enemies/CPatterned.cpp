@@ -1555,5 +1555,3 @@ CAABox CPatterned::GetScanVisorRenderBounds(const CStateManager&) const {
 
 void CPatterned::ScanVisorRender(const CStateManager&, const CTransform4f&,
                                  const CModelFlags&) const {}
-
-CPatterned::~CPatterned() {}
