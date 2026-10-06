@@ -919,15 +919,14 @@ void CGameCollision::CollideWithStaticBodyNoRot(CPhysicsActor& actor, const CMat
     return;
   }
   collisionNormal.Normalize();
-  const CVector3f velocity = actor.GetVelocityWR();
-  const float normalVelocity = CVector3f::Dot(velocity, collisionNormal);
+  const float normalVelocity = CVector3f::Dot(actor.GetVelocityWR(), collisionNormal);
   if (normalVelocity < -0.0001f) {
     const float impulse =
         CollisionImpulseFiniteVsInfinite(actor.GetMass(), normalVelocity, restitution);
     actor.ApplyImpulseWR(impulse * collisionNormal, CAxisAngle::Identity());
     actor.UseCollisionImpulses();
   } else {
-    const float speed = velocity.Magnitude();
+    const float speed = CVector3f(actor.GetVelocityWR()).Magnitude();
     const float cosAngle = speed > 0.001f ? normalVelocity / speed : 0.f;
     if (normalVelocity < 0.001f || cosAngle < 0.0008f) {
       actor.ApplyImpulseWR((0.05f * actor.GetMass()) * collisionNormal, CAxisAngle::Identity());
