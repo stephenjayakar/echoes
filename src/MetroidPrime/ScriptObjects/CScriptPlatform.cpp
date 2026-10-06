@@ -473,10 +473,13 @@ void CScriptPlatform::Think(float dt, CStateManager& mgr) {
         mRandomAnimationOffset = 0.f;
         UpdateAnimation(offset, mgr, true);
       }
-      if (mRenderRainSplashes && mgr.GetWorld()->GetNeededEnvFx() == kEFX_Rain && HasModelData() &&
-          mgr.GetEnvFxManager()->GetRainMagnitude() != 0.f) {
-        mgr.ActorModelParticles()->StartRainSplashes(*this, mgr, mMaxRainSplashes, mRainGenRate,
-                                                     0.f);
+      if (mRenderRainSplashes) {
+        const CEnvFxManager* fx = mgr.GetEnvFxManager();
+        if (mgr.GetWorld()->GetNeededEnvFx() == kEFX_Rain && HasModelData() &&
+            fx->GetRainMagnitude() != 0.f) {
+          mgr.ActorModelParticles()->StartRainSplashes(*this, mgr, mMaxRainSplashes, mRainGenRate,
+                                                       0.f);
+        }
       }
     }
     if ((mMotionActive || mMotionTransformed || x450_ != kInvalidUniqueId) &&
