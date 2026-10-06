@@ -29,7 +29,7 @@ private:
   int mType;
   union {
     int mValue;
-    bool mBool;
+    uchar mBool;
     float mFloat;
   };
 };
