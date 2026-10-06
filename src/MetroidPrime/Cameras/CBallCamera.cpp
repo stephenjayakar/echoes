@@ -499,7 +499,7 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
   CVector3f eyePos = Player(mgr).GetEyePosition();
   if (watchedPlayer != nullptr &&
       watchedPlayer->GetMorphballTransitionState() == CPlayer::kMS_Morphed) {
-    eyePos = mLookPosAhead;
+    eyePos = CVector3f(mFixedLookPos);
   }
   if (!mgr.RayCollideWorld(ballPos, eyePos, skLineOfSightFilter, nullptr)) {
     eyePos = ballPos;
@@ -510,11 +510,11 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
   desiredOffset = lookRotation.GetRotation() * desiredOffset;
   CVector3f resultOffset(0.f, distance, constrainedElevation);
   resultOffset[kDZ] -= eyePos.GetZ() - ballPos.GetZ();
+  const float minSeekDistance = constrainedDistance;
   float collisionDistance = desiredOffset.Magnitude();
   const bool clear = !DetectCollision(eyePos, eyePos + desiredOffset, 0.3f, collisionDistance, mgr,
                                       GetControllerNumber());
   bool found = false;
-  const float minSeekDistance = constrainedDistance;
 
   if (!clear && collisionDistance <= 0.f) {
     const CAABox bounds(ballPos.GetX() - distance, ballPos.GetY() - distance,
@@ -527,21 +527,23 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
     if (!found) {
       CVector3f flatOffset(desiredOffset.ToVec2f(), 0.f);
       found = fn_801a67a4(minSeekDistance, eyePos, flatOffset, nearList, resultOffset, mgr);
-    }
-    if (!found) {
-      CVector3f reflectedOffset = desiredOffset;
-      reflectedOffset[kDZ] = -reflectedOffset[kDZ];
-      found = fn_801a67a4(minSeekDistance, eyePos, reflectedOffset, nearList, resultOffset, mgr);
+      if (!found) {
+        CVector3f reflectedOffset = desiredOffset;
+        reflectedOffset[kDZ] = -reflectedOffset[kDZ];
+        found = fn_801a67a4(minSeekDistance, eyePos, reflectedOffset, nearList, resultOffset, mgr);
+      }
     }
   } else {
     bool movingForward = false;
+    const float clearDistance = 0.95f * distance;
     if (mBallVelFlat > 1.25f && mBallDeltaFlat.IsMagnitudeSafe() && watchedPlayer != nullptr &&
         (watchedPlayer->GetMorphballTransitionState() == CPlayer::kMS_Unmorphed ||
          watchedPlayer->GetMorphballTransitionState() == CPlayer::kMS_Morphing)) {
-      movingForward =
-          CVector3f::Dot(mBallDeltaFlat.AsNormalized(), watched->GetTransform().GetForward()) > 0.f;
+      if (CVector3f::Dot(mBallDeltaFlat.AsNormalized(), watched->GetTransform().GetForward()) > 0.f) {
+        movingForward = true;
+      }
     }
-    if (clear || (!fullTest && (collisionDistance > 0.95f * distance || movingForward))) {
+    if (clear || (!fullTest && (collisionDistance > clearDistance || movingForward))) {
       if (movingForward) {
         resultOffset = desiredOffset;
       } else {
@@ -554,11 +556,11 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
       if (!found) {
         CVector3f flatOffset(desiredOffset.ToVec2f(), 0.f);
         found = fn_801a6b20(eyePos, flatOffset, resultOffset, mgr);
-      }
-      if (!found) {
-        CVector3f reflectedOffset = desiredOffset;
-        reflectedOffset.SetZ(-reflectedOffset.GetZ());
-        found = fn_801a6b20(eyePos, reflectedOffset, resultOffset, mgr);
+        if (!found) {
+          CVector3f reflectedOffset = desiredOffset;
+          reflectedOffset.SetZ(-reflectedOffset.GetZ());
+          found = fn_801a6b20(eyePos, reflectedOffset, resultOffset, mgr);
+        }
       }
       if (!found) {
         const CAABox bounds(ballPos.GetX() - distance, ballPos.GetY() - distance,
@@ -571,12 +573,12 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
         if (!found) {
           CVector3f flatOffset(desiredOffset.ToVec2f(), 0.f);
           found = fn_801a67a4(minSeekDistance, eyePos, flatOffset, nearList, resultOffset, mgr);
-        }
-        if (!found) {
-          CVector3f reflectedOffset = desiredOffset;
-          reflectedOffset.SetZ(-reflectedOffset.GetZ());
-          found =
-              fn_801a67a4(minSeekDistance, eyePos, reflectedOffset, nearList, resultOffset, mgr);
+          if (!found) {
+            CVector3f reflectedOffset = desiredOffset;
+            reflectedOffset.SetZ(-reflectedOffset.GetZ());
+            found =
+                fn_801a67a4(minSeekDistance, eyePos, reflectedOffset, nearList, resultOffset, mgr);
+          }
         }
       }
     }
@@ -586,8 +588,9 @@ CVector3f CBallCamera::FindDesiredPosition(float distance, float elevation, CVec
     mDesiredPosition = GetCameraManager(mgr).GetLastCameraTransform().GetTranslation();
     return mDesiredPosition;
   }
-  mDesiredPosition = eyePos + resultOffset;
-  return mDesiredPosition;
+  const CVector3f result = eyePos + resultOffset;
+  mDesiredPosition = result;
+  return result;
 }
 
 CTransform4f CBallCamera::FindDesiredTransform(CVector3f direction, CStateManager& mgr) {
