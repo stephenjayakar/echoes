@@ -72,5 +72,5 @@ skGasLocators = .data:0x0000003C; // type:object size:0x38 scope:local data:4byt
 skIncludeMaterial = .data:0x00000074; // type:object size:0x4 scope:local data:4byte
 skExcludeMaterial = .data:0x00000078; // type:object size:0x4 scope:local data:4byte
 __vt__7CPuffer = .data:0x0000007C; // type:object size:0x148 scope:global
-lbl_52_data_1C4 = .data:0x000001C4; // type:object size:0x10
+__vt__17CRuleSetEvaluator = .data:0x000001C4; // type:object size:0x10 scope:weak
 funcPtrs$1075 = .bss:0x00000000; // type:object size:0x4 scope:local data:4byte
