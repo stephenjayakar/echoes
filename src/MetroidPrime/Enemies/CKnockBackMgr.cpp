@@ -353,7 +353,7 @@ CRuleValue CKnockBackMgr::GetConditionValue(FourCC condition) const {
   }
 }
 
-bool CKnockBackMgr::ExecuteAction(const CRuleAction& action) {
+int CKnockBackMgr::ExecuteAction(const CRuleAction& action) {
   switch (action.GetId()) {
   case 'FLCH':
     mActiveParameters.mReaction = kAR_Flinch;

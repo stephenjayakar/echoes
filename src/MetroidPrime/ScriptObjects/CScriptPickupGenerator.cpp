@@ -155,8 +155,8 @@ CRuleValue CPickupGeneratorRuleEvaluator::GetConditionValue(FourCC condition) co
   }
 }
 
-bool CPickupGeneratorRuleEvaluator::SetAmountRange(float chance, int ruleSlot, int minimum,
-                                                   int maximum) {
+int CPickupGeneratorRuleEvaluator::SetAmountRange(float chance, int ruleSlot, int minimum,
+                                                  int maximum) {
   if (mManager->Random()->Range(0.f, 100.f) <= chance) {
     mMinimumAmounts[ruleSlot] = minimum;
     mMaximumAmounts[ruleSlot] = maximum;
@@ -165,7 +165,7 @@ bool CPickupGeneratorRuleEvaluator::SetAmountRange(float chance, int ruleSlot, i
   return true;
 }
 
-bool CPickupGeneratorRuleEvaluator::ExecuteAction(const CRuleAction& action) {
+int CPickupGeneratorRuleEvaluator::ExecuteAction(const CRuleAction& action) {
   const float chance = action.GetProperty(0).GetFloat();
   int minimum = 1;
   if (action.GetPropertyCount() > 1) {
