@@ -36,11 +36,13 @@ CMFGameLoader::CMFGameLoader()
   gResFactoryUnknown = 1;
   CModel::DisableTextureTimeout();
 
-  const bool showWorldName =
-      gpMain->GetRestartMode() == CMain::kRM_Default ||
+  bool showWorldName = false;
+  if (gpMain->GetRestartMode() == CMain::kRM_Default ||
       (gpMain->GetRestartMode() == CMain::kRM_None &&
        gpGameState->GetGameMode().GetGameModeType() == 'SNGL' &&
-       gpGameState->GetGameModeType() == 'FRND');
+       gpGameState->GetGameModeType() == 'FRND')) {
+    showWorldName = true;
+  }
   const bool introText = showWorldName && gpGameState->GetInitPowerupsAtFirstSpawn() &&
                          gpGameState->CurrentWorldAssetId() == skDefaultWorld.GetId();
   if (introText) {
@@ -54,8 +56,12 @@ CMFGameLoader::CMFGameLoader()
     const CAssetId world = gpGameState->CurrentWorldAssetId();
     if (gpMemoryCard->HasSaveWorldMemory(world)) {
       const CSaveWorldMemory& memory = gpMemoryCard->GetSaveWorldMemory(world);
-      const CAssetId name =
-          gpGameState->GetIsDarkWorld() ? memory.GetDarkWorldNameId() : memory.GetWorldNameId();
+      CAssetId name;
+      if (gpGameState->GetIsDarkWorld()) {
+        name = memory.GetDarkWorldNameId();
+      } else {
+        name = memory.GetWorldNameId();
+      }
       if (name != kInvalidAssetId) {
         gpGameState->WorldTransitionManager()->EnableTransition(
             kInvalidAssetId, name, 1, false, 0.1f, 16.f, 1.f, 0.f, 0.f, 0.f,
