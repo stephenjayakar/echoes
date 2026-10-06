@@ -84,7 +84,7 @@ void CCollisionCacheWriter::ReserveWords(int count) {
 }
 
 void CCollisionCacheWriter::BeginGeometry(const CCollisionPrimitiveData& geometry,
-                                          const CTransform4f* transform, short id, u64 flags) {
+                                          const CTransform4f* transform, ushort id, u64 flags) {
   FinishLeaf();
   mGeometryStart = mCache.mData.size();
   ReserveWords(40);
