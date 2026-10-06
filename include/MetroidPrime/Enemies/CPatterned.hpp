@@ -35,6 +35,7 @@ class CCharAnimTime;
 enum EPatternedAI {
   kPAI_DarkSamus = 7,
   kPAI_Metroid = 0x21, // Guessed name; Metroid REL constructor.
+  kPAI_Ripper = 0x30,  // Guessed name; Ripper REL constructor.
 };
 
 template <>
@@ -234,6 +235,7 @@ public:
   void fn_801524fc(CStateManager& mgr);
 
   bool GetAlive() const { return mAlive; }
+  EFlavorType GetFlavorType() const { return mFlavor; }
   bool IsMakingBigStrike() const { return mIsMakingBigStrike; }
   float GetDamageDuration() const { return mDamageDuration; }
   int GetCreatureSize() const { return mCreatureSize; }
@@ -252,6 +254,7 @@ public:
 
   const CBodyController* GetBodyController() const { return mBodyController.get(); }
 
+  CAiKnockBackMgr& KnockBackController() { return mKnockBackController; }
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
 protected:
