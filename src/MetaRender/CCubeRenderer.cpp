@@ -2329,11 +2329,13 @@ void* CCubeRenderer::GetRenderToTexBuffer(int index) {
 void CCubeRenderer::CopyScreenTex(uint divisor, bool half, void* dest, GXTexFmt format,
                                   bool clear) const {
   const CViewport& viewport = CGraphics::GetViewport();
-  GXSetTexCopySrc(viewport.mLeft, viewport.mTop + viewport.mHeight - viewport.mHeight / divisor,
-                  viewport.mWidth / divisor, viewport.mHeight / divisor);
-  const uint width = half ? viewport.mWidth / 2 : viewport.mWidth;
-  const uint height = half ? viewport.mHeight / 2 : viewport.mHeight;
-  GXSetTexCopyDst(width / divisor, height / divisor, format, half);
+  int width = viewport.mWidth;
+  int height = viewport.mHeight;
+  GXSetTexCopySrc(viewport.mLeft, viewport.mTop + height - height / divisor, width / divisor,
+                  height / divisor);
+  const int copyWidth = half ? width / 2 : width;
+  const int copyHeight = half ? height / 2 : height;
+  GXSetTexCopyDst(copyWidth / divisor, copyHeight / divisor, format, half);
   const CColor clearColor = CGraphics::GetClearColor();
   CGraphics::SetClearColor(CColor(0));
   GXSetColorUpdate(false);
@@ -3886,16 +3888,16 @@ void CCubeRenderer::DrawAreaModel(int areaId, int modelId, const CModelFlags& fl
   const SAreaSurface& areaSurface = (*area->mSurfaces)[modelId + 1];
   const int modelIndex = areaSurface.mModelIndex;
   const int groupIndex = areaSurface.mSurfaceGroupIndex;
-  const CCubeModel& model = *(*area->mModels)[modelIndex];
   const CMetroidModelInstance& instance = (*area->mGeometry)[modelIndex];
+  const CCubeModel* model = (*area->mModels)[modelIndex].get();
   CCubeMaterial::ResetCachedMaterials();
-  model.SetArraysCurrent();
+  model->SetArraysCurrent();
   const CMetroidModelInstance::CSurfaceGroups groups = instance.GetSurfaceGroups();
   const ushort count = groups.GetSurfaceCount(groupIndex);
   const ushort* indices = groups.GetSurfaceIndices(groupIndex);
   for (ushort i = 0; i < count; ++i) {
     const CCubeSurface surface(instance.GetSurfaces()[indices[i]]);
-    model.DrawSurface(surface, flags);
+    model->DrawSurface(surface, flags);
   }
 }
 
