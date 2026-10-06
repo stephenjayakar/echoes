@@ -1500,7 +1500,7 @@ __ct__Q24rstl53reserved_vector<Q24rstl25pair<Us,Q26CActor6SSound>,4>FiRCQ24rstl2
 MakeActorMaterialList__FRC13CMaterialListRC16CActorParameters = .text:0x8004E420; // type:function size:0x28
 __ct__Q26CActor6SSoundFRC10CSfxHandleRC6CSegIdb = .text:0x8004E448; // type:function size:0x20
 sort<P9TUniqueId,19CFluidHeightCompare>__4rstlFP9TUniqueIdP9TUniqueId19CFluidHeightCompare = .text:0x8004E468; // type:function size:0x158 scope:weak align:4
-__cl__19CFluidHeightCompareCFRC9TUniqueIdRC9TUniqueId = .text:0x8004E5C0; // type:function size:0xF0
+__cl__19CFluidHeightCompareCF9TUniqueId9TUniqueId = .text:0x8004E5C0; // type:function size:0xF0
 __insertion_sort<P9TUniqueId,19CFluidHeightCompare>__4rstlFP9TUniqueIdP9TUniqueId19CFluidHeightCompare = .text:0x8004E6B0; // type:function size:0xA0 scope:weak
 __sort3<9TUniqueId,19CFluidHeightCompare>__4rstlFR9TUniqueIdR9TUniqueIdR9TUniqueId19CFluidHeightCompare = .text:0x8004E750; // type:function size:0xFC scope:weak
 PauseAndUnpauseAreaLoading__6CWorldFv = .text:0x8004E84C; // type:function size:0x48 align:4

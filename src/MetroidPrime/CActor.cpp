@@ -50,20 +50,21 @@ class CFluidHeightCompare {
 public:
   explicit CFluidHeightCompare(CStateManager& mgr) : mManager(mgr) {}
 
-  bool operator()(const TUniqueId& a, const TUniqueId& b) const;
+  bool operator()(TUniqueId a, TUniqueId b) const;
 
 private:
   CStateManager& mManager;
 };
 
-bool CFluidHeightCompare::operator()(const TUniqueId& a, const TUniqueId& b) const {
-  const CScriptWater* waterA = TCastToPtr< CScriptWater >(mManager.ObjectById(a));
-  const CScriptWater* waterB = TCastToPtr< CScriptWater >(mManager.ObjectById(b));
-  if (waterA == nullptr || waterB == nullptr) {
-    return false;
+bool CFluidHeightCompare::operator()(TUniqueId a, TUniqueId b) const {
+  const CScriptWater* waterA = TCastToConstPtr< CScriptWater >(mManager.GetObjectById(a));
+  const CScriptWater* waterB = TCastToConstPtr< CScriptWater >(mManager.GetObjectById(b));
+  if (waterA != nullptr && waterB != nullptr) {
+    const float heightA = waterA->GetWRSurfacePlane().GetClosestPoint(CVector3f::Zero()).GetZ();
+    const float heightB = waterB->GetWRSurfacePlane().GetClosestPoint(CVector3f::Zero()).GetZ();
+    return heightA < heightB;
   }
-  return waterA->GetWRSurfacePlane().GetClosestPoint(CVector3f::Zero()).GetZ() <
-         waterB->GetWRSurfacePlane().GetClosestPoint(CVector3f::Zero()).GetZ();
+  return false;
 }
 
 static CMaterialList MakeActorMaterialList(const CMaterialList& in,
