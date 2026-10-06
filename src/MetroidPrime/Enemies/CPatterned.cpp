@@ -1551,4 +1551,3 @@ CAABox CPatterned::GetScanVisorRenderBounds(const CStateManager&) const {
   return CAABox::Identity();
 }
 
-CPatterned::~CPatterned() {}
