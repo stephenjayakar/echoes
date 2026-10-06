@@ -170,17 +170,18 @@ bool CGuiTextSupport::CheckAndRebuildRenderBuffer() const {
   if ((!mMultipage && !mRenderBuffer) || (mMultipage && mPages.empty())) {
     CheckAndRebuildTextBuffer();
     mAssets = mExecuteBuffer.GetAssets();
-    if (!_GetIsTextSupportFinishedLoading()) {
+    if (_GetIsTextSupportFinishedLoading()) {
+      CheckAndRebuildTextBuffer();
+      if (mMultipage) {
+        mPages = mExecuteBuffer.BuildRenderBufferPages(CVector2i(mExtentX, mExtentY));
+      } else {
+        mRenderBuffer = mExecuteBuffer.BuildRenderBuffer();
+        mBounds = mRenderBuffer->GetTextBounds();
+      }
+      mExecuteBuffer.Clear();
+    } else {
       return false;
     }
-    CheckAndRebuildTextBuffer();
-    if (mMultipage) {
-      mPages = mExecuteBuffer.BuildRenderBufferPages(CVector2i(mExtentX, mExtentY));
-    } else {
-      mRenderBuffer = mExecuteBuffer.BuildRenderBuffer();
-      mBounds = mRenderBuffer->GetTextBounds();
-    }
-    mExecuteBuffer.Clear();
     const_cast< CGuiTextSupport* >(this)->Update(0.f);
   }
   return true;

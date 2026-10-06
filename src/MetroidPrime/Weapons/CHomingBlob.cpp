@@ -134,14 +134,15 @@ bool CHomingBlob::FindNearestTriangle(float radius, const CVector3f& position, C
 // Guessed TU-local identity; native calls pass two floats and no blob instance.
 static CVector3f TangentVelocity(float normalDot, float speed, const CVector3f& velocity,
                                  const CVector3f& normal, float& resultSpeed) {
-  const CVector3f tangent = velocity - normal * normalDot;
+  CVector3f tangent = velocity - normal * normalDot;
   const float magnitude = tangent.Magnitude();
   if (magnitude < 0.00011920929f) {
     resultSpeed = 0.f;
     return CVector3f::Zero();
   }
   resultSpeed = speed;
-  return tangent * (speed / magnitude);
+  tangent = tangent * (speed / magnitude);
+  return tangent;
 }
 
 void CHomingBlob::UpdateParticles(CStateManager& mgr) {
