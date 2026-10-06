@@ -30,7 +30,7 @@
 static EMaterialTypes SolidMaterial = kMT_Unknown59;
 
 static const CDamageVulnerability::TWeaponVulnerability skPowerBombVulnerability =
-    CDamageVulnerability::TWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false));
+    CDamageVulnerability::MakeWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability::Normal());
 
 CVector3f CTryclops::kBombPosOffset(0.f, 0.f, -0.3f);
 const char* const CTryclops::kMouthLctr = "ballGrab_locator";
