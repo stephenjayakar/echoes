@@ -280,25 +280,27 @@ void CMapWorld::DoBFS(const IWorld& wld, int startArea, int areaCount, float sur
                       TBFSInfoVector& bfsInfos) const {
   if (areaCount > 0 && IsMapAreaValid(wld, startArea, checkLoad)) {
     int idx = bfsInfos.size();
-    bfsInfos.push_back(CMapAreaBFSInfo(startArea, 1, surfDepth, outlineDepth));
+    bfsInfos.push_back_unsafe(CMapAreaBFSInfo(startArea, 1, surfDepth, outlineDepth));
     mTraversed[startArea] = true;
     for (;; ++idx) {
       if (idx == bfsInfos.size()) {
         break;
       }
-      int areaIdx = bfsInfos[idx].GetAreaIndex();
-      int depth = bfsInfos[idx].GetDepth();
-      float surfaceDepth = bfsInfos[idx].GetSurfaceDrawDepth() - 1.f;
-      float outlineDepth = bfsInfos[idx].GetOutlineDrawDepth() - 1.f;
-      if (depth == areaCount) {
-        continue;
-      }
-      const IGameArea* area = wld.IGetAreaAlways(areaIdx);
-      for (int i = 0; i < static_cast< int >(area->IGetNumAttachedAreas()); ++i) {
-        int attached = area->IGetAttachedAreaId(i).Value();
-        if (IsMapAreaValid(wld, attached, checkLoad) && !mTraversed[attached]) {
-          bfsInfos.push_back(CMapAreaBFSInfo(attached, depth + 1, surfaceDepth, outlineDepth));
-          mTraversed[attached] = true;
+      const CMapAreaBFSInfo& info = bfsInfos[idx];
+      const int areaIdx = info.GetAreaIndex();
+      const int depth = info.GetDepth();
+      const float surfaceDepth = info.GetSurfaceDrawDepth() - 1.f;
+      const float outlineDepth = info.GetOutlineDrawDepth() - 1.f;
+      if (depth != areaCount) {
+        const IGameArea* area = wld.IGetAreaAlways(areaIdx);
+        for (int i = 0; i < static_cast< int >(area->IGetNumAttachedAreas()); ++i) {
+          int attached;
+          attached = area->IGetAttachedAreaId(i).Value();
+          if (IsMapAreaValid(wld, attached, checkLoad) && !mTraversed[attached]) {
+            bfsInfos.push_back_unsafe(
+                CMapAreaBFSInfo(attached, depth + 1, surfaceDepth, outlineDepth));
+            mTraversed[attached] = true;
+          }
         }
       }
     }
