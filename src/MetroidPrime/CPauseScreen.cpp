@@ -1853,20 +1853,20 @@ void CPauseScreen::RenderModels(const CTransform4f& xf, const CModelFlags& flags
       mModels[0]->AnimationData()->GetParticleDB().RenderSystemsToBeDrawnFirst();
     }
     mModels[0]->Render(CModelData::kWM_Normal, xf, mActorLights.get(), flags);
-    CModelData* model = mModels[0].get();
-    if (model->HasAnimation()) {
+    if (mModels[0]->HasAnimation()) {
       if (mModels[1].get() != nullptr && mModels[1]->HasAnimation()) {
+        CModelData* model = mModels[0].get();
         TLockedToken< CSkinnedModel > original = model->AnimationData()->GetModelData();
         model->AnimationData()->SetSkinnedModel(mModels[1]->AnimationData()->GetModelData());
         model->Render(CModelData::kWM_Normal, xf, mActorLights.get(), flags);
         model->AnimationData()->SetSkinnedModel(original);
       }
       CAnimData& animation = *mModels[0]->AnimationData();
-      const CCharLayoutInfo* layout = animation.GetCharLayoutInfo();
       for (int i = 2; i < 11; ++i) {
+        const CCharLayoutInfo* layout = animation.GetCharLayoutInfo();
         if (mModels[i].get() != nullptr && !mScanInfo.null()) {
-          const rstl::string& locator = (*mScanInfo)->GetModelLocator(i - 2);
-          if (locator.size() != 0) {
+          const rstl::string& locator = mScanInfo->GetObject()->GetModelLocator(i - 2);
+          if (locator.length() != 0) {
             const CSegId id = animation.GetLocatorSegId(locator);
             const CTransform4f locatorXf = animation.GetLocatorTransform(id, nullptr);
             if (locator.find("LCTR") == -1) {
@@ -2014,8 +2014,10 @@ void CPauseScreen::UpdateHistoryText() {
       return;
     }
     names.push_back(node->GetName());
-    completion.push_back(float(node->GetVisibleDescendantCount()) /
-                         float(node->GetDescendantCount()));
+    CScanTreeNode* scanNode = node.GetPtr();
+    const int visible = scanNode->GetVisibleDescendantCount();
+    const float total = scanNode->GetDescendantCount();
+    completion.push_back(visible / total);
     nodeId = node->GetParentNode();
   }
   if (!names.empty()) {
