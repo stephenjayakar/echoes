@@ -86,7 +86,7 @@ public:
   CProjectileInfo* ProjectileInfo() override;
   void SetupStateMachine(CStateManager& mgr) override;
   bool IsOnGround() const override;
-  float GetGravityConstant() const override { return 60.f; }
+  float GetGravityConstant() const override { return skGravityConstant; }
 
   // State functions
   void Dead(CStateManager& mgr, EStateMsg msg, float arg);
@@ -174,6 +174,7 @@ private:
   CVector3f mSpaceWarpPosition;
   int x6d8_;
 
+  static const float skGravityConstant; // Guessed name.
   static const rstl::string skSpeedSwooshName;
 };
 CHECK_SIZEOF(CChozoGhost, 0x930)

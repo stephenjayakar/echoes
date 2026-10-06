@@ -24,7 +24,40 @@
 #include "REL/REL_Setup.h"
 
 
+const float CChozoGhost::skGravityConstant = 60.f;
 const rstl::string CChozoGhost::skSpeedSwooshName = rstl::string_l("SpeedSwoosh");
+
+static EMaterialTypes SolidMaterial = kMT_Unknown59;
+
+static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
+    {"ShouldAttack", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldAttack)},
+    {"InRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::InRange)},
+    {"ShouldTaunt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldTaunt)},
+    {"ShouldMove", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldMove)},
+    {"AIStage", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AIStage)},
+    {"Leash", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::Leash)},
+    {"ShouldFlinch", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldFlinch)},
+    {"AggressionCheck",
+     static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AggressionCheck)},
+};
+
+static CPatterned::StateMachine::SStateFunction skStates[] = {
+    {"Start", &CPatterned::Start},
+    {"InActive", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::InActive)},
+    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Attack)},
+    {"Generate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Generate)},
+    {"Run", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Run)},
+    {"SelectTarget", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::SelectTarget)},
+    {"Dead", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Dead)},
+    {"Deactivate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Deactivate)},
+    {"Shuffle", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Shuffle)},
+    {"Taunt", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Taunt)},
+    {"Lurk", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Lurk)},
+    {"Hurled", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Hurled)},
+    {"Growth", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Growth)},
+    {"WallDetach", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::WallDetach)},
+    {"Land", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Land)},
+};
 
 CChozoGhost::CBehaveChance::CBehaveChance(float lurk, float taunt, float attack, float move,
                                           float lurkTime, float chargeAttack, uint numBolts)
@@ -210,8 +243,6 @@ void CChozoGhost::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   }
 }
-
-static EMaterialTypes SolidMaterial = kMT_Unknown59;
 
 void CChozoGhost::Touch(CActor& act, CStateManager& mgr) {
   if (IsVisibleEnough(mgr)) {
@@ -992,36 +1023,6 @@ void CChozoGhost::Think(float dt, CStateManager& mgr) {
   mSpaceWarpTime = rstl::max_val(mSpaceWarpTime - dt, 0.f);
   SetValidTarget(0, IsVisibleEnough(mgr));
 }
-
-static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
-    {"ShouldAttack", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldAttack)},
-    {"InRange", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::InRange)},
-    {"ShouldTaunt", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldTaunt)},
-    {"ShouldMove", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldMove)},
-    {"AIStage", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AIStage)},
-    {"Leash", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::Leash)},
-    {"ShouldFlinch", static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::ShouldFlinch)},
-    {"AggressionCheck",
-     static_cast< CPatterned::StateMachine::TriggerFunc >(&CChozoGhost::AggressionCheck)},
-};
-
-static CPatterned::StateMachine::SStateFunction skStates[] = {
-    {"Start", &CPatterned::Start},
-    {"InActive", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::InActive)},
-    {"Attack", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Attack)},
-    {"Generate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Generate)},
-    {"Run", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Run)},
-    {"SelectTarget", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::SelectTarget)},
-    {"Dead", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Dead)},
-    {"Deactivate", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Deactivate)},
-    {"Shuffle", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Shuffle)},
-    {"Taunt", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Taunt)},
-    {"Lurk", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Lurk)},
-    {"Hurled", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Hurled)},
-    {"Growth", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Growth)},
-    {"WallDetach", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::WallDetach)},
-    {"Land", static_cast< CPatterned::StateMachine::StateFunc >(&CChozoGhost::Land)},
-};
 
 void CChozoGhost::SetupStateMachine(CStateManager& mgr) {
   StateMachine* stateMachine = mStateMachine.get();
