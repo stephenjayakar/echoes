@@ -296,7 +296,7 @@ CGameState::CGameState()
 , mInitPowerupsAtFirstSpawn(true)
 , mIsDarkWorld(false) {
   for (int player = 0; player < 4; ++player) {
-    mPlayerStates.push_back(rstl::rc_ptr< CPlayerState >(rs_new CPlayerState(player, nullptr)));
+    mPlayerStates.push_back(rstl::ncrc_ptr< CPlayerState >(rs_new CPlayerState(player, nullptr)));
   }
   if (gpMemoryCard != nullptr) {
     InitializeMemoryStates();
@@ -339,7 +339,7 @@ CGameState::CGameState(CBitStreamReader& in)
   playTime.bits |= in.ReadBits(32);
   mTotalPlayTime = playTime.value;
   for (int player = 0; player < 4; ++player) {
-    mPlayerStates.push_back(rstl::rc_ptr< CPlayerState >(rs_new CPlayerState(player, in)));
+    mPlayerStates.push_back(rstl::ncrc_ptr< CPlayerState >(rs_new CPlayerState(player, in)));
   }
   mHintOptions = CHintOptions(in);
   mPreviousGameResults = SPreviousGameResults(in);

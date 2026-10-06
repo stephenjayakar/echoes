@@ -43,11 +43,15 @@ void CScriptCameraShaker::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& 
           mPlayerShakeIds[i] = mgr.CameraManager(i)->CameraShakerManager()->AddCameraShaker(
               mShakeData, mgr, true, true);
         }
-      } else if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(msg.GetOriginator()))) {
-        const int managerIndex = mgr.MaskUIdNumPlayers(player->GetUniqueId());
-        mPlayerShakeIds[player->GetPlayerIndex()] =
-            mgr.CameraManager(managerIndex)->CameraShakerManager()->AddCameraShaker(
-                mShakeData, mgr, true, true);
+      } else {
+        const TUniqueId originator = msg.GetOriginator();
+        if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(originator))) {
+          const int managerIndex = mgr.MaskUIdNumPlayers(player->GetUniqueId());
+          mPlayerShakeIds[player->GetPlayerIndex()] =
+              mgr.CameraManager(managerIndex)
+                  ->CameraShakerManager()
+                  ->AddCameraShaker(mShakeData, mgr, true, true);
+        }
       }
     }
     break;
@@ -56,10 +60,14 @@ void CScriptCameraShaker::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& 
       for (int i = 0; i < uint(mgr.GetNumPlayers()); ++i) {
         mgr.CameraManager(i)->CameraShakerManager()->RemoveCameraShaker(mPlayerShakeIds[i]);
       }
-    } else if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(msg.GetOriginator()))) {
-      const int managerIndex = mgr.MaskUIdNumPlayers(player->GetUniqueId());
-      mgr.CameraManager(managerIndex)->CameraShakerManager()->RemoveCameraShaker(
-          mPlayerShakeIds[player->GetPlayerIndex()]);
+    } else {
+      const TUniqueId originator = msg.GetOriginator();
+      if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(originator))) {
+        const int managerIndex = mgr.MaskUIdNumPlayers(player->GetUniqueId());
+        mgr.CameraManager(managerIndex)
+            ->CameraShakerManager()
+            ->RemoveCameraShaker(mPlayerShakeIds[player->GetPlayerIndex()]);
+      }
     }
     break;
   default:

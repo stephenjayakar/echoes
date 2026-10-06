@@ -44,7 +44,10 @@ public:
     mCount = 0;
   }
 
-  ~reserved_vector() { destroy_elements(); }
+  ~reserved_vector() {
+    RSTL_PRECONDITION(mCount >= 0);
+    destroy_elements();
+  }
 
   void push_back(const T& in) {
     construct(data() + mCount, in);
