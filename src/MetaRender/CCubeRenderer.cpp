@@ -12,6 +12,7 @@
 #include "Kyoto/Graphics/CGX.hpp"
 #include "Kyoto/IObjectStore.hpp"
 #include "Kyoto/Math/CMath.hpp"
+#include "Kyoto/Math/CloseEnough.hpp"
 #include "Kyoto/Math/CQuaternion.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
 #include "Kyoto/Math/CSphere.hpp"
@@ -3432,6 +3433,8 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
   CGX::SetTevDirect(GX_TEVSTAGE2);
   CGX::SetNumChans(0);
   const CViewport& viewport = CGraphics::GetViewport();
+  const int left = viewport.mLeft;
+  const int top = viewport.mTop;
   const int width = viewport.mWidth;
   const int height = viewport.mHeight;
   CGX::SetDstAlpha(false, 255);
@@ -3442,16 +3445,17 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
   CGraphics::SetOrtho(0.f, width, 0.f, height, -4096.f, 4096.f);
   CGraphics::SetViewPointMatrix(CTransform4f::Identity());
   CGraphics::SetModelMatrix(CTransform4f::Identity());
+  const GXTexMapID spareTexMap = CGraphics::kSpareBufferTexMapID;
   void* noise = reinterpret_cast< void* >(((mRandom.Next() + 31) & ~31) + 0x8000);
   CGraphics::LoadDolphinSpareTexture(width / 2, height, GX_TF_IA8, noise, GX_TEXMAP0);
-  GXSetTexCopySrc(viewport.mLeft, viewport.mTop, width, height);
-  GXSetTexCopyDst(width, height, GX_CTF_G8, false);
+  GXSetTexCopySrc(left, top, width, height);
+  GXSetTexCopyDst(width, height, GX_CTF_R8, false);
   GXCopyTex(CGraphics::GetDolphinSpareBuffer(), false);
   CGraphics::LoadDolphinSpareTexture(width, height, GX_TF_I8, nullptr,
-                                     CGraphics::kSpareBufferTexMapID);
+                                     spareTexMap);
   CGraphics::SetDepthWriteMode(false, kE_Always, false);
   CGraphics::SetBlendMode(kBM_Blend, kBF_One, kBF_Zero, kLO_Clear);
-  CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
+  CGraphics::SetAlphaCompare(kAF_Always, 0, kAO_And, kAF_Always, 0);
   CGX::SetStandardTevColorAlphaOp(GX_TEVSTAGE0);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_TEXC, GX_CC_KONST, GX_CC_ZERO);
   CGX::SetTevAlphaIn(GX_TEVSTAGE0, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_KONST);
@@ -3461,7 +3465,7 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
   CGX::SetTevColorOp(GX_TEVSTAGE1, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_2, true, GX_TEVPREV);
   CGX::SetTevColorIn(GX_TEVSTAGE1, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_CPREV);
   CGX::SetTevAlphaIn(GX_TEVSTAGE1, GX_CA_ZERO, GX_CA_ZERO, GX_CA_ZERO, GX_CA_APREV);
-  CGX::SetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD1, CGraphics::kSpareBufferTexMapID, GX_COLOR_NULL);
+  CGX::SetTevOrder(GX_TEVSTAGE1, GX_TEXCOORD1, spareTexMap, GX_COLOR_NULL);
   CGX::SetTevKColorSel(GX_TEVSTAGE1, GX_TEV_KCSEL_K1);
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_TEX1, GX_IDENTITY, false, GX_PTIDENTITY);
@@ -3484,19 +3488,19 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
   GXTexCoord2f32(1.f, 0.f);
   CGX::End();
 
-  GXSetTexCopySrc(viewport.mLeft + captureOrigin.GetX(), viewport.mTop + captureOrigin.GetY(),
+  GXSetTexCopySrc(left + captureOrigin.GetX(), top + captureOrigin.GetY(),
                   captureSize.GetX(), captureSize.GetY());
   GXSetTexCopyDst(captureSize.GetX(), captureSize.GetY(), GX_CTF_A8, false);
   GXCopyTex(CGraphics::GetDolphinSpareBuffer(), false);
   mDarkLightWorldPalette->Load();
   CGraphics::LoadDolphinSpareTexture(captureSize.GetX(), captureSize.GetY(), GX_TF_C8, GX_TLUT0,
-                                     nullptr, CGraphics::kSpareBufferTexMapID);
+                                     nullptr, spareTexMap);
   CGX::SetVtxDescv(oneTexDesc);
   CGX::SetTevColorOp(GX_TEVSTAGE0, GX_TEV_ADD, GX_TB_ZERO, GX_CS_SCALE_1, true, GX_TEVPREV);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, IsRGBA6Current() ? GX_CC_TEXC : GX_CC_ZERO,
                      GX_CC_KONST, GX_CC_ZERO);
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K2);
-  CGX::SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, CGraphics::kSpareBufferTexMapID, GX_COLOR_NULL);
+  CGX::SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, spareTexMap, GX_COLOR_NULL);
   CGX::SetTexCoordGen(GX_TEXCOORD0, GX_TG_MTX2x4, GX_TG_TEX0, GX_IDENTITY, false, GX_PTIDENTITY);
   CGX::SetNumTevStages(1);
   CGX::SetNumTexGens(1);
@@ -3516,7 +3520,8 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
 
   GXSetAlphaUpdate(true);
   GXSetColorUpdate(false);
-  GXSetTevColor(GX_TEVREG0, CColor::White().GetGXColor());
+  const GXColor white = {255, 255, 255, 255};
+  GXSetTevColor(GX_TEVREG0, white);
   CGraphics::LoadDolphinSpareTexture(captureSize.GetX(), captureSize.GetY(), GX_TF_I8, nullptr,
                                      CGraphics::kSpareBufferTexMapID);
   CGX::SetTevOrder(GX_TEVSTAGE0, GX_TEXCOORD0, CGraphics::kSpareBufferTexMapID, GX_COLOR_NULL);
@@ -3554,33 +3559,33 @@ void CCubeRenderer::DrawDarkWorldTransition(const CColor& color0, const CColor& 
     const float distanceX = motion.GetX();
     const float distanceY = motion.GetY();
     const CVector2i end = captureOrigin + captureSize;
-    if (CMath::AbsF(distanceX - 0.f) >= 0.00001f) {
+    if (!close_enough(distanceX, 0.f)) {
       CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 4);
-      if (distanceX <= 0.f) {
-        GXPosition3f32(float(end.GetX()) + distanceX, 0.5f, captureOrigin.GetY());
-        GXPosition3f32(float(end.GetX()) + distanceX, 0.5f, end.GetY());
-        GXPosition3f32(end.GetX(), 0.5f, end.GetY());
-        GXPosition3f32(end.GetX(), 0.5f, captureOrigin.GetY());
-      } else {
+      if (distanceX > 0.f) {
         GXPosition3f32(captureOrigin.GetX(), 0.5f, captureOrigin.GetY());
         GXPosition3f32(captureOrigin.GetX(), 0.5f, end.GetY());
         GXPosition3f32(float(captureOrigin.GetX()) + distanceX, 0.5f, end.GetY());
         GXPosition3f32(float(captureOrigin.GetX()) + distanceX, 0.5f, captureOrigin.GetY());
+      } else {
+        GXPosition3f32(float(end.GetX()) + distanceX, 0.5f, captureOrigin.GetY());
+        GXPosition3f32(float(end.GetX()) + distanceX, 0.5f, end.GetY());
+        GXPosition3f32(end.GetX(), 0.5f, end.GetY());
+        GXPosition3f32(end.GetX(), 0.5f, captureOrigin.GetY());
       }
       CGX::End();
     }
-    if (CMath::AbsF(distanceY - 0.f) >= 0.00001f) {
+    if (!close_enough(distanceY, 0.f)) {
       CGX::Begin(GX_TRIANGLEFAN, GX_VTXFMT0, 4);
-      if (distanceY <= 0.f) {
-        GXPosition3f32(captureOrigin.GetX(), 0.5f, float(end.GetY()) + distanceY);
-        GXPosition3f32(captureOrigin.GetX(), 0.5f, end.GetY());
-        GXPosition3f32(end.GetX(), 0.5f, end.GetY());
-        GXPosition3f32(end.GetX(), 0.5f, float(end.GetY()) + distanceY);
-      } else {
+      if (distanceY > 0.f) {
         GXPosition3f32(captureOrigin.GetX(), 0.5f, captureOrigin.GetY());
         GXPosition3f32(captureOrigin.GetX(), 0.5f, float(captureOrigin.GetY()) + distanceY);
         GXPosition3f32(end.GetX(), 0.5f, float(captureOrigin.GetY()) + distanceY);
         GXPosition3f32(end.GetX(), 0.5f, captureOrigin.GetY());
+      } else {
+        GXPosition3f32(captureOrigin.GetX(), 0.5f, float(end.GetY()) + distanceY);
+        GXPosition3f32(captureOrigin.GetX(), 0.5f, end.GetY());
+        GXPosition3f32(end.GetX(), 0.5f, end.GetY());
+        GXPosition3f32(end.GetX(), 0.5f, float(end.GetY()) + distanceY);
       }
       CGX::End();
     }
