@@ -3715,8 +3715,8 @@ void CCubeRenderer::PrepareWorldRendering(
       continue;
     }
     if (light.GetType() == kLT_Point) {
-      const CSphere sphere(light.GetPosition(), light.GetRadius() * 2.f);
-      if (!mFrustumPlanes.SphereInFrustumPlanes(sphere)) {
+      if (!mFrustumPlanes.SphereInFrustumPlanes(
+              CSphere(light.GetPosition(), light.GetRadius() * 2.f))) {
         continue;
       }
     }
@@ -3736,65 +3736,93 @@ void CCubeRenderer::PrepareWorldRendering(
         }
       }
     }
-    const uint wordCount = area->mOctTree->GetBitmapWordCount();
-    rstl::vector< uint > overlaps(wordCount * mDynamicLights.size(), 0);
+    const CAreaRenderOctTree* octTree = area->mOctTree;
+    int wordCount = octTree->GetBitmapWordCount();
+    rstl::vector< uint > overlaps;
+    overlaps.resize(wordCount * mDynamicLights.size(), 0);
     for (int i = 0; i < mDynamicLights.size(); ++i) {
       const CLight& light = mDynamicLights[i];
       const float radius = light.GetRadius();
       const CVector3f extent(radius, radius, radius);
       const CAABox lightBounds(light.GetPosition() - extent, light.GetPosition() + extent);
-      area->mOctTree->FindOverlappingModels(overlaps.data() + i * wordCount, lightBounds);
+      octTree->FindOverlappingModels(overlaps.data() + i * wordCount, lightBounds);
     }
     rstl::reserved_vector< float, 32 > ambient;
-    if (area->mAmbientLightIds->size() <= 32) {
-      ambient.resize(area->mAmbientLightIds->size(), 0.f);
-      for (int i = 0; i < area->mAmbientLightIds->size(); ++i) {
+    const rstl::vector< uint >* ambientIds = area->mAmbientLightIds;
+    if (ambientIds->size() <= 32) {
+      ambient.resize(ambientIds->size(), 0.f);
+      for (int i = 0; i < ambientIds->size(); ++i) {
+        const uint id = (*ambientIds)[i];
         for (int j = 0; j < ambientLightCount; ++j) {
-          if ((*area->mAmbientLightIds)[i] == ambientLights[j].first) {
+          if (id == ambientLights[j].first) {
             ambient[i] = ambientLights[j].second;
             break;
           }
         }
       }
     }
+    const rstl::vector< SAreaSurface >* surfaces = area->mSurfaces;
+    const rstl::vector< signed char >* ambientIndices = area->mAmbientLightIndices;
     const CFrustumPlanes* areaFrustum = nullptr;
     if (areaFrusta) {
-      for (int i = 0; i < areaFrusta->size(); ++i) {
-        if ((*areaFrusta)[i].first == area->mAreaId) {
-          areaFrustum = &(*areaFrusta)[i].second;
+      for (rstl::reserved_vector< rstl::pair< int, CFrustumPlanes >, 10 >::const_iterator it =
+               areaFrusta->begin();
+           it != areaFrusta->end(); ++it) {
+        if (it->first == area->mAreaId) {
+          areaFrustum = &it->second;
           break;
         }
       }
     }
-    area->mLightSetIndices.resize(area->mSurfaces->size() - 1, static_cast< uchar >(255));
-    for (int i = 1; i < area->mSurfaces->size(); ++i) {
-      const SAreaSurface& surface = (*area->mSurfaces)[i];
-      const uint surfaceIndex = i - 1;
-      const bool visible = pvs->GetVisible(surfaceIndex) != kVSS_EndOfTree &&
-                           mFrustumPlanes.BoxInFrustumPlanes(surface.mBounds) &&
-                           (!areaFrustum || areaFrustum->BoxInFrustumPlanes(surface.mBounds));
-      if (!visible) {
-        area->mLightSetIndices[surfaceIndex] = 255;
-      } else if (mDynamicLights.empty() && ambient.empty()) {
-        area->mLightSetIndices[surfaceIndex] = 0;
-      } else {
-        uchar lightIndices[4];
-        EvaluateModelLights(lightIndices, surface.mBounds,
-                            overlaps.empty() ? nullptr : overlaps.data(), wordCount, surfaceIndex);
-        float ambientLevel = 0.f;
-        if (!area->mAmbientLightIndices->empty()) {
-          const int ambientIndex = (*area->mAmbientLightIndices)[surfaceIndex];
-          if (ambientIndex >= 0) {
-            ambientLevel = ambient[ambientIndex];
+    rstl::vector< uchar >& lightSetIndices = area->mLightSetIndices;
+    lightSetIndices.resize(surfaces->size() - 1, static_cast< uchar >(255));
+    if (mDynamicLights.size() != 0 || ambient.size() != 0) {
+      for (int i = 1; i < surfaces->size(); ++i) {
+        const uint surfaceIndex = i - 1;
+        const CAABox& bounds = (*surfaces)[i].mBounds;
+        if ((pvs->GetVisible(surfaceIndex) != kVSS_EndOfTree ? true : false) &&
+            mFrustumPlanes.BoxInFrustumPlanes(bounds) &&
+            (!areaFrustum || areaFrustum->BoxInFrustumPlanes(bounds))) {
+          float ambientLevel = 0.f;
+          uchar lightIndices[4];
+          EvaluateModelLights(lightIndices, bounds, overlaps.size() != 0 ? overlaps.data() : nullptr,
+                              wordCount, surfaceIndex);
+          if (ambientIndices->size() != 0) {
+            const signed char& entry = (*ambientIndices)[i - 1];
+            const int ambientIndex = entry;
+            if (ambientIndex >= 0) {
+              ambientLevel = ambient[ambientIndex];
+            }
           }
+          const uint lightSet = PackLightSet(lightIndices, ambientLevel);
+          const uchar lightSetIndex = FindOrAddLightSet(lightSet);
+          lightSetIndices[surfaceIndex] = lightSetIndex;
+        } else {
+          lightSetIndices[surfaceIndex] = 255;
         }
-        const uint lightSet = PackLightSet(lightIndices, ambientLevel);
-        area->mLightSetIndices[surfaceIndex] = FindOrAddLightSet(lightSet);
+      }
+    } else {
+      for (int i = 1; i < surfaces->size(); ++i) {
+        const uint surfaceIndex = i - 1;
+        const CAABox& bounds = (*surfaces)[i].mBounds;
+        if ((pvs->GetVisible(surfaceIndex) != kVSS_EndOfTree ? true : false) &&
+            mFrustumPlanes.BoxInFrustumPlanes(bounds) &&
+            (!areaFrustum || areaFrustum->BoxInFrustumPlanes(bounds))) {
+          lightSetIndices[surfaceIndex] = 0;
+        } else {
+          lightSetIndices[surfaceIndex] = 255;
+        }
       }
     }
     if (mPVSState == 2) {
-      for (int i = 0; i < area->mSurfaces->size() - 1; ++i) {
-        area->mLightSetIndices[i] = area->mLightSetIndices[i] == 255 ? 0 : 255;
+      const rstl::vector< SAreaSurface >* pvsSurfaces = area->mSurfaces;
+      for (int i = 1; i < pvsSurfaces->size(); ++i) {
+        uchar& lightSet = lightSetIndices[i - 1];
+        if (lightSet == 255) {
+          lightSet = 0;
+        } else {
+          lightSet = 255;
+        }
       }
     }
   }
