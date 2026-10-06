@@ -118,7 +118,7 @@ public:
 
   class COctreeLeafCache {
   public:
-    COctreeLeafCache(const CAreaOctTree& octTree, TAreaId areaId);
+    COctreeLeafCache(const CAreaOctTree& octTree, int areaId);
     void AddLeaf(const CAreaOctTree::Node& node);
     const CAreaOctTree::Node& GetLeaf(int i) const { return mNodeCache[i]; }
     int GetNumLeaves() const { return mNodeCache.size(); }

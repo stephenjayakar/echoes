@@ -1122,7 +1122,7 @@ bool CMetroidAreaCollider::MovingAABoxCollisionCheck_Edge(
 }
 
 CMetroidAreaCollider::COctreeLeafCache::COctreeLeafCache(const CAreaOctTree& octTree,
-                                                         TAreaId areaId)
+                                                         int areaId)
 : mAreaId(areaId), mOctTree(octTree), mOverflow(false) {}
 
 void CMetroidAreaCollider::COctreeLeafCache::AddLeaf(const CAreaOctTree::Node& node) {

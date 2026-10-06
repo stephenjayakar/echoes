@@ -479,11 +479,11 @@ CBasicSwarmData LdrToBasicSwarmData(const SLdrBasicSwarmProperties& data) {
   result.mMinVolume = static_cast< uchar >(data.minVolume);
   result.mMaxVolume = static_cast< uchar >(data.maxVolume);
   result.mFreezeDuration = data.freezeDuration;
-  result.mLifeTime = data.lifeTime;
   result.mIsVulnerableToSafeZone = data.isVulnerableToSafeZone;
   result.xdc_1 = data.unknown_0x7eb5d9e8;
   result.mIsOrbitable = data.isOrbitable;
   result.mIndividuallyTargetable = data.individuallyTargetable;
+  result.mLifeTime = data.lifeTime;
   return result;
 }
 
