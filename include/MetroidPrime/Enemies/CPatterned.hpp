@@ -35,6 +35,7 @@ class CCharAnimTime;
 enum EPatternedAI {
   kPAI_DarkSamus = 7,
   kPAI_Metroid = 0x21, // Guessed name; Metroid REL constructor.
+  kPAI_Ripper = 0x30,  // Guessed name; Ripper REL constructor.
 };
 
 template <>
@@ -85,7 +86,7 @@ public:
   const CDamageVulnerability* GetDamageVulnerability(const CVector3f& position,
                                                      const CVector3f& direction,
                                                      const CDamageInfo& damage) const override;
-  rstl::optional_object< CAABox > GetTouchBounds() const override { return GetBoundingBox(); }
+  rstl::optional_object< CAABox > GetTouchBounds() const override;
   void Touch(CActor& actor, CStateManager& mgr) override;
   CVector3f GetOrbitPosition(const CStateManager& mgr) const override;
   CVector3f GetAimPosition(const CStateManager& mgr, float dt) const override;
@@ -135,7 +136,7 @@ public:
   virtual void SetAttackTarget(CStateManager& mgr, TUniqueId target);
   virtual TUniqueId GetAttackTarget() const { return kInvalidUniqueId; }
   virtual bool IsOnGround() const { return mOnGround; }
-  virtual float GetGravityConstant() const { return CPhysicsActor::GravityConstant(); }
+  virtual float GetGravityConstant() const { return kDefaultGravityAccel; }
   virtual bool IsScanVisorSelfRender() const;
   virtual CAABox GetScanVisorRenderBounds(const CStateManager&) const;
   virtual void ScanVisorRender(const CStateManager&, const CTransform4f&,
@@ -236,6 +237,7 @@ public:
   bool GetAlive() const { return mAlive; }
   void SetPendingDeath(bool pending) { mPendingDeath = pending; }
   TUniqueId GetDestObj() const { return mDestObj; }
+  EFlavorType GetFlavorType() const { return mFlavor; }
   bool IsMakingBigStrike() const { return mIsMakingBigStrike; }
   float GetDamageDuration() const { return mDamageDuration; }
   int GetCreatureSize() const { return mCreatureSize; }
@@ -371,5 +373,11 @@ protected:
   CSegId mLockOnTarget;
 };
 CHECK_SIZEOF(CPatterned, 0x7c0)
+
+// Defined after the class: a REL that never builds an optional_object< CAABox > itself calls
+// the constructor out of line here (weak copy at the end of the module), like the originals.
+inline rstl::optional_object< CAABox > CPatterned::GetTouchBounds() const {
+  return GetBoundingBox();
+}
 
 #endif
