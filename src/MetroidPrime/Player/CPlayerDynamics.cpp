@@ -563,12 +563,11 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
     case kSR_Water:
       waterScale = GetTweakPlayer()->GetWaterJumpFactor();
       break;
+    case kSR_Lava:
+      waterScale = GetTweakPlayer()->GetLavaJumpFactor();
+      break;
     case kSR_Phazon:
       waterScale = GetTweakPlayer()->GetPhazonJumpFactor();
-      break;
-    case kSR_Lava:
-    case kSR_Shrubbery:
-      waterScale = GetTweakPlayer()->GetLavaJumpFactor();
       break;
     default:
       break;
@@ -584,14 +583,15 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
     verticalDoubleJumpAccel = GetTweakPlayer()->GetSidewaysVerticalDoubleJumpAccel();
     horizontalDoubleJumpAccel = GetTweakPlayer()->GetSidewaysHorizontalDoubleJumpAccel();
   }
-  if (mDistanceUnderWater >= .8f * GetEyeHeight()) {
+  const bool submerged = mDistanceUnderWater >= .8f * GetEyeHeight();
+  if (submerged) {
     doubleJumpImpulse *= waterScale;
   }
   if (mMovementState == NPlayer::kMS_ApplyJump) {
     const float threshold =
         GetTweakPlayer()->GetMaxDoubleJumpWindow() - GetTweakPlayer()->GetMinDoubleJumpWindow();
     if (JumpPressed(input)) {
-      if (mSjTimer <= threshold && mSjTimer > 0.f) {
+      if (threshold >= mSjTimer && mSjTimer > 0.f) {
         mLastSpaceJumpPosition = GetTranslation();
         SetMoveState(NPlayer::kMS_Jump, mgr);
         mBodyController->CommandMgr().DeliverCmd(CPlayerBodyStateCmd(kPBSC_DoubleJump));
@@ -601,9 +601,8 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
         mDashTimer = 0.f;
         mStrafeInputAtDash = StrafeInput(input);
         if (GetTweakPlayerControls()->GetImpulseDoubleJump()) {
-          ApplyImpulseWR(
-              CVector3f(0.f, 0.f, (doubleJumpImpulse - GetVelocityWR().GetZ()) * GetMass()),
-              CAxisAngle::Identity());
+          const CVector3f impulse(0.f, 0.f, (doubleJumpImpulse - GetVelocityWR().GetZ()) * GetMass());
+          ApplyImpulseWR(impulse, CAxisAngle::Identity());
         }
         float inputMagnitude = mControlMapper.GetAnalogInput(CControlMapper::kC_Forward, input);
         if (inputMagnitude < mControlMapper.GetAnalogInput(CControlMapper::kC_Backward, input)) {
@@ -617,7 +616,9 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
       const CFirstPersonCamera* camera =
           mgr.GetCameraManager(GetPlayerIndex())->GetFirstPersonCamera();
       if (camera->GetFluidCount() == 0) {
-        CVector3f flatVelocity(GetVelocityWR().GetX(), GetVelocityWR().GetY(), 0.f);
+        CVector3f flatVelocity(GetVelocityWR().GetX(), GetVelocityWR().GetY(),
+                               GetVelocityWR().GetZ());
+        flatVelocity.SetZ(0.f);
         if (flatVelocity.CanBeNormalized()) {
           flatVelocity.Normalize();
         }
@@ -626,9 +627,9 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
             mJumpPresses == 2 && GetRezbitState() == kRS_None) {
           mTimeSinceScrewAttackRequest = 0.f;
           if (GetTweakPlayerControls()->GetImpulseDoubleJump()) {
-            ApplyImpulseWR(
-                CVector3f(0.f, 0.f, (doubleJumpImpulse - GetVelocityWR().GetZ()) * GetMass()),
-                CAxisAngle::Identity());
+            const CVector3f impulse(0.f, 0.f,
+                                    (doubleJumpImpulse - GetVelocityWR().GetZ()) * GetMass());
+            ApplyImpulseWR(impulse, CAxisAngle::Identity());
           }
           RequestScrewAttackTransition(kMS_Morphed);
         }
@@ -640,22 +641,22 @@ float CPlayer::JumpInput(const CFinalInput& input, CStateManager& mgr) {
     return GetGravity() * GetMass();
   }
   if (JumpHeld(input) ||
-      (mMovementState == NPlayer::kMS_Jump && mStartingJumpTimeout >= mMinJumpTimeout)) {
-    if (mMovementState == NPlayer::kMS_Jump) {
-      float inputMagnitude = mControlMapper.GetAnalogInput(CControlMapper::kC_Forward, input);
-      if (inputMagnitude < mControlMapper.GetAnalogInput(CControlMapper::kC_Backward, input)) {
-        inputMagnitude = mControlMapper.GetAnalogInput(CControlMapper::kC_Backward, input);
+      (mMovementState == NPlayer::kMS_Jump && mMinJumpTimeout <= mStartingJumpTimeout)) {
+    if (mMovementState != NPlayer::kMS_Jump) {
+      if (JumpPressed(input)) {
+        mLastJumpPosition = GetTranslation();
+        SetMoveState(NPlayer::kMS_Jump, mgr);
+        return waterScale * (verticalJumpAccel * GetMass());
       }
-      return waterScale *
-             ((verticalJumpAccel - inputMagnitude * (verticalJumpAccel - horizontalJumpAccel)) *
-              GetMass());
+      return 0.f;
     }
-    if (JumpPressed(input)) {
-      mLastJumpPosition = GetTranslation();
-      SetMoveState(NPlayer::kMS_Jump, mgr);
-      return waterScale * (verticalJumpAccel * GetMass());
+    float inputMagnitude = mControlMapper.GetAnalogInput(CControlMapper::kC_Forward, input);
+    if (inputMagnitude < mControlMapper.GetAnalogInput(CControlMapper::kC_Backward, input)) {
+      inputMagnitude = mControlMapper.GetAnalogInput(CControlMapper::kC_Backward, input);
     }
-    return 0.f;
+    return waterScale *
+           ((verticalJumpAccel - inputMagnitude * (verticalJumpAccel - horizontalJumpAccel)) *
+            GetMass());
   }
   if (mMovementState == NPlayer::kMS_Jump) {
     SetMoveState(NPlayer::kMS_ApplyJump, mgr);
