@@ -96,6 +96,19 @@ static const TStateMachineState< CPlayerGun >::SStateFunction skGunStateFunction
     {"EventHandler", &CPlayerGun::EventHandler},
 };
 
+// Gun asset names stored with another TU's data (guessed names; see symbols.txt).
+extern const char* const skSamusGunFSMName;
+extern const char* const skBombSetName;
+extern const char* const skBombExploName;
+extern const char* const skPowerBombExploName;
+extern const char* const skGunMotionName;
+extern const char* const skHoloTransitionName;
+extern const char* const skMissileAuxMuzzleName;
+extern const char* const skMissile2ndName;
+extern const char* const skCommonDGRPName;
+extern const char* const skSeekerMuzzleNames[5];
+extern const char* const skAuxMuzzleNames[4];
+
 static const float kChargeDtFactor = 1.0f / CPlayerState::GetMissileComboChargeFactor();
 static const float kFactorMultiplierForBeamCombo =
     1.0f / CPlayerState::GetMissileComboChargeFactor();
@@ -144,13 +157,13 @@ CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
 , mElbowLocalXf(CTransform4f::Identity())
 , mElbowWorldXf(CTransform4f::Identity())
 , mDamageLocation(CVector3f::Zero())
-, mStateMachineToken(gpSimplePool->GetObj("SamusGunFSM"))
+, mStateMachineToken(gpSimplePool->GetObj(skSamusGunFSMName))
 , mGunMorph(gpTweakPlayerGun->GetGunTransformTime(), gpTweakPlayerGun->GetHoloHoldTime())
 , mMotionState(gpTweakPlayerGun->GetGunExtendDistance())
 , mHologramClipCube(CVector3f(-0.293292f, 0.f, -0.2481945f),
                     CVector3f(0.293292f, 1.292392f, 0.2481945f))
 , mRender(&CPlayerGun::RenderGunWithHologram)
-, mGunMotion(rs_new CGunMotion(NWeaponTypes::get_asset_id_from_name("GunMotion"), sGunScale))
+, mGunMotion(rs_new CGunMotion(NWeaponTypes::get_asset_id_from_name(skGunMotionName), sGunScale))
 , mGrappleArm(rs_new CGrappleArm(sGunScale, playerId, bool(uchar(characterIndex))))
 , mAuxWeapon(rs_new CAuxWeapon(playerId))
 , mPowerBeam(rs_new CPowerBeam(playerId, sGunScale, characterIndex))
@@ -224,7 +237,7 @@ CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
   mStateMachineToken.Lock();
   InitBeamData();
   InitBombData();
-  TLockedToken< CDependencyGroup > dependencies(gpSimplePool->GetObj("Common_DGRP"));
+  TLockedToken< CDependencyGroup > dependencies(gpSimplePool->GetObj(skCommonDGRPName));
   mCommonDependencies.reserve(dependencies->GetObjectTagVector().size());
   CGunWeapon::FillTokenVector(dependencies->GetObjectTagVector(), mCommonDependencies, true);
   NWeaponTypes::lock_tokens(mCommonDependencies);
@@ -1793,23 +1806,19 @@ void CPlayerGun::InitBombData() {
   for (int i = 0; i < 2; ++i) {
     mBombEffects.push_back(rstl::reserved_vector< TToken< CGenDescription >, 2 >());
   }
-  TToken< CGenDescription > bombSet = gpSimplePool->GetObj("BombSet");
-  TToken< CGenDescription > bombExplosion = gpSimplePool->GetObj("BombExplo");
+  TToken< CGenDescription > bombSet = gpSimplePool->GetObj(skBombSetName);
+  TToken< CGenDescription > bombExplosion = gpSimplePool->GetObj(skBombExploName);
   mBombEffects[0].push_back(bombSet);
   mBombEffects[0].push_back(bombExplosion);
-  TToken< CGenDescription > powerBombExplosion = gpSimplePool->GetObj("PowerBombExplo");
+  TToken< CGenDescription > powerBombExplosion = gpSimplePool->GetObj(skPowerBombExploName);
   mBombEffects[1].push_back(powerBombExplosion);
   mBombEffects[1].push_back(powerBombExplosion);
 }
 
 void CPlayerGun::InitMuzzleData(CStateManager& mgr) {
-  static const char* const auxNames[] = {"EmptyMuzzle", "IceAuxMuzzle", "WaveAuxMuzzle",
-                                         "PlasmaAuxMuzzle"};
-  static const char* const seekerNames[] = {"MissileMuzzle", "MissileMuzzle1", "MissileMuzzle2",
-                                            "MissileMuzzle3", "MissileMuzzle4"};
   if (!mgr.IsMultiplayer()) {
     mHoloTransitionGenerator =
-        rstl::auto_ptr< CElementGen >(rs_new CElementGen(gpSimplePool->GetObj("holoTransition")));
+        rstl::auto_ptr< CElementGen >(rs_new CElementGen(gpSimplePool->GetObj(skHoloTransitionName)));
     mHoloTransitionGenerator->SetParticleEmission(true);
     mRender = &CPlayerGun::RenderGunWithHologram;
     mSoundSetIndex = 0;
@@ -1822,18 +1831,18 @@ void CPlayerGun::InitMuzzleData(CStateManager& mgr) {
   }
   mSeekerFadeRates.resize(mMaxSeekerTargets, 0.f);
   for (int i = 0; i < 4; ++i) {
-    mAuxMuzzleEffects.push_back(TLockedToken< CGenDescription >(gpSimplePool->GetObj(auxNames[i])));
+    mAuxMuzzleEffects.push_back(TLockedToken< CGenDescription >(gpSimplePool->GetObj(skAuxMuzzleNames[i])));
     rstl::auto_ptr< CElementGen > generator(rs_new CElementGen(mAuxMuzzleEffects[i]));
     generator->SetParticleEmission(false);
     mAuxMuzzleGenerators.push_back(generator);
   }
   for (int i = 0; i < mMaxSeekerTargets; ++i) {
     mSeekerMuzzleEffects.push_back(
-        TCachedToken< CGenDescription >(gpSimplePool->GetObj(seekerNames[i])));
+        TCachedToken< CGenDescription >(gpSimplePool->GetObj(skSeekerMuzzleNames[i])));
   }
   mMissileAuxMuzzleEffect =
-      TCachedToken< CGenDescription >(gpSimplePool->GetObj("MissileAuxMuzzle"));
-  mMissileSecondaryEffect = TCachedToken< CGenDescription >(gpSimplePool->GetObj("Missile2nd"));
+      TCachedToken< CGenDescription >(gpSimplePool->GetObj(skMissileAuxMuzzleName));
+  mMissileSecondaryEffect = TCachedToken< CGenDescription >(gpSimplePool->GetObj(skMissile2ndName));
 }
 
 void CPlayerGun::SetBeam(CPlayerState::EBeamId beam, CStateManager& mgr) {
@@ -2985,20 +2994,22 @@ void CPlayerGun::MissileClosing(CStateManager& mgr, int message, float dt) {
   case kSM_Enter:
     PlayAnim(mgr, NWeaponTypes::kGAT_FromMissile, false);
     break;
-  case kSM_Update:
-    if (mCurrentBeam->GetSolidModelData().GetAnimationData()->GetAnimTimeRemaining(
-            rstl::string("Whole Body")) < 0.001) {
+  case kSM_Update: {
+    const CAnimData* animData = mCurrentBeam->GetSolidModelData().GetAnimationData();
+    if (animData->GetAnimTimeRemaining(rstl::string_l("Whole Body")) < 0.001) {
       mMissileCloseAnimDone = true;
     }
     break;
+  }
   case kSM_Exit:
     mMissileCloseAnimDone = false;
     mMissileState = kMS_Inactive;
     mMissileMode = false;
-    if (!mInterruptEvent &&
-        GetPlayer(mgr)->GetPlayerState()->ItemEnabled(CPlayerState::kIT_ChargeBeam) &&
-        (mInputFlags & 4) != 0) {
-      mChargePhase = kCP_ChargeRequested;
+    if (!mInterruptEvent) {
+      if (GetPlayer(mgr)->GetPlayerState()->ItemEnabled(CPlayerState::kIT_ChargeBeam) &&
+          (mInputFlags & 4) != 0) {
+        mChargePhase = kCP_ChargeRequested;
+      }
     }
     break;
   }
