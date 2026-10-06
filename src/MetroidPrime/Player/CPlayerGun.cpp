@@ -2076,13 +2076,8 @@ void CPlayerGun::FireBombs(CStateManager& mgr) {
 
 void CPlayerGun::DropBomb(EBWeapon type, CStateManager& mgr) {
   const float radius = GetPlayer(mgr)->GetMorphBall()->GetBallRadius();
-  CPlayer* player = GetPlayerFromAll(mgr);
+  CPlayerState* playerState = GetPlayerFromAll(mgr)->GetPlayerState();
   switch (type) {
-  case kBW_PowerBomb:
-    player->GetPlayerState()->DecrementAmmoAndDisplayAlertIfOut(mgr, CPlayerState::kIT_Powerbomb,
-                                                                1);
-    mPowerBombId = DropPowerBomb(mgr);
-    break;
   case kBW_Bomb: {
     if (mBombCount <= 0) {
       break;
@@ -2090,22 +2085,27 @@ void CPlayerGun::DropBomb(EBWeapon type, CStateManager& mgr) {
     const CMaterialList triggerMaterials(kMT_Player);
     CDamageInfo damage = gpTweakPlayerGun->GetBombInfo();
     damage = damage.ApplyDoubleDamage(*GetPlayer(mgr)->GetPlayerState());
-    CBomb* bomb = rs_new CBomb(
+    CBomb* const bomb = rs_new CBomb(
         mBombEffects[type][0], mBombEffects[type][1], mgr.AllocateUniqueId(),
-        GetPlayer(mgr)->GetCurrentAreaId(), mPlayerUniqueId, triggerMaterials, kWT_Bomb, 0x100, 1.f,
+        GetPlayer(mgr)->GetCurrentAreaId(), GetPlayerUniqueId(), triggerMaterials, kWT_Bomb, 0x100, 1.f,
         gpTweakPlayerGun->GetBombTriggerRadius(),
         CTransform4f::Translate(GetPlayer(mgr)->GetTranslation() + CVector3f(0.f, 0.f, radius)),
         damage);
-    mgr.AddObject(bomb);
+    mgr.AddObject(*bomb);
     mBombReloadTimer += gpTweakPlayerGun->GetBombDropDelayTime();
     --mBombCount;
-    if (CEntity* entity = mgr.GetObjectByIdFromListAll(GetPlayer(mgr)->GetRidingPlatform())) {
+    const TUniqueId platformId = GetPlayer(mgr)->GetRidingPlatform();
+    if (CEntity* entity = mgr.ObjectById(platformId)) {
       if (CScriptPlatform* platform = TCastToPtr< CScriptPlatform >(entity)) {
         platform->AddSlave(bomb->GetUniqueId(), mgr, rstl::optional_object_null());
       }
     }
     break;
   }
+  case kBW_PowerBomb:
+    playerState->DecrementAmmoAndDisplayAlertIfOut(mgr, CPlayerState::kIT_Powerbomb, 1);
+    mPowerBombId = DropPowerBomb(mgr);
+    break;
   }
 }
 
