@@ -17,9 +17,6 @@
 #include "rstl/math.hpp"
 #include <math.h>
 
-static const char* const skScoreboardFrameNames[] = {"FRME_Scoreboard4", "FRME_Scoreboard2",
-                                                     "FRME_Scoreboard4"};
-
 static const char* const skScoreWidgetName = "basewidget_score";
 static const char* const skScoreTextName = "textpane_score";
 static const char* const skScoreBackgroundName = "model_bg";
@@ -30,6 +27,9 @@ static const char* const skTimeTextName = "textpane_time";
 static const char* const skTimeBackgroundName = "model_timebg";
 static const char* const skTimeFlashName = "model_timeflash";
 static const char* const skTimeFillName = "model_timebgfill";
+
+static const char* const skScoreboardFrameNames[] = {"FRME_Scoreboard4", "FRME_Scoreboard2",
+                                                     "FRME_Scoreboard4"};
 
 CMultiplayerGui::CMultiplayerGui(const CStateManager& mgr)
 : mFrameLoader(rs_new CGuiFrameLoader(
@@ -65,7 +65,7 @@ void CMultiplayerGui::Update(float dt, const CStateManager& mgr) {
     const int score = gameMode.GetItemAmount(mgr, i);
     const int deaths = mgr.GetPlayerState(i)->GetItemAmount(CPlayerState::kIT_DiedCount);
     mScoreTextPanes[widgetIndex]->TextSupport().SetText(
-        CStringExtras::ConvertToUNICODE(rstl::string(CBasics::Stringize("%d", score))));
+        CStringExtras::ConvertToUNICODE(rstl::string(CBasics::Stringize("%02d", score))));
     mScoreTextPanes[widgetIndex]->TextSupport().SetFontColor(
         gameMode.IsNearScoreLimit(mgr, i) ? gpTweakGuiColors->GetMultiplayerWinningScoreTextColor()
                                           : gpTweakGuiColors->GetMultiplayerScoreTextColor());

@@ -613,12 +613,11 @@ void CWorld::Update(float dt) {
        ++it, ++areaCount) {
     it->AliveUpdate(dt);
     if (it->DoesAreaNeedSkyNow()) {
-      const CScriptAreaProperties* attrs = it->GetPostConstructed()->mAreaAttributes;
-      if (attrs) {
-        if (attrs->GetSkyModel() != kInvalidAssetId) {
-          overrideSkyId = attrs->GetSkyModel();
+      if (it->GetPostConstructed()->mAreaAttributes) {
+        if (it->GetPostConstructed()->mAreaAttributes->GetSkyModel() != kInvalidAssetId) {
+          overrideSkyId = it->GetPostConstructed()->mAreaAttributes->GetSkyModel();
         }
-        skyAttrs = attrs;
+        skyAttrs = it->GetPostConstructed()->mAreaAttributes;
       }
       needsSky = true;
       if (it->GetOcclusionState() == CGameArea::kOS_Visible) {
