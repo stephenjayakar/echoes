@@ -120,6 +120,7 @@ public:
   // Guessed names.
   int CountUserEventsForAnimation(int anim, EUserEventType type) const;
   static void Touch(const CSkinnedModel& model, int shaderIdx);
+  static void Touch(const CSkinnedModel& model); // Guessed name; touches every material set.
   int CountUserEvents(EUserEventType type, const CCharAnimTime& time,
                       const rstl::ncrc_ptr< CAnimTreeNode >& tree) const;
 

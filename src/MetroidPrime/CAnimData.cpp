@@ -329,6 +329,14 @@ void CAnimData::Touch(const CSkinnedModel& model, int shaderIdx) {
   model.GetModel()->Touch(shaderIdx);
 }
 
+void CAnimData::Touch(const CSkinnedModel& model) {
+  const CModel& cmodel = **model.GetModel();
+  const int shaderCount = cmodel.GetNumMaterialSets();
+  for (int shader = 0; shader < shaderCount; ++shader) {
+    cmodel.Touch(shader);
+  }
+}
+
 void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVector3f& scale) {
   const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
   for (uint i = 0; i < effects.size(); ++i) {

@@ -276,11 +276,7 @@ void CModelData::Touch() const {
   }
   if (HasAnimation()) {
     for (int which = kWM_Normal; which <= kWM_Echo; ++which) {
-      const CModel& model = **PickAnimatedModel(static_cast< EWhichModel >(which)).GetModel();
-      const int shaderCount = model.GetNumMaterialSets();
-      for (int shader = 0; shader < shaderCount; ++shader) {
-        model.Touch(shader);
-      }
+      CAnimData::Touch(PickAnimatedModel(static_cast< EWhichModel >(which)));
     }
   } else {
     for (int which = kWM_Normal; which <= kWM_Echo; ++which) {
@@ -435,7 +431,10 @@ bool CModelData::IsDefinitelyOpaque(EWhichModel which) const {
   if (HasAnimation()) {
     return PickAnimatedModel(which).GetModel()->IsDefinitelyOpaque();
   }
-  return mNormalModel && PickStaticModel(which)->IsDefinitelyOpaque();
+  if (mNormalModel) {
+    return PickStaticModel(which)->IsDefinitelyOpaque();
+  }
+  return false;
 }
 
 void CModelData::SetEchoModel(const rstl::pair< CAssetId, CAssetId >& assets) {
