@@ -1106,22 +1106,26 @@ void CPlayerGun::HandleBeamChange(const CFinalInput& input, CStateManager& mgr) 
 
 void CPlayerGun::UpdateBeamChange(float dt, CStateManager& mgr) {
   switch (mBeamChangeState) {
-  case kBCS_Close:
-    if (AnimOver(mgr, 0.f)) {
+  case kBCS_Close: {
+    float zero = 0.f;
+    if (AnimOver(mgr, zero)) {
       ChangeWeapon(mgr);
       mBeamChangeState = kBCS_Morph;
     }
     break;
+  }
   case kBCS_Morph:
     if (ProcessGunMorph(dt, mgr)) {
       mBeamChangeState = kBCS_Open;
     }
     break;
-  case kBCS_Open:
-    if (AnimOver(mgr, 0.f)) {
+  case kBCS_Open: {
+    float zero = 0.f;
+    if (AnimOver(mgr, zero)) {
       mBeamChangeState = kBCS_Idle;
     }
     break;
+  }
   default:
     break;
   }
@@ -2319,16 +2323,24 @@ bool CPlayerGun::IsNotHolstered(CStateManager& mgr, const float& argument) {
 bool CPlayerGun::IsOutOfAmmoToShoot(CStateManager& mgr) const {
   const CPlayerState* state = GetPlayer(mgr)->GetPlayerState();
   switch (mCurrentBeamId) {
-  case CPlayerState::kBI_Dark:
-    return state->GetItemAmount(CPlayerState::kIT_DarkAmmo, true) < 1;
   case CPlayerState::kBI_Light:
-    return state->GetItemAmount(CPlayerState::kIT_LightAmmo, true) < 1;
+    if (state->GetItemAmount(CPlayerState::kIT_LightAmmo, true) < normalCosts[mCurrentBeamId]) {
+      return true;
+    }
+    break;
+  case CPlayerState::kBI_Dark:
+    if (state->GetItemAmount(CPlayerState::kIT_DarkAmmo, true) < normalCosts[mCurrentBeamId]) {
+      return true;
+    }
+    break;
   case CPlayerState::kBI_Annihilator:
-    return state->GetItemAmount(CPlayerState::kIT_LightAmmo, true) < 1 ||
-           state->GetItemAmount(CPlayerState::kIT_DarkAmmo, true) < 1;
-  default:
-    return false;
+    if (state->GetItemAmount(CPlayerState::kIT_LightAmmo, true) < normalCosts[mCurrentBeamId] ||
+        state->GetItemAmount(CPlayerState::kIT_DarkAmmo, true) < normalCosts[mCurrentBeamId]) {
+      return true;
+    }
+    break;
   }
+  return false;
 }
 
 bool CPlayerGun::StartCharge(CStateManager& mgr, const float& argument) {
@@ -2379,12 +2391,12 @@ bool CPlayerGun::TransitionToPlayer(CStateManager& mgr, const float& argument) {
 }
 
 bool CPlayerGun::AnimOver(CStateManager& mgr, const float& argument) {
+  const CAnimData* animData = mCurrentBeam->GetSolidModelData().GetAnimationData();
   if (mMissileCloseAnimDone) {
     mMissileCloseAnimDone = false;
     return true;
   }
-  return !mCurrentBeam->GetSolidModelData().GetAnimationData()->IsAnimTimeRemaining(
-      0.001f, rstl::string("Whole Body"));
+  return !animData->IsAnimTimeRemaining(0.001f, rstl::string_l("Whole Body"));
 }
 
 bool CPlayerGun::ActivateMissile(CStateManager& mgr, const float& argument) {
@@ -2412,7 +2424,9 @@ bool CPlayerGun::ComboOver(CStateManager& mgr, const float& argument) {
 }
 
 bool CPlayerGun::InterruptEvent(CStateManager& mgr, const float& argument) {
-  mInterruptEvent = mInterruptEvent || ShouldHolster(mgr, argument);
+  if (!mInterruptEvent) {
+    mInterruptEvent = ShouldHolster(mgr, argument);
+  }
   return mInterruptEvent;
 }
 
@@ -3048,7 +3062,10 @@ int CPlayerGun::GetBombsAvailable(CStateManager& mgr) const {
 }
 
 CVector3f CPlayerGun::GetRainSplashPosition() const {
-  return mCurrentBeam != nullptr ? mCurrentBeam->GetRainSplashPosition() : CVector3f::Zero();
+  if (mCurrentBeam != nullptr) {
+    return mCurrentBeam->GetRainSplashPosition();
+  }
+  return CVector3f::Zero();
 }
 
 bool CPlayerGun::InPhazon(CStateManager& mgr, const float& argument) { return false; }
