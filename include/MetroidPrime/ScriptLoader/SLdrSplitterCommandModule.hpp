@@ -29,10 +29,10 @@ struct SLdrUnknownStruct42 {
 
 inline SLdrUnknownStruct42::SLdrUnknownStruct42() : cloudColor1(CColor::Green()), cloudColor2(CColor::Green()), addColor1(CColor::Green()), addColor2(CColor::Green()) {
   angle = 20.0f;
-  cloudColor1 = CColor(0.247059f, 0.0f, 0.0f, 0.0f);
-  cloudColor2 = CColor(0.49803901f, 0.098039001f, 0.098039001f, 0.0f);
-  addColor1 = CColor(0.34902f, 0.0f, 0.0f, 0.0f);
-  addColor2 = CColor(0.14902f, 0.0f, 0.0f, 0.0f);
+  cloudColor1 = CColor(0.25f, 0.0f, 0.0f, 0.0f);
+  cloudColor2 = CColor(0.5f, 0.1f, 0.1f, 0.0f);
+  addColor1 = CColor(0.35f, 0.0f, 0.0f, 0.0f);
+  addColor2 = CColor(0.15f, 0.0f, 0.0f, 0.0f);
   cloudScale = 10.0f;
   fadeOffSize = 5.0f;
   openSpeed = 4.0f;
@@ -145,8 +145,8 @@ inline SLdrSplitterCommandModuleData::SLdrSplitterCommandModuleData() : laserPul
   laserSweepBeamInfo.pulseSpeed = 20.0f;
   laserSweepBeamInfo.shutdownTime = 0.25f;
   laserSweepBeamInfo.pulseEffectScale = 2.0f;
-  laserSweepBeamInfo.innerColor = CColor(0.49803901f, 0.49803901f, 0.49803901f, 0.49803901f);
-  laserSweepBeamInfo.outerColor = CColor(0.60000002f, 0.60000002f, 0.0f, 0.49803901f);
+  laserSweepBeamInfo.innerColor = CColor(0.5f, 0.5f, 0.5f, 0.5f);
+  laserSweepBeamInfo.outerColor = CColor(0.6f, 0.6f, 0.0f, 0.5f);
   sound_LaserSweep = 0;
   sound_LaserChargeUp = 0;
   sound_Docking = 0;
