@@ -105,7 +105,7 @@ CAABox CGameProjectile::GetProjectileBounds() const {
 
 void CGameProjectile::Touch(CActor& actor, CStateManager& mgr) {
   CActor::Touch(actor, mgr);
-  if (CScriptDock* dock = TCastToPtr< CScriptDock >(&actor)) {
+  if (CScriptDock* dock = TCastToPtr< CScriptDock >(actor)) {
     if (dock->GetCurrentAreaId() == GetCurrentAreaId()) {
       mTouchedDock = actor.GetUniqueId();
     }
