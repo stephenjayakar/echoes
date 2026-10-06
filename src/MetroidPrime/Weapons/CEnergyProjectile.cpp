@@ -185,23 +185,24 @@ void CEnergyProjectile::Think(float dt, CStateManager& mgr) {
   UpdateProjectileMovement(dt, mgr);
   TUniqueId hitActor = kInvalidUniqueId;
   const CRayCastResult result = DoCollisionCheck(hitActor, mgr);
+  CProjectileWeapon& projectile = mProjectile;
   if (result.IsValid()) {
     if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(hitActor))) {
       ResolveCollisionWithActor(result, *actor, mgr);
     } else {
       ResolveCollisionWithWorld(result, mgr);
     }
-  } else if (mActive && mProjectile.GetWeaponDescription()->mEELT &&
-             mProjectile.GetCurrentFrame() >= mProjectile.GetLifetime()) {
+  } else if (mActive && projectile.GetWeaponDescription()->mEELT &&
+             projectile.GetCurrentFrame() >= projectile.GetLifetime()) {
     mSuppressDecal = true;
-    if (Explode(GetTranslation(), -GetTransform().GetForward(), kWCR_Default, mgr,
+    if (Explode(GetTranslation(), -1.f * GetTransform().GetForward(), kWCR_Default, mgr,
                 CDamageVulnerability::NormalVulnerabilty(), kInvalidUniqueId)) {
       mgr.ApplyDamageToWorld(GetOwnerId(), *this, GetTranslation(), GetCurrentDamageInfo(),
                              GetFilter());
     }
     SetLastResolvedObject(kInvalidUniqueId);
   }
-  mProjectile.UpdateParticleFX();
+  projectile.UpdateParticleFX();
   if (mActive && mExplodePending) {
     Explode(GetTranslation(), GetExplosionNormal(), kWCR_Default, mgr,
             CDamageVulnerability::NormalVulnerabilty(), kInvalidUniqueId);
@@ -211,9 +212,8 @@ void CEnergyProjectile::Think(float dt, CStateManager& mgr) {
     if (CGameLight* light = TCastToPtr< CGameLight >(mgr.ObjectById(mProjectileLight))) {
       light->SetTransform(GetTransform());
       light->SetTranslation(GetTranslation());
-      CElementGen* particles = mProjectile.GetAttachedPS1();
-      if (particles != nullptr && particles->SystemHasLight()) {
-        light->SetLight(particles->GetLight());
+      if (projectile.GetAttachedPS1() != nullptr && projectile.GetAttachedPS1()->SystemHasLight()) {
+        light->SetLight(projectile.GetAttachedPS1()->GetLight());
       }
     }
   }
@@ -221,13 +221,15 @@ void CEnergyProjectile::Think(float dt, CStateManager& mgr) {
   mUseCombatVisorVolume = mEchoVisorMaxVolume == 0 || mgr.IsMultiplayer() ||
                           mgr.GetPlayerState(0)->GetActiveVisor(mgr) != CPlayerState::kPV_Echo;
   if (mSfx) {
-    CSfxManager::UpdateEmitter(mSfx, mProjectile.GetTranslation(), mProjectile.GetVelocity(),
+    CSfxManager::UpdateEmitter(mSfx, projectile.GetTranslation(), projectile.GetVelocity(),
                                mUseCombatVisorVolume ? mCombatVisorMaxVolume : mEchoVisorMaxVolume);
     CSfxManager::PitchBend(mSfx, mWaterUpdate ? 0 : 8192);
   }
 
   mLifetime += dt;
-  if (mLifetime > 45.f || mProjectile.IsSystemDeletable() || mDead) {
+  if (mLifetime > 45.f) {
+    mgr.DeleteObjectRequest(GetUniqueId());
+  } else if (projectile.IsSystemDeletable() || mDead) {
     mgr.DeleteObjectRequest(GetUniqueId());
   }
 }
