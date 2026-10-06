@@ -10,6 +10,7 @@
 #include "rstl/auto_ptr.hpp"
 #include "rstl/vector.hpp"
 
+class CAdvancementDeltas;
 class CAnimData;
 class CAnimRes;
 class CMarkerGrid;
@@ -44,7 +45,7 @@ public:
     CColor mAmbientLighting;
     CBoid* mNext;
     float mFreezeTimer;
-    float x5c_;
+    float mTimeToExplode;
     float mLifeTime;
     CCollisionSurface mSurface;
     float mHealth;
@@ -152,6 +153,34 @@ public:
   bool CanStartLoopedSound(const CBoid& boid, ELoopedSoundType type) const;
   CSfxHandle AddLoopedEmitter(const CVector3f& pos, ushort sfx);
   void UpdateEffects(CStateManager& mgr, CAnimData& animData);
+  void UpdateBoidMovement(CStateManager& mgr, CBoid& boid, const CAdvancementDeltas& deltas,
+                          float dt);
+  void UpdatePartition();
+  CBoid* GetListAt(const CVector3f& pos);
+  void BuildBoidNearList(const CBoid& boid, float radius,
+                         rstl::reserved_vector< CBoid*, 50 >& nearList);
+  void ApplySeparation(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                       CVector3f& ahead);
+  void ApplySeparation(CBoid& boid, const CVector3f& pos, float radius, float magnitude,
+                       CVector3f& ahead);
+  void ApplyCohesion(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                     CVector3f& ahead);
+  void ApplyCohesion(CBoid& boid, const CVector3f& pos, float radius, float magnitude,
+                     CVector3f& ahead);
+  void ApplyAttraction(CBoid& boid, const CVector3f& pos, float radius, float magnitude,
+                       CVector3f& ahead);
+  void ApplyAlignment(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                      CVector3f& ahead);
+  void ApplyBoundsAvoidance(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                            CVector3f& ahead);
+  void MoveToWayPoint(CBoid& boid, CStateManager& mgr, CVector3f& ahead);
+  TUniqueId GetWaypointForState(EScriptObjectState state, CStateManager& mgr);
+  void SetExplodeTimers(const CVector3f& pos, float radius, float minTime, float maxTime);
+  bool IsBoidVisibleForLockOn(const CStateManager& mgr, const CBoid& boid,
+                              const CVector3f& cameraPos, const CVector3f& cameraForward) const;
+  int GetLockOnIndex(CStateManager& mgr) const;
+  int FindBestLockOnIndex(CStateManager& mgr) const;
+  void UpdateLockOnBlend(int prevIndex, int newIndex, float dt);
   void QueueDeathMessage(CStateManager& mgr);   // Guessed name.
   void FlushDeathMessages(CStateManager& mgr);  // Guessed name.
 

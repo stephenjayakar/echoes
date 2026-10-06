@@ -29,6 +29,13 @@
 #include <float.h>
 #include <stdlib.h>
 
+#include "Collision/CRayCastResult.hpp"
+#include "Kyoto/Animation/CAdvancementDeltas.hpp"
+#include "Kyoto/Math/CTri.hpp"
+#include "Kyoto/Math/CUnitVector3f.hpp"
+#include "MetroidPrime/CDamageInfo.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
@@ -79,6 +86,89 @@ CAABox CSwarmBasics::GetBoundingBox() const {
 }
 
 rstl::optional_object< CAABox > CSwarmBasics::GetTouchBounds() const { return mAabox; }
+
+void CSwarmBasics::UpdateAllBoidMovement(CStateManager& mgr, float dt) {
+  int count = mBoids.size();
+  if (x4f0_27_) {
+    int mask = mModelDatas.size() - 1;
+    for (int i = 0; i < count; ++i) {
+      UpdateBoidMovement(mgr, mBoids[i], mAdvancementDeltas[i & mask], dt);
+    }
+  }
+}
+
+void CSwarmBasics::UpdateSwarmAnimations(CStateManager& mgr, float dt) {
+  if (x4f0_27_ && x4f0_31_) {
+    uint count = mModelDatas.size();
+    for (uint i = 0; i < count; ++i) {
+      mModelDatas[i].AnimationData()->SetPlaybackRate(mAnimPlaybackSpeed);
+      mAdvancementDeltas[i] = mModelDatas[i].AdvanceAnimation(dt, mgr, GetCurrentAreaId(), true);
+      UpdateEffects(mgr, *mModelDatas[i].AnimationData());
+    }
+  }
+}
+
+void CSwarmBasics::UpdateBoidMovement(CStateManager& mgr, CBoid& boid,
+                                      const CAdvancementDeltas& deltas, float dt) {
+  if (boid.GetActive()) {
+    if (boid.mFreezeTimer > 0.f) {
+      boid.mFreezeTimer -= dt;
+      if (boid.mFreezeTimer < 0.7f * mgr.Random()->Float()) {
+        KillBoid(boid, mgr, CWeaponMode(kWT_Dark));
+      }
+    } else {
+      float speed = boid.xa4_ / dt;
+      boid.mVelocity = speed * boid.GetTransform().Rotate(deltas.GetOffsetDelta());
+      boid.mTransform.AddTranslation(dt * boid.mVelocity);
+    }
+  }
+}
+
+void CSwarmBasics::UpdatePartition() {
+  mActiveBoidIndices.clear();
+  mPartitionedBoidLists.clear();
+  for (int i = 0; i < 125; ++i) {
+    mPartitionedBoidLists.push_back(nullptr);
+  }
+  mOutlierBoidList = nullptr;
+  const CAABox bounds = GetBoundingBox();
+  const CVector3f extent = bounds.GetMaxPoint() - bounds.GetMinPoint();
+  const CVector3f size(extent.GetX() / 5.f, extent.GetY() / 5.f, extent.GetZ() / 5.f);
+  for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+    if (!it->GetActive()) {
+      if (it->mHasLoopedSound) {
+        StopLoopedSound(*it, mLocomotionSounds);
+      }
+    } else {
+      mActiveBoidIndices.push_back_unsafe(it->mIndex);
+      const CVector3f pos = it->GetTranslation();
+      const CVector3f delta = pos - bounds.GetMinPoint();
+      const int x = CCast::ToInt32(delta.GetX() / size.GetX());
+      const int y = CCast::ToInt32(delta.GetY() / size.GetY());
+      const int z = CCast::ToInt32(delta.GetZ() / size.GetZ());
+      const int index = x + 5 * y + 25 * z;
+      if (index < 0 || index >= 125 || x < 0 || x >= 5 || y < 0 || y >= 5 || z < 0 || z >= 5) {
+        it->mNext = mOutlierBoidList;
+        mOutlierBoidList = it.get_pointer();
+      } else {
+        it->mNext = mPartitionedBoidLists[index];
+        mPartitionedBoidLists[index] = it.get_pointer();
+      }
+    }
+  }
+}
+
+CSwarmBasics::CBoid* CSwarmBasics::GetListAt(const CVector3f& pos) {
+  const CAABox bounds = GetBoundingBox();
+  const CVector3f delta = pos - bounds.GetMinPoint();
+  const int index = CCast::ToInt32(delta.GetX() / (bounds.GetWidth() / 5.f)) +
+                    CCast::ToInt32(delta.GetY() / (bounds.GetHeight() / 5.f)) * 5 +
+                    CCast::ToInt32(delta.GetZ() / (bounds.GetDepth() / 5.f)) * 25;
+  if (index < 0 || index >= 125) {
+    return mOutlierBoidList;
+  }
+  return mPartitionedBoidLists[index];
+}
 
 CAABox CSwarmBasics::BoxForPosition(int x, int y, int z, float margin) const {
   CAABox box = GetBoundingBox();
@@ -169,6 +259,285 @@ void CSwarmBasics::AddToRenderer(const CStateManager& mgr) const {
   }
 }
 
+void CSwarmBasics::BuildBoidNearList(const CBoid& boid, float radius,
+                                     rstl::reserved_vector< CBoid*, 50 >& nearList) {
+  CBoid* other = GetListAt(boid.GetTranslation());
+  while (other != nullptr && nearList.size() < 50) {
+    const float distance = (other->GetTranslation() - boid.GetTranslation()).MagSquared();
+    if (distance != 0.f && distance < radius) {
+      nearList.push_back(other);
+    }
+    other = other->mNext;
+  }
+}
+
+void CSwarmBasics::ApplySeparation(CBoid& boid,
+                                   const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                                   CVector3f& ahead) {
+  if (nearList.size() > 0) {
+    CVector3f closest(0.f, 0.f, 0.f);
+    float minDistance = FLT_MAX;
+    for (rstl::reserved_vector< CBoid*, 50 >::const_iterator it = nearList.begin();
+         it != nearList.end(); ++it) {
+      const CVector3f delta = boid.GetTranslation() - (*it)->GetTranslation();
+      const float distance = delta.MagSquared();
+      if (distance != 0.f && distance < minDistance) {
+        minDistance = distance;
+        closest = (*it)->GetTranslation();
+      }
+    }
+    ApplySeparation(boid, closest, mSeparationRadius, mSeparationMagnitude, ahead);
+  }
+}
+
+void CSwarmBasics::ApplySeparation(CBoid& boid, const CVector3f& pos, float radius,
+                                   float magnitude, CVector3f& ahead) {
+  const CVector3f delta = boid.GetTranslation() - pos;
+  if (delta.CanBeNormalized()) {
+    const float distance = delta.MagSquared();
+    const float radiusSquared = radius * radius;
+    if (distance < radiusSquared) {
+      const float factor = 1.f - distance / radiusSquared;
+      ahead += factor * delta.AsNormalized() * magnitude;
+    }
+  }
+}
+
+void CSwarmBasics::ApplyCohesion(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                                 CVector3f& ahead) {
+  if (nearList.size() > 0) {
+    CVector3f center(0.f, 0.f, 0.f);
+    for (rstl::reserved_vector< CBoid*, 50 >::const_iterator it = nearList.begin();
+         it != nearList.end(); ++it) {
+      center += (*it)->GetTranslation();
+    }
+    center = (1.f / nearList.size()) * center;
+    ApplyCohesion(boid, center, mSeparationRadius, mCohesionMagnitude, ahead);
+  }
+}
+
+void CSwarmBasics::ApplyCohesion(CBoid& boid, const CVector3f& pos, float radius, float magnitude,
+                                 CVector3f& ahead) {
+  const CVector3f delta = pos - boid.GetTranslation();
+  if (delta.CanBeNormalized()) {
+    const float distance = delta.MagSquared();
+    const float radiusSquared = radius * radius;
+    const float factor = distance > radiusSquared ? 1.f : distance / radiusSquared;
+    ahead += factor * delta.AsNormalized() * magnitude;
+  }
+}
+
+void CSwarmBasics::ApplyAttraction(CBoid& boid, const CVector3f& pos, float radius,
+                                   float magnitude, CVector3f& ahead) {
+  const float radiusSquared = radius * radius;
+  const CVector3f delta = pos - boid.GetTranslation();
+  const float distance = delta.MagSquared();
+  if (distance < radiusSquared && delta.CanBeNormalized()) {
+    const float factor = 1.f - distance / radiusSquared;
+    ahead += factor * delta.AsNormalized() * magnitude;
+  }
+}
+
+void CSwarmBasics::ApplyAlignment(CBoid& boid, const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                                  CVector3f& ahead) {
+  if (nearList.size() > 0) {
+    CVector3f direction(0.f, 0.f, 0.f);
+    for (rstl::reserved_vector< CBoid*, 50 >::const_iterator it = nearList.begin();
+         it != nearList.end(); ++it) {
+      direction += (*it)->GetTransform().GetForward();
+    }
+    direction = (1.f / nearList.size()) * direction;
+    const float angle =
+        CVector3f::GetAngleDiff(boid.GetTransform().GetForward(), direction) / M_PIF;
+    ahead += angle * (mAlignmentWeight * direction);
+  }
+}
+
+static CPlane GetClosestBoxFacePlane(const CAABox& box, const CVector3f& point) {
+  float minDistance = FLT_MAX;
+  int bestFace = 0;
+  for (int i = 0; i < 6; ++i) {
+    const CTri tri = box.GetTri(CAABox::EBoxFaceId(i), 0);
+    const CPlane plane(tri.GetPointA(), tri.GetPointC(), tri.GetPointB());
+    const float distance = plane.GetHeight(point);
+    if (distance >= 0.f && distance < minDistance) {
+      bestFace = i;
+      minDistance = distance;
+    }
+  }
+  const CTri tri = box.GetTri(CAABox::EBoxFaceId(bestFace), 0);
+  return CPlane(tri.GetPointA(), tri.GetPointC(), tri.GetPointB());
+}
+
+void CSwarmBasics::ApplyBoundsAvoidance(CBoid& boid,
+                                        const rstl::reserved_vector< CBoid*, 50 >& nearList,
+                                        CVector3f& ahead) {
+  const CAABox bounds = GetBoundingBox();
+  const CVector3f future = boid.GetTranslation() + 1.5f * boid.mVelocity;
+  if (!bounds.PointInside(future)) {
+    const CPlane plane = GetClosestBoxFacePlane(bounds, future);
+    const float distance = plane.GetHeight(future);
+    const float factor = distance > 5.f ? 1.f : 5.f / (0.00001f + distance);
+    ahead -= factor * plane.GetNormal();
+  }
+}
+
+void CSwarmBasics::MoveToWayPoint(CBoid& boid, CStateManager& mgr, CVector3f& ahead) {
+  CScriptWaypoint* wp = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(boid.mTargetWaypoint));
+  if (wp) {
+    if (!wp->GetActive() ||
+        boid.mSurfacePlane.GetHeight(boid.GetTranslation()) > -mWaypointGoalRadius) {
+      rstl::vector< TUniqueId > nextWaypoints(8);
+      for (rstl::vector< SConnection >::const_iterator it = wp->GetConnectionList().begin();
+           it != wp->GetConnectionList().end(); ++it) {
+        if (it->msg == kSM_Next) {
+          TUniqueId uid = mgr.GetIdForScript(it->objId);
+          const CScriptWaypoint* next =
+              TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(uid));
+          if (next && next->GetActive()) {
+            nextWaypoints.push_back_unsafe(uid);
+          }
+        }
+      }
+      boid.mTargetWaypoint = kInvalidUniqueId;
+      if (nextWaypoints.size() != 0) {
+        if (nextWaypoints.size() > 1) {
+          boid.mTargetWaypoint =
+              nextWaypoints[mgr.Random()->Next() % nextWaypoints.size()];
+        } else {
+          boid.mTargetWaypoint = nextWaypoints[0];
+        }
+      }
+      CScriptWaypoint* next = TCastToPtr< CScriptWaypoint >(mgr.ObjectById(boid.mTargetWaypoint));
+      if (!next) {
+        boid.mActive = false;
+        if (boid.mHasLoopedSound) {
+          StopLoopedSound(boid, mLocomotionSounds);
+        }
+        return;
+      }
+      CUnitVector3f normal((next->GetTranslation() - wp->GetTranslation()).AsNormalized());
+      boid.mSurfacePlane = CPlane(next->GetTranslation(), normal);
+      wp = next;
+    }
+    const float weight = mMoveToWaypointWeight;
+    ahead += weight * (wp->GetTranslation() - boid.GetTranslation()).AsNormalized();
+  }
+}
+
+TUniqueId CSwarmBasics::GetWaypointForState(EScriptObjectState state, CStateManager& mgr) {
+  rstl::vector< TUniqueId > waypoints(8);
+  for (rstl::vector< SConnection >::const_iterator it = GetConnectionList().begin();
+       it != GetConnectionList().end(); ++it) {
+    if (it->state == state && it->msg == kSM_Follow) {
+      TUniqueId uid = mgr.GetIdForScript(it->objId);
+      if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(uid)) && waypoints.size() < 8) {
+        waypoints.push_back_unsafe(uid);
+      }
+    }
+  }
+  if (waypoints.size() != 0) {
+    if (waypoints.size() > 1) {
+      return waypoints[mgr.Random()->Next() % waypoints.size()];
+    }
+    return waypoints[0];
+  }
+  return kInvalidUniqueId;
+}
+
+void CSwarmBasics::ApplyRadiusDamage(CVector3f pos, const CDamageInfo& info, CStateManager& mgr) {
+  const float radiusSquared = info.GetRadius() * info.GetRadius();
+  for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+    if (it->GetActive()) {
+      if ((it->GetTranslation() - pos).MagSquared() < radiusSquared) {
+        it->mHealth -= info.GetRadiusDamage(mDamageVulnerability);
+        if (it->mHealth <= 0.f) {
+          KillBoid(*it, mgr, info.GetWeaponMode());
+        }
+      }
+    }
+  }
+}
+
+void CSwarmBasics::SetExplodeTimers(const CVector3f& pos, float radius, float minTime,
+                                    float maxTime) {
+  const float radiusSquared = radius * radius;
+  for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
+    if (it->GetActive() && it->mFreezeTimer <= 0.f) {
+      const float distanceSquared = (it->GetTranslation() - pos).MagSquared();
+      if (distanceSquared < radiusSquared) {
+        const float time = (distanceSquared / radiusSquared) * (maxTime - minTime) + minTime;
+        if (it->mTimeToExplode > time || it->mTimeToExplode == 0.f) {
+          it->mTimeToExplode = time;
+        }
+      }
+    }
+  }
+}
+
+bool CSwarmBasics::IsBoidVisibleForLockOn(const CStateManager& mgr, const CBoid& boid,
+                                          const CVector3f& cameraPos,
+                                          const CVector3f& cameraForward) const {
+  const CVector3f delta = boid.GetTranslation() - cameraPos;
+  const float distance = delta.Magnitude();
+  const CVector3f dir = (1.f / distance) * delta;
+  if (CVector3f::Dot(cameraForward, dir) > 0.9238795f) {
+    const CMaterialFilter filter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Unknown59));
+    const CRayCastResult result = mgr.RayStaticIntersection(cameraPos, dir, distance, filter);
+    if (!result.IsValid()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+int CSwarmBasics::GetLockOnIndex(CStateManager& mgr) const {
+  if (!x4f0_26_) {
+    return -1;
+  }
+  const CTransform4f cameraXf = mgr.GetCameraManager(0)->GetFirstPersonCamera()->GetTransform();
+  const CVector3f cameraPos = cameraXf.GetTranslation();
+  const CVector3f cameraForward = cameraXf.GetForward();
+  const bool playerOrbiting = mgr.GetPlayer(0)->GetOrbitTargetId() == GetUniqueId();
+  if (mLockOnIndex != -1) {
+    int result = -1;
+    if (mBoids[mLockOnIndex].GetActive() &&
+        IsBoidVisibleForLockOn(mgr, mBoids[mLockOnIndex], cameraPos, cameraForward)) {
+      result = mLockOnIndex;
+    }
+    if (result != -1 && x54c_24_ && !playerOrbiting) {
+      result = FindBestLockOnIndex(mgr);
+    }
+    return result;
+  }
+  return FindBestLockOnIndex(mgr);
+}
+
+int CSwarmBasics::FindBestLockOnIndex(CStateManager& mgr) const {
+  float maxDot = 0.5f;
+  int index = 0;
+  int result = -1;
+  float maxDistanceSq = mgr.GetPlayer(0)->GetOrbitMaxTargetDistance();
+  maxDistanceSq *= maxDistanceSq;
+  const CTransform4f cameraXf = mgr.GetCameraManager(0)->GetFirstPersonCamera()->GetTransform();
+  const CVector3f cameraPos = cameraXf.GetTranslation();
+  const CVector3f cameraForward = cameraXf.GetForward();
+  for (rstl::vector< CBoid >::const_iterator it = mBoids.begin(); it != mBoids.end();
+       ++it, ++index) {
+    if (it->GetActive()) {
+      const CVector3f delta = it->GetTranslation() - cameraPos;
+      if (delta.MagSquared() <= maxDistanceSq && delta.CanBeNormalized()) {
+        const float dot = CVector3f::Dot(cameraForward, delta.AsNormalized());
+        if (dot > maxDot) {
+          result = index;
+          maxDot = dot;
+        }
+      }
+    }
+  }
+  return result;
+}
+
 // Guessed name: orders seeker candidates by descending view alignment.
 struct SSeekerCandidateSorter {
   bool operator()(const rstl::pair< uint, float >& a, const rstl::pair< uint, float >& b) const {
@@ -207,6 +576,28 @@ void CSwarmBasics::AssignSeekerBoids(CStateManager& mgr, const rstl::vector< int
     }
     if (!found) {
       out.push_back_unsafe(idx);
+    }
+  }
+}
+
+void CSwarmBasics::UpdateLockOnBlend(int prevIndex, int newIndex, float dt) {
+  if (x54c_24_) {
+    if (newIndex >= 0) {
+      if (prevIndex >= 0 && prevIndex != newIndex) {
+        if (!x54c_25_) {
+          x550_ = mLastOrbitPosition;
+        }
+        x54c_25_ = true;
+        x55c_ = 0.f;
+      }
+      if (x54c_25_) {
+        x55c_ += 3.f * dt;
+        if (x55c_ >= 1.f) {
+          x54c_25_ = false;
+        }
+      }
+    } else {
+      x54c_25_ = false;
     }
   }
 }
