@@ -96,6 +96,7 @@ public:
   bool IsGrappling() const { return (mStateFlags & kSF_Grappling) != 0; }
   bool IsLoadingDependencies() const { return mDependenciesLoading; }
   void SetAuxTransform(const CTransform4f& xf) { mAuxTransform = xf; }
+  CTransform4f& AuxTransform() { return mAuxTransform; }
   void SetSwingT(float swingT) { mSwingT = swingT; }
   EArmState GetAnimState() const { return mAnimationState; }
   bool IsGrappleBeamActive() const { return mBeamActive; }
