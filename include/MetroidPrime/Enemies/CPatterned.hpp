@@ -136,7 +136,7 @@ public:
   virtual void SetAttackTarget(CStateManager& mgr, TUniqueId target);
   virtual TUniqueId GetAttackTarget() const { return kInvalidUniqueId; }
   virtual bool IsOnGround() const { return mOnGround; }
-  virtual float GetGravityConstant() const { return CPhysicsActor::GravityConstant(); }
+  virtual float GetGravityConstant() const { return kDefaultGravityAccel; }
   virtual bool IsScanVisorSelfRender() const;
   virtual CAABox GetScanVisorRenderBounds(const CStateManager&) const;
   virtual void ScanVisorRender(const CStateManager&, const CTransform4f&,

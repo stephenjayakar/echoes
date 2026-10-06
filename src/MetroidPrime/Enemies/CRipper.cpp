@@ -14,6 +14,14 @@
 #include "MetroidPrime/TCastTo.hpp"
 #include "REL/REL_Setup.h"
 
+static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
+    {"PathOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CRipper::PathOver)},
+};
+
+static CPatterned::StateMachine::SStateFunction skStates[] = {
+    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CRipper::Patrol)},
+};
+
 static EMaterialTypes skIncludeMaterial = kMT_Unknown59;
 static EMaterialTypes skExcludeMaterial1 = kMT_NoStaticCollision;
 static EMaterialTypes skExcludeMaterial2 = kMT_Unknown60;
@@ -119,14 +127,6 @@ void CRipper::KnockBack(CStateManager& mgr, const CKnockBackInfo& info) {
   CPatterned::KnockBack(mgr, info);
   BodyController()->CommandMgr().DeliverCmd(CBCKnockBackCmd(-info.GetDirection(), pas::kS_One));
 }
-
-static CPatterned::StateMachine::STriggerFunction skTriggers[] = {
-    {"PathOver", static_cast< CPatterned::StateMachine::TriggerFunc >(&CRipper::PathOver)},
-};
-
-static CPatterned::StateMachine::SStateFunction skStates[] = {
-    {"Patrol", static_cast< CPatterned::StateMachine::StateFunc >(&CRipper::Patrol)},
-};
 
 void CRipper::SetupStateMachine(CStateManager& mgr) {
   StateMachine* stateMachine = mStateMachine.get();
