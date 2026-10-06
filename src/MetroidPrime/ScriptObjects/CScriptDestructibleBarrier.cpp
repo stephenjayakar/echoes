@@ -3,6 +3,7 @@
 
 
 #include "Collision/CollisionUtil.hpp"
+#include "MetroidPrime/CAnimData.hpp"
 #include "Kyoto/Audio/CAudioSys.hpp"
 #include "Kyoto/Audio/CSfxManager.hpp"
 #include "Kyoto/CRandom16.hpp"
@@ -47,6 +48,7 @@ rstl::optional_object< SBarrierSection > CBarrierChunkGrid::SplitOffTop() {
   const int dimX = mDims.GetX();
   const int dimY = mDims.GetY();
   int top = mDims.GetZ();
+  CBarrierChunkGrid* grid;
   for (int z = top - 1; z > 0; --z) {
     if (mLayerCounts[z - 1] == dimX * dimY) {
       continue;
@@ -56,9 +58,9 @@ rstl::optional_object< SBarrierSection > CBarrierChunkGrid::SplitOffTop() {
       continue;
     }
     int connections = 0;
+    const float* upper = &mChunkHealths[dimX * (z * mDims.GetY())];
+    const float* lower = &mChunkHealths[dimX * ((z - 1) * dimY)];
     for (int y = 0; y < dimY; ++y) {
-      const float* upper = &mChunkHealths[dimX * (z * dimY)];
-      const float* lower = &mChunkHealths[dimX * ((z - 1) * dimY)];
       for (int x = 0; x < dimX; ++x) {
         if (*upper > 0.f && *lower > 0.f) {
           ++connections;
@@ -74,46 +76,45 @@ rstl::optional_object< SBarrierSection > CBarrierChunkGrid::SplitOffTop() {
     }
   }
 
-  if (split == -1) {
-    return rstl::optional_object_null();
-  }
-
-  CBarrierChunkGrid* grid = rs_new CBarrierChunkGrid(*this);
-  for (int z = 0; z < mDims.GetZ(); ++z) {
-    if (z < split) {
-      grid->mLayerCounts[z] = 0;
-      grid->mRowCounts[z] = 0;
-      float* health = &grid->mChunkHealths[grid->mDims.GetX() * (z * grid->mDims.GetY())];
-      for (int y = 0; y < grid->mDims.GetY(); ++y) {
-        grid->mRowCounts[y + z * grid->mDims.GetY()] = 0;
-        for (int x = 0; x < grid->mDims.GetX(); ++x) {
-          *health++ = 0.f;
-        }
-      }
-    } else {
-      mLayerCounts[z] = 0;
-      mRowCounts[z] = 0;
-      float* health = &mChunkHealths[mDims.GetX() * (z * mDims.GetY())];
-      for (int y = 0; y < mDims.GetY(); ++y) {
-        mRowCounts[y + z * mDims.GetY()] = 0;
-        for (int x = 0; x < mDims.GetX(); ++x) {
-          if (*health > 0.f) {
-            ++mNumDestroyed;
-            *health = 0.f;
+  if (split != -1) {
+    grid = rs_new CBarrierChunkGrid(*this);
+    for (int z = 0; z < mDims.GetZ(); ++z) {
+      if (z < split) {
+        grid->mLayerCounts[z] = 0;
+        grid->mRowCounts[z] = 0;
+        float* health = &grid->mChunkHealths[grid->mDims.GetX() * (z * grid->mDims.GetY())];
+        for (int y = 0; y < grid->mDims.GetY(); ++y) {
+          grid->mRowCounts[y + z * grid->mDims.GetY()] = 0;
+          for (int x = 0; x < grid->mDims.GetX(); ++x) {
+            *health++ = 0.f;
           }
-          ++health;
+        }
+      } else {
+        mLayerCounts[z] = 0;
+        mRowCounts[z] = 0;
+        float* health = &mChunkHealths[mDims.GetX() * (z * mDims.GetY())];
+        for (int y = 0; y < mDims.GetY(); ++y) {
+          mRowCounts[y + z * mDims.GetY()] = 0;
+          for (int x = 0; x < mDims.GetX(); ++x) {
+            if (*health > 0.f) {
+              ++mNumDestroyed;
+              *health = 0.f;
+            }
+            ++health;
+          }
         }
       }
     }
-  }
 
-  CVector3f center = mBounds.GetCenterPoint();
-  CVector3f spawnPos = center;
-  spawnPos.SetZ(split * mChunkSize.GetZ());
-  const CVector3f pivot =
-      spawnPos + CVector3f(0.f, 0.f, 0.5f * (top - split - 1) * mChunkSize.GetZ());
-  SBarrierSection section(grid, spawnPos, pivot, split);
-  return section;
+    CVector3f center = mBounds.GetCenterPoint();
+    CVector3f spawnPos = center;
+    spawnPos.SetZ(split * mChunkSize.GetZ());
+    const CVector3f pivot =
+        spawnPos + CVector3f(0.f, 0.f, 0.5f * (top - split - 1) * mChunkSize.GetZ());
+    SBarrierSection section(grid, spawnPos, pivot, split);
+    return section;
+  }
+  return rstl::optional_object_null();
 }
 
 rstl::optional_object< CVector3i > CBarrierChunkGrid::GetChunkAt(const CVector3f& pos,
@@ -122,12 +123,10 @@ rstl::optional_object< CVector3i > CBarrierChunkGrid::GetChunkAt(const CVector3f
   if (CollisionUtil::AABoxPointSqrDist(pos, mBounds, &closest) > radius * radius) {
     return rstl::optional_object_null();
   }
-  const CVector3f local(closest.GetX() * mInvChunkSize.GetX(),
-                        closest.GetY() * mInvChunkSize.GetY(),
-                        closest.GetZ() * mInvChunkSize.GetZ());
-  return CVector3i(rstl::min_val(mDims.GetX() - 1, rstl::max_val(0, int(local.GetX()))),
-                   rstl::min_val(mDims.GetY() - 1, rstl::max_val(0, int(local.GetY()))),
-                   rstl::min_val(mDims.GetZ() - 1, rstl::max_val(0, int(local.GetZ()))));
+  CVector3f local = CVector3f::ByElementMultiply(closest, mInvChunkSize);
+  return CVector3i(rstl::min_val(rstl::max_val(int(local[kDX]), 0), mDims.GetX() - 1),
+                   rstl::min_val(rstl::max_val(int(local[kDY]), 0), mDims.GetY() - 1),
+                   rstl::min_val(rstl::max_val(int(local[kDZ]), 0), mDims.GetZ() - 1));
 }
 
 bool CBarrierChunkGrid::ApplyDamage(CStateManager& mgr, const CVector3f& pos, float damage,
@@ -170,7 +169,7 @@ bool CBarrierChunkGrid::ApplyDamage(CStateManager& mgr, const CVector3f& pos, fl
 }
 
 rstl::pair< bool, float > CBarrierChunkGrid::DamageChunk(int x, int y, int z, float damage) {
-  float& health = mChunkHealths[x + mDims.GetX() * (y + z * mDims.GetY())];
+  float& health = mChunkHealths[x + (y + z * mDims.GetY()) * mDims.GetX()];
   const float remaining = damage - health;
   if (health > 0.f) {
     health -= damage;
@@ -463,12 +462,12 @@ CScriptDestructibleBarrier::CScriptDestructibleBarrier(
 , mRenderXf(xf)
 , mInvRenderXf(CTransform4f::Identity())
 , mTouchBounds(CAABox::MakeNullBox())
-, mMoveSfx(0)
+, mMoveSfx()
 , mState(0)
-, mTargetState(0)
-, mTouchedByPlayer(false)
-, mHasTransparency(false)
-, mPlayedSfx(false) {
+, mTargetState(0) {
+  mTouchedByPlayer = false;
+  mHasTransparency = false;
+  mPlayedSfx = false;
   SetMovable(false);
   UpdateTransforms();
   ModelData()->SetRenderUnsortedParts(false);
@@ -580,11 +579,11 @@ void CScriptDestructibleBarrier::Think(float dt, CStateManager& mgr) {
                                            GetCurrentAreaId().Value(), true, true);
       }
       mLowerOffset += mMoveSpeed * dt;
-      mLowerOffset = rstl::min_val(mHeight, mLowerOffset);
+      mLowerOffset = rstl::min_val(mLowerOffset, mHeight);
       if (mLowerOffset == mHeight) {
         if (mMoveSfx) {
           CSfxManager::SfxStop(mMoveSfx);
-          mMoveSfx = 0;
+          mMoveSfx = CSfxHandle();
         }
         CSfxManager::SfxStart(mSfxStop, CAudioSys::kMaxVolume, 64, CSfxManager::kAllAreas);
         mState = 2;
@@ -602,12 +601,12 @@ void CScriptDestructibleBarrier::Think(float dt, CStateManager& mgr) {
       }
       if (!mTouchedByPlayer) {
         mLowerOffset = mLowerOffset - mMoveSpeed * dt;
-        mLowerOffset = rstl::max_val(0.f, mLowerOffset);
+        mLowerOffset = rstl::max_val(mLowerOffset, 0.f);
       }
       if (0.f == mLowerOffset) {
         if (mMoveSfx) {
           CSfxManager::SfxStop(mMoveSfx);
-          mMoveSfx = 0;
+          mMoveSfx = CSfxHandle();
         }
         CSfxManager::AddEmitter(mSfxStop, GetTranslation(), GetCurrentAreaId().Value(), true,
                                 false);
@@ -679,21 +678,20 @@ void CScriptDestructibleBarrier::TakeDamage(CStateManager& mgr) {
             mgr.GetObjectById(GetHealthInfo()->GetLastDamageSource()))) {
       const CDamageInfo& dInfo = proj->GetCurrentDamageInfo();
       const float minSize = rstl::min_val(
-          rstl::min_val(mChunkSize.GetZ(), mChunkSize.GetY()), mChunkSize.GetX());
-      const CVector3f localPos =
-          mInvRenderXf *
-          (proj->GetTranslation() + proj->GetTransform().GetForward() * (0.5f * minSize));
-      const bool direct = mGrid.ApplyDamage(
+          mChunkSize.GetX(), rstl::min_val(mChunkSize.GetY(), mChunkSize.GetZ()));
+      const CVector3f hitPos =
+          proj->GetTranslation() + (0.5f * minSize) * proj->GetTransform().GetForward();
+      const CVector3f localPos = mInvRenderXf * hitPos;
+      destroyed = mGrid.ApplyDamage(
           mgr, localPos, dInfo.GetDamage(*GetDamageVulnerability()), 0.1f,
           rstl::optional_object< CBarrierChunkGrid::ChunkCallback >(
               TFunctor1FromMethod< CScriptDestructibleBarrier, const CVector3i& >::Make(
                   *this, &CScriptDestructibleBarrier::OnChunkDestroyed)));
-      const bool radius = mGrid.ApplyDamage(
+      destroyed |= mGrid.ApplyDamage(
           mgr, localPos, dInfo.GetRadiusDamage(*GetDamageVulnerability()), dInfo.GetRadius(),
           rstl::optional_object< CBarrierChunkGrid::ChunkCallback >(
               TFunctor1FromMethod< CScriptDestructibleBarrier, const CVector3i& >::Make(
                   *this, &CScriptDestructibleBarrier::OnChunkDestroyed)));
-      destroyed = direct | radius;
     } else {
       const CVector3f localPos = mInvRenderXf * actor->GetTranslation();
       destroyed = mGrid.ApplyDamage(

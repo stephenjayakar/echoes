@@ -53,6 +53,8 @@ public:
               const CModel* fullLayer) const;
 
   const CAABox& GetBounds() const { return mBounds; }
+  int GetChunkIndex(int x, int y, int z) const { return x + (y + z * mDims.GetY()) * mDims.GetX(); }
+  float& ChunkHealth(int x, int y, int z) { return mChunkHealths[GetChunkIndex(x, y, z)]; }
   int GetNumDestroyed() const { return mNumDestroyed; }
 
   CVector3f GetExtent(const CVector3i& size) const {
@@ -177,9 +179,9 @@ private:
   CSfxHandle mMoveSfx;
   int mState;
   int mTargetState;
-  bool mTouchedByPlayer : 1;
-  bool mHasTransparency : 1;
-  bool mPlayedSfx : 1;
+  uint mTouchedByPlayer : 1;
+  uint mHasTransparency : 1;
+  uint mPlayedSfx : 1;
 };
 CHECK_SIZEOF(CScriptDestructibleBarrier, 0x718)
 

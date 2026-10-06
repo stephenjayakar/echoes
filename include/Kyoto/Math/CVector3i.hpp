@@ -1,6 +1,8 @@
 #ifndef _CVECTOR3I
 #define _CVECTOR3I
 
+#include "rstl/construct.hpp"
+
 class CVector3i {
 public:
   CVector3i(int x, int y, int z);
@@ -29,5 +31,9 @@ private:
 };
 
 bool operator==(const CVector3i& lhs, const CVector3i& rhs);
+
+namespace rstl {
+RSTL_DECLARE_TRIVIALLY_CONSTRUCTIBLE(CVector3i)
+} // namespace rstl
 
 #endif // _CVECTOR3I
