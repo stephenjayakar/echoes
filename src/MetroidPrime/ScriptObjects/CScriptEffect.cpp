@@ -316,33 +316,46 @@ void CScriptEffect::PreRender(CStateManager& mgr) {
   bool visible = false;
   if (!mCanRender) {
     mRemTime = rstl::max_val(mDurationResetWhileVisible, mRemTime);
-  } else if (mgr.fn_800366e4(this)) {
-    mRemTime = rstl::max_val(mDurationResetWhileVisible, mRemTime);
-    visible = true;
-    if (!mAnyVisorVisible) {
-      switch (mgr.GetPlayerState()->GetActiveVisor(mgr)) {
-      case CPlayerState::kPV_Combat:
-      case CPlayerState::kPV_Scan:
-        visible = mCombatVisorVisible;
-        break;
-      case CPlayerState::kPV_Echo:
-        visible = mEchoVisorVisible;
-        break;
-      case CPlayerState::kPV_Dark:
-        visible = mDarkVisorVisible;
-        break;
+  } else {
+    const CAABox& bounds = GetOtherBounds();
+    if (mgr.IsActorVisible(*this)) {
+      mRemTime = rstl::max_val(mDurationResetWhileVisible, mRemTime);
+      visible = true;
+      if (!mAnyVisorVisible) {
+        switch (mgr.GetPlayerState()->GetActiveVisor(mgr)) {
+        case CPlayerState::kPV_Combat:
+        case CPlayerState::kPV_Scan:
+          visible = mCombatVisorVisible;
+          break;
+        case CPlayerState::kPV_Echo:
+          visible = mEchoVisorVisible;
+          break;
+        case CPlayerState::kPV_Dark:
+          visible = mDarkVisorVisible;
+          break;
+        }
       }
-    }
-    if (visible && !mEffectLights.null()) {
-      const CAABox& bounds = GetOtherBounds();
-      const CVector3f center = bounds.GetCenterPoint();
-      mEffectLights->BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()),
-                                        CAABox(center, center));
-      mEffectLights->BuildDynamicLightList(mgr, bounds);
+      if (visible && !mEffectLights.null()) {
+        const CVector3f center = bounds.GetCenterPoint();
+        mEffectLights->BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId()),
+                                          CAABox(center, center));
+        mEffectLights->BuildDynamicLightList(mgr, bounds);
+      }
     }
   }
   SetPreRenderClipped(!visible);
-  // TODO: submit visible effects to the two special render queues for non-normal order.
+  if (visible) {
+    switch (mRenderOrder) {
+    case kRO_Normal:
+      break;
+    case kRO_Queue2:
+      mgr.RenderLast(GetUniqueId());
+      break;
+    case kRO_Queue1:
+      mgr.RenderFirstSorted(GetUniqueId());
+      break;
+    }
+  }
 }
 
 void CScriptEffect::ResetParticleCounts() {
