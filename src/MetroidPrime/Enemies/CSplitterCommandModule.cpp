@@ -28,6 +28,16 @@
 
 #include <float.h>
 
+// Guessed type name; one entry per sphere collision actor.
+struct SSphereJointInfo {
+  const char* name;
+  float radius;
+};
+
+static const SSphereJointInfo skSphereJoints[] = {
+    {"Skeleton_Root", 3.f},
+};
+static const char* const skShieldJoint = "Skeleton_Root";
 static const char* const skBeamLocator = "Beam_LCTR";
 static const char* const skLightShield = "LightShield";
 static const char* const skDarkShield = "DarkShield";
@@ -901,6 +911,31 @@ void CSplitterCommandModule::ResetAttackTimes(CStateManager& mgr, int arg) {
 
 void CSplitterCommandModule::FindDockingTarget(CStateManager& mgr) {
   xefc_ = FindConnectedObject(mgr, kSS_Connect, kSM_Attach);
+}
+
+void CSplitterCommandModule::SetupCollisionActors(CStateManager& mgr) {
+  rstl::vector< CJointCollisionDescription > joints;
+  joints.reserve(ARRAY_SIZE(skSphereJoints));
+  const CAnimData* animData = GetModelData()->GetAnimationData();
+  for (int i = 0; i < ARRAY_SIZE(skSphereJoints); ++i) {
+    const SSphereJointInfo& joint = skSphereJoints[i];
+    const CSegId segId = animData->GetLocatorSegId(rstl::string_l(joint.name));
+    const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
+        segId, CVector3f::Zero(), joint.radius, rstl::string_l(joint.name), 1000.f);
+    joints.push_back(desc);
+  }
+  mCollisionActorManager =
+      rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), joints, false);
+  for (uint i = 0; i < mCollisionActorManager->GetNumCollisionActors(); ++i) {
+    const CJointCollisionDescription& desc = mCollisionActorManager->GetCollisionDescFromIndex(i);
+    const TUniqueId id = desc.GetCollisionActorId();
+    if (TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
+      if (desc.GetName() == rstl::string_l(skShieldJoint)) {
+        xf00_ = id;
+      }
+    }
+  }
+  SetShieldState(mgr, false);
 }
 
 void CSplitterCommandModule::UpdateTimers(float dt, CStateManager& mgr) {
