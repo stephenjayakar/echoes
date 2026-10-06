@@ -28,13 +28,14 @@ public:
   void PreRenderAllViewports(CStateManager& mgr) override;
   rstl::optional_object< CAABox > GetTouchBounds() const override;
   void Touch(CActor&, CStateManager&) override;
+  CVector3f GetOrbitPosition(const CStateManager&) const override;
   void PreRender(CStateManager&) override;
   void AddToRenderer(const CStateManager&) const override;
 
   CPlayerState::EItemType GetItem() const;
   int GetAmount() const { return mAmount; }
   int GetCapacity() const { return mCapacity; }
-  void SetSpawned();
+  void SetSpawned(CStateManager& mgr);
   bool IsVisible() const;
   void ShowAllKeysCollectedAlert(CStateManager& mgr, CPlayerState* playerState, CPlayerState::EItemType itemType);
 
