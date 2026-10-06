@@ -514,21 +514,29 @@ CBeamInfo TLdrToBeamInfo(const SLdrPlasmaBeamInfo& data, int beamAttributes) {
 
 ERglFogMode FogSelectionToFogMode(int selection) {
   // Guessed selector names; these values come from the serialized fog choice.
-  enum EFogSelection { kFS_Linear = 1, kFS_Exp, kFS_Exp2, kFS_RevExp, kFS_RevExp2 };
+  enum EFogSelection { kFS_None, kFS_Linear, kFS_Exp, kFS_Exp2, kFS_RevExp, kFS_RevExp2 };
+  ERglFogMode mode = kRFM_None;
   switch (selection) {
+  case kFS_None:
+    mode = kRFM_None;
+    break;
   case kFS_Linear:
-    return kRFM_PerspLin;
+    mode = kRFM_PerspLin;
+    break;
   case kFS_Exp:
-    return kRFM_PerspExp;
+    mode = kRFM_PerspExp;
+    break;
   case kFS_Exp2:
-    return kRFM_PerspExp2;
+    mode = kRFM_PerspExp2;
+    break;
   case kFS_RevExp:
-    return kRFM_PerspRevExp;
+    mode = kRFM_PerspRevExp;
+    break;
   case kFS_RevExp2:
-    return kRFM_PerspRevExp2;
-  default:
-    return kRFM_None;
+    mode = kRFM_PerspRevExp2;
+    break;
   }
+  return mode;
 }
 
 FScriptLoader GetScriptLoaderForType(FourCC type) {
