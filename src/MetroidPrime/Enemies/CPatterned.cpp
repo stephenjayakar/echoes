@@ -177,41 +177,43 @@ void CPatterned::BuildBodyController(EBodyType) {
   // TODO: Construct the body controller and configure the additive-reaction knockback options.
 }
 
+static const CPatterned::StateMachine::STriggerFunction triggers[] = {
+    {"Leash", &CPatterned::Leash},
+    {"SpotPlayer", &CPatterned::SpotPlayer},
+    {"PlayerSpot", &CPatterned::PlayerSpot},
+    {"InRange", &CPatterned::InRange},
+    {"InMaxRange", &CPatterned::InMaxRange},
+    {"InDetectionRange", &CPatterned::InDetectionRange},
+    {"PathShagged", &CPatterned::PathShagged},
+    {"PathOver", &CPatterned::PathOver},
+    {"PathFound", &CPatterned::PathFound},
+    {"Delay", &CPatterned::Delay},
+    {"RandomDelay", &CPatterned::RandomDelay},
+    {"FixedDelay", &CPatterned::FixedDelay},
+    {"HasPatrolPath", &CPatterned::HasPatrolPath},
+    {"Attacked", &CPatterned::Attacked},
+    {"OffLine", &CPatterned::OffLine},
+    {"AnimOver", &CPatterned::AnimOver},
+    {"NoPathNodes", &CPatterned::NoPathNodes},
+    {"TooClose", &CPatterned::TooClose},
+    {"Landed", &CPatterned::Landed},
+    {"InPosition", &CPatterned::InPosition},
+    {"Stuck", &CPatterned::Stuck},
+    {"CodeTrigger", &CPatterned::CodeTrigger},
+    {"Random", &CPatterned::Random},
+    {"FixedRandom", &CPatterned::FixedRandom},
+};
+static const CPatterned::StateMachine::SStateFunction states[] = {
+    {"Start", &CPatterned::Start},
+    {"Dead", &CPatterned::Dead},
+    {"PathFind", &CPatterned::PathFind},
+    {"Patrol", &CPatterned::Patrol},
+};
+
 void CPatterned::SetupStateMachine(CStateManager&) {
-  static const StateMachine::STriggerFunction triggers[] = {
-      {"Leash", &CPatterned::Leash},
-      {"SpotPlayer", &CPatterned::SpotPlayer},
-      {"PlayerSpot", &CPatterned::PlayerSpot},
-      {"InRange", &CPatterned::InRange},
-      {"InMaxRange", &CPatterned::InMaxRange},
-      {"InDetectionRange", &CPatterned::InDetectionRange},
-      {"PathShagged", &CPatterned::PathShagged},
-      {"PathOver", &CPatterned::PathOver},
-      {"PathFound", &CPatterned::PathFound},
-      {"Delay", &CPatterned::Delay},
-      {"RandomDelay", &CPatterned::RandomDelay},
-      {"FixedDelay", &CPatterned::FixedDelay},
-      {"HasPatrolPath", &CPatterned::HasPatrolPath},
-      {"Attacked", &CPatterned::Attacked},
-      {"OffLine", &CPatterned::OffLine},
-      {"AnimOver", &CPatterned::AnimOver},
-      {"NoPathNodes", &CPatterned::NoPathNodes},
-      {"TooClose", &CPatterned::TooClose},
-      {"Landed", &CPatterned::Landed},
-      {"InPosition", &CPatterned::InPosition},
-      {"Stuck", &CPatterned::Stuck},
-      {"CodeTrigger", &CPatterned::CodeTrigger},
-      {"Random", &CPatterned::Random},
-      {"FixedRandom", &CPatterned::FixedRandom},
-  };
-  static const StateMachine::SStateFunction states[] = {
-      {"Start", &CPatterned::Start},
-      {"Dead", &CPatterned::Dead},
-      {"PathFind", &CPatterned::PathFind},
-      {"Patrol", &CPatterned::Patrol},
-  };
-  mStateMachine->SetTriggerFunctions(triggers, ARRAY_SIZE(triggers));
-  mStateMachine->SetStateFunctions(states, ARRAY_SIZE(states));
+  StateMachine* stateMachine = mStateMachine.get();
+  stateMachine->SetTriggerFunctions(triggers, ARRAY_SIZE(triggers));
+  stateMachine->SetStateFunctions(states, ARRAY_SIZE(states));
 }
 
 void CPatterned::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
