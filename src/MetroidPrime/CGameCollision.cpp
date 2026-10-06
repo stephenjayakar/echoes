@@ -83,9 +83,10 @@ CGameCollision::RayDynamicIntersection(const CStateManager& mgr, TUniqueId& idOu
   CRayCastResult result;
   for (const TUniqueId* id = nearList.begin(); id != nearList.end(); ++id) {
     if (const CPhysicsActor* actor = TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(*id))) {
-      const CInternalRayCastStructure ray(position, direction, closest,
-                                          actor->GetPrimitiveTransform(), filter);
-      const CRayCastResult candidate = actor->GetCollisionPrimitive()->CastRayInternal(ray);
+      const CTransform4f& xf = actor->GetPrimitiveTransform();
+      const CCollisionPrimitive* prim = actor->GetCollisionPrimitive();
+      const CInternalRayCastStructure ray(position, direction, closest, xf, filter);
+      const CRayCastResult candidate = prim->CastRayInternal(ray);
       if (candidate.IsValid() && candidate.GetTime() < closest) {
         result = candidate;
         closest = candidate.GetTime();
@@ -107,9 +108,10 @@ bool CGameCollision::RayDynamicLineOfSightTest(
   for (const TUniqueId* id = nearList.begin(); id != nearList.end(); ++id) {
     if (const CPhysicsActor* actor = TCastToConstPtr< CPhysicsActor >(mgr.GetObjectById(*id))) {
       if (ignoreActor == nullptr || actor->GetUniqueId() != ignoreActor->GetUniqueId()) {
-        const CInternalRayCastStructure ray(position, direction, maxDistance,
-                                            actor->GetPrimitiveTransform(), filter);
-        if (actor->GetCollisionPrimitive()->CastRayInternal(ray).IsValid()) {
+        const CTransform4f& xf = actor->GetPrimitiveTransform();
+        const CCollisionPrimitive* prim = actor->GetCollisionPrimitive();
+        const CInternalRayCastStructure ray(position, direction, maxDistance, xf, filter);
+        if (prim->CastRayInternal(ray).IsValid()) {
           return false;
         }
       }
