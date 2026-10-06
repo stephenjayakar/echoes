@@ -138,12 +138,12 @@ void CWorldTransManager::TouchModels() {
   if (data.mBeamModel && data.mBeamModel->IsLoaded()) {
     data.mBeamModelData =
         CModelData(CStaticRes(data.mBeamModel->GetTag().GetId(), data.mSamusRes.GetScale()));
-    data.mBeamModel.clear();
+    data.mBeamModel = rstl::optional_object< CToken >();
   }
   if (data.mGrappleModel && data.mGrappleModel->IsLoaded()) {
     data.mGrappleModelData =
         CModelData(CStaticRes(data.mGrappleModel->GetTag().GetId(), data.mSamusRes.GetScale()));
-    data.mGrappleModel.clear();
+    data.mGrappleModel = rstl::optional_object< CToken >();
   }
   if (data.mSuitModel && data.mSuitSkin && data.mSuitModel->IsLoaded() &&
       data.mSuitSkin->IsLoaded()) {
@@ -151,8 +151,8 @@ void CWorldTransManager::TouchModels() {
     data.mSamusModelData = samusModel;
     data.mSamusModelData.AnimationData()->SetAnimation(
         CAnimPlaybackParms(data.mSamusRes.GetDefaultAnim(), -1, 1.f, true), false);
-    data.mSuitModel.clear();
-    data.mSuitSkin.clear();
+    data.mSuitModel = rstl::optional_object< CToken >();
+    data.mSuitSkin = rstl::optional_object< CToken >();
   }
   if (!data.mSamusModelData.IsNull()) {
     data.mSamusModelData.Touch(CModelData::kWM_Normal, 0);
