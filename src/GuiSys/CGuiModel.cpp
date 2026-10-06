@@ -77,7 +77,7 @@ void CGuiModel::Draw(const CGuiWidgetDrawParms& parms) const {
     const CColor color = GetModifiedColor().WithAlphaModulatedBy(parms.GetAlpha());
     UpdateDrawState(mDrawFlags, color);
     GetParentFrame()->EnableLights(mLightMask);
-    const bool cullChanged = mCullFaces;
+    bool cullChanged = mCullFaces;
     if (cullChanged) {
       CGraphics::SetCullMode(kCM_Front);
     }
@@ -92,12 +92,10 @@ void CGuiModel::Draw(const CGuiWidgetDrawParms& parms) const {
       flags = CModelFlags::ColorModulate(color);
       break;
     case kGMDF_Alpha:
-      flags = CModelFlags::AlphaBlended(color).DepthCompareUpdate(mDepthTest, mDepthWrite);
-      flags = CModelFlags(flags, flags.GetOtherFlags() | CModelFlags::kF_Unknown400);
+      flags = CModelFlags::AlphaBlended(color).DepthCompareUpdate(mDepthTest, mDepthWrite).AllowKColorModulation();
       break;
     case kGMDF_Additive:
-      flags = CModelFlags::Additive(color).DepthCompareUpdate(mDepthTest, mDepthWrite);
-      flags = CModelFlags(flags, flags.GetOtherFlags() | CModelFlags::kF_Unknown400);
+      flags = CModelFlags::Additive(color).DepthCompareUpdate(mDepthTest, mDepthWrite).AllowKColorModulation();
       break;
     case kGMDF_AlphaAdditiveOverdraw:
       flags = CModelFlags::AlphaBlended(color).DepthCompareUpdate(mDepthTest, false);

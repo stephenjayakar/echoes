@@ -81,12 +81,17 @@ public:
     const uint newFlags = static_cast< uint >(compare) | (static_cast< uint >(update) << 1);
     return CModelFlags(*this, (mFlags & ~(kF_DepthCompare | kF_DepthUpdate)) | newFlags);
   }
+  // Guessed name; see HandleTransparency in CCubeMaterial.
+  CModelFlags AllowKColorModulation() const {
+    return CModelFlags(*this, GetOtherFlags() | kF_Unknown400);
+  }
   CModelFlags DepthBackwards() const {
     return CModelFlags(*this, (GetOtherFlags() & ~kF_Unknown100) | kF_DepthGreater | kF_Unknown200);
   }
 
   ETrans GetTrans() const { return static_cast< ETrans >(mBlendMode); }
-  int GetShaderSet() const { return mMatSetIdx; }
+  // The shader set index is signed when read (extsb) but copied as an unsigned byte.
+  int GetShaderSet() const { return reinterpret_cast< const char& >(mMatSetIdx); }
   uint GetOtherFlags() const { return mFlags; }
   CColor GetColor() const { return mColor; }
   const CColor& GetColorRef() const { return mColor; }
@@ -113,7 +118,7 @@ private:
   // keeps MWCC from scalarizing it out of temporaries, so copies load it from the stack.
   ETrans x0_;
   uchar mBlendMode;
-  char mMatSetIdx;
+  uchar mMatSetIdx;
   ushort mFlags;
   CColor mColor;
 };
