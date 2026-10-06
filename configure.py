@@ -665,7 +665,7 @@ config.libs = [
             Object(NonMatching, "MetroidPrime/Player/CGrappleArm.cpp"),
             Object(NonMatching, "MetroidPrime/Player/CFidget.cpp"),
             Object(NonMatching, "MetroidPrime/Player/CPlayerGun.cpp"),
-            Object(NonMatching, "MetroidPrime/Weapons/CDarkBeam.cpp"),
+            Object(MatchingFor("G2ME01"), "MetroidPrime/Weapons/CDarkBeam.cpp"),
             Object(NonMatching, "MetroidPrime/Weapons/CAnnihilatorBeam.cpp"),
             Object(NonMatching, "MetroidPrime/Weapons/CPowerBeam.cpp"),
             Object(NonMatching, "MetroidPrime/Weapons/CAuxWeapon.cpp"),
