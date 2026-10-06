@@ -49,6 +49,11 @@ public:
   static float GetDefaultFirstPersonNearClipDistance();
   static float GetDefaultThirdPersonVerticalFOV();
 
+  static float sFirstPersonFOV;
+  static float sThirdPersonFOV;
+  static float sNearPlane;
+  static float sFarPlane;
+
   void SetAspectRatio(float aspect, CStateManager& mgr);
   void CreateCameras(CStateManager& mgr);
   void UpdateCameras(float dt, CStateManager& mgr);
