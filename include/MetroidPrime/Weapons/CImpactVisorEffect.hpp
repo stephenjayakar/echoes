@@ -29,6 +29,20 @@ public:
   };
 
   CImpactVisorEffect();
+  CImpactVisorEffect(const rstl::optional_object< SParticleEffect >& particleEffect,
+                     const rstl::optional_object< SBlurEffect >& blurEffect,
+                     const rstl::optional_object< rstl::pair< int, float > >& lowPassFilter)
+  : mParticleEffect(particleEffect)
+  , mBlurEffect(blurEffect)
+  , mLowPassFilter(lowPassFilter)
+  , mForcedVisor(static_cast< CPlayerState::EPlayerVisor >(-1))
+  , mForcedVisorDuration(0.f) {}
+
+  // Guessed name; same code as the DOL function named __ct__18CImpactVisorEffectFv.
+  static CImpactVisorEffect None() {
+    return CImpactVisorEffect(rstl::optional_object_null(), rstl::optional_object_null(),
+                              rstl::optional_object_null());
+  }
 
   const rstl::optional_object< SParticleEffect >& GetParticleEffect() const {
     return mParticleEffect;

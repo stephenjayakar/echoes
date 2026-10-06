@@ -1484,6 +1484,13 @@ config.libs = [
         ],
     },
     Rel(
+        "AtomicAlpha",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CAtomicAlpha.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "DestructibleBarrier",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),

@@ -33,6 +33,7 @@ class CPASAnimParmData;
 class CCharAnimTime;
 
 enum EPatternedAI {
+  kPAI_AtomicAlpha = 0, // Guessed name; AtomicAlpha REL constructor.
   kPAI_DarkSamus = 7,
   kPAI_Metroid = 0x21, // Guessed name; Metroid REL constructor.
   kPAI_Ripper = 0x30,  // Guessed name; Ripper REL constructor.

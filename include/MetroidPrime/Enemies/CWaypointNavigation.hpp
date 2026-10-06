@@ -16,6 +16,8 @@ public:
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt, CPatterned& actor);
   void ConfigureWobbleSteering(bool clockwise, float strength);
   const CVector3f& GetDestinationPosition() const { return mDestinationPosition; }
+  // Guessed name; Patrol resumes from this waypoint.
+  void SetLastDestination(TUniqueId id) { mLastDestination = id; }
 
 private:
   void ApplyWobbleSteering(CVector3f& movement) const;
