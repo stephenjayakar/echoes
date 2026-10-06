@@ -162,8 +162,7 @@ bool CBSHurled::ShouldStartLand(float dt, CBodyController& bc) const {
       ret = true;
     } else {
       const bool moved = !close_enough(actor->GetTranslation(), mLastTranslation, 0.0001f);
-      if (!moved &&
-          actor->GetVelocityWR().GetZ() < 0.f) {
+      if (!moved && actor->GetVelocityWR().GetZ() < 0.f) {
         mLandedDur += dt;
         if (mLandedDur >= 0.25f) {
           ret = true;
@@ -207,8 +206,7 @@ void CBSHurled::PlayStrikeWallAnimation(CBodyController& bc, CStateManager& mgr)
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(pas::kHS_StrikeWall));
-  const rstl::pair< float, int > best =
-      db.FindBestAnimation(parms, *mgr.Random(), -1);
+  const rstl::pair< float, int > best = db.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
     mState = pas::kHS_StrikeWall;
@@ -220,8 +218,7 @@ void CBSHurled::Recover(CStateManager& mgr, CBodyController& bc, pas::EHurledSta
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(state));
-  const rstl::pair< float, int > best =
-      db.FindBestAnimation(parms, *mgr.Random(), -1);
+  const rstl::pair< float, int > best = db.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
     mState = state;

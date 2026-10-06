@@ -50,7 +50,7 @@ public:
              const rstl::vector< SStateMachine2Transition >& transitions); // Guessed name.
 
 private:
-  rstl::string mName; // Guessed name.
+  rstl::string mName;                                    // Guessed name.
   rstl::vector< SStateMachine2Transition > mTransitions; // Guessed name.
 };
 CHECK_SIZEOF(CState2State, 0x24)
@@ -69,7 +69,7 @@ public:
              const rstl::vector< SStateMachine2Transition >& transitions); // Guessed name.
 
 private:
-  rstl::string mName; // Guessed name.
+  rstl::string mName;                                    // Guessed name.
   rstl::vector< SStateMachine2Transition > mTransitions; // Guessed name.
 };
 CHECK_SIZEOF(CState2Code, 0x24)
@@ -88,7 +88,7 @@ public:
              const rstl::vector< SStateMachine2Transition >& transitions); // Guessed name.
 
 private:
-  rstl::string mName; // Guessed name.
+  rstl::string mName;                                    // Guessed name.
   float mArgument;                                       // Guessed name.
   rstl::vector< SStateMachine2Transition > mTransitions; // Guessed name.
   bool mNegate : 1;                                      // Guessed name.
@@ -110,7 +110,7 @@ public:
   const CGenericFSM2* GetMachine() const; // Guessed name.
 
 private:
-  rstl::string mName; // Guessed name.
+  rstl::string mName;                                    // Guessed name.
   rstl::vector< SStateMachine2Transition > mTransitions; // Guessed name.
   rstl::optional_object< CToken > mMachine;              // Guessed name.
 };
