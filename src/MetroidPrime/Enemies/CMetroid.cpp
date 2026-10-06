@@ -1,6 +1,12 @@
 #include "MetroidPrime/Enemies/CMetroid.hpp"
 
+#include "MetroidPrime/CActorParameters.hpp"
+#include "MetroidPrime/Enemies/CBabyMetroid.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrMetroidAlpha.hpp"
+
 #include "Kyoto/Math/CQuaternion.hpp"
+#include "Kyoto/Animation/CPASAnimParmData.hpp"
 #include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/BodyState/CBodyStateCmdMgr.hpp"
 #include "Kyoto/Math/CRelAngle.hpp"
@@ -19,6 +25,61 @@
 #include "REL/REL_Setup.h"
 
 static const char* const skPirateSuckJoint = "Head_1";
+
+static CDamageVulnerability::TWeaponVulnerability skFaceHugOverrides[] = {
+    CDamageVulnerability::TWeaponVulnerability(kWT_PowerBomb, CWeaponTypeVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal, false)),
+};
+
+static CDamageVulnerability FaceHugVulnerability() {
+  return CDamageVulnerability(CDamageVulnerability::ImmuneVulnerabilty(), skFaceHugOverrides, 1,
+                              CDamageVulnerability::kOF_Normal);
+}
+
+CMetroid::CMetroid(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
+                   const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,
+                   const CActorParameters& aParms, const CMetroidData& metroidData)
+: CPatterned(kPAI_Metroid, uid, name, kFT_Zero, info, xf, mData, pInfo, kMT_Flyer, kCT_One,
+             kBT_Flyer, aParms)
+, x7c0_(CVector3f::Zero())
+, mState(kAiState_Invalid)
+, mAttackChance(0.f)
+, mAttackState(0)
+, mTeamAiManagerId(kInvalidUniqueId)
+, mDodgeDirection(pas::kSD_Invalid)
+, mMetroidData(metroidData)
+, mCollisionPrimitive(CSphere(CVector3f::Zero(), 0.9f * GetModelData()->GetScale().GetY()),
+                      GetMaterialList())
+, mPathFindSearch(nullptr, 0x303, pInfo.GetPathfindingIndex(), 1.f, 1.f, 0, CPFRegion::kRP_Center)
+, mAttackTarget(kInvalidUniqueId)
+, x9b8_(0.f)
+, mEnergyDrained(0.f)
+, x9c0_(0.f)
+, x9c4_(0.f)
+, mScale1(GetModelData()->GetScale())
+, mScale2(GetModelData()->GetScale())
+, mScale3(GetModelData()->GetScale())
+, mGrowthDuration(0.f)
+, mGrowthEnergy(0.f)
+, mLastGrowthEnergy(0.f)
+, mSeekTime(0.f)
+, mMaxSeekTime(0.f)
+, mLoopAttackDistance(0.f)
+, mDetachPos(CVector3f::Zero())
+, mStandingFaceHugVulnerability(FaceHugVulnerability())
+, mAlert(false)
+, mGrowing(false)
+, mShotAt(false)
+, xa40_27_(false)
+, xa40_28_(false)
+, xa40_29_(false)
+, mRestoreSolidCollision(false)
+, mRestoreCharacterCollision(false)
+, mIsEnergyDrainVulnerable(false) {
+  const CPASAnimParmData pasAnimParms(pas::kAS_LoopAttack, CPASAnimParm::FromEnum(2),
+                                      CPASAnimParm::FromEnum(3));
+  mLoopAttackDistance = GetAnimationDistance(pasAnimParms);
+  SetCoefficientOfRestitutionModifier(0.9f);
+}
 
 CMetroid::~CMetroid() {}
 
@@ -762,7 +823,40 @@ void CMetroid::SetupStateMachine(CStateManager& mgr) {
   stateMachine->SetCodeFunctions(skCodeFuncs, ARRAY_SIZE(skCodeFuncs));
 }
 
-CEntity* REL_LoadMetroid(CStateManager& mgr, CInputStream& input, CEntityInfo& info);
+CEntity* REL_LoadMetroid(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrMetroidAlpha sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrMetroidAlpha.inc"
+
+  rstl::optional_object< CModelData > modelData(
+      LdrToModelData(sldrThis.editorProperties.transform.scale, kInvalidAssetId,
+                     sldrThis.patterned.animationInformation, true));
+  if (!modelData) {
+    return nullptr;
+  }
+
+  const CMetroidData metroidData(
+      LdrToDamageVulnerability(sldrThis.frozenVulnerability),
+      LdrToDamageVulnerability(sldrThis.energyDrainVulnerability),
+      LdrToDamageVulnerability(sldrThis.babyMetroidGrowthVulnerability),
+      sldrThis.unknown_0x72439b39, sldrThis.unknown_0x3af75fcc, sldrThis.telegraphAttackTime,
+      sldrThis.babyMetroidScale, sldrThis.unknown_0x03362858, sldrThis.unknown_0x1c783744,
+      sldrThis.unknown_0x852d3bb0, sldrThis.babyMetroidTransformationParticleEffect,
+      sldrThis.stage2GrowthScale, sldrThis.stage2GrowthEnergy, sldrThis.unknown_0x5f3f294c,
+      sldrThis.dodgeCheckTimeInterval, sldrThis.chanceToDodge, sldrThis.metroidFlagsMetroid);
+
+  if (metroidData.xc4_24_) {
+    return rs_new CBabyMetroid(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+                               LdrToEntityInfo(info, sldrThis.editorProperties),
+                               LdrToTransform4f(sldrThis.editorProperties), *modelData,
+                               LdrToPatternedInfo(sldrThis.patterned, &sldrThis.ingPossessionData),
+                               LdrToActorParameters(sldrThis.actorInformation), metroidData);
+  }
+  return rs_new CMetroid(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+                         LdrToEntityInfo(info, sldrThis.editorProperties),
+                         LdrToTransform4f(sldrThis.editorProperties), *modelData,
+                         LdrToPatternedInfo(sldrThis.patterned, &sldrThis.ingPossessionData),
+                         LdrToActorParameters(sldrThis.actorInformation), metroidData);
+}
 
 SMetroid_FuncPtrs REL_loader_Metroid;
 

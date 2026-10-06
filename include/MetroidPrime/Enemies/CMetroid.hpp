@@ -14,6 +14,32 @@ class CStateManager;
 // the generated SLdrMetroidAlpha record where it has one.
 class CMetroidData {
 public:
+  CMetroidData(const CDamageVulnerability& frozenVulnerability,
+               const CDamageVulnerability& energyDrainVulnerability,
+               const CDamageVulnerability& babyMetroidGrowthVulnerability, float x90, float x94,
+               float telegraphAttackTime, float babyMetroidScale, float xa0, float xa4, float xa8,
+               CAssetId babyMetroidTransformationParticleEffect, float stage2GrowthScale,
+               float stage2GrowthEnergy, float explosionGrowthEnergy, float dodgeCheckTimeInterval,
+               float chanceToDodge, uint flags)
+  : mFrozenVulnerability(frozenVulnerability)
+  , mEnergyDrainVulnerability(energyDrainVulnerability)
+  , mBabyMetroidGrowthVulnerability(babyMetroidGrowthVulnerability)
+  , mEnergyDrainPerSecond(x90)
+  , mMaxEnergyDrainAllowed(x94)
+  , mTelegraphAttackTime(telegraphAttackTime)
+  , mBabyMetroidScale(babyMetroidScale)
+  , xa0_(xa0)
+  , xa4_(xa4)
+  , xa8_(xa8)
+  , mBabyMetroidTransformationParticleEffect(babyMetroidTransformationParticleEffect)
+  , mStage2GrowthScale(stage2GrowthScale)
+  , mStage2GrowthEnergy(stage2GrowthEnergy)
+  , mExplosionGrowthEnergy(explosionGrowthEnergy)
+  , mDodgeCheckTimeInterval(dodgeCheckTimeInterval)
+  , mChanceToDodge(chanceToDodge)
+  , xc4_24_(flags & 1)
+  , mStartsInWall((flags >> 1) & 1) {}
+
   CDamageVulnerability mFrozenVulnerability;
   CDamageVulnerability mEnergyDrainVulnerability;
   CDamageVulnerability mBabyMetroidGrowthVulnerability;
@@ -38,6 +64,9 @@ CHECK_SIZEOF(CMetroidData, 0xC8)
 // Original class name from the Wii SEL exports (TypesMatch__8CMetroidCFi, TCastToPtr<8CMetroid>).
 class CMetroid : public CPatterned {
 public:
+  CMetroid(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
+           const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,
+           const CActorParameters& aParms, const CMetroidData& metroidData);
   ~CMetroid() override;
 
   // CEntity
