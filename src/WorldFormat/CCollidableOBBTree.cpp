@@ -365,7 +365,7 @@ bool CCollidableOBBTree::CacheTree(CCollisionCacheWriter& writer, const COBBTree
       int count = leaf.GetSurfaceVector().size();
       writer.ReserveTriangles(count);
       for (int i = 0; i < count; ++i) {
-        ushort index = leaf.GetSurfaceVector()[i];
+        int index = leaf.GetSurfaceVector()[i];
         CCollisionSurface surface = GetOBBTree().GetTriangle(index, &xf);
         if (CollisionUtil::TriBoxOverlap(center, halfExtent, surface.GetVert(0), surface.GetVert(1),
                                          surface.GetVert(2))) {
