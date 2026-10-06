@@ -65,7 +65,7 @@ bool CTargetableProjectile::Explode(const CVector3f& position, const CVector3f& 
     const TUniqueId projectileOwner = mHitProjectileOwner;
     CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(projectileOwner));
     if (player != nullptr) {
-      const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(GetOwnerId()));
+      const CActor* const actor = TCastToConstPtr< CActor >(mgr.GetObjectById(GetOwnerId()));
       if (actor != nullptr) {
         const TUniqueId uid = mgr.AllocateUniqueId();
         const CVector3f aimPosition = actor->GetAimPosition(mgr, 0.f);

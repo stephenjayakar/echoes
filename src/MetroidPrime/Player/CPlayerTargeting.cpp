@@ -189,7 +189,7 @@ void CPlayerTargeting::UpdateScanObjects(float dt, CStateManager& mgr) {
     const CObjectList& actors = mgr.GetObjectListById(kOL_Actor);
     for (int index = actors.GetFirstObjectIndex(); index != -1;
          index = actors.GetNextObjectIndex(index)) {
-      const CActor* actor = TCastToConstPtr< CActor >(actors[index]);
+      const CActor* const actor = TCastToConstPtr< CActor >(actors[index]);
       if (!actor || !actor->GetMaterialList().HasMaterial(kMT_Scannable) || !actor->GetActive() ||
           !IsInVisibleArea(mgr, actor)) {
         continue;

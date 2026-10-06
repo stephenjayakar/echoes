@@ -1614,7 +1614,7 @@ void CScriptSpecialFunction::ThinkObjectFollowLocator(float dt, CStateManager& m
     }
   }
 
-  const CActor* followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
+  const CActor* const followed = TCastToConstPtr< CActor >(mgr.GetObjectById(followedAct));
   if (followedAct == kInvalidUniqueId || !followed) {
     return;
   }
