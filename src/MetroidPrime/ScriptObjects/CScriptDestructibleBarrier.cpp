@@ -35,7 +35,7 @@ CBarrierChunkGrid::CBarrierChunkGrid(const CVector3i& dims, const CVector3f& chu
 , mNumDestroyed(0)
 , mChunkHealth(chunkHealth)
 , mLayerCounts(dims.GetZ(), 0)
-, mRowCounts(dims.GetZ() * dims.GetY(), dims.GetX())
+, mRowCounts(dims.GetZ() * dims.GetY(), dims[0])
 , mChunkHealths(dims.GetZ() * (dims.GetY() * dims.GetX()), chunkHealth) {
   const int layerCount = dims.GetX() * dims.GetY();
   for (int i = 0; i < mLayerCounts.size(); ++i) {
@@ -124,9 +124,9 @@ rstl::optional_object< CVector3i > CBarrierChunkGrid::GetChunkAt(const CVector3f
     return rstl::optional_object_null();
   }
   CVector3f local = CVector3f::ByElementMultiply(closest, mInvChunkSize);
-  return CVector3i(rstl::min_val(rstl::max_val(int(local[kDX]), 0), mDims.GetX() - 1),
-                   rstl::min_val(rstl::max_val(int(local[kDY]), 0), mDims.GetY() - 1),
-                   rstl::min_val(rstl::max_val(int(local[kDZ]), 0), mDims.GetZ() - 1));
+  return CVector3i(rstl::min_val(rstl::max_val(int(local.GetX()), 0), mDims.GetX() - 1),
+                   rstl::min_val(rstl::max_val(int(local.GetY()), 0), mDims.GetY() - 1),
+                   rstl::min_val(rstl::max_val(int(local.GetZ()), 0), mDims.GetZ() - 1));
 }
 
 bool CBarrierChunkGrid::ApplyDamage(CStateManager& mgr, const CVector3f& pos, float damage,
@@ -141,7 +141,7 @@ bool CBarrierChunkGrid::ApplyDamage(CStateManager& mgr, const CVector3f& pos, fl
   CVector3i cur = *start;
   CVector3i prev = *start;
   const int steps =
-      rstl::min_val(20, rstl::max_val(4, int(damage / mChunkHealth)));
+      rstl::min_val(rstl::max_val(int(damage / mChunkHealth), 4), 20);
   for (int i = 0; i < steps; ++i) {
     const rstl::pair< bool, float > result =
         DamageChunk(cur.GetX(), cur.GetY(), cur.GetZ(), damage);
@@ -157,13 +157,13 @@ bool CBarrierChunkGrid::ApplyDamage(CStateManager& mgr, const CVector3f& pos, fl
     }
     do {
       const int axis = mgr.Random()->Next() % 3;
-      const int dir = (mgr.Random()->Next() & 2) ? 1 : -1;
+      const int dir = (mgr.Random()->Next() & 2) == 0 ? -1 : 1;
       cur[axis] += dir;
     } while (cur == prev);
     prev = cur;
-    cur[0] = rstl::min_val(mDims.GetX() - 1, rstl::max_val(0, cur[0]));
-    cur[1] = rstl::min_val(mDims.GetY() - 1, rstl::max_val(0, cur[1]));
-    cur[2] = rstl::min_val(mDims.GetZ() - 1, rstl::max_val(0, cur[2]));
+    cur[0] = rstl::min_val(rstl::max_val(cur[0], 0), mDims.GetX() - 1);
+    cur[1] = rstl::min_val(rstl::max_val(cur[1], 0), mDims.GetY() - 1);
+    cur[2] = rstl::min_val(rstl::max_val(cur[2], 0), mDims.GetZ() - 1);
   }
   return destroyed;
 }
@@ -367,9 +367,8 @@ void CBarrierChunkGrid::Render(const CTransform4f& xfIn, const CModelFlags& flag
   const int dimZ = mDims.GetZ();
   for (int z = 0; z < dimZ; ++z) {
     const float zOff = z * mChunkSize.GetZ();
-    if (mLayerCounts[z] == layerSize && fullLayer) {
-      xf.SetTranslation(xfIn.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(0.f, 0.f, zOff)) +
-                        origin);
+    if (layerSize == mLayerCounts[z] && fullLayer) {
+      xf.SetTranslation(xf.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(0.f, 0.f, zOff)) + origin);
       CGraphics::SetModelMatrix(xf);
       fullLayer->Draw(flags);
       continue;
@@ -378,8 +377,7 @@ void CBarrierChunkGrid::Render(const CTransform4f& xfIn, const CModelFlags& flag
     for (int y = 0; y < dimY; ++y) {
       const float yOff = y * mChunkSize.GetY();
       if (dimX == mRowCounts[y + z * dimY] && fullRow) {
-        xf.SetTranslation(
-            xfIn.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(0.f, yOff, zOff)) + origin);
+        xf.SetTranslation(xf.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(0.f, yOff, zOff)) + origin);
         CGraphics::SetModelMatrix(xf);
         fullRow->Draw(flags);
         continue;
@@ -388,8 +386,7 @@ void CBarrierChunkGrid::Render(const CTransform4f& xfIn, const CModelFlags& flag
       const float* health = &mChunkHealths[(y + z * dimY) * rowX];
       for (int x = 0; x < rowX; ++x, ++health) {
         if (*health > 0.f) {
-          xf.SetTranslation(xfIn.Rotate(CVector3f(halfX, halfY, 0.f) +
-                                        CVector3f(x * mChunkSize.GetX(), yOff, zOff)) +
+          xf.SetTranslation(xf.Rotate(CVector3f(halfX, halfY, 0.f) + CVector3f(x * mChunkSize.GetX(), yOff, zOff)) +
                             origin);
           CGraphics::SetModelMatrix(xf);
           if (x == 0) {
@@ -511,10 +508,9 @@ CScriptDestructibleBarrier::~CScriptDestructibleBarrier() {}
 
 void CScriptDestructibleBarrier::UpdateTransforms() {
   mRenderXf = GetTransform();
-  const CVector3f center = mGrid.GetBounds().GetCenterPoint();
-  mRenderXf.SetTranslation(CVector3f(mRenderXf.Get03() - center.GetX(),
-                                     mRenderXf.Get13() - center.GetY(),
-                                     mRenderXf.Get23() - mLowerOffset));
+  CVector3f center = mGrid.GetBounds().GetCenterPoint();
+  mRenderXf.SetTranslation(mRenderXf.GetTranslation() -
+                           CVector3f(center.GetX(), center.GetY(), mLowerOffset));
   mInvRenderXf = mRenderXf.GetQuickInverse();
   mTouchBounds = mGrid.GetBounds().GetTransformedAABox(mRenderXf);
   SetOtherBounds(mTouchBounds);
