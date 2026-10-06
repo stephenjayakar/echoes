@@ -513,11 +513,6 @@ public:
     mLoopReaction = cmd;
   }
 
-  void DeliverCmd(const CBCGenerateCmd& cmd) {
-    DeliverCmd(cmd.GetCommandId());
-    mGenerate = cmd;
-  }
-
   void DeliverCmd(const CBCJumpCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mJump = cmd;
