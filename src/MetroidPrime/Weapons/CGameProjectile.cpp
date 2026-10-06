@@ -246,7 +246,8 @@ CProjectileTouchResult CGameProjectile::CanCollideWith(CActor& actor, CStateMana
   if (TCastToPtr< CScriptTrigger >(actor)) {
     return CanCollideWithTrigger(actor, mgr);
   }
-  CPhysicsActor* physicsActor = TCastToPtr< CPhysicsActor >(&actor);
+  CPhysicsActor* physicsActor =
+      const_cast< CPhysicsActor* >(TCastToConstPtr< CPhysicsActor >(&actor));
   if (TCastToPtr< CCollisionActor >(physicsActor) ||
       (physicsActor && physicsActor->GetCollisionPrimitive()->GetPrimType() == 'OBTG')) {
     return CanCollideWithComplexCollision(actor, mgr);
