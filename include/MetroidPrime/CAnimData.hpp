@@ -235,7 +235,7 @@ private:
   int mPassedSoundCount;
   int mParticleLightIdx;
   int mAnimationTreeLimit;
-  uchar mAnimating : 1;
+  bool mAnimating : 1;
   uchar mLoop : 1;
   uchar mAligningPos : 1;
   uchar mAligningRot : 1;
