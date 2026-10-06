@@ -74,8 +74,8 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
           bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
         } else {
           mState = pas::kWHS_JumpAirLoop;
-          bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                               *mgr.Random());
+          const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+          bc.LoopBestAnimation(parms, *mgr.Random());
         }
 
         if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
@@ -97,8 +97,8 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
     case pas::kWHS_JumpArc:
       if (bc.IsAnimationOver()) {
         mState = pas::kWHS_JumpAirLoop;
-        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                             *mgr.Random());
+        const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+        bc.LoopBestAnimation(parms, *mgr.Random());
       } else {
         CheckForWall(bc, mgr);
       }
@@ -112,8 +112,8 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
     case pas::kWHS_IntoWallHang:
       if (bc.IsAnimationOver()) {
         mState = pas::kWHS_WallHang;
-        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                             *mgr.Random());
+        const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+        bc.LoopBestAnimation(parms, *mgr.Random());
       } else if (bc.CommandMgr().GetCmd(kBSC_ExitState)) {
         mNeedsExit = true;
       }
@@ -121,16 +121,16 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
     case pas::kWHS_WallHang:
       if (bc.CommandMgr().GetCmd(kBSC_ExitState) || mNeedsExit) {
         mState = pas::kWHS_OutOfWallHang;
-        bc.PlayBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                             *mgr.Random());
+        const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+        bc.PlayBestAnimation(parms, *mgr.Random());
       }
       FixInPlace(bc);
       break;
     case pas::kWHS_Five:
       if (bc.IsAnimationOver()) {
         mState = pas::kWHS_WallHang;
-        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                             *mgr.Random());
+        const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+        bc.LoopBestAnimation(parms, *mgr.Random());
       }
       FixInPlace(bc);
       break;
@@ -145,8 +145,8 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
           bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
         } else {
           mState = pas::kWHS_DetachJumpLoop;
-          bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                               *mgr.Random());
+          const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+          bc.LoopBestAnimation(parms, *mgr.Random());
         }
 
         if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
@@ -165,8 +165,8 @@ pas::EAnimationState CBSWallHang::UpdateBody(float dt, CBodyController& bc, CSta
     case pas::kWHS_OutOfWallHangTurn:
       if (bc.IsAnimationOver()) {
         mState = pas::kWHS_DetachJumpLoop;
-        bc.LoopBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
-                             *mgr.Random());
+        const CPASAnimParmData parms(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState));
+        bc.LoopBestAnimation(parms, *mgr.Random());
       }
       break;
     case pas::kWHS_DetachJumpLoop:
