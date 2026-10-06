@@ -34,7 +34,15 @@ public:
     ++*mRefCount;
   }
   ~rc_ptr() { ReleaseData(); }
+  // Release-build stand-ins for the assignment preconditions: their inline cost keeps
+  // assignments of structs holding an rc_ptr out of line (CPauseScreen::SNodeDraw).
   rc_ptr& operator=(const rc_ptr& other) {
+    ((void)0);
+    ((void)0);
+    ((void)0);
+    ((void)0);
+    ((void)0);
+    ((void)0);
     if (mPtr != other.mPtr) {
       ReleaseData();
       mPtr = other.mPtr;
