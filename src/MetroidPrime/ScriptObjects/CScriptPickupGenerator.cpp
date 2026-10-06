@@ -251,10 +251,10 @@ void CScriptPickupGenerator::GetTargets(CStateManager& mgr, TUniqueId sender,
   }
 }
 
-CHealthInfo* CScriptPickupGenerator::GetTargetHealthInfo(CStateManager& mgr,
-                                                         TUniqueId targetId) const {
-  CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(targetId));
-  return actor != nullptr ? actor->HealthInfo() : nullptr;
+const CHealthInfo* CScriptPickupGenerator::GetTargetHealthInfo(CStateManager& mgr,
+                                                               TUniqueId targetId) const {
+  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(targetId));
+  return actor != nullptr ? actor->GetHealthInfo() : nullptr;
 }
 
 void CScriptPickupGenerator::GetSpawnablePickups(
