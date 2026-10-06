@@ -10,6 +10,7 @@ public:
 
   bool AttachActorToPirate(TUniqueId id);
   void DetachActorFromPirate();
+  TUniqueId GetAttachedActor() const { return mAttachedActor; }
 
 private:
   uchar x7c0_[0x2c4];

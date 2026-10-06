@@ -33,6 +33,7 @@ class CCharAnimTime;
 
 enum EPatternedAI {
   kPAI_DarkSamus = 7,
+  kPAI_Metroid = 0x21, // Guessed name; Metroid REL constructor.
 };
 
 template <>
@@ -252,7 +253,7 @@ public:
 
   const CAiKnockBackMgr& GetKnockBackController() const { return mKnockBackController; }
 
-private:
+protected:
   TUniqueId mDestObj;
   CVector3f mDestPos;
   CVector3f mReflectedDestPos;

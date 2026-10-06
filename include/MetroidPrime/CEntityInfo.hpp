@@ -226,6 +226,7 @@ enum EScriptObjectMessage {
   kSM_Load = 0x4c4f4144,
   kSM_Unload = 0x554c4f44,
   kSM_Activate = 0x41435456,
+  kSM_Alert = 0x414c5254, // Guessed Prime name; sets the Metroid alert flag.
   kSM_Deactivate = 0x44435456,
   kSM_ToggleActive = 0x54435456,
   kSM_SetToZero = 0x5a45524f,

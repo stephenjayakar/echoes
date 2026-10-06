@@ -1547,6 +1547,14 @@ config.libs = [
         # Native generated constructors address each float constant separately.
         extra_cflags=["-pool off"],
     ),
+    Rel(
+        "Metroid",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CMetroid.cpp"),
+            Object(NonMatching, "MetroidPrime/Enemies/CBabyMetroid.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
 ]
 
 
