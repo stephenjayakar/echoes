@@ -43,7 +43,8 @@ void CScriptBallTrigger::InhabitantAdded(CActor& actor, CStateManager& mgr) {
       player->GetMorphBall()->SetBallBoostState(CMorphBall::kBBS_BoostDisabled);
       const CVector3f position =
           GetTranslation() - CVector3f(0.f, 0.f, player->GetMorphBall()->GetBallRadius());
-      player->Teleport(CTransform4f(player->GetTransform().BuildMatrix3f(), position), mgr, false);
+      const CTransform4f xf(player->GetTransform().BuildMatrix3f(), position);
+      player->Teleport(xf, mgr, false);
     }
   }
 }
