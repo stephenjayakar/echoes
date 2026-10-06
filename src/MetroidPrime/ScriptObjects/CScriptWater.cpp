@@ -52,7 +52,7 @@ CScriptWater::CScriptWater(
 , mExtentMorphed(bounds.GetWidth(), bounds.GetHeight(), bounds.GetDepth())
 , mMorphInTime(morphInTime)
 , mPositionOrig(position)
-, mExtentOrig(mExtentMorphed)
+, mExtentOrig(bounds.GetWidth(), bounds.GetHeight(), bounds.GetDepth())
 , mDamageOrig(damage.GetDamage())
 , mDamageMorphed(damage.GetDamage())
 , mMorphOutTime(morphOutTime)
@@ -79,9 +79,9 @@ CScriptWater::CScriptWater(
 , mAlphaOutRecip(alphaOutTime ? 1.f / alphaOutTime : 0.f)
 , mAlpha(alpha)
 , mGridDimX(
-      static_cast< int >(CMath::FloorF((3.f + GetTriggerBoundsWR().GetWidth() - 0.01f) / 3.f)))
+      static_cast< int >(floorf((3.f + GetTriggerBoundsWR().GetWidth() - 0.01f) / 3.f)))
 , mGridDimY(
-      static_cast< int >(CMath::FloorF((3.f + GetTriggerBoundsWR().GetHeight() - 0.01f) / 3.f)))
+      static_cast< int >(floorf((3.f + GetTriggerBoundsWR().GetHeight() - 0.01f) / 3.f)))
 , mGridCellCount((mGridDimX + 1) * (mGridDimY + 1))
 , mPatchDimX(0)
 , mPatchDimY(0)
@@ -103,14 +103,15 @@ CScriptWater::CScriptWater(
 , mAlphaOut(false)
 , x32c_6_(occlusion)
 , x32c_7_(filterSoundEffects) {
+  const CVector2f uvExtent = GetFluidUVExtent(bounds);
   mFluidPlane = rs_new CFluidPlaneCPU(
-      GetFluidUVExtent(bounds), colorMap, baseColor, colorWarpMap, glossMap, lightMap, envMap,
+      uvExtent, colorMap, baseColor, colorWarpMap, glossMap, lightMap, envMap,
       texture, useDynamicLights, fluidType, uvMotion, uvScale, uvOffset, unknownScale, alpha,
       glossFlat, unknown1, unknown2, unknown3, envMapSize, viscosity);
 
-  for (int i = 0; i < 3; ++i) {
-    mSplashEffects.push_back(rstl::optional_object< TLockedToken< CGenDescription > >());
-  }
+  mSplashEffects.push_back(rstl::optional_object< TLockedToken< CGenDescription > >());
+  mSplashEffects.push_back(rstl::optional_object< TLockedToken< CGenDescription > >());
+  mSplashEffects.push_back(rstl::optional_object< TLockedToken< CGenDescription > >());
   if (mSplashParticle1Id != kInvalidAssetId) {
     mSplashEffects[0] = TLockedToken< CGenDescription >(
         TToken< CGenDescription >(gpSimplePool->GetObj(SObjectTag('PART', mSplashParticle1Id))));
