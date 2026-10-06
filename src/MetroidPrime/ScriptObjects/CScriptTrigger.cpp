@@ -532,22 +532,25 @@ uchar CScriptTrigger::ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CState
   return replaced;
 }
 
-bool CScriptTrigger::RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr) {
-  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id))) {
-    for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
-         ++it) {
-      if (it->GetObjectId() == id) {
-        const rstl::optional_object< CAABox > bounds = GetTouchBounds();
-        const rstl::optional_object< CAABox > actorBounds = actor->GetTouchBounds();
-        if (bounds && actorBounds && !BoundsOverlap(*actorBounds)) {
-          mInhabitants.erase(it);
-          return true;
-        }
-        return false;
+uchar CScriptTrigger::RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr) {
+  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id));
+  if (actor == nullptr) {
+    return false;
+  }
+  bool removed = false;
+  for (rstl::list< CObjectTracker >::iterator it = mInhabitants.begin(); it != mInhabitants.end();
+       ++it) {
+    if (it->GetObjectId() == id) {
+      const rstl::optional_object< CAABox > bounds = GetTouchBounds();
+      const rstl::optional_object< CAABox > actorBounds = actor->GetTouchBounds();
+      if (bounds && actorBounds && !BoundsOverlap(*actorBounds)) {
+        mInhabitants.erase(it);
+        removed = true;
       }
+      break;
     }
   }
-  return false;
+  return removed;
 }
 
 uchar CScriptTrigger::RemoveInhabitant(TUniqueId id, CStateManager& mgr) {

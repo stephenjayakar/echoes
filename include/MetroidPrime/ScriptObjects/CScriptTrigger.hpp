@@ -61,7 +61,7 @@ public:
   virtual bool BoundsOverlap(const CAABox& bounds) const;                     // Guessed name
 
   uchar RemoveInhabitant(TUniqueId id, CStateManager& mgr);                      // Guessed name
-  bool RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr);             // Guessed name
+  uchar RemoveInhabitantIfOutside(TUniqueId id, CStateManager& mgr);             // Guessed name
   uchar ReplaceInhabitant(TUniqueId oldId, TUniqueId newId, CStateManager& mgr); // Guessed name
   bool IsAI(CStateManager& mgr, CActor& actor) const;                           // Guessed name
   bool GetPlayerInside(int playerIndex) const;
