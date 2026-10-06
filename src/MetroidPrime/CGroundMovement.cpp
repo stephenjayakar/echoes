@@ -35,10 +35,10 @@ void CGroundMovement::CheckFalling(CPhysicsActor& actor, CStateManager& mgr, flo
     }
   }
   if (!outOfBounds) {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                     kSM_Falling, kSS_InvalidState));
   } else {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                     kSM_Landed, kSS_InvalidState));
     actor.SetAngularVelocityWR(actor.GetAngularVelocityWR() * 0.98f);
     CVector3f velocity = actor.GetTransform().TransposeRotate(actor.GetVelocityWR());
@@ -119,15 +119,15 @@ void CGroundMovement::MoveGroundCollider(
         if (CGameCollision::IsFloor(info.GetMaterialLeft(), info.GetNormalLeft())) {
           CEntity* entity = mgr.ObjectById(stepZId);
           if (TCastToPtr< CScriptPlatform >(entity)) {
-            mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), kInvalidUniqueId,
-                                            entity->GetUniqueId(), kSM_AddPlatformRider,
+            mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), entity->GetUniqueId(),
+                                            kInvalidUniqueId, kSM_AddPlatformRider,
                                             kSS_InvalidState));
           }
           CGameCollision::SendMaterialMessage(mgr, info.GetMaterialLeft(), actor);
-          mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+          mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                           kSM_Landed, kSS_InvalidState));
           if (!TCastToPtr< CScriptPlatform >(entity)) {
-            mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+            mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                             static_cast< EScriptObjectMessage >('XLSG'),
                                             kSS_InvalidState));
           }
@@ -201,7 +201,7 @@ bool CGroundMovement::ResolveUpDown(CAreaCollisionCache& cache, CStateManager& m
       }
     }
     if (!floor) {
-      mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+      mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                    kSM_LandOnNotFloor, kSS_InvalidState));
     }
     return false;
@@ -250,7 +250,7 @@ bool CGroundMovement::MoveGroundColliderZ(CAreaCollisionCache& cache, CStateMana
     }
   }
   if (!floor) {
-    mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+    mgr.SendScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                  kSM_LandOnNotFloor, kSS_InvalidState));
   }
 
@@ -364,7 +364,7 @@ bool CGroundMovement::MoveGroundColliderXY(CAreaCollisionCache& cache, CStateMan
     loopContinue = remainingDt > 0.f;
   }
   if (!didCollide && !actor.GetMaterialList().HasMaterial(kMT_GroundCollider)) {
-    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+    mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                     kSM_Falling, kSS_InvalidState));
   }
   actor.MoveCollisionPrimitive(CVector3f::Zero());
@@ -585,7 +585,7 @@ void CGroundMovement::MoveGroundCollider_New(
           }
         }
         actor.SetPhysicsState(states[maxIndex]);
-        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                         kSM_Landed, kSS_InvalidState));
         materials = stepMaterials[maxIndex];
         const TUniqueId id = collisions[maxIndex].GetObjectId();
@@ -594,8 +594,8 @@ void CGroundMovement::MoveGroundCollider_New(
           result.mId = id;
           result.mCollision = collisions[maxIndex];
           if (TCastToPtr< CScriptPlatform >(entity)) {
-            mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), kInvalidUniqueId,
-                                            entity->GetUniqueId(), kSM_AddPlatformRider,
+            mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), entity->GetUniqueId(),
+                                            kInvalidUniqueId, kSM_AddPlatformRider,
                                             kSS_InvalidState));
           }
         }
@@ -680,7 +680,7 @@ void CGroundMovement::MoveGroundCollider_New(
       CheckFalling(actor, mgr, dt);
       actor.SetLastFloorPlaneNormal(rstl::optional_object_null());
     } else {
-      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+      mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                       kSM_Landed, kSS_InvalidState));
       useStepDown = rstl::max_val(useStepDown - 0.0005f, 0.0);
       CVector3f step(0.f, 0.f, 1.f);
@@ -690,11 +690,11 @@ void CGroundMovement::MoveGroundCollider_New(
       actor.SetTranslation(translation);
       CEntity* entity = mgr.ObjectById(id);
       if (TCastToPtr< CScriptPlatform >(entity)) {
-        mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), kInvalidUniqueId,
-                                        entity->GetUniqueId(), kSM_AddPlatformRider,
+        mgr.DeliverScriptMsg(CScriptMsg(actor.GetUniqueId(), entity->GetUniqueId(),
+                                        kInvalidUniqueId, kSM_AddPlatformRider,
                                         kSS_InvalidState));
       } else {
-        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, kInvalidUniqueId, actor.GetUniqueId(),
+        mgr.DeliverScriptMsg(CScriptMsg(kInvalidUniqueId, actor.GetUniqueId(), kInvalidUniqueId,
                                         static_cast< EScriptObjectMessage >('XLSG'),
                                         kSS_InvalidState));
       }
