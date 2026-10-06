@@ -362,21 +362,26 @@ void CPatterned::InitializeStateMachine(CStateManager& mgr) {
   if (mStateMachine->HasState()) {
     return;
   }
-  if (mStateMachine->GetType() == 1) {
-    CGenericFSM2* machine = GetStateMachine2();
-    if (!machine) {
-      return;
-    }
-    static_cast< CGenericFSM2State< CPatterned >* >(mStateMachine.get())->Setup(*machine);
-  } else {
+  switch (mStateMachine->GetType()) {
+  case 0: {
     CStateMachine* machine = GetStateMachine();
-    if (!machine) {
-      return;
+    if (machine) {
+      static_cast< TStateMachineState< CPatterned >* >(mStateMachine.get())->Setup(machine);
+      SetupStateMachine(mgr);
+      mStateMachine->SetState(mgr, *this, rstl::string_l("Start"));
     }
-    static_cast< TStateMachineState< CPatterned >* >(mStateMachine.get())->Setup(machine);
+    break;
   }
-  SetupStateMachine(mgr);
-  mStateMachine->SetState(mgr, *this, rstl::string("Start"));
+  case 1: {
+    CGenericFSM2* machine = GetStateMachine2();
+    if (machine) {
+      static_cast< CGenericFSM2State< CPatterned >* >(mStateMachine.get())->Setup(*machine);
+      SetupStateMachine(mgr);
+      mStateMachine->SetState(mgr, *this, rstl::string_l("Start"));
+    }
+    break;
+  }
+  }
 }
 
 void CPatterned::Touch(CActor& actor, CStateManager& mgr) {
