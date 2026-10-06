@@ -45,12 +45,13 @@ CEnvironmentVariable::CEnvironmentVariable(int minimum, int maximum, int value)
 }
 
 CEnvironmentVariable::CEnvironmentVariable(int minimum, int maximum, CBitStreamReader& in)
-: mMin(minimum), mMax(maximum), mValue(minimum + in.ReadBits(GetBitCount(maximum - minimum))) {
+: mMin(minimum), mMax(maximum), mValue(mMin + in.ReadBits(GetBitCount(mMax - mMin))) {
   ClampToMinMax();
 }
 
 void CEnvironmentVariable::PutTo(CBitStreamWriter& out) const {
-  out.WriteBits(mValue - mMin, GetBitCount(mMax - mMin));
+  const uint value = mValue - mMin;
+  out.WriteBits(value, GetBitCount(mMax - mMin));
 }
 
 void CEnvironmentVariable::Set(int value) {
@@ -79,14 +80,17 @@ CGameStateEnvVarManager::CGameStateEnvVarManager(EVariableScope scope, CBitStrea
 }
 
 CEnvironmentVariable* CGameStateEnvVarManager::FindEnvironmentVariable(const char* name) {
-  rstl::map< rstl::string, CEnvironmentVariable >::iterator it =
-      mVariables.find(rstl::string_l(name));
-  return it == mVariables.end() ? nullptr : &it->second;
+  typedef rstl::map< rstl::string, CEnvironmentVariable > TMap;
+  TMap::const_iterator it = static_cast< const TMap& >(mVariables).find(rstl::string_l(name));
+  return it != static_cast< const TMap& >(mVariables).end()
+             ? const_cast< CEnvironmentVariable* >(&it->second)
+             : nullptr;
 }
 
 void CGameStateEnvVarManager::AddVariable(const rstl::string& name,
                                           const CEnvironmentVariable& variable) {
-  if (mVariables.find(name) == mVariables.end()) {
+  rstl::map< rstl::string, CEnvironmentVariable >::const_iterator it = mVariables.find(name);
+  if (it == mVariables.end()) {
     mVariables.insert(rstl::pair< rstl::string, CEnvironmentVariable >(name, variable));
   }
 }
