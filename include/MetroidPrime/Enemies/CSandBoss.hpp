@@ -172,7 +172,7 @@ public:
   bool QueryDoubleCharge(CStateManager& mgr);
   bool QueryTripleCharge(CStateManager& mgr);
   bool QueryDarkBeamAttack(CStateManager& mgr);
-  bool IsStampeding() const;
+  bool CanStartAttack() const;
   void UpdateCollisionActorResponses(CStateManager& mgr);
   void SetCollisionActorVulnerability(CStateManager& mgr, const CDamageVulnerability& headVuln,
                                       const CDamageVulnerability& bodyVuln);
@@ -211,8 +211,8 @@ public:
   void UpdateTripleChargeBeams(CStateManager& mgr, float dt);
   void UpdateStampedeMovement(CStateManager& mgr, float dt);
   void SetArmorVisible(const rstl::string& locator, bool visible);
-  void BreakArmor(CStateManager& mgr);
-  void FireDarkBeam(CStateManager& mgr);
+  void CrackSphere(CStateManager& mgr);
+  void FireDarkBeam(CStateManager& mgr, float dt);
   void FireDoubleChargeBeams(CStateManager& mgr, const rstl::string& locator);
   void FireTripleChargeBeams(CStateManager& mgr, const rstl::string& locator);
   void ShakeCamera(CStateManager& mgr, const rstl::string& locator);
@@ -287,7 +287,7 @@ private:
   float xf28_;
   float mHeadArmorHP;
   float xf30_;
-  float xf34_;
+  float xf34_; // Time since the last dark beam.
   float mBeamAngle;
   int mBeamTurnDirection;
   float mBeamTurnTimer;

@@ -22,6 +22,12 @@
 #include "MetroidPrime/ScriptObjects/CScriptAIWaypoint.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptCoverPoint.hpp"
 #include "MetroidPrime/Player/CPlayerState.hpp"
+#include "MetroidPrime/CExplosion.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
+#include "MetroidPrime/Cameras/CCameraShakerManager.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptCameraShaker.hpp"
+#include "MetroidPrime/Weapons/CImpactVisorEffect.hpp"
+#include "Kyoto/Math/CRelAngle.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptEffect.hpp"
 #include "MetroidPrime/Weapons/CBeamInfo.hpp"
 #include "MetroidPrime/Weapons/CWeaponAssetInfo.hpp"
@@ -307,12 +313,12 @@ void CSandBoss::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
     break;
   case kUE_Projectile:
     if (x165c_28_) {
-      FireDarkBeam(mgr);
+      FireDarkBeam(mgr, dt);
       handled = true;
     }
     break;
   case kUE_DamageOn:
-    BreakArmor(mgr);
+    CrackSphere(mgr);
     handled = true;
     break;
   case kUE_BeginAction:
@@ -1539,7 +1545,7 @@ bool CSandBoss::QueryDarkBeamAttack(CStateManager& mgr) {
   return x165c_28_;
 }
 
-bool CSandBoss::IsStampeding() const {
+bool CSandBoss::CanStartAttack() const {
   bool ret = false;
   if (!x165c_28_ && GetBodyController()->GetCurrentStateId() == pas::kAS_Locomotion) {
     ret = true;
@@ -1882,6 +1888,142 @@ void CSandBoss::SyncAttackOrder(CStateManager& mgr, int offset) {
       other->ResetAttackTimes(mgr, 0.f);
     }
   }
+}
+
+TUniqueId CSandBoss::SelectDarkBeamBoss(CStateManager& mgr) const {
+  bool useAngle;
+  switch (GetNumActiveBosses(mgr)) {
+  case 3:
+    useAngle = mAttackOrder == mData.unknown_0x7619e561.tripleCharge.unknown_0x8d4f3b88;
+    break;
+  case 2:
+    useAngle = mAttackOrder == mData.unknown_0x7619e561.doubleCharge.unknown_0x8d4f3b88;
+    break;
+  case 1:
+  default:
+    useAngle = true;
+    break;
+  }
+  TUniqueId best = kInvalidUniqueId;
+  if (useAngle) {
+    const CVector3f diff = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
+    float bestAngle = 3.4028235e38f;
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+      if (other != nullptr && other->x165d_24_) {
+        if (other->x165c_28_) {
+          best = kInvalidUniqueId;
+          break;
+        }
+        if (other->CanStartAttack()) {
+          const float angle = CVector3f::GetAngleDiff(other->GetTransform().GetForward(), diff);
+          if (angle < bestAngle) {
+            bestAngle = angle;
+            best = *it;
+          }
+        }
+      }
+    }
+  } else {
+    float bestTime = -1.f;
+    for (const TUniqueId* it = mOtherBosses.begin(); it != mOtherBosses.end(); ++it) {
+      const CSandBoss* other = TCastToConstPtr< CSandBoss >(mgr.GetObjectById(*it));
+      if (other != nullptr && other->x165d_24_) {
+        if (other->x165c_28_) {
+          best = kInvalidUniqueId;
+          break;
+        }
+        if (other->CanStartAttack()) {
+          if (other->xf34_ > bestTime) {
+            bestTime = other->xf34_;
+            best = *it;
+          }
+        }
+      }
+    }
+  }
+  return best;
+}
+
+void CSandBoss::FireDarkBeam(CStateManager& mgr, float dt) {
+  const CTransform4f headXf = GetLctrTransform(mHeadSegId);
+  const CVector3f gunPos = headXf.GetTranslation();
+  if (x165c_29_) {
+    CPlayer* player = mgr.Player(0);
+    const CVector3f aimPos = player->GetAimPosition(mgr, 0.f);
+    CVector3f dir = ProjectileInfo()->PredictInterceptPos(gunPos, aimPos, *player, false, dt) - gunPos;
+    const CVector3f forward = GetTransform().GetForward();
+    if (CVector3f::GetAngleDiff(dir, forward) > 1.2217305f) {
+      dir = CVector3f::Slerp(forward, dir.AsNormalized(), CRelAngle::FromRadians(1.2217305f));
+    }
+    LaunchProjectile(CTransform4f::LookAt(gunPos, gunPos + dir, CVector3f::Up()), mgr, 6, 0,
+                     false, CImpactVisorEffect(), CVector3f(1.f, 1.f, 1.f));
+    ++mRepeaterShots;
+  } else {
+    if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(xe88_))) {
+      const TUniqueId wpId = target->CheckConnectedObject(mgr, kSS_Connect, kSM_Follow);
+      const CScriptWaypoint* wp = TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(wpId));
+      const CVector3f targetPos = wp != nullptr ? wp->GetTranslation() : target->GetTranslation();
+      LaunchProjectile(CTransform4f::LookAt(gunPos, targetPos, CVector3f::Up()), mgr, 6, 0, false,
+                       CImpactVisorEffect(), CVector3f(1.f, 1.f, 1.f));
+    }
+  }
+  xf34_ = 0.f;
+}
+
+void CSandBoss::ShakeCamera(CStateManager& mgr, const rstl::string& locator) {
+  const TUniqueId id = FindConnectedObject(mgr, kSS_Play, kSM_Attach);
+  if (CScriptCameraShaker* shaker = TCastToPtr< CScriptCameraShaker >(mgr.ObjectById(id))) {
+    const CVector3f pos = GetLctrTransform(locator).GetTranslation();
+    CCameraShakerData data = shaker->GetShakeData();
+    data.SetPosition(pos);
+    mgr.CameraManager(0)->CameraShakerManager()->AddCameraShaker(data, mgr, false, false);
+  }
+}
+
+void CSandBoss::SpawnSandFountain(CStateManager& mgr, const rstl::string& locator) {
+  const CTransform4f& xf = GetLctrTransform(locator);
+  const CPlayer* player = mgr.GetPlayer(0);
+  const float radius = mStampedeDamage.GetRadius();
+  const CVector3f diff = player->GetTranslation() - xf.GetTranslation();
+  if (diff.MagSquared() < radius * radius) {
+    mgr.ApplyDamage(GetUniqueId(), player->GetUniqueId(), GetUniqueId(), mStampedeDamage,
+                    CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
+                                                        CMaterialList()),
+                    CVector3f::Zero());
+  }
+  if (mStampedeSandFountain) {
+    CVector3f pos = GetLctrTransform(mHeadSegId).GetTranslation();
+    pos.SetZ(xf28_);
+    CExplosion* explosion = rs_new CExplosion(
+        *mStampedeSandFountain, mgr.AllocateUniqueId(),
+        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), "StampedeSandFountainFx",
+        CTransform4f::Translate(pos), 0, 3.f * GetModelData()->GetScale(), CColor::White(), -1);
+    if (explosion != nullptr) {
+      mgr.AddObject(explosion);
+    }
+  }
+}
+
+void CSandBoss::CrackSphere(CStateManager& mgr) {
+  if (CActor* sphere = static_cast< CActor* >(mgr.ObjectById(xe8a_))) {
+    CAssetId model = kInvalidAssetId;
+    switch (mRound) {
+    case 0:
+      model = mData.crackedSphere1;
+      break;
+    case 1:
+      model = mData.crackedSphere2;
+      break;
+    case 2:
+      model = mData.crackedSphere3;
+      break;
+    }
+    if (model != kInvalidAssetId) {
+      *sphere->ModelData() = CModelData(CStaticRes(model, sphere->GetModelData()->GetScale()));
+    }
+  }
+  SendScriptMsgs(kSS_Zero, mgr, GetUniqueId(), kSM_None);
 }
 
 void CSandBoss::UpdateTripleChargeBeams(CStateManager& mgr, float dt) {
