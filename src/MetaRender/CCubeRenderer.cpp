@@ -362,10 +362,10 @@ CCubeRenderer::CAreaListItem::CAreaListItem(
 , mTextures(textures)
 , mModels(models)
 , mAreaId(areaId) {
-  mPVSAlpha.resize(surfaces->size() - 1, 0);
-  mModelSurfaceOrders.reserve(mModels->size());
-  for (int i = 0; i < mModels->size(); ++i) {
-    mModelSurfaceOrders.push_back(SModelSurfaceOrder(*(*mModels)[i]));
+  mPVSAlpha.resize(mSurfaces->size() - 1, 0);
+  mModelSurfaceOrders.reserve(models->size());
+  for (int i = 0; i < models->size(); ++i) {
+    mModelSurfaceOrders.push_back_unsafe(SModelSurfaceOrder(*(*models)[i]));
   }
 }
 
@@ -2101,35 +2101,36 @@ void CCubeRenderer::FindOverlappingWorldModels(rstl::vector< uint >& models, con
   }
   if (wordCount == 0) {
     models = rstl::vector< uint >();
-    return;
-  }
-  if (wordCount != models.capacity()) {
-    models = rstl::vector< uint >();
   } else {
-    models.clear();
-  }
-  models.resize(wordCount, 0);
-  int offset = 0;
-  for (rstl::list< CAreaListItem >::iterator area = mAreaListItems.begin();
-       area != mAreaListItems.end(); ++area) {
-    if (area->mOctTree == nullptr) {
-      continue;
+    if (wordCount != models.capacity()) {
+      models = rstl::vector< uint >();
+    } else {
+      models.clear();
     }
-    area->mOctTree->FindOverlappingModels(&models[offset], bounds);
-    for (uint word = 0; word < area->mOctTree->GetBitmapWordCount(); ++word) {
-      uint& bits = models[offset + word];
-      if (bits == 0) {
-        continue;
-      }
-      for (int bit = 0; bit < 32; ++bit) {
-        const uint mask = 1u << bit;
-        if ((bits & mask) != 0 &&
-            !(*area->mSurfaces)[word * 32 + bit + 1].mBounds.DoBoundsOverlap(bounds)) {
-          bits &= ~mask;
+    models.resize(wordCount, 0);
+    int offset = 0;
+    for (rstl::list< CAreaListItem >::iterator area = mAreaListItems.begin();
+         area != mAreaListItems.end(); ++area) {
+      const CAreaRenderOctTree* octTree = area->mOctTree;
+      const rstl::vector< SAreaSurface >* surfaces = area->GetSurfaces();
+      if (octTree != nullptr) {
+        octTree->FindOverlappingModels(&models[offset], bounds);
+        int surfaceBase = 0;
+        for (uint word = 0; word < octTree->GetBitmapWordCount(); ++word) {
+          uint* words = models.data();
+          if (words[offset + word] != 0) {
+            for (int bit = 0; bit < 32; ++bit) {
+              if ((words[offset + word] & (1 << bit)) != 0 &&
+                  !(*surfaces)[surfaceBase + bit + 1].mBounds.DoBoundsOverlap(bounds)) {
+                words[offset + word] &= ~(1 << bit);
+              }
+            }
+          }
+          surfaceBase += 32;
         }
+        offset += octTree->GetBitmapWordCount();
       }
     }
-    offset += area->mOctTree->GetBitmapWordCount();
   }
 }
 
