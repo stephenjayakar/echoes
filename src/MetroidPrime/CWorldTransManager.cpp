@@ -531,32 +531,33 @@ void CWorldTransManager::DrawSecondPass() const {
 
 void CWorldTransManager::DrawEnabled() const {
   const SModelDatas* data = mModelData.get();
-  if (data == nullptr) {
-    return;
-  }
-  gpRender->SetRequestRGBA6(true);
-  if (mCurTime <= data->mDissolveStartTime) {
-    DrawFirstPass();
-  } else if (mCurTime > data->mDissolveStartTime) {
-    DrawSecondPass();
-  }
-  CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Multiply, CCameraFilterPass::kFS_CinemaBars,
-                                CColor::Black(), nullptr, 1.f);
+  if (data != nullptr) {
+    const float curTime = mCurTime;
+    gpRender->SetRequestRGBA6(true);
+    if (curTime <= data->mDissolveStartTime) {
+      DrawFirstPass();
+    } else if (curTime > data->mDissolveStartTime) {
+      DrawSecondPass();
+    }
+    CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Multiply, CCameraFilterPass::kFS_CinemaBars,
+                                  CColor::Black(), nullptr, 1.f);
 
-  float alpha = 0.f;
-  if (mCurTime < 0.25f) {
-    alpha = 1.f - mCurTime / 0.25f;
-  } else if (mCurTime > mModelData->mTransCompleteTime) {
-    alpha = 1.f;
-  } else if (mCurTime > mModelData->mTransCompleteTime - 0.25f) {
-    alpha = 1.f - (mModelData->mTransCompleteTime - mCurTime) / 0.25f;
+    float alpha = 0.f;
+    const float time = mCurTime;
+    if (time < 0.25f) {
+      alpha = 1.f - time / 0.25f;
+    } else if (time > mModelData->mTransCompleteTime) {
+      alpha = 1.f;
+    } else if (time > mModelData->mTransCompleteTime - 0.25f) {
+      alpha = 1.f - (mModelData->mTransCompleteTime - time) / 0.25f;
+    }
+    if (alpha > 0.f) {
+      const CColor color(0.f, 0.f, 0.f, alpha);
+      CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen,
+                                    color, nullptr, 1.f);
+    }
+    CGraphics::SetIsBeginSceneClearFb(true);
   }
-  if (alpha > 0.f) {
-    const CColor color(0.f, 0.f, 0.f, alpha);
-    CCameraFilterPass::DrawFilter(CCameraFilterPass::kFT_Blend, CCameraFilterPass::kFS_Fullscreen,
-                                  color, nullptr, 1.f);
-  }
-  CGraphics::SetIsBeginSceneClearFb(true);
 }
 
 void CWorldTransManager::DrawDisabled() const {
