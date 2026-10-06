@@ -20,10 +20,13 @@ void CABSReaction::Start(CBodyController& bc, CStateManager& mgr) {
   mActive = cmd->GetIsActive();
 
   const CPASAnimParmData parms(pas::kAS_AdditiveReaction, CPASAnimParm::FromEnum(mType));
-  mAnim = bc.GetPASDatabase().FindBestAnimation(parms, *mgr.Random(), -1).second;
-  if (mAnim != -1)
-    bc.GetOwner().ModelData()->AnimationData()->AddAdditiveAnimation(mAnim, mWeight, mActive,
+  const CPASDatabase& db = bc.GetPASDatabase();
+  mAnim = db.FindBestAnimation(parms, *mgr.Random(), -1).second;
+  if (mAnim != -1) {
+    const bool active = mActive;
+    bc.GetOwner().ModelData()->AnimationData()->AddAdditiveAnimation(mAnim, mWeight, active,
                                                                      false);
+  }
 }
 
 void CABSReaction::UpdateWeight(CBodyController& bc) {
@@ -31,7 +34,8 @@ void CABSReaction::UpdateWeight(CBodyController& bc) {
       static_cast< const CBCAdditiveWeightCmd* >(bc.CommandMgr().GetCmd(kBSC_AdditiveWeight));
   if (cmd && mAnim != -1) {
     mWeight = cmd->GetWeight();
-    bc.GetOwner().ModelData()->AnimationData()->AddAdditiveAnimation(mAnim, mWeight, mActive,
+    const bool active = mActive;
+    bc.GetOwner().ModelData()->AnimationData()->AddAdditiveAnimation(mAnim, mWeight, active,
                                                                      false);
   }
 }
