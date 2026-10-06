@@ -805,7 +805,7 @@ void CPauseScreen::LoadScan(int nodeId) {
     mScanInfo->Lock();
     mPage = 0;
     mPageCount = 0;
-    mMessage->TextSupport().SetText(rstl::string(""), false);
+    mMessage->TextSupport().SetText(rstl::string_l(""), false);
     mModelPan = CVector3f::Zero();
     CSfxManager::SfxStart(0x56c, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                           CSfxManager::kMedPriority);

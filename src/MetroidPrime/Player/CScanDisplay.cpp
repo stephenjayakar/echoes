@@ -455,8 +455,9 @@ void CScanDisplay::ProcessInput(const CFinalInput& input) {
       }
     }
   } else if (mState == kSS_ViewingScan) {
+    int totalPages;
     const int oldCounter = mPageCounter;
-    const int totalPages = mScrollMessage->TextSupport().GetTotalPageCount();
+    totalPages = mScrollMessage->TextSupport().GetTotalPageCount();
     if (input.PA() && totalPages != -1) {
       CGuiTextSupport& support =
           oldCounter == 0 ? mMessage->TextSupport() : mScrollMessage->TextSupport();

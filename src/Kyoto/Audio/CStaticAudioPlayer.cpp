@@ -82,9 +82,11 @@ CStaticAudioPlayer::CStaticAudioPlayer(const rstl::string& filepath, const int l
   mDvdRequests.reserve(bufferCount);
 
   for (int i = mRsfRem; i > 0; i -= 0x4000) {
-    uint bufferSize = 0x4000;
+    uint bufferSize;
     if (i <= 0x4000) {
       bufferSize = (i + 31) & ~31;
+    } else {
+      bufferSize = 0x4000;
     }
 
     rstl::auto_ptr< uchar > buf(
