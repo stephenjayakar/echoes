@@ -46,7 +46,10 @@ public:
   bool IsValid(const CStateManager& mgr, TUniqueId id) const override {
     const CScriptPointOfInterest* point =
         TCastToConstPtr< CScriptPointOfInterest >(mgr.GetObjectById(id));
-    return point && point->GetActive();
+    if (point) {
+      return point->GetActive();
+    }
+    return false;
   }
 };
 
@@ -394,16 +397,14 @@ void CPlayerTargeting::Draw(CStateManager& mgr, const CInGameGuiManagerSet& gui)
 }
 
 TUniqueId CPlayerTargeting::ResolveScanTarget(const CStateManager& mgr, TUniqueId id) const {
-  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id));
-  if (!actor) {
-    return kInvalidUniqueId;
+  if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id))) {
+    if (actor->GetScannableObjectInfo() && actor->GetActive()) {
+      return id;
+    }
+    return actor->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None,
+                                          CActiveScanPointPredicate());
   }
-
-  if (actor->GetScannableObjectInfo() && actor->GetActive()) {
-    return id;
-  }
-
-  return actor->CheckConnectedObject_if(mgr, kSS_ScanSource, kSM_None, CActiveScanPointPredicate());
+  return kInvalidUniqueId;
 }
 
 TUniqueId CPlayerTargeting::GetScanTargetId(const CStateManager& mgr, int paletteIndex) const {

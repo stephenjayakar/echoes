@@ -299,16 +299,17 @@ void CPathCamera::Think(float dt, CStateManager& mgr) {
   UpdateFov(mgr);
 
   if (CScriptTimeKeyframe* keyframe = TCastToPtr< CScriptTimeKeyframe >(
-          mgr.GetObjectByIdFromListAll(camera->GetTimeKeyframeId()))) {
+          mgr.ObjectById(camera->GetTimeKeyframeId()))) {
     const float length = camera->GetSpline().GetPositionSpline().GetLength();
     float time = CMath::Clamp(0.f, mPositionDistance / length, 1.f);
-    if (GetCameraManager(mgr).GetCurrentCameraId(false) != GetUniqueId()) {
+    if (CameraManager(mgr).GetCurrentCameraId(false) != GetUniqueId()) {
       time = 0.f;
     }
     keyframe->SetTime(time, mgr);
   }
 
-  SetTransform(ValidateCameraTransform(GetTransform(), oldXf));
+  xf = ValidateCameraTransform(GetTransform(), oldXf);
+  SetTransform(xf);
   CActor::Think(dt, mgr);
 }
 

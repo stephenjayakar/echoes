@@ -169,10 +169,12 @@ EReticleState CCompoundTargetReticle::GetDesiredReticleState(const CStateManager
   switch (mgr.GetPlayerState(mPlayerIndex)->GetCurrentVisor()) {
   case CPlayerState::kPV_Scan:
     return kRS_Scan;
-  case CPlayerState::kPV_Dark:
-    return kRS_Dark;
   case CPlayerState::kPV_Echo:
     return kRS_Echo;
+  case CPlayerState::kPV_Combat:
+    return kRS_Combat;
+  case CPlayerState::kPV_Dark:
+    return kRS_Dark;
   default:
     return kRS_Combat;
   }
