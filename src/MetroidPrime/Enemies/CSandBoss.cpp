@@ -68,7 +68,7 @@ static SStampedePointSorter skStampedePointSorter;
 CSandBossChargeBeam::CSandBossChargeBeam(const TToken< CWeaponDescription >& description,
                                          const CBeamInfo& beamInfo, TUniqueId uid,
                                          TAreaId areaId, TUniqueId owner, const CPlane& plane)
-: CPlasmaProjectile(description, "SandBossChargeBeam", kWT_Light, beamInfo,
+: CPlasmaProjectile(description, rstl::string_l("SandBossChargeBeam"), kWT_Light, beamInfo,
                     CTransform4f::Identity(), kMT_NoPlatformCollision, CDamageInfo(), uid, areaId,
                     owner, CWeaponAssetInfo(), true, 0x21000)
 , mGroundPlane(plane) {}
@@ -111,7 +111,7 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
              kBT_BiPedal, aParms)
 , mData(data)
 , mCollisionActorManager(nullptr)
-, mBoneTracking(*GetModelData()->GetAnimationData(), skHeadJoint, 1.0471976f, 1.5707964f, 1)
+, mBoneTracking(*GetModelData()->GetAnimationData(), rstl::string_l(skHeadJoint), 1.0471976f, 1.5707964f, 1)
 , mRound(0)
 , xde8_(pInfo.GetTurnSpeed())
 , mScanInfo(nullptr)
@@ -211,9 +211,9 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 
   const CAnimData* animData = GetModelData()->GetAnimationData();
   for (int i = 0; i < 8; ++i) {
-    mArmorSegIds[i] = animData->GetLocatorSegId(skSpineJoints[i]);
+    mArmorSegIds[i] = animData->GetLocatorSegId(rstl::string_l(skSpineJoints[i]));
   }
-  mHeadSegId = animData->GetLocatorSegId(skHeadJoint);
+  mHeadSegId = animData->GetLocatorSegId(rstl::string_l(skHeadJoint));
 
   SetupArmorModels();
   SetDrawShadow(false);
@@ -1541,7 +1541,7 @@ void CSandBoss::PlayHeadArmorExplosion(CStateManager& mgr, float dt) {
   if (mHeadArmorExplosion) {
     CExplosion* explosion = rs_new CExplosion(
         *mHeadArmorExplosion, mgr.AllocateUniqueId(),
-        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), "ArmorExplosionFx",
+        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), rstl::string_l("ArmorExplosionFx"),
         xf, 0, GetModelData()->GetScale(), CColor::White(), -1);
     if (explosion != nullptr) {
       mgr.AddObject(explosion);
@@ -1650,7 +1650,7 @@ void CSandBoss::UpdateCollisionActorResponses(CStateManager& mgr) {
     if (CCollisionActor* act = TCastToPtr< CCollisionActor >(mgr.ObjectById(id))) {
       act->SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes(47));
       for (int j = 0; j < 8; ++j) {
-        if (desc.GetName() == skSpineJoints[j]) {
+        if (desc.GetName() == rstl::string_l(skSpineJoints[j])) {
           if (j == 0) {
             if (mArmorStates[j] == kArmor_Attached) {
               act->SetWeaponCollisionResponseType(EWeaponCollisionResponseTypes(77));
@@ -2084,7 +2084,7 @@ void CSandBoss::SpawnSandFountain(CStateManager& mgr, const rstl::string& locato
     pos.SetZ(xf28_);
     CExplosion* explosion = rs_new CExplosion(
         *mStampedeSandFountain, mgr.AllocateUniqueId(),
-        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), "StampedeSandFountainFx",
+        CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true), rstl::string_l("StampedeSandFountainFx"),
         CTransform4f::Translate(pos), 0, 3.f * GetModelData()->GetScale(), CColor::White(), -1);
     if (explosion != nullptr) {
       mgr.AddObject(explosion);
@@ -2447,9 +2447,9 @@ void CSandBoss::SetupCollisionActors(CStateManager& mgr) {
   joints.reserve(7);
   const CAnimData* animData = GetModelData()->GetAnimationData();
   for (uint i = 0; i < 7; ++i) {
-    const CSegId seg = animData->GetLocatorSegId(skSphereJoints[i].mName);
+    const CSegId seg = animData->GetLocatorSegId(rstl::string_l(skSphereJoints[i].mName));
     joints.push_back(CJointCollisionDescription::SphereCollision(
-        seg, CVector3f::Zero(), skSphereJoints[i].mRadius, skSphereJoints[i].mName, 1000.f));
+        seg, CVector3f::Zero(), skSphereJoints[i].mRadius, rstl::string_l(skSphereJoints[i].mName), 1000.f));
   }
   mCollisionActorManager =
       rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), joints, false);
@@ -2461,7 +2461,7 @@ void CSandBoss::SetupCollisionActors(CStateManager& mgr) {
       CMaterialFilter filter = act->GetMaterialFilter();
       filter.ExcludeList().Add(kMT_Immovable);
       act->SetMaterialFilter(filter);
-      if (desc.GetName() == skSpineJoints[0]) {
+      if (desc.GetName() == rstl::string_l(skSpineJoints[0])) {
         xe8c_ = id;
       }
       act->SetDamageVulnerability(*CPatterned::GetDamageVulnerability());
@@ -2541,7 +2541,7 @@ void CSandBoss::SetupArmorModels() {
 
 void CSandBoss::SetArmorVisible(const rstl::string& locator, bool visible) {
   if (!x165c_27_) {
-    if (locator == skRootJoint) {
+    if (locator == rstl::string_l(skRootJoint)) {
       if (visible) {
         AnimationData()->SetSkinnedModel(mTailArmorSkinnedModel);
       } else {
@@ -2549,7 +2549,7 @@ void CSandBoss::SetArmorVisible(const rstl::string& locator, bool visible) {
       }
     }
     for (int i = 0; i < 8; ++i) {
-      if (locator == skSpineJoints[i]) {
+      if (locator == rstl::string_l(skSpineJoints[i])) {
         mArmorStates[i] = visible ? kArmor_Attached : kArmor_None;
         break;
       }
@@ -2562,7 +2562,7 @@ void CSandBoss::PlayArmorExplosion(CStateManager& mgr, const CTransform4f& xf) {
     CExplosion* explosion = rs_new CExplosion(
         *mStampedeArmorExplosion, mgr.AllocateUniqueId(),
         CEntityInfo(GetCurrentAreaId(), CEntity::NullConnectionList, true),
-        "StampedeArmorExplosionFx", xf, 0, GetModelData()->GetScale(), CColor::White(), -1);
+        rstl::string_l("StampedeArmorExplosionFx"), xf, 0, GetModelData()->GetScale(), CColor::White(), -1);
     if (explosion != nullptr) {
       mgr.AddObject(explosion);
       xf30_ = 0.2f;
