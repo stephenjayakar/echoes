@@ -323,7 +323,7 @@ bool CMetroidAreaCollider::AABoxCollisionCheckBoolean_Cached(const COctreeLeafCa
                                                              const CAABox& aabb,
                                                              const CMaterialFilter& filter) {
   CVector3f center = aabb.GetCenterPoint();
-  CVector3f halfExtent = aabb.GetHalfExtent();
+  CVector3f halfExtent = (aabb.GetMaxPoint() - aabb.GetMinPoint()) * 0.5f;
 
   for (int i = 0; i < leafCache.GetNumLeaves(); ++i) {
     const CAreaOctTree::Node& node = leafCache.GetLeaf(i);
