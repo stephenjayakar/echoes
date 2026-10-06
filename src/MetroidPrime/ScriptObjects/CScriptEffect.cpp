@@ -380,7 +380,7 @@ CAABox CScriptEffect::GetSortingBounds(const CStateManager& mgr) const {
   return CActor::GetSortingBounds(mgr);
 }
 
-void CScriptEffect::SetActive(bool active) {
+void CScriptEffect::SetActive(const bool active) {
   CActor::SetActive(active);
   SetDrawEnabled(true);
 }
