@@ -605,18 +605,20 @@ static void HandleDepth(uint modelFlags, uint matFlags) {
   GXCompare func;
   if ((modelFlags & CModelFlags::kF_DepthCompare) == 0) {
     func = GX_ALWAYS;
-  } else if ((modelFlags & CModelFlags::kF_Unknown200) == 0) {
-    func = GX_LEQUAL;
-  } else if ((modelFlags & CModelFlags::kF_DepthGreater) != 0) {
-    if ((modelFlags & CModelFlags::kF_DepthNonInclusive) != 0) {
-      func = GX_GREATER;
+  } else if ((modelFlags & CModelFlags::kF_Unknown200) != 0) {
+    if ((modelFlags & CModelFlags::kF_DepthGreater) != 0) {
+      if ((modelFlags & CModelFlags::kF_DepthNonInclusive) != 0) {
+        func = GX_GREATER;
+      } else {
+        func = GX_GEQUAL;
+      }
+    } else if ((modelFlags & CModelFlags::kF_DepthNonInclusive) != 0) {
+      func = GX_LESS;
     } else {
-      func = GX_GEQUAL;
+      func = GX_EQUAL;
     }
-  } else if ((modelFlags & CModelFlags::kF_DepthNonInclusive) != 0) {
-    func = GX_LESS;
   } else {
-    func = GX_EQUAL;
+    func = GX_LEQUAL;
   }
   CGX::SetZMode(true, func,
                 (modelFlags & CModelFlags::kF_DepthUpdate) == CModelFlags::kF_DepthUpdate &&
