@@ -180,15 +180,17 @@ CVector3f CFixedCamera::ConstrainLookDirection(const CVector3f& direction, CStat
   }
 
   CVector3f hintDirection = hint->GetTransform().GetForward();
-  CVector3f hintPlanar = hintDirection.DropZ();
+  CVector3f hintPlanar = hintDirection;
+  hintPlanar.SetZ(0.f);
   if (hintDirection.IsMagnitudeSafe() && hintPlanar.IsMagnitudeSafe()) {
     hintDirection.Normalize();
     hintPlanar.Normalize();
   } else {
-    hintDirection = CVector3f::Forward();
-    hintPlanar = CVector3f::Forward();
+    hintDirection = CVector3f(0.f, 1.f, 0.f);
+    hintPlanar = CVector3f(0.f, 1.f, 0.f);
   }
-  CVector3f planar = direction.DropZ();
+  CVector3f planar = direction;
+  planar.SetZ(0.f);
   if (direction.IsMagnitudeSafe() && planar.IsMagnitudeSafe()) {
     planar.Normalize();
   } else {
@@ -213,10 +215,12 @@ CVector3f CFixedCamera::ConstrainLookDirection(const CVector3f& direction, CStat
   if (CVector3f::Cross(planar, hintPlanar).GetZ() >= 0.f) {
     azimuth = -azimuth;
   }
-  const CVector3f rotated =
-      CQuaternion::ZRotation(CRelAngle::FromRadians(azimuth)).Transform(hintPlanar);
-  const CUnitVector3f axis(CVector3f(rotated.GetY(), -rotated.GetX(), 0.f));
-  return CQuaternion::AxisAngle(axis, CRelAngle::FromRadians(-attitude)).Transform(rotated);
+  const CQuaternion zRotation = CQuaternion::ZRotation(CRelAngle::FromRadians(azimuth));
+  CVector3f rotated = zRotation.Transform(hintPlanar);
+  const CUnitVector3f axis(rotated.GetY(), -rotated.GetX(), 0.f, CUnitVector3f::kN_Yes);
+  const CQuaternion attitudeRotation = CQuaternion::AxisAngle(axis, CRelAngle::FromRadians(-attitude));
+  rotated = attitudeRotation.Transform(rotated);
+  return rotated;
 }
 
 void CFixedCamera::SetScriptCameraId(TUniqueId uid) { mScriptCameraId = uid; }
