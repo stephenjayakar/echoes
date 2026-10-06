@@ -13,7 +13,7 @@ struct SLdrSurroundPan {
   float surroundPan; // 0x482b88aa
 };
 
-void LoadTypedefSurroundPan(SLdrSurroundPan& sldrThis, CInputStream& input);
+void LoadTypedefSurroundPan(SLdrSurroundPan& data, CInputStream& input);
 
 struct SLdrSound {
   SLdrSound();

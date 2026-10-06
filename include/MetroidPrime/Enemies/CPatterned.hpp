@@ -10,6 +10,7 @@
 #include "MetroidPrime/Enemies/CWaypointNavigation.hpp"
 #include "MetroidPrime/TStateMachineState.hpp"
 
+#include "Kyoto/Animation/CAdvancementDeltas.hpp"
 #include "Kyoto/Animation/CSegId.hpp"
 #include "Kyoto/Animation/CharacterCommon.hpp"
 #include "Kyoto/Math/CPlane.hpp"
@@ -47,6 +48,8 @@ public:
   enum EFlavorType { kFT_Zero, kFT_One };
   enum EMovementType { kMT_Ground, kMT_Flyer };
   enum EColliderType { kCT_Zero, kCT_One };
+  // Guessed names; flags in the established two-bit animation-delta field.
+  enum EAnimationDeltaFlags { kADF_Translation = 1, kADF_Rotation = 2 };
 
   typedef TStateMachineStateBase< CPatterned > StateMachine;
 
@@ -54,6 +57,10 @@ public:
   static const float skActorApproachDistance;
   static const CColor skDamageColor;
   static const CColor skHitsWithoutDamageColor;
+  static const CColor skFrozenColor;         // Guessed name; native frozen-interpolation endpoint.
+  static const CColor skDisintegrateColor;   // Guessed Prime name; native ash tint.
+  static const CColor skBlackDeathColor;     // Guessed name; native purple death tint.
+  static const CColor skDisintegrationColor; // Guessed name; native white death tint.
 
   CPatterned(EPatternedAI character, TUniqueId uid, const rstl::string& name, EFlavorType flavor,
              const CEntityInfo& info, const CTransform4f& xf, const CModelData& modelData,
@@ -176,15 +183,15 @@ public:
                                                EUserEventType event) const;
   int GetNumUserEventsForAnimation(const CPASAnimParmData& params, EUserEventType event) const;
   float GetAverageAttackTime() const;
-  void AddParticleEffect(CStateManager& mgr, const CTransform4f& xf, float duration,
-                         CAssetId particle, uint flags, int index);
-  void fn_800747a4(CAssetId model, CAssetId skinRules);
-  void fn_80074e54(const CModelFlags& flags) const;
+  void AddParticleEffect(CStateManager& mgr, const CTransform4f& xf, float particleScale,
+                         CAssetId particle, uint name, int flags);
+  void BuildIngModel(CAssetId model, CAssetId skinRules);
+  void RenderIceModelWithFlags(const CModelFlags& flags) const;
   // Guessed name; dispatches the selected knockback follow-up effect.
   void ApplyKnockBackFollowUp(CStateManager& mgr, const CVector3f& direction,
-                               CKnockBackMgr::EFollowUp followUp, float duration,
-                               float secondaryDuration, TUniqueId source, TUniqueId owner);
-  void fn_8007850c(CStateManager& mgr);
+                              CKnockBackMgr::EFollowUp followUp, float duration,
+                              float secondaryDuration, TUniqueId source, TUniqueId owner);
+  void GenerateIceDeathExplosion(CStateManager& mgr); // Guessed Prime-correlated name.
 
   void Start(CStateManager& mgr, EStateMsg msg, float dt);
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt);
@@ -303,8 +310,8 @@ private:
   uint mPendingMassiveFrozenDeath : 1;
   uint mIsFlyer : 1;
   uint mPathOverCount : 2;
-  uint mLaggedBurnDeath : 1;
-  uint x421_26_ : 1;
+  uint mBurning : 1;         // Guessed Prime name; native burn-death rendering gate.
+  uint mLaggedBurnDeath : 1; // Guessed Prime name; delays fire-pop and ash effects.
   uint mPendingDeath : 1;
   uint mLostMassiveFrozenHP : 1;
   uint mDieIf80PercFrozen : 1;
@@ -312,10 +319,10 @@ private:
   uint mDrawParticles : 1;
   uint mEnableStateMachine : 1;
   uint mStateControlledMassiveDeath : 1;
-  uint x422_26_ : 2;
-  uint x422_28_ : 1;
-  uint x422_29_ : 1;
-  uint x422_30_ : 1;
+  uint mDisabledAnimationDeltas : 2; // Guessed name; translation and rotation gates.
+  uint mUseDisintegrationPlane : 1;  // Guessed name; enables plane clipping.
+  uint mBlackDeath : 1;              // Guessed name; purple implosion/death path.
+  uint mDisintegrating : 1;          // Guessed name; white disintegration path.
   uint mStopPhysics : 1;
   uint x423_24_ : 1;
   uint mSuppressKnockBack : 1;
@@ -325,8 +332,7 @@ private:
   float mDamageCooldownTimer;
   CColor mColor;
   CColor mDamageColor;
-  CVector3f mPosDelta;
-  CQuaternion mRotDelta;
+  CAdvancementDeltas mAnimationDeltas; // Guessed name; animation translation and rotation.
   TLockedToken< CSkinnedModel > mNormalModel;
   rstl::optional_object< TLockedToken< CSkinnedModel > > mIngModel;
   rstl::single_ptr< CBodyController > mBodyController;

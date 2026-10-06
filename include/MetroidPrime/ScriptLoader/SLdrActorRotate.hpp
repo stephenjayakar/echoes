@@ -15,7 +15,7 @@ struct SLdrRotationSplines {
   SLdrSpline zRotation; // 0xc15ef5ec
 };
 
-void LoadTypedefRotationSplines(SLdrRotationSplines& sldrThis, CInputStream& input);
+void LoadTypedefRotationSplines(SLdrRotationSplines& data, CInputStream& input);
 
 struct SLdrScaleSplines {
   SLdrScaleSplines();
@@ -26,7 +26,7 @@ struct SLdrScaleSplines {
   SLdrSpline zScale; // 0x180c38b0
 };
 
-void LoadTypedefScaleSplines(SLdrScaleSplines& sldrThis, CInputStream& input);
+void LoadTypedefScaleSplines(SLdrScaleSplines& data, CInputStream& input);
 
 struct SLdrActorRotate {
   SLdrActorRotate();
