@@ -1488,6 +1488,7 @@ config.libs = [
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CFishCloud.cpp"),
         ],
+        extra_cflags=["-pool off"],
     ),
     Rel(
         "ForgottenObject",

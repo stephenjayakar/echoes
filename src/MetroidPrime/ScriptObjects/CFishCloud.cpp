@@ -31,6 +31,16 @@
 #include <math.h>
 #include <float.h>
 
+// The original divides by multiplying with the reciprocal (Echoes' CVector3f::operator/ divides
+// each component); the operator is kept as is for the DOL units that already match.
+static inline CVector3f VecDiv(const CVector3f& vec, const float f) {
+  const float inv = 1.f / f;
+  float x = vec.GetX() * inv;
+  float y = vec.GetY() * inv;
+  float z = vec.GetZ() * inv;
+  return CVector3f(x, y, z);
+}
+
 CFishCloudModifier::~CFishCloudModifier() {}
 
 CFishCloudModifier::CFishCloudModifier(TUniqueId uid, const rstl::string& name,
@@ -694,7 +704,7 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
               if (flat.CanBeNormalized() && it->mVel.CanBeNormalized()) {
                 const float mag = flat.Magnitude();
                 const CVector3f velocity = it->mVel.AsNormalized();
-                const CVector3f normal = -flat / mag;
+                const CVector3f normal = VecDiv(-flat, mag);
                 const float push = 0.1f + (ballRadius - mag);
                 const float dot = CVector3f::Dot(velocity, normal);
                 it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
@@ -703,7 +713,7 @@ void CFishCloud::Touch(CActor& other, CStateManager& mgr) {
             } else if (delta.CanBeNormalized() && it->mVel.CanBeNormalized()) {
               const float mag = delta.Magnitude();
               const CVector3f velocity = it->mVel.AsNormalized();
-              const CVector3f normal = -delta / mag;
+              const CVector3f normal = VecDiv(-delta, mag);
               const float push = 0.1f + (ballRadius - mag);
               const float dot = CVector3f::Dot(velocity, normal);
               it->mVel += 0.25f * (velocity - 2.f * (dot * normal));
@@ -855,7 +865,7 @@ void CFishCloud::ApplyRotation(CBoid& boid, float magnitude, const CVector3f& po
   delta[kDZ] = 0.f;
   const float distance = delta.Magnitude();
   const CVector3f align = clockwise ? FishCloudCross(delta.AsNormalized(), CVector3f::Up())
-                                    : FishCloudCross(CVector3f::Up(), delta * (1.f / distance));
+                                    : FishCloudCross(CVector3f::Up(), VecDiv(delta, distance));
   const CVector3f velocity = boid.mVel;
   const float weight = distance > radius ? 0.f : 1.f - distance / radius;
   const float angle = CVector3f::GetAngleDiff(velocity, align) / M_PIF;
@@ -870,7 +880,7 @@ void CFishCloud::ApplyAlignment(CBoid& boid, const rstl::reserved_vector< CBoid*
          it != nearList.end(); ++it) {
       average += (*it)->mVel;
     }
-    average *= 1.f / float(nearList.size());
+    average = VecDiv(average, float(nearList.size()));
     const CVector3f velocity = boid.mVel;
     const float angle = CVector3f::GetAngleDiff(velocity, average) / M_PIF;
     boid.mVel += angle * (mAlignmentWeight * average);
@@ -893,7 +903,7 @@ void CFishCloud::ApplyCohesion(CBoid& boid, const rstl::reserved_vector< CBoid*,
          it != nearList.end(); ++it) {
       average += (*it)->GetTranslation();
     }
-    average *= 1.f / float(nearList.size());
+    average = VecDiv(average, float(nearList.size()));
     ApplyCohesion(boid, average, mSeparationRadius, mCohesionMagnitude);
   }
 }
