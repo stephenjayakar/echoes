@@ -113,6 +113,7 @@ public:
   uchar GetModelAlphau8(const CStateManager& mgr) const override;
   CProjectileInfo* ProjectileInfo() override;
   CPathFindSearch* GetSearchPath() override { return &mPathFindSearch; }
+  using CPatterned::GetSearchPath;
   void SetupStateMachine(CStateManager& mgr) override;
   CRagDoll* GetRagDoll() const override;
   void SetAttackTarget(CStateManager& mgr, TUniqueId target) override;
@@ -245,6 +246,8 @@ private:
   void UpdateHeldPosition(CStateManager& mgr, float dt);
   void AvoidActors(CStateManager& mgr);
   void CheckBlade(CStateManager& mgr);
+  pas::EStepDirection GetStrafeDir(CStateManager& mgr, float dist);
+  bool CantJumpBack(CStateManager& mgr, const CVector3f& dir, float dist);
   CVector3f GetTargetPos(CStateManager& mgr);
   void SetCinematicCollision(CStateManager& mgr);
   void SetNonCinematicCollision(CStateManager& mgr);
@@ -345,8 +348,8 @@ private:
   uchar mPad[4];
   float mIntoJumpDist;
   float mEyeHeight;
+  float xa78_;
   float mTimeNoPlayerLos;
-  float xa7c_;
   float xa80_;
   TUniqueId mAttachedActor;
   CSegId mGunSeg;

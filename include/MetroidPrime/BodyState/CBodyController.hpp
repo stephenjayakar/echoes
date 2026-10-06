@@ -26,6 +26,7 @@ public:
   void SetLocomotionType(pas::ELocomotionType type);
   void AbortScriptedAnimations();
   void SetTurnSpeed(float speed);
+  float GetTurnSpeed() const { return mTurnSpeed; }
   void EnableAnimation(bool enable);
   void SetCurrentAnimation(const CAnimPlaybackParms& parms, bool loop, bool noTrans);
   float GetAnimTimeRemaining() const;

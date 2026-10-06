@@ -22,6 +22,7 @@ public:
 
   bool IsOver() const { return mState == kAS_Over; }
   void SetState(EState state) { mState = state; } // Guessed name.
+  EState GetState() const { return mState; }        // Guessed name.
 
 private:
   EState mState;
