@@ -191,15 +191,12 @@ void CPlayer::FinishSidewaysDash() {
   if (mSidewaysDashing) {
     mDoneSidewaysDashing = true;
     if (mMovementState != NPlayer::kMS_OnGround) {
-      const CVector3f& velocity = GetVelocityWR();
+      const CVector3f& velocity = CVector3f(GetVelocityWR());
       const CVector3f flatVelocity(CVector2f(velocity.GetX(), velocity.GetY()), 0.f);
       const float maxSpeed = skDashClampSpeeds[GetSurfaceRestraint()];
       const float speed = flatVelocity.Magnitude();
       if (speed > maxSpeed) {
-        float acceleration = 1.f;
-        if (mAccelerationChangeTimer > 0.f) {
-          acceleration = GetAcceleration();
-        }
+        const float acceleration = mAccelerationChangeTimer > 0.f ? GetAcceleration() : 1.f;
         const float scale = (speed - acceleration * (speed - maxSpeed)) / speed;
         SetVelocityWR(CVector3f(scale * velocity.GetX(), scale * velocity.GetY(), velocity.GetZ()));
       }
