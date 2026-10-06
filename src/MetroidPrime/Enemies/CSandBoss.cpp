@@ -417,9 +417,8 @@ CAABox CSandBoss::GetScanVisorRenderBounds(const CStateManager& mgr) const {
 CAABox CSandBoss::GetModelBounds() const {
   CAABox box = CAABox::MakeMaxInvertedBox();
   box = GetModelData()->GetAnimationData()->CalcBoundingBoxFromModelVerts();
-  const CVector3f scale = GetModelData()->GetScale();
   box = box.GetTransformedAABox(CTransform4f::Translate(-GetTranslation()) * GetTransform() *
-                                CTransform4f::Scale(scale));
+                                CTransform4f::Scale(GetModelData()->GetScale()));
   return box;
 }
 
@@ -506,9 +505,10 @@ void CSandBoss::PreRenderAllViewports(CStateManager& mgr) {
   const rstl::optional_object< CAABox > bounds =
       GetModelData()->GetAnimationData()->GetParticleDB().GetTotalBounds();
   if (bounds) {
+    const CAABox& total = *bounds;
     CAABox box = GetOtherBounds();
-    box.AccumulateBounds(bounds->GetMinPoint());
-    box.AccumulateBounds(bounds->GetMaxPoint());
+    box.AccumulateBounds(total.GetMinPoint());
+    box.AccumulateBounds(total.GetMaxPoint());
     SetOtherBounds(box);
     SetRenderBounds(box);
   }
@@ -2450,8 +2450,10 @@ void CSandBoss::SetupCollisionActors(CStateManager& mgr) {
   const CAnimData* animData = GetModelData()->GetAnimationData();
   for (uint i = 0; i < 7; ++i) {
     const CSegId seg = animData->GetLocatorSegId(rstl::string_l(skSphereJoints[i].mName));
-    joints.push_back(CJointCollisionDescription::SphereCollision(
-        seg, CVector3f::Zero(), skSphereJoints[i].mRadius, rstl::string_l(skSphereJoints[i].mName), 1000.f));
+    const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
+        seg, CVector3f::Zero(), skSphereJoints[i].mRadius,
+        rstl::string_l(skSphereJoints[i].mName), 1000.f);
+    joints.push_back(desc);
   }
   mCollisionActorManager =
       rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(), joints, false);
