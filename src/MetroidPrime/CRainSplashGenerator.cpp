@@ -248,7 +248,7 @@ void CRainSplashGenerator::SRainSplash::Draw(float alpha, float dt,
   }
 }
 
-bool CRainSplashGenerator::SRainSplash::IsActive() const {
+uchar CRainSplashGenerator::SRainSplash::IsActive() const {
   bool active = false;
   for (rstl::reserved_vector< SSplashLine, 4 >::const_iterator it = mLines.begin();
        it != mLines.end(); ++it) {
