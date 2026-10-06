@@ -1934,15 +1934,16 @@ void CCubeRenderer::DrawScreenFilter(const CColor& color0, const CColor& color1,
 }
 
 int CCubeRenderer::DrawScanSurface(int areaSurfaceIndex, const CCubeModel& model,
-                                   const CMetroidModelInstance::CSurfaceGroups& groups,
-                                   ushort group, bool intersects) {
+                                   CMetroidModelInstance::CSurfaceGroups groups,
+                                   ushort group, bool intersects, int prevResult) {
   const ushort count = groups.GetSurfaceCount(group);
   const ushort* indices = groups.GetSurfaceIndices(group);
   int result = 1;
   if (intersects) {
     result = 2;
   }
-  for (int i = 0; i < count; ++i) {
+  const int n = count;
+  for (int i = 0; i < n; ++i) {
     const CCubeSurface surface(model.GetModelInstance().Surfaces()[indices[i]]);
     if (!(model.GetMaterialByIndex(surface.GetMaterialIndex()).GetFlags() &
           kStateFlag_DepthSorting)) {
@@ -1959,7 +1960,7 @@ void CCubeRenderer::DrawEchoVisorGeometry(float pulsePhase, float bigRingScale,
   SetupRendererStates(true);
   mRequestRGBA6 = true;
   CGX::SetDstAlpha(false, 0);
-  CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_OR, GX_ALWAYS, 0);
+  CGraphics::SetAlphaCompare(kAF_Always, 0, kAO_Or, kAF_Always, 0);
   mBigRing->Load(GX_TEXMAP0, CTexture::kCM_Clamp);
   mSphereRamp.Load(GX_TEXMAP1, CTexture::kCM_Clamp);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO, GX_CC_ZERO);
@@ -1978,24 +1979,30 @@ void CCubeRenderer::DrawEchoVisorGeometry(float pulsePhase, float bigRingScale,
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX2x4, GX_TG_POS, GX_TEXMTX1, false, GX_PTIDENTITY);
   CGX::SetNumTexGens(2);
 
-  CColor ringAlpha(0x000000ffu);
-  if (!(pulsePhase <= bigRingFadeStart)) {
-    ringAlpha.SetAlpha(static_cast< uchar >(
-        255.f * (1.f - (pulsePhase - bigRingFadeStart) / (1.f - bigRingFadeStart))));
+  CTransform4f ringMatrix = CTransform4f::Identity();
+  CTransform4f volumeMatrix = CTransform4f::Identity();
+  CAABox echoBounds = CAABox::MakeNullBox();
+  int drawResult = 0;
+  if (pulsePhase > bigRingFadeStart) {
+    GXColor ringColor = {0, 0, 0, 0};
+    ringColor.a =
+        CCast::ToUint8(255.f * (1.f - (pulsePhase - bigRingFadeStart) / (1.f - bigRingFadeStart)));
+    GXSetTevColor(GX_TEVREG1, ringColor);
+  } else {
+    const GXColor opaque = {0, 0, 0, 255};
+    GXSetTevColor(GX_TEVREG1, opaque);
   }
-  GXSetTevColor(GX_TEVREG1, ringAlpha.GetGXColor());
-  const CTransform4f& view = CGraphics::GetViewMatrix();
+  const CVector3f viewPos = CGraphics::GetViewMatrix().GetTranslation();
   const float ringScale = 1.f / (1.f + pulsePhase * bigRingScale);
   const float extent = auraBigSize * (1.f - pulsePhase) + auraSmallSize * pulsePhase;
   const float volumeScale = 1.f / extent;
-  const CTransform4f ringMatrix(ringScale, 0.f, 0.f, ringScale * -view.Get03() + 0.5f, 0.f,
-                                ringScale, 0.f, ringScale * -view.Get13() + 0.5f, 0.f, 0.f, 0.f,
-                                1.f);
-  const CTransform4f volumeMatrix(volumeScale, 0.f, 0.f, volumeScale * -view.Get03() + 0.5f, 0.f,
-                                  volumeScale, 0.f, volumeScale * -view.Get13() + 0.5f, 0.f, 0.f,
-                                  0.f, 1.f);
+  ringMatrix = CTransform4f(ringScale, 0.f, 0.f, ringScale * -viewPos.GetX() + 0.5f, 0.f, ringScale,
+                            0.f, ringScale * -viewPos.GetY() + 0.5f, 0.f, 0.f, 0.f, 1.f);
+  volumeMatrix = CTransform4f(volumeScale, 0.f, 0.f, volumeScale * -viewPos.GetX() + 0.5f, 0.f,
+                              volumeScale, 0.f, volumeScale * -viewPos.GetY() + 0.5f, 0.f, 0.f,
+                              0.f, 1.f);
   const CVector3f spread(extent, extent, 4096.f);
-  const CAABox echoBounds(view.GetTranslation() - spread, view.GetTranslation() + spread);
+  echoBounds = CAABox(viewPos - spread, viewPos + spread);
   GXLoadTexMtxImm(ringMatrix.GetCStyleMatrix(), GX_TEXMTX0, GX_MTX2x4);
   GXLoadTexMtxImm(volumeMatrix.GetCStyleMatrix(), GX_TEXMTX1, GX_MTX2x4);
   GXLoadTexMtxImm(volumeMatrix.GetCStyleMatrix(), GX_TEXMTX2, GX_MTX2x4);
@@ -2009,19 +2016,25 @@ void CCubeRenderer::DrawEchoVisorGeometry(float pulsePhase, float bigRingScale,
     if (areaId != -1 && areaId != area->mAreaId) {
       continue;
     }
-    for (int i = 0; i < area->mSurfaces->size(); ++i) {
-      const SAreaSurface& surface = (*area->mSurfaces)[i];
-      if (surface.mModelIndex == -1 || surface.mSurfaceGroupIndex == -1 ||
-          area->mLightSetIndices[i - 1] == 255) {
+    const rstl::vector< SAreaSurface >& surfaces = *area->mSurfaces;
+    const rstl::vector< CMetroidModelInstance >& geometry = *area->mGeometry;
+    const rstl::vector< rstl::auto_ptr< CCubeModel > >& models = *area->mModels;
+    for (int i = 0; i < surfaces.size(); ++i) {
+      const SAreaSurface& surface = surfaces[i];
+      const short modelIndex = surface.mModelIndex;
+      const short groupIndex = surface.mSurfaceGroupIndex;
+      if (modelIndex == -1 || groupIndex == -1) {
         continue;
       }
-      const CMetroidModelInstance::CSurfaceGroups groups =
-          (*area->mGeometry)[surface.mModelIndex].GetSurfaceGroups();
-      const CCubeModel& model = *(*area->mModels)[surface.mModelIndex];
-      model.SetArraysCurrent();
-      const CMetroidModelInstance::CSurfaceGroups drawGroups(groups);
-      DrawScanSurface(i - 1, model, drawGroups, surface.mSurfaceGroupIndex,
-                      echoBounds.DoBoundsOverlap(surface.mBounds));
+      const int surfaceIndex = i - 1;
+      if (area->mLightSetIndices[surfaceIndex] == 255) {
+        continue;
+      }
+      const CCubeModel* model = models[modelIndex].get();
+      const CMetroidModelInstance::CSurfaceGroups groups = geometry[modelIndex].GetSurfaceGroups();
+      model->SetArraysCurrent();
+      drawResult = DrawScanSurface(surfaceIndex, *model, groups, groupIndex,
+                                   echoBounds.DoBoundsOverlap(surface.mBounds), drawResult);
     }
     GXSetColorUpdate(true);
     GXSetAlphaUpdate(true);

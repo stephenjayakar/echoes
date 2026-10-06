@@ -261,8 +261,8 @@ public:
   uchar FindOrAddLightSet(uint lightSet);
   // Guessed name
   int DrawScanSurface(int areaSurfaceIndex, const CCubeModel& model,
-                      const CMetroidModelInstance::CSurfaceGroups& groups, ushort group,
-                      bool intersects);
+                      CMetroidModelInstance::CSurfaceGroups groups, ushort group,
+                      bool intersects, int prevResult);
   void ReallyRenderFogVolume(const CColor& color, const CAABox& bounds, const CModel* model,
                              const CSkinnedModel* skinnedModel);
   static void RenderFogVolumeModel(const CAABox& bounds, const CModel* model,
