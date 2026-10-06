@@ -64,9 +64,15 @@ bool CGuiTextSupport::_GetIsTextSupportFinishedLoading() const {
   }
   if (mFont.valid()) {
     TToken< CRasterFont > font = *mFont;
-    return font.IsLoaded() && font->IsFinishedLoading();
+    if (!font.IsLoaded()) {
+      return false;
+    }
+    return font->IsFinishedLoading();
   }
-  return !mAssets.empty();
+  if (!mFont.valid() && mAssets.size() == 0) {
+    return false;
+  }
+  return true;
 }
 
 void CGuiTextSupport::SetText(const rstl::string& text, bool multipage) {
@@ -137,7 +143,7 @@ void CGuiTextSupport::SetControlTXTRMap(
 void CGuiTextSupport::Render() const {
   CheckAndRebuildRenderBuffer();
   const CTransform4f oldModel = CGraphics::GetModelMatrix();
-  CGraphics::SetModelMatrix(oldModel * CTransform4f::Scale(1.f, 1.f, -1.f));
+  CGraphics::SetModelMatrix(oldModel * CTransform4f::Scale(CVector3f(1.f, 1.f, -1.f)));
   if (const CTextRenderBuffer* buffer = GetCurrentPageRenderBuffer()) {
     buffer->Render(mGeometryColor, mCurrentTimeMod900);
   }

@@ -595,12 +595,12 @@ void CCubeRenderer::BeginScene() {
 void CCubeRenderer::EndScene() {
   mPersistRGBA6 = !CGraphics::IsBeginSceneClearFb();
   CGraphics::EndScene();
-  if (mReflectionAge < 2) {
-    ++mReflectionAge;
-  } else {
+  if (mReflectionAge >= 2) {
     mReflectionTex = nullptr;
+  } else {
+    ++mReflectionAge;
   }
-  CGraphics::SetClearColor(CColor(static_cast< uchar >(0), 0, 0, 0));
+  CGraphics::SetClearColor(CColor(0));
 }
 
 void CCubeRenderer::AddParticleGen(const CParticleGen& gen) {
