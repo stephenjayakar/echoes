@@ -347,7 +347,7 @@ CSfxHandle CSfxManager::AddEmitter(ushort id, const CVector3f& position, uchar v
 
 
 CSfxHandle CSfxManager::AddEmitter(CAudioSys::C3DEmitterParmData& params, int area,
-                                   const bool useAcoustics, bool looped, short priority) {
+                                   bool useAcoustics, bool looped, short priority) {
   if ((mMuted && !looped) || params.mSfxId == 0xffffffff ||
       params.mSfxId == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
@@ -413,7 +413,7 @@ void CSfxManager::UpdateEmitter(CSfxHandle handle, const CVector3f& position,
 
 void CSfxManager::RemoveEmitter(CSfxHandle handle) { StopSound(mCurrentChannel, handle); }
 
-CSfxHandle CSfxManager::SfxStart(ushort id, short volume, short pan, int area, const bool useAcoustics,
+CSfxHandle CSfxManager::SfxStart(ushort id, short volume, short pan, int area, bool useAcoustics,
                                  bool looped, short priority) {
   if ((mMuted && !looped) || id == 0xffffffff || id == kInternalInvalidSfxId) {
     return CSfxHandle::NullHandle();
