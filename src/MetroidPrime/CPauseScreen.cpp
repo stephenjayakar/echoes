@@ -443,7 +443,7 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
       for (rstl::vector< SObjectTag >::const_iterator it = scan.GetDependencies().begin();
            it != scan.GetDependencies().end(); ++it) {
         if (it->type != FourCC('AGSC')) {
-          mDependencies.push_back(gpSimplePool->GetObj(*it));
+          mDependencies.push_back_unsafe(gpSimplePool->GetObj(SObjectTag(it->type, it->id)));
           mDependencies.back().Lock();
         }
       }
@@ -460,8 +460,8 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
           mModelTokens.push_back(rstl::optional_object< CToken >());
         }
       }
-      mScanStrings = rs_new TCachedToken< CStringTable >(
-          gpSimplePool->GetObj(SObjectTag('STRG', scan.GetStringTableId())));
+      mScanStrings = rs_new TCachedToken< CStringTable >(gpSimplePool->GetObj(
+          SObjectTag('STRG', mScanInfo->GetObject()->GetStringTableId())));
       mScanStrings->Lock();
     }
     mLoadState = kLS_ScanText;
@@ -481,14 +481,19 @@ bool CPauseScreen::CheckLoadComplete(const CStateManager& mgr) {
     mLoadState = kLS_ScanModels;
   }
   if (mLoadState == kLS_ScanModels) {
-    for (int i = 0; i < mModelTokens.size(); ++i) {
-      if (mModelTokens[i].valid() && mModelTokens[i]->HasLock() && !mModelTokens[i]->IsLoaded()) {
+    for (rstl::reserved_vector< rstl::optional_object< CToken >, 11 >::iterator it =
+             mModelTokens.begin();
+         it != mModelTokens.end(); ++it) {
+      if (it->valid() && (*it)->HasLock() && !(*it)->IsLoaded()) {
         return true;
       }
     }
     for (rstl::vector< CToken >::const_iterator it = mDependencies.begin();
          it != mDependencies.end(); ++it) {
-      if (!it->IsLoaded() || !EnsureTextureLoaded(*it)) {
+      if (!it->IsLoaded()) {
+        return true;
+      }
+      if (!EnsureTextureLoaded(*it)) {
         return true;
       }
     }
