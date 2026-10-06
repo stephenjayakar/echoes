@@ -182,11 +182,13 @@ void CScriptFrontEndDataNetwork::AcceptScriptMsg(CStateManager& mgr, const CScri
     }
     break;
   case kSM_AreaLoaded: {
-    rstl::vector< TUniqueId > ids(FindConnectedObjects(mgr, kSS_Connect, kSM_Attach));
-    for (rstl::vector< TUniqueId >::iterator it = ids.begin(); it != ids.end(); ++it) {
-      if (TCastToConstPtr< CScriptPlatform >(mgr.GetObjectById(*it))) {
-        mPlatformId = *it;
-        break;
+    {
+      rstl::vector< TUniqueId > ids(FindConnectedObjects(mgr, kSS_Connect, kSM_Attach));
+      for (rstl::vector< TUniqueId >::iterator it = ids.begin(); it != ids.end(); ++it) {
+        if (TCastToConstPtr< CScriptPlatform >(mgr.GetObjectById(*it))) {
+          mPlatformId = *it;
+          break;
+        }
       }
     }
     if (mIsRoot) {
@@ -234,7 +236,8 @@ void CScriptFrontEndDataNetwork::AcceptScriptMsg(CStateManager& mgr, const CScri
     break;
   }
   CActor::AcceptScriptMsg(mgr, msg);
-  if (GetActive()) {
+  if (!GetActive()) {
+    return;
   }
 }
 
@@ -303,12 +306,13 @@ void CScriptFrontEndDataNetwork::Think(float dt, CStateManager& mgr) {
       HandleButtons(input, mgr);
       HandleStick(input, mgr);
     } else {
+      int i;
       const CFinalInput& input = mgr.mFinalInputs[mControllers[mActiveController]];
       uchar handled = HandleRotation(input, mgr);
       handled = handled | HandleButtons(input, mgr);
       handled = handled | HandleStick(input, mgr);
       if (!handled) {
-        for (int i = 0; i < mControllers.size(); ++i) {
+        for (i = 0; i < mControllers.size(); ++i) {
           if (i != mActiveController) {
             const CFinalInput& other = mgr.mFinalInputs[mControllers[i]];
             uchar otherHandled = HandleRotation(other, mgr);
