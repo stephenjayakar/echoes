@@ -339,7 +339,6 @@ void CPlayer::UpdateOrbitOrientation(CStateManager& mgr) {
 }
 
 void CPlayer::UpdateOrbitSelection(const CFinalInput& input, CStateManager& mgr) {
-  mOrbitNextTargetId = FindOrbitTargetId(mgr);
   const CScriptGrapplePoint* const curPoint =
       TCastToConstPtr< CScriptGrapplePoint >(mgr.GetObjectById(mOrbitTargetId));
   const CScriptGrapplePoint* const nextPoint =
