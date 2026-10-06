@@ -268,7 +268,7 @@ bool CSporbTop::ShouldClose(CStateManager&, const CTriggerData&) const { return 
 
 bool CSporbTop::ShouldSpit(CStateManager&, const CTriggerData&) const { return mState == 1; }
 
-void CSporbTop::OnBaseEvent() {}
+void CSporbTop::OnBaseEvent(CStateManager&, bool) {}
 
 CVector3f CSporbTop::GetOrbitPosition(const CStateManager&) const { return mOrbitPosition; }
 

@@ -7,6 +7,8 @@
 // Original class name from the Wii SEL exports (TypesMatch__16CSporbProjectileCFi,
 // TCastToPtr<16CSporbProjectile>). The pod that swallows and spits the morph ball.
 class CSporbProjectile : public CPatterned {
+  friend class CSporbBase;
+
 public:
   CSporbProjectile(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                    const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,

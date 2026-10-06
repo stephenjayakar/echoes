@@ -7,6 +7,8 @@
 // Original class name from the Wii SEL exports (TypesMatch__9CSporbTopCFi, TCastToPtr<9CSporbTop>).
 // The top (head) of the Sporb plant; it follows the base's locator and hosts the grabbed ball.
 class CSporbTop : public CPatterned {
+  friend class CSporbBase;
+
 public:
   CSporbTop(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
             const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,
@@ -42,7 +44,7 @@ public:
 
   CAABox GetModelBounds() const; // Guessed name.
   void StartFlinch(CStateManager& mgr); // Guessed name.
-  void OnBaseEvent(); // Guessed name; empty in this build.
+  void OnBaseEvent(CStateManager& mgr, bool active); // Guessed name; empty in this build.
 
   // Triggers
   bool AnimOver(CStateManager& mgr, const CTriggerData& data) const;
@@ -71,6 +73,8 @@ public:
   void SetProjectileId(TUniqueId id) { mProjectileId = id; }
   int GetState() const { return mState; }
   void SetState(int state) { mState = state; }
+  void SetGenerateType(int type) { mGenerateType = type; }
+  void SetClosed(bool closed) { x800_24_ = closed; } // Guessed name.
 
 private:
   int mState; // Guessed name; set by the base, read by the triggers.
