@@ -605,7 +605,7 @@ void CMayaSpline::FindIntersections(float amplitude,
   }
 
   float* last = intersections.begin();
-  for (float* next = last + 1; next < intersections.end(); ++next) {
+  for (float* next = intersections.begin() + 1; next <= intersections.end() - 1; ++next) {
     if (!CMath::IsEpsilon(*next, *last, 0.002f)) {
       *++last = *next;
     }
