@@ -811,22 +811,29 @@ void CWorldTransManager::UpdateText(float dt) {
   }
 }
 
+// Guessed name; returns the current viewport dimensions.
+static CVector2i GetViewportSize() {
+  return CVector2i(CGraphics::GetViewport().mWidth, CGraphics::GetViewport().mHeight);
+}
+
 void CWorldTransManager::DrawText() const {
   gpRender->SetViewportOrtho(false, -4096.f, 4096.f);
-  gpRender->SetModelMatrix(
-      CTransform4f::Translate(mIntroText ? 32.f : 0.f, 0.f, CGraphics::GetViewport().mHeight));
+  const float x = mIntroText ? 32.f : 0.f;
+  gpRender->SetModelMatrix(CTransform4f::Translate(x, 0.f, GetViewportSize().GetY()));
   CGraphics::SetCullMode(kCM_None);
   gpRender->SetDepthReadWrite(false, false);
   gpRender->SetBlendMode_AdditiveAlpha();
   mTextData->Render();
   if (mDisplaySubtitles) {
-    gpRender->SetModelMatrix(CTransform4f::Translate(0.f, 0.f, 120.f));
+    CTransform4f xf = CTransform4f::Scale(1.f);
+    xf = CTransform4f::Translate(0.f, 0.f, 120.f) * xf;
+    gpRender->SetModelMatrix(xf);
     mSubtitleData->Render();
   }
 
   float alpha = 0.f;
   if (mCurTime < 1.f) {
-    alpha = 1.f - mCurTime;
+    alpha = 1.f - rstl::min_val(1.f, mCurTime);
   } else if (mStopSoon) {
     alpha = rstl::min_val(1.f, mCurTime - mStopTime);
   }

@@ -5725,7 +5725,7 @@ EnableTransition__18CWorldTransManagerFRQ24rstl31single_ptr<17CPortalTransition>
 EnableTransition__18CWorldTransManagerFUiUiibffffffRCQ24rstl66basic_string<c,Q24rstl14char_traits<c>,Q24rstl17rmemory_allocator>Ucbb = .text:0x801588AC; // type:function size:0x3B0
 __as__Q24rstl47single_ptr<Q218CWorldTransManager11SModelDatas>FPQ218CWorldTransManager11SModelDatas = .text:0x80158C5C; // type:function size:0x48
 __dt__Q218CWorldTransManager11SModelDatasFv = .text:0x80158CA4; // type:function size:0x120
-fn_80158DC4 = .text:0x80158DC4; // type:function size:0x30 align:4
+GetViewportSize__Fv = .text:0x80158DC4; // type:function size:0x30 scope:local align:4
 SetSfx__18CWorldTransManagerFUsUcUc = .text:0x80158DF4; // type:function size:0x10 align:4
 SfxStop__18CWorldTransManagerFv = .text:0x80158E04; // type:function size:0x4C align:4
 SfxStart__18CWorldTransManagerFv = .text:0x80158E50; // type:function size:0x6C align:4
