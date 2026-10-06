@@ -506,12 +506,17 @@ void CSwarmBasics::UpdateLightComboBeam(CBoid& boid, CStateManager& mgr) {
     CLightComboProjectile* proj = TCastToPtr< CLightComboProjectile >(mgr.ObjectById(boid.xa8_));
     const CPlasmaProjectile* plasma =
         TCastToConstPtr< CPlasmaProjectile >(mgr.GetObjectById(boid.xaa_));
-    if (plasma && proj) {
-      proj->UpdateRayTarget(mgr, boid.xaa_, boid.GetTranslation());
-      boid.mHealth -= plasma->GetCurrentDamageInfo().GetDamage(*GetDamageVulnerability());
-      if (boid.mHealth <= 0.f) {
-        KillBoid(boid, mgr, CWeaponMode(kWT_Light));
-        proj->RequestRayReset(mgr, boid.xaa_, false);
+    if (plasma) {
+      if (proj) {
+        proj->UpdateRayTarget(mgr, boid.xaa_, boid.GetTranslation());
+        boid.mHealth -= plasma->GetCurrentDamageInfo().GetDamage(*GetDamageVulnerability());
+        if (boid.mHealth <= 0.f) {
+          KillBoid(boid, mgr, CWeaponMode(kWT_Light));
+          proj->RequestRayReset(mgr, boid.xaa_, false);
+        }
+      } else {
+        boid.xaa_ = kInvalidUniqueId;
+        boid.xa8_ = kInvalidUniqueId;
       }
     } else {
       boid.xaa_ = kInvalidUniqueId;
@@ -1289,7 +1294,8 @@ void CSwarmBasics::ApplyRadiusDamage(CVector3f pos, const CDamageInfo& info, CSt
   const float radiusSquared = info.GetRadius() * info.GetRadius();
   for (rstl::vector< CBoid >::iterator it = mBoids.begin(); it != mBoids.end(); ++it) {
     if (it->mActive) {
-      if ((it->GetTranslation() - pos).MagSquared() < radiusSquared) {
+      const CVector3f boidPos = it->GetTranslation();
+      if ((boidPos - pos).MagSquared() < radiusSquared) {
         it->mHealth -= info.GetRadiusDamage(mDamageVulnerability);
         if (it->mHealth <= 0.f) {
           KillBoid(*it, mgr, info.GetWeaponMode());
@@ -1468,7 +1474,10 @@ int CSwarmBasics::FindBestLockOnIndex(CStateManager& mgr) const {
        ++it, ++index) {
     if (it->mActive) {
       const CVector3f delta = it->GetTranslation() - cameraPos;
-      if (delta.MagSquared() <= maxDistanceSq && delta.CanBeNormalized()) {
+      if (delta.MagSquared() > maxDistanceSq) {
+        continue;
+      }
+      if (delta.CanBeNormalized()) {
         const float dot = CVector3f::Dot(cameraForward, delta.AsNormalized());
         if (dot > maxDot) {
           result = index;
@@ -1573,11 +1582,19 @@ void CSwarmBasics::KillBoid(CBoid& boid, CStateManager& mgr, const CWeaponMode& 
   x4f1_24_ = true;
   if (boid.xaa_ != kInvalidUniqueId) {
     CLightComboProjectile* proj = TCastToPtr< CLightComboProjectile >(mgr.ObjectById(boid.xa8_));
-    if (TCastToConstPtr< CPlasmaProjectile >(mgr.GetObjectById(boid.xaa_)) && proj) {
-      proj->RequestRayReset(mgr, boid.xaa_, false);
+    if (TCastToConstPtr< CPlasmaProjectile >(mgr.GetObjectById(boid.xaa_))) {
+      if (proj) {
+        proj->RequestRayReset(mgr, boid.xaa_, false);
+        boid.xaa_ = kInvalidUniqueId;
+        boid.xa8_ = kInvalidUniqueId;
+      } else {
+        boid.xaa_ = kInvalidUniqueId;
+        boid.xa8_ = kInvalidUniqueId;
+      }
+    } else {
+      boid.xaa_ = kInvalidUniqueId;
+      boid.xa8_ = kInvalidUniqueId;
     }
-    boid.xaa_ = kInvalidUniqueId;
-    boid.xa8_ = kInvalidUniqueId;
   }
 }
 
