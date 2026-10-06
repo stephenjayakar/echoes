@@ -19,7 +19,9 @@
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Enemies/CSpacePirate.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
 #include "MetroidPrime/CGameCollision.hpp"
+#include "MetroidPrime/Cameras/CFirstPersonCamera.hpp"
 #include "MetroidPrime/CKnockBackInfo.hpp"
 #include "MetroidPrime/CWorld.hpp"
 #include "MetroidPrime/CGameArea.hpp"
@@ -1407,6 +1409,69 @@ void CMetroid::SuckEnergyFromTarget(float dt, CStateManager& mgr) {
     const CQuaternion zRot = CQuaternion::ZRotation(CRelAngle::FromRadians(GetYaw()));
     const CQuaternion rot = CQuaternion::SlerpLocal(GetRotation(), zRot, 0.95f);
     SetRotation(rot.BuildNormalized());
+    break;
+  }
+  }
+}
+
+void CMetroid::ComputeSuckPlayerPosRot(const CPlayer& player, CStateManager& mgr, CVector3f& pos,
+                                       CQuaternion& rot) const {
+  const CCameraManager* camMgr =
+      mgr.GetCameraManager(mgr.MaskUIdNumPlayers(player.GetUniqueId()));
+  pos = player.GetTranslation();
+  const float scaleY = GetModelData()->GetScale().GetY();
+  switch (player.GetMorphballTransitionState()) {
+  case CPlayer::kMS_Unmorphed: {
+    const CQuaternion camRotation =
+        CQuaternion::FromMatrix(camMgr->GetFirstPersonCamera()->GetTransform());
+    rot = camRotation * CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
+    const CMatrix3f camMatrix = camRotation.BuildTransform();
+    const CVector3f forward = 1.f * (camMatrix * CVector3f::Forward());
+    const CVector3f up = (-0.6f * scaleY) * (camMatrix * CVector3f::Up());
+    pos += CVector3f(0.f, 0.f, player.GetEyeHeight()) + up + forward;
+    break;
+  }
+  case CPlayer::kMS_Morphing: {
+    const float height = ComputeMorphingPlayerSuckUpPos(player);
+    pos += CVector3f(0.f, 0.f, 0.4f + height);
+    const float radius = player.GetMorphBall()->GetBallRadius();
+    pos += 0.5f * player.GetTransform().GetForward() - radius * GetTransform().GetUp();
+    rot = CQuaternion::FromMatrix(player.GetTransform()) *
+          CQuaternion::YXZRotation(CRelAngle::FromRadians(0.f), CRelAngle::FromDegrees(-89.9f),
+                                   CRelAngle::FromRadians(M_PIF));
+    break;
+  }
+  case CPlayer::kMS_Unmorphing: {
+    const float height = ComputeMorphingPlayerSuckUpPos(player);
+    pos += CVector3f(0.f, 0.f, 0.4f + height);
+    const float radius = player.GetMorphBall()->GetBallRadius();
+    pos += 0.5f * player.GetTransform().GetForward() - radius * GetTransform().GetUp();
+    rot = CQuaternion::FromMatrix(player.GetTransform()) *
+          CQuaternion::YXZRotation(CRelAngle::FromRadians(0.f), CRelAngle::FromDegrees(-89.9f),
+                                   CRelAngle::FromRadians(M_PIF));
+    const float morphT = player.GetMorphBallTransitionFactor();
+    if (morphT > 0.75f) {
+      const CQuaternion camRotation =
+          CQuaternion::FromMatrix(camMgr->GetFirstPersonCamera()->GetTransform());
+      const CQuaternion targetRotation =
+          camRotation * CQuaternion::ZRotation(CRelAngle::FromRadians(M_PIF));
+      const CMatrix3f camMatrix = camRotation.BuildTransform();
+      const CVector3f forward = 1.f * (camMatrix * CVector3f::Forward());
+      const CVector3f up = (-0.6f * scaleY) * (camMatrix * CVector3f::Up());
+      const CVector3f targetPos =
+          player.GetTranslation() + CVector3f(0.f, 0.f, player.GetEyeHeight()) + up + forward;
+      const float t = (morphT - 0.75f) / 0.25f;
+      rot = CQuaternion::SlerpLocal(rot, targetRotation, t);
+      pos = CVector3f::Lerp(pos, targetPos, t);
+    }
+    break;
+  }
+  case CPlayer::kMS_Morphed: {
+    pos += (2.f * player.GetMorphBall()->GetBallRadius() + 0.25f) * CVector3f::Up();
+    const float radius = player.GetMorphBall()->GetBallRadius();
+    pos -= radius * (scaleY * GetTransform().GetUp());
+    rot = CQuaternion::YXZRotation(CRelAngle::FromRadians(0.f), CRelAngle::FromDegrees(-89.9f),
+                                   CRelAngle::FromRadians(GetYaw()));
     break;
   }
   }
