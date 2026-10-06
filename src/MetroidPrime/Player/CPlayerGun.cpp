@@ -295,38 +295,48 @@ void CPlayerGun::PreRender(CStateManager& mgr, const CVector3f& cameraPosition) 
   }
 
   const CPlayerState::EPlayerVisor visor = state->GetActiveVisor(mgr);
-  if (mgr.IsMultiplayer() && mgr.GetNumPlayers() >= 3u) {
+  CActorLights& lights = mLights;
+  const bool splitScreen = mgr.IsMultiplayer() && mgr.GetNumPlayers() >= 3u;
+  if (splitScreen) {
     const uint frame = mgr.GetRenderFrameIndex();
     if ((frame & 1) != 0 && visor == CPlayerState::kPV_Combat &&
-        ((frame >> 1) & 3) == mgr.MaskUIdNumPlayers(mPlayerUniqueId) &&
+        ((frame >> 1) & 3) == mgr.MaskUIdNumPlayers(GetPlayerUniqueId()) &&
         mCurrentBeam->SolidModelData()) {
       const CTransform4f gunTransform = CTransform4f::Translate(cameraPosition) * mGunWorldXf;
       const CAABox bounds = mCurrentBeam->GetBounds(gunTransform);
-      mLights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()), bounds);
+      lights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()), bounds);
     }
   } else {
-    if (visor == CPlayerState::kPV_Combat && mCurrentBeam->SolidModelData()) {
-      const CTransform4f gunTransform = CTransform4f::Translate(cameraPosition) * mGunWorldXf;
-      CWorldShadow* shadow = GetWorldShadow();
-      const CAABox bounds = mCurrentBeam->GetBounds(gunTransform);
-      mLights.SetAmbientColor(mAmbientColor);
-      mLights.SetFindShadowLight(CWorldShadow::CanRender(mgr));
-      if (mgr.GetNextAreaId() != kInvalidAreaId) {
-        mLights.SetWorldLightingLevel(0.25f);
-        mLights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()), bounds);
+    switch (visor) {
+    case CPlayerState::kPV_Combat:
+      if (!mCurrentBeam->SolidModelData()) {
+        break;
       }
-      mLights.BuildDynamicLightList(mgr, bounds);
-      mAmbientColor = mLights.GetAmbientColor();
+      {
+      const CTransform4f gunTransform = CTransform4f::Translate(cameraPosition) * mGunWorldXf;
+      CWorldShadow* shadow =
+          const_cast< CWorldShadow* >(static_cast< const CPlayerGun* >(this)->GetWorldShadow());
+      const CAABox bounds = mCurrentBeam->GetBounds(gunTransform);
+      lights.SetAmbientColor(mAmbientColor);
+      lights.SetFindShadowLight(CWorldShadow::CanRender(mgr));
+      if (mgr.GetNextAreaId() != kInvalidAreaId) {
+        lights.SetShadowDynamicRangeThreshold(0.25f);
+        lights.BuildAreaLightList(mgr, mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()), bounds);
+      }
+      lights.BuildDynamicLightList(mgr, bounds);
+      mAmbientColor = lights.GetAmbientColor();
       if (mLights.HasShadowLight() && mCurrentBeam->IsLoaded()) {
-        shadow->BuildLightShadowTexture(mgr, mgr.GetNextAreaId(), mLights.GetShadowLightIndex(),
+        shadow->BuildLightShadowTexture(mgr, mgr.GetNextAreaId(), lights.GetShadowLightIndex(),
                                         bounds, true, false);
       } else {
         shadow->ResetBlur();
       }
+      }
+      break;
     }
     const CColor damageColor = player->GetDarkAetherDamageColor(mgr, 0);
     if (!(damageColor == CColor::Black())) {
-      mLights.SetAmbientColor(CColor::Add(mAmbientColor, damageColor));
+      lights.SetAmbientColor(CColor::Add(mAmbientColor, damageColor));
     }
   }
 
