@@ -2404,16 +2404,8 @@ void CSandBoss::UpdateStampedeArmor(CStateManager& mgr, float dt) {
 
 void CSandBoss::UpdateDamageFlashColor(float dt) {
   if (xf10_ > 0.f) {
-    const float t = xf10_ - dt;
-    float remaining = 0.f;
-    if (!(t < remaining)) {
-      remaining = t;
-    }
-    xf10_ = remaining;
-    float alpha = xf10_ / 0.33f;
-    if (!(alpha < 1.f)) {
-      alpha = 1.f;
-    }
+    xf10_ = rstl::max_val(xf10_ - dt, 0.f);
+    const float alpha = rstl::min_val(xf10_ / 0.33f, 1.f);
     xf0c_ = CColor::Lerp(CColor::Black(), mDamageColor, alpha);
   }
 }
