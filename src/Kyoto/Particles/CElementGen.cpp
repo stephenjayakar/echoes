@@ -1018,9 +1018,8 @@ void CElementGen::DestroyParticles() {
 }
 
 bool CElementGen::IsSystemDeletable() {
-  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin(),
-                                               end = mActivePartChildren.end();
-       it != end; ++it) {
+  rstl::vector< CParticleGen* >::iterator end = mActivePartChildren.end();
+  for (rstl::vector< CParticleGen* >::iterator it = mActivePartChildren.begin(); it != end; ++it) {
     if (!(*it)->IsSystemDeletable()) {
       return false;
     }
