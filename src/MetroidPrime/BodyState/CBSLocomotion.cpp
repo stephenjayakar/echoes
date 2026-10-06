@@ -37,7 +37,11 @@ CBSLocomotion::CBSLocomotion() : mLocomotionType(pas::kLT_Invalid) {}
 
 void CBSLocomotion::Start(CBodyController& bc, CStateManager& mgr) {
   mLocomotionType = bc.GetLocomotionType();
-  ReStartBodyState(bc, bc.CommandMgr().GetCmd(kBSC_MaintainVelocity) != nullptr);
+  if (bc.CommandMgr().GetCmd(kBSC_MaintainVelocity)) {
+    ReStartBodyState(bc, true);
+  } else {
+    ReStartBodyState(bc, false);
+  }
 }
 
 pas::EAnimationState CBSLocomotion::UpdateBody(float dt, CBodyController& bc, CStateManager& mgr) {
@@ -102,8 +106,9 @@ void CBSLocomotion::ReStartBodyState(CBodyController& bc, bool maintainVel) {
 
 float CBSLocomotion::GetStartVelocityMagnitude(CBodyController& bc) const {
   if (const CPhysicsActor* act = TCastToConstPtr< CPhysicsActor >(&bc.GetOwner())) {
+    const float speed = act->GetVelocityWR().Magnitude();
     const float maxSpeed = bc.GetBodyStateInfo().GetMaxSpeed();
-    const float velocity = maxSpeed > 0.f ? act->GetVelocityWR().Magnitude() / maxSpeed : 0.f;
+    const float velocity = maxSpeed > 0.f ? speed / maxSpeed : 0.f;
     return rstl::min_val(velocity, 1.f);
   }
   return 0.f;
@@ -265,8 +270,10 @@ CBSBiPedLocomotion::GetLocoAnimation(pas::ELocomotionType type, pas::ELocomotion
 }
 
 bool CBSBiPedLocomotion::IsStrafing(CBodyController& bc) const {
-  return !close_enough(bc.GetCommandMgr().GetMoveVector(), CVector3f::Zero()) &&
-         !close_enough(bc.GetCommandMgr().GetFaceVector(), CVector3f::Zero());
+  const CBodyStateCmdMgr& cmdMgr = bc.GetCommandMgr();
+  const CVector3f& move = cmdMgr.GetMoveVector();
+  const CVector3f& face = cmdMgr.GetFaceVector();
+  return !close_enough(move, CVector3f::Zero()) && !close_enough(face, CVector3f::Zero());
 }
 
 float CBSBiPedLocomotion::UpdateStrafe(float velocity, CBodyController& bc,
