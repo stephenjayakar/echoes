@@ -16,15 +16,15 @@ CPlayerBodyController::SJumpState::SJumpState()
 
 void CPlayerBodyController::SJumpState::Start(CStateManager& mgr,
                                               CPlayerBodyController& controller) {
-  const CPBCJumpCmd* command =
-      static_cast< const CPBCJumpCmd* >(controller.CommandMgr().GetCmd(kPBSC_Jump));
+  CPlayerBodyStateCmdMgr& commandMgr = controller.CommandMgr();
+  const CPBCJumpCmd* command = static_cast< const CPBCJumpCmd* >(commandMgr.GetCmd(kPBSC_Jump));
   if (command) {
     mAnimationVariant = command->GetAnimationVariant();
     mDoubleJumpStarted = false;
-    const CPASDatabase& database = controller.GetPASDatabase();
     const CPASAnimParmData parms(static_cast< pas::EAnimationState >(kPAS_Jump),
                                  CPASAnimParm::FromEnum(mAnimationVariant),
                                  CPASAnimParm::FromEnum(kAP_IntoJump));
+    const CPASDatabase& database = controller.GetPASDatabase();
     const rstl::pair< float, int > best = database.FindBestAnimation(parms, *mgr.Random(), -1);
     if (CMath::IsEpsilon(best.first, 100.f, 0.00001f)) {
       controller.RequestAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
@@ -37,7 +37,7 @@ void CPlayerBodyController::SJumpState::Start(CStateManager& mgr,
     mState = kS_Invalid;
   }
 
-  mHardLandingPending = controller.CommandMgr().GetCmd(kPBSC_HardLanding) != nullptr;
+  mHardLandingPending = commandMgr.GetCmd(kPBSC_HardLanding) != nullptr;
 }
 
 bool CPlayerBodyController::SJumpState::Update(CStateManager& mgr,
@@ -92,9 +92,9 @@ bool CPlayerBodyController::SJumpState::PlayDoubleJump(CStateManager& mgr,
       CVector3f::Dot(player.GetTransform().GetForward(), player.GetVelocityWR()) < 0.f
           ? kDJV_Backward
           : kDJV_Forward;
-  const CPASDatabase& database = controller.GetPASDatabase();
   const CPASAnimParmData parms(static_cast< pas::EAnimationState >(kPAS_Jump),
                                CPASAnimParm::FromEnum(variant), CPASAnimParm::FromEnum(kAP_Jump));
+  const CPASDatabase& database = controller.GetPASDatabase();
   const rstl::pair< float, int > best = database.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     controller.RequestAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
@@ -106,10 +106,10 @@ bool CPlayerBodyController::SJumpState::PlayDoubleJump(CStateManager& mgr,
 
 bool CPlayerBodyController::SJumpState::PlayJump(CStateManager& mgr,
                                                  CPlayerBodyController& controller) {
-  const CPASDatabase& database = controller.GetPASDatabase();
   const CPASAnimParmData parms(static_cast< pas::EAnimationState >(kPAS_Jump),
                                CPASAnimParm::FromEnum(mAnimationVariant),
                                CPASAnimParm::FromEnum(kAP_Jump));
+  const CPASDatabase& database = controller.GetPASDatabase();
   const rstl::pair< float, int > best = database.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     controller.RequestAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
@@ -121,10 +121,10 @@ bool CPlayerBodyController::SJumpState::PlayJump(CStateManager& mgr,
 
 void CPlayerBodyController::SJumpState::PlayJumpLoop(CStateManager& mgr,
                                                      CPlayerBodyController& controller) {
-  const CPASDatabase& database = controller.GetPASDatabase();
   const CPASAnimParmData parms(static_cast< pas::EAnimationState >(kPAS_Jump),
                                CPASAnimParm::FromEnum(mAnimationVariant),
                                CPASAnimParm::FromEnum(kAP_Loop));
+  const CPASDatabase& database = controller.GetPASDatabase();
   const rstl::pair< float, int > best = database.FindBestAnimation(parms, *mgr.Random(), -1);
   if (!(best.first > FLT_EPSILON)) {
     mAnimationVariant = -1;
@@ -141,10 +141,10 @@ void CPlayerBodyController::SJumpState::PlayLanding(CStateManager& mgr,
     return;
   }
 
-  const CPASDatabase& database = controller.GetPASDatabase();
   const CPASAnimParmData parms(static_cast< pas::EAnimationState >(kPAS_Jump),
                                CPASAnimParm::FromEnum(mAnimationVariant),
                                CPASAnimParm::FromEnum(kAP_Landing));
+  const CPASDatabase& database = controller.GetPASDatabase();
   const rstl::pair< float, int > best = database.FindBestAnimation(parms, *mgr.Random(), -1);
   if (!(best.first > FLT_EPSILON)) {
     mState = kS_Invalid;
