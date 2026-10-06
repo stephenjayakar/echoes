@@ -2143,22 +2143,25 @@ int CCubeRenderer::DrawOverlappingWorldModelShadows(int alphaVal, rstl::vector< 
   int offset = 0;
   for (rstl::list< CAreaListItem >::iterator area = mAreaListItems.begin();
        area != mAreaListItems.end(); ++area) {
-    if (area->mOctTree == nullptr) {
+    const CAreaRenderOctTree* octTree = area->mOctTree;
+    const rstl::vector< SAreaSurface >* surfaces = area->GetSurfaces();
+    short currentId = static_cast< short >(alphaVal);
+    short lastBank = -1;
+    rstl::reserved_vector< rstl::pair< short, short >, 64 > ids;
+    if (octTree == nullptr) {
       continue;
     }
-    short lastBank = -1;
-    short currentId = static_cast< short >(alphaVal);
-    rstl::reserved_vector< rstl::pair< short, short >, 64 > ids;
-    for (uint word = 0; word < area->mOctTree->GetBitmapWordCount(); ++word) {
-      const uint bits = models[offset + word];
+    const uint* words = models.data();
+    for (uint word = 0; word < octTree->GetBitmapWordCount(); ++word) {
+      const uint bits = words[offset + word];
       if (bits == 0) {
         continue;
       }
       for (int bit = 0; bit < 32; ++bit) {
-        if ((bits & (1u << bit)) == 0) {
+        if ((bits & (1 << bit)) == 0) {
           continue;
         }
-        const SAreaSurface& areaSurface = (*area->mSurfaces)[word * 32 + bit + 1];
+        const SAreaSurface& areaSurface = (*surfaces)[word * 32 + bit + 1];
         if (areaSurface.mModelIndex == -1 || areaSurface.mSurfaceGroupIndex == -1) {
           continue;
         }
@@ -2201,7 +2204,7 @@ int CCubeRenderer::DrawOverlappingWorldModelShadows(int alphaVal, rstl::vector< 
         }
       }
     }
-    offset += area->mOctTree->GetBitmapWordCount();
+    offset += octTree->GetBitmapWordCount();
   }
   SetupCGraphicsStates();
   return alphaVal + (hadModel ? 1 : 0);
