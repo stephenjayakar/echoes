@@ -833,14 +833,19 @@ void CSamusHud::UpdateVisorAndBeamMenus(float dt, const CStateManager& mgr) {
 
 void CSamusHud::UpdateFreeLook(float dt, const CStateManager& mgr) {
   const CPlayer& player = *mgr.GetPlayer(mPlayerIndex);
-  const CFirstPersonCamera* const camera =
-      TCastToConstPtr< CFirstPersonCamera >(player.GetCameraManager()->GetCurrentCamera(mgr, true));
+  const CGameCamera* const camera = CCameraManager::CastGameCameratoFirstPersonCamera(
+      player.GetCameraManager()->GetCurrentCamera(mgr, true));
   const bool inFreeLook = player.IsInFreeLook() && camera != nullptr &&
                           player.GetPlayerScanState() == CPlayer::kSS_NotScanning;
   const bool lookHeld = player.GetFreeLookStickState();
   if (mInFreeLook != inFreeLook) {
-    CSfxManager::SfxStart(inFreeLook ? 0x1b3 : 0x1b2, 127, player.GetSoundPan(CPlayer::kMSP_4),
-                          CSfxManager::kAllAreas, false, false, CSfxManager::kMedPriority);
+    if (inFreeLook) {
+      CSfxManager::SfxStart(0x1b3, 127, player.GetSoundPan(CPlayer::kMSP_4),
+                            CSfxManager::kAllAreas, false, false, CSfxManager::kMedPriority);
+    } else {
+      CSfxManager::SfxStart(0x1b2, 127, player.GetSoundPan(CPlayer::kMSP_4),
+                            CSfxManager::kAllAreas, false, false, CSfxManager::kMedPriority);
+    }
     mInFreeLook = inFreeLook;
   }
   const float threshold = 1.f - 60.f * (0.00001001358f * dt);
@@ -855,18 +860,11 @@ void CSamusHud::UpdateFreeLook(float dt, const CStateManager& mgr) {
   const bool crossed = (oldDot >= threshold && mFreeLookDirectionDot < threshold) ||
                        (oldDot < threshold && mFreeLookDirectionDot >= threshold);
   if (inFreeLook) {
-    mFreeLookFade = rstl::min_val(mFreeLookFade + dt, 0.5f);
+    mFreeLookFade = rstl::min_val(0.5f, mFreeLookFade + dt);
   } else {
     mFreeLookFade = rstl::max_val(0.f, mFreeLookFade - dt);
   }
-  if (close_enough(mFreeLookFade, 0.f)) {
-    if (mFreeLookLeft != nullptr) {
-      mFreeLookLeft->SetIsVisible(false);
-    }
-    if (mFreeLookRight != nullptr) {
-      mFreeLookRight->SetIsVisible(false);
-    }
-  } else {
+  if (!close_enough(mFreeLookFade, 0.f)) {
     const CVector3f scale(0.5f / mFreeLookFade, 0.5f / mFreeLookFade, 0.5f / mFreeLookFade);
     if (mFreeLookLeft != nullptr) {
       mFreeLookLeft->SetO2WTransform(mFreeLookLeftTransform * CTransform4f::Scale(scale));
@@ -876,25 +874,34 @@ void CSamusHud::UpdateFreeLook(float dt, const CStateManager& mgr) {
       mFreeLookRight->SetO2WTransform(mFreeLookRightTransform * CTransform4f::Scale(scale));
       mFreeLookRight->SetIsVisible(true);
     }
+  } else {
+    if (mFreeLookLeft != nullptr) {
+      mFreeLookLeft->SetIsVisible(false);
+    }
+    if (mFreeLookRight != nullptr) {
+      mFreeLookRight->SetIsVisible(false);
+    }
   }
   if (crossed) {
     mFreeLookSoundCycle = 0.f;
   } else if (mFreeLookSoundCycle < 0.05f) {
     mFreeLookSoundCycle = rstl::min_val(0.05f, mFreeLookSoundCycle + dt);
     if (mFreeLookSoundCycle == 0.05f) {
-      if (mFreeLookDirectionDot >= threshold) {
+      if (mFreeLookDirectionDot < threshold) {
+        if (!mFreeLookSound) {
+          mFreeLookSound =
+              CSfxManager::SfxStart(0x19b, 127, player.GetSoundPan(CPlayer::kMSP_4),
+                                    CSfxManager::kAllAreas, true, true, CSfxManager::kMedPriority);
+        }
+      } else {
         CSfxManager::SfxStop(mFreeLookSound);
         mFreeLookSound.Clear();
-      } else if (!mFreeLookSound) {
-        mFreeLookSound =
-            CSfxManager::SfxStart(0x19b, 127, player.GetSoundPan(CPlayer::kMSP_4),
-                                  CSfxManager::kAllAreas, true, true, CSfxManager::kMedPriority);
       }
     }
   }
   if (camera != nullptr) {
     const CMatrix3f cameraRotation = camera->GetTransform().BuildMatrix3f();
-    const CUnitVector3f cameraDirection(cameraRotation.GetColumn(1));
+    const CUnitVector3f cameraDirection(cameraRotation.GetColumn(kDY));
     CVector3f horizonDirection(cameraDirection.GetX(), cameraDirection.GetY(), 0.f);
     horizonDirection.Normalize();
     const float dot = CMath::Limit(CVector3f::Dot(cameraDirection, horizonDirection), 1.f);
