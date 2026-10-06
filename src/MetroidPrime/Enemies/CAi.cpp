@@ -6,6 +6,10 @@
 #include "Kyoto/CSimplePool.hpp"
 #include "Kyoto/SObjectTag.hpp"
 #include "Kyoto/TToken.hpp"
+#include "MetroidPrime/CFluidPlaneManager.hpp"
+#include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
+#include "rstl/math.hpp"
 
 CAi::CAi(TUniqueId uid, const rstl::string& name, const CEntityInfo& info, uint castFlags,
          const CTransform4f& xf, const CModelData& modelData, const CAABox& bounds, float mass,
@@ -55,8 +59,25 @@ void CAi::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
 }
 
-void CAi::FluidFXThink(EFluidState, CScriptWater&, CStateManager&) {
-  // TODO: Restore entry/exit splashes when the water and fluid-manager interfaces are available.
+void CAi::FluidFXThink(EFluidState state, CScriptWater& water, CStateManager& mgr) {
+  switch (state) {
+  case kFS_EnteredFluid:
+  case kFS_LeftFluid:
+    if (mgr.GetFluidPlaneManager()->GetLastSplashDeltaTime(GetUniqueId()) >= 0.2f) {
+      const float energy = 0.5f * GetMass() * GetVelocityWR().MagSquared();
+      if (energy > 500.f) {
+        const float clampedEnergy = rstl::min_val(30000.f, energy);
+        const CVector3f pos(GetTranslation().GetX(), GetTranslation().GetY(),
+                            water.GetTriggerBoundsWR().GetMaxPoint().GetZ());
+        mgr.GetFluidPlaneManager()->CreateSplash(GetUniqueId(), mgr, water, pos,
+                                                 0.1f + 0.4f * (clampedEnergy - 500.f) / 29500.f,
+                                                 true);
+      }
+    }
+    break;
+  default:
+    break;
+  }
 }
 
 CStateMachine* CAi::GetStateMachine() {
