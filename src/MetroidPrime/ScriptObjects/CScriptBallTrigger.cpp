@@ -5,6 +5,8 @@
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/Player/CMorphBall.hpp"
 #include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrBallTrigger.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 #include "MetroidPrime/Tweaks/CTweakPlayer.hpp"
 #include "rstl/math.hpp"
@@ -125,4 +127,17 @@ bool CScriptBallTrigger::ShouldSendScriptMsgs(CActor& actor, CStateManager&) con
     return captured;
   }
   return true;
+}
+
+CEntity* LoadBallTrigger(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrBallTrigger sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrBallTrigger.inc"
+
+  return rs_new CScriptBallTrigger(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties), LdrToTransform4f(sldrThis.editorProperties),
+      sldrThis.editorProperties.transform.scale, LdrToDamageInfo(sldrThis.trigger.damage),
+      sldrThis.trigger.forceField, sldrThis.trigger.flagsTrigger, sldrThis.attractionForce,
+      sldrThis.attractionAngle, sldrThis.attractionDistance, CVector3f(sldrThis.attractionDirection),
+      sldrThis.noBallMovement);
 }
