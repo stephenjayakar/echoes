@@ -36,6 +36,10 @@
 #include "MetroidPrime/CDamageInfo.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptWaypoint.hpp"
 
+#include "MetroidPrime/CGameArea.hpp"
+#include "MetroidPrime/CGameCollision.hpp"
+#include "MetroidPrime/CWorld.hpp"
+
 #include "REL/REL_Setup.h"
 
 // The native record holds a single callback that always returns null; its signature is unknown.
@@ -87,12 +91,138 @@ CAABox CSwarmBasics::GetBoundingBox() const {
 
 rstl::optional_object< CAABox > CSwarmBasics::GetTouchBounds() const { return mAabox; }
 
+void CSwarmBasics::Think(float dt, CStateManager& mgr) {
+  if (!GetActive()) {
+    return;
+  }
+  x4f0_31_ = false;
+  if (!GetActive()) {
+    return;
+  }
+  SetTransformDirty();
+  mDamageCooldownTimer -= dt;
+  ++mThinkCounter;
+  const CGameArea& area = mgr.GetWorld()->GetAreaAlways(GetCurrentAreaId());
+  if (area.GetOcclusionState() != CGameArea::kOS_Visible) {
+    if (mOccludedTimer > 0.f) {
+      mOccludedTimer -= dt;
+    }
+    if (mOccludedTimer <= 0.f) {
+      return;
+    }
+    if (mThinkCounter & 2) {
+      return;
+    }
+  } else {
+    mOccludedTimer = 7.f;
+  }
+  UpdateParticles(dt);
+  int prevLockOnIndex = mLockOnIndex;
+  mLockOnIndex = GetLockOnIndex(mgr);
+  UpdateLockOnBlend(prevLockOnIndex, mLockOnIndex, dt);
+  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+    SetValidTarget(i, mLockOnIndex != -1);
+  }
+  if (mLockOnIndex == -1 || !x4f1_25_) {
+    RemoveMaterial(kMT_Target, kMT_Orbit, mgr);
+  } else {
+    AddMaterial(kMT_Target, kMT_Orbit, mgr);
+    mLastOrbitPosition = GetLockOnLocation(mLockOnIndex);
+  }
+  if (x4f0_30_) {
+    mBoidGenCooldownTimer -= dt;
+    while ((mMaxCreatedBoids == 0 || mCreatedBoids < mMaxCreatedBoids) &&
+           mBoidGenCooldownTimer <= 0.f) {
+      bool created = false;
+      for (int i = 0; i < mBoids.size(); ++i) {
+        if (!mBoids[i].GetActive()) {
+          CreateBoid(mgr, i);
+          ++mCreatedBoids;
+          mBoidGenCooldownTimer += 1.f / mBoidGenRate;
+          created = true;
+          break;
+        }
+      }
+      if (!created) {
+        mBoidGenCooldownTimer += 1.f / mBoidGenRate;
+        break;
+      }
+    }
+  }
+  if (x52c_ != 0) {
+    for (int i = 0; i < mBoids.size(); ++i) {
+      if (!mBoids[i].GetActive()) {
+        CreateBoid(mgr, i);
+        ++mCreatedBoids;
+        if (--x52c_ <= 0) {
+          break;
+        }
+      }
+    }
+  }
+  UpdatePartition();
+  const CAABox bounds = GetBoundingBox();
+  int count = 0;
+  mAabox = GetBoundingBox();
+  for (int x = 0; x < 5; ++x) {
+    int rowIndex = x;
+    for (int y = 0; y < 5; ++y, rowIndex += 5) {
+      for (int z = 0; z < 5; ++z) {
+        CBoid* boid = mPartitionedBoidLists[rowIndex + z * 25];
+        if (boid != nullptr) {
+          CAreaCollisionCache cache = GetAreaCollisionCacheForPartition(x, y, z);
+          if (ShouldBuildAreaCollisionCacheForPartition(rowIndex + z * 25)) {
+            CGameCollision::BuildAreaCollisionCache(mgr, cache);
+          }
+          for (; boid != nullptr; boid = boid->mNext) {
+            ++count;
+            if (boid->GetActive()) {
+              mAabox.AccumulateBounds(boid->GetTranslation());
+            }
+            if (((mThinkCounter & 1) == (count & 1) && boid->mActive &&
+                 boid->mFreezeTimer < 0.1f) ||
+                boid->mLaunched) {
+              UpdateBoid(cache, mgr, dt, *boid, rowIndex + z * 25);
+            }
+          }
+        }
+      }
+    }
+  }
+  for (CBoid* boid = mOutlierBoidList; boid != nullptr; boid = boid->mNext) {
+    ++count;
+    if (boid->GetActive()) {
+      mAabox.AccumulateBounds(boid->GetTranslation());
+    }
+    if (((mThinkCounter & 1) == (count & 1) && boid->mActive && boid->mFreezeTimer < 0.1f) ||
+        boid->mLaunched) {
+      const float margin = 1.5f + (0.5f + mBoidRadius);
+      const CVector3f extent(margin, margin, margin);
+      const CAABox boidBounds(boid->GetTranslation() - extent, boid->GetTranslation() + extent);
+      CAreaCollisionCache cache(boidBounds);
+      CGameCollision::BuildAreaCollisionCache(mgr, cache);
+      UpdateBoid(cache, mgr, dt, *boid, -1);
+    }
+  }
+  UpdateSwarmAnimations(mgr, dt);
+  UpdateAllBoidMovement(mgr, dt);
+  UpdateClosestPartitionLoopedSounds(mgr.GetPlayer(0)->GetTranslation(), mLocomotionSounds,
+                                     mMaxLocomotionEmitters, mLocomotionLoopedSound,
+                                     kLST_Locomotion);
+  FlushDeathMessages(mgr);
+  if (x4f1_24_) {
+    SendScriptMsgs(kSS_InternalState00, mgr);
+    x4f1_24_ = false;
+  }
+  UpdateSeekerTargets(mgr);
+}
+
 void CSwarmBasics::UpdateAllBoidMovement(CStateManager& mgr, float dt) {
   int count = mBoids.size();
   if (x4f0_27_) {
     int mask = mModelDatas.size() - 1;
     for (int i = 0; i < count; ++i) {
-      UpdateBoidMovement(mgr, mBoids[i], mAdvancementDeltas[i & mask], dt);
+      MoveBoid(mgr, mBoids[i], mAdvancementDeltas[i & mask].GetOffsetDelta(), dt);
     }
   }
 }
@@ -103,13 +233,13 @@ void CSwarmBasics::UpdateSwarmAnimations(CStateManager& mgr, float dt) {
     for (uint i = 0; i < count; ++i) {
       mModelDatas[i].AnimationData()->SetPlaybackRate(mAnimPlaybackSpeed);
       mAdvancementDeltas[i] = mModelDatas[i].AdvanceAnimation(dt, mgr, GetCurrentAreaId(), true);
-      UpdateEffects(mgr, *mModelDatas[i].AnimationData());
+      UpdateEffects(mgr, *mModelDatas[i].AnimationData(), mMaxVolume);
     }
   }
 }
 
-void CSwarmBasics::UpdateBoidMovement(CStateManager& mgr, CBoid& boid,
-                                      const CAdvancementDeltas& deltas, float dt) {
+void CSwarmBasics::MoveBoid(CStateManager& mgr, CBoid& boid, const CVector3f& offsetDelta,
+                            float dt) {
   if (boid.GetActive()) {
     if (boid.mFreezeTimer > 0.f) {
       boid.mFreezeTimer -= dt;
@@ -118,7 +248,7 @@ void CSwarmBasics::UpdateBoidMovement(CStateManager& mgr, CBoid& boid,
       }
     } else {
       float speed = boid.xa4_ / dt;
-      boid.mVelocity = speed * boid.GetTransform().Rotate(deltas.GetOffsetDelta());
+      boid.mVelocity = speed * boid.GetTransform().Rotate(offsetDelta);
       boid.mTransform.AddTranslation(dt * boid.mVelocity);
     }
   }
@@ -202,8 +332,8 @@ void CSwarmBasics::PreRender(CStateManager& mgr) {
 
 bool CSwarmBasics::CanRenderUnsorted(const CStateManager& mgr) const { return true; }
 
-void CSwarmBasics::CalculateSkinnedState(CModelData& modelData,
-                                         SwarmRenderHelpers::CSwarmSkinnedModelState& state) {
+void CSwarmBasics::CachePose(CModelData& modelData,
+                             SwarmRenderHelpers::CSwarmSkinnedModelState& state) const {
   const CAnimData* animData = modelData.GetAnimationData();
   const CSkinnedModel& model = **mModelData->GetAnimationData()->GetModelData();
   animData->BuildPose();
@@ -217,7 +347,7 @@ void CSwarmBasics::PreRenderBoid(CBoid* boid, uint* drawMask) {
     uint bit = 1 << idx;
     if (*drawMask & bit) {
       *drawMask &= ~bit;
-      CalculateSkinnedState(mModelDatas[idx], mSkinnedModelStates[idx]);
+      CachePose(mModelDatas[idx], mSkinnedModelStates[idx]);
     }
   }
 }
@@ -225,14 +355,14 @@ void CSwarmBasics::PreRenderBoid(CBoid* boid, uint* drawMask) {
 void CSwarmBasics::RenderBoid(CBoid* boid) const {
   if (x4f0_27_) {
     if (boid->mFreezeTimer > 0.f) {
-      RenderBoidModel(boid, *mSkinnedModelState);
+      DrawBoidSkinnedModel(boid, *mSkinnedModelState);
     } else {
-      RenderBoidModel(boid, mSkinnedModelStates[boid->mIndex & (mModelDatas.size() - 1)]);
+      DrawBoidSkinnedModel(boid, mSkinnedModelStates[boid->mIndex & (mModelDatas.size() - 1)]);
     }
   }
 }
 
-void CSwarmBasics::RenderBoidModel(CBoid* boid,
+void CSwarmBasics::DrawBoidSkinnedModel(const CBoid* boid,
                                    const SwarmRenderHelpers::CSwarmSkinnedModelState& state) const {
   CColor color = boid->mAmbientLighting;
   if (boid->mFreezeTimer > 0.f) {
@@ -685,7 +815,7 @@ void CSwarmBasics::FreezeCollision(const CMarkerGrid& grid) {
   }
 }
 
-int CSwarmBasics::CountActiveBoids() const {
+int CSwarmBasics::EvaluateActiveBoidCount() const {
   int count = 0;
   for (int i = 0; i < mBoids.size(); ++i) {
     if (mBoids[i].GetActive()) {
@@ -800,7 +930,7 @@ void CSwarmBasics::UpdateClosestPartitionLoopedSounds(const CVector3f& listener,
   }
 }
 
-bool CSwarmBasics::TryStartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds,
+bool CSwarmBasics::AddLoopedSoundToHandlesList(CBoid& boid, rstl::vector< TLoopedSound >& sounds,
                                        ushort sfx) {
   for (uint i = 0; i < sounds.size(); ++i) {
     if (!sounds[i].first) {
@@ -818,7 +948,7 @@ void CSwarmBasics::StartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& s
   boid.mHasLoopedSound = true;
 }
 
-void CSwarmBasics::UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds) {
+void CSwarmBasics::UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds) const {
   uint count = sounds.size();
   const TLoopedSound* data = sounds.data();
   for (uint i = 0; i < count; ++i) {
@@ -849,7 +979,7 @@ CSfxHandle CSwarmBasics::AddLoopedEmitter(const CVector3f& pos, ushort sfx) {
   return CSfxManager::AddEmitter(parms, GetCurrentAreaId().Value(), true, true);
 }
 
-void CSwarmBasics::UpdateEffects(CStateManager& mgr, CAnimData& animData) {
+void CSwarmBasics::UpdateEffects(CStateManager& mgr, CAnimData& animData, int volume) {
   int count;
   const CSoundPOINode* nodes = animData.GetSoundPOIList(count);
   if (count > 0 && nodes != nullptr) {
@@ -880,7 +1010,7 @@ void CSwarmBasics::UpdateEffects(CStateManager& mgr, CAnimData& animData) {
   }
 }
 
-CAreaCollisionCache CSwarmBasics::MakeAreaCollisionCache(int x, int y, int z) const {
+CAreaCollisionCache CSwarmBasics::GetAreaCollisionCacheForPartition(int x, int y, int z) const {
   return CAreaCollisionCache(BoxForPosition(x, y, z, mBoidRadius + 0.5f));
 }
 

@@ -131,29 +131,29 @@ public:
 
   // Guessed names for non-virtual helpers.
   CAABox BoxForPosition(int x, int y, int z, float margin) const;
-  CAreaCollisionCache MakeAreaCollisionCache(int x, int y, int z) const;
+  CAreaCollisionCache GetAreaCollisionCacheForPartition(int x, int y, int z) const;
   void UpdateParticles(float dt);
   void RenderParticles() const;
-  void CalculateSkinnedState(CModelData& modelData, SwarmRenderHelpers::CSwarmSkinnedModelState& state);
-  void RenderBoidModel(CBoid* boid, const SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
+  void CachePose(CModelData& modelData, SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
+  void DrawBoidSkinnedModel(const CBoid* boid, const SwarmRenderHelpers::CSwarmSkinnedModelState& state) const;
   void UpdateSeekerTargets(CStateManager& mgr);
   void AssignSeekerBoids(CStateManager& mgr, const rstl::vector< int >& taken, uint numNeeded,
                          rstl::vector< int >& out);
   void StopLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds);
   void AddParticle(const CTransform4f& xf);
   void FreezeCollision(const CMarkerGrid& grid);
-  int CountActiveBoids() const;
+  int EvaluateActiveBoidCount() const;
   CVector3f FindClosestCell(const CVector3f& pos) const;
   CBoid* GetClosestPartitionList(const CVector3f& pos) const;
   uint UpdateLoopedSounds(uint maxEmitters, signed char partitionIndex,
                           rstl::vector< TLoopedSound >& sounds);
-  bool TryStartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx);
+  bool AddLoopedSoundToHandlesList(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx);
   void StartLoopedSound(CBoid& boid, rstl::vector< TLoopedSound >& sounds, ushort sfx, uint slot);
-  void UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds);
+  void UpdateLoopedSoundPositions(const rstl::vector< TLoopedSound >& sounds) const;
   bool CanStartLoopedSound(const CBoid& boid, ELoopedSoundType type) const;
   CSfxHandle AddLoopedEmitter(const CVector3f& pos, ushort sfx);
-  void UpdateEffects(CStateManager& mgr, CAnimData& animData);
-  void UpdateBoidMovement(CStateManager& mgr, CBoid& boid, const CAdvancementDeltas& deltas,
+  void UpdateEffects(CStateManager& mgr, CAnimData& animData, int volume);
+  void MoveBoid(CStateManager& mgr, CBoid& boid, const CVector3f& offsetDelta,
                           float dt);
   void UpdatePartition();
   CBoid* GetListAt(const CVector3f& pos);
@@ -248,6 +248,7 @@ private:
   bool x4f0_30_ : 1;
   bool x4f0_31_ : 1;
   bool x4f1_24_ : 1;
+  bool x4f1_25_ : 1;
   float x4f4_;
   ushort mLocomotionLoopedSound;
   ushort mAttackLoopedSound;
@@ -260,7 +261,7 @@ private:
   uchar mMaxLocomotionEmitters;
   uchar mMaxAttackEmitters;
   int x528_;
-  int x52c_;
+  int x52c_; // Boids still to spawn immediately.
   int x530_; // Death messages sent this frame.
   int x534_; // Death messages deferred to later frames.
   float mFreezeDuration;
