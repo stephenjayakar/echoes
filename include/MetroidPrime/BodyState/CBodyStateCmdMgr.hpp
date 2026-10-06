@@ -473,6 +473,11 @@ public:
   void DeliverCmd(const CBCLocomotionCmd& cmd);
   void DeliverCmd(EBodyStateCmd cmd);
 
+  void DeliverCmd(const CBCGetupCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mGetup = cmd;
+  }
+
   void DeliverCmd(const CBCStepCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mStep = cmd;
@@ -486,6 +491,11 @@ public:
   void DeliverCmd(const CBCKnockBackCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mKnockBack = cmd;
+  }
+
+  void DeliverCmd(const CBCProjectileAttackCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mProjectileAttack = cmd;
   }
 
   void DeliverCmd(const CBCHurledCmd& cmd) {

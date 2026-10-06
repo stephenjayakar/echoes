@@ -90,6 +90,7 @@ public:
   float GetRandom() const { return mRandom; }
   float GetFixedRandom() const { return mFixedRandom; }
   bool GetCodeTrigger() const { return mCodeTrigger; }
+  void SetCodeTrigger() { mCodeTrigger = true; }
   const CState* GetCurrentState() const { return mState; } // Guessed name
   const CState* GetState() const { return mState; }
 

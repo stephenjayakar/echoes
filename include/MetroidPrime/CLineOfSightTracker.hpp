@@ -17,6 +17,8 @@ public:
   void SetSegment(const CSegId& segment) { mSegment = segment; }            // Guessed name
   void SetRayFilter(const CMaterialFilter& filter) { mRayFilter = filter; } // Guessed name
   bool HasLineOfSight() const { return mHasLineOfSight; }                   // Guessed name
+  float GetClearTime() const { return mClearTime; }                         // Guessed name
+  float GetBlockedTime() const { return mBlockedTime; }                     // Guessed name
 
 private:
   TUniqueId mOwner;            // Guessed name

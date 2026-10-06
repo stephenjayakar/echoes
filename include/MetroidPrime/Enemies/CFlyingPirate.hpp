@@ -166,7 +166,9 @@ public:
 
 private:
   void CheckForProjectiles(CStateManager& mgr);
-  bool CanFireMissiles(CStateManager& mgr);
+  void ResetFireMissilesCheck();
+  void UpdateCanFireMissiles(CStateManager& mgr);
+  void CheckFireMissiles(CStateManager& mgr);
   bool FireProjectile(CStateManager& mgr, float dt);
   CVector3f GetTargetPos(CStateManager& mgr);
   pas::EStepDirection GetDodgeDirection(CStateManager& mgr, float arg);
@@ -218,9 +220,9 @@ private:
   TUniqueId mPatrolTarget;
   float x8a4_;
   CLineOfSightTracker mLineOfSightTracker;
-  int xbb0_;
-  int xbb4_;
-  bool xbb8_24_ : 1;
+  int mFireMissilesCheck;
+  int mFireMissilesCheckInterval;
+  bool mCanFireMissiles : 1;
   bool mIsFlyingPirate : 1;
   bool mIsAquaPirate : 1;
   mutable bool mHearShot : 1;
