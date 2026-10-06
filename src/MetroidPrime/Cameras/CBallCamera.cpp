@@ -33,9 +33,12 @@
 #include "WorldFormat/CMetroidAreaCollider.hpp"
 
 namespace {
-const CMaterialFilter skLineOfSightFilter = CMaterialFilter::MakeIncludeExclude(
-    CMaterialList(kMT_Unknown59),
-    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough));
+const CMaterialList skLineOfSightInclude = CMaterialList(kMT_Unknown59);
+const CMaterialList skLineOfSightExclude =
+    CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough);
+const CMaterialFilter skLineOfSightFilter =
+    CMaterialFilter::MakeIncludeExclude(skLineOfSightInclude, skLineOfSightExclude);
+const CRelAngle skAvoidStepAngle = CRelAngle::FromDegrees(60.f);
 }
 
 CBallCamera::CBallCamera(TUniqueId uid, TUniqueId watchedId, const CTransform4f& xf, float fovY,
@@ -413,10 +416,10 @@ bool CBallCamera::DetectCollision(const CVector3f& from, const CVector3f& to, fl
 
 bool CBallCamera::fn_801a6b20(const CVector3f& from, const CVector3f& direction, CVector3f& result,
                               CStateManager& mgr) {
-  const CRelAngle step = CRelAngle::FromDegrees(30.f);
   const CTransform4f negativeRotation =
-      CQuaternion::ZRotation(CRelAngle::FromRadians(-step.AsRadians())).BuildTransform4f();
-  const CTransform4f positiveRotation = CQuaternion::ZRotation(step).BuildTransform4f();
+      CQuaternion::ZRotation(CRelAngle::FromRadians(-skAvoidStepAngle.AsRadians()))
+          .BuildTransform4f();
+  const CTransform4f positiveRotation = CQuaternion::ZRotation(skAvoidStepAngle).BuildTransform4f();
   CVector3f negativeDirection = negativeRotation * direction;
   CVector3f positiveDirection = positiveRotation * direction;
   const float desiredDistance = direction.Magnitude();
@@ -444,10 +447,10 @@ bool CBallCamera::fn_801a6b20(const CVector3f& from, const CVector3f& direction,
 bool CBallCamera::fn_801a67a4(float radius, const CVector3f& from, const CVector3f& direction,
                               const rstl::reserved_vector< TUniqueId, 1024 >& nearList,
                               CVector3f& result, CStateManager& mgr) {
-  const CRelAngle step = CRelAngle::FromDegrees(30.f);
   const CTransform4f negativeRotation =
-      CQuaternion::ZRotation(CRelAngle::FromRadians(-step.AsRadians())).BuildTransform4f();
-  const CTransform4f positiveRotation = CQuaternion::ZRotation(step).BuildTransform4f();
+      CQuaternion::ZRotation(CRelAngle::FromRadians(-skAvoidStepAngle.AsRadians()))
+          .BuildTransform4f();
+  const CTransform4f positiveRotation = CQuaternion::ZRotation(skAvoidStepAngle).BuildTransform4f();
   float distance = direction.Magnitude();
   while (distance >= radius) {
     const CVector3f sought = distance * direction.AsNormalized();
@@ -1786,11 +1789,13 @@ void CBallCamera::ActivateFailSafe(float dt, CStateManager& mgr) {
       FindDesiredPosition(distance, elevation, Player(mgr).GetMovementDirection(), mgr, true);
   SetTranslation(position);
   TeleportLookAtStuff(mgr);
-  TeleportCamera(CTransform4f::LookAt(position, mLookPos, CVector3f::Up()), mgr);
-  CameraManager(mgr).SetPlayerCamera(mgr, GetUniqueId());
+  const CTransform4f xf = CTransform4f::LookAt(position, mLookPos, CVector3f::Up());
+  TeleportCamera(xf, mgr);
+  const_cast< CCameraManager& >(GetCameraManager(mgr)).SetPlayerCamera(mgr, GetUniqueId());
 
   mPendingFailsafe = false;
   mObscuredTime = 0.f;
+  const_cast< CCameraManager& >(GetCameraManager(mgr)).StartScreenFlash();
 }
 
 void CBallCamera::CheckFailSafe(float dt, CStateManager& mgr) {
@@ -2303,9 +2308,11 @@ void CBallCamera::OverrideCameraInfo(CStateManager& mgr) {
 }
 
 bool CBallCamera::SplineIntersectTest(CMaterialList& intersectMaterial, CStateManager& mgr) const {
-  const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(
-      CMaterialList(kMT_Unknown59, kMT_Floor, kMT_Wall),
-      CMaterialList(kMT_NoPlatformCollision, kMT_Player, kMT_Character, kMT_CameraPassthrough));
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  const CMaterialList include(kMT_Unknown59, kMT_Floor, kMT_Wall);
+  const CMaterialList exclude(kMT_NoPlatformCollision, kMT_Player, kMT_Character,
+                              kMT_CameraPassthrough);
+  const CMaterialFilter filter = CMaterialFilter::MakeIncludeExclude(include, exclude);
   return GetCameraManager(mgr).CheckSplineCollision(mCamSpline, 0, filter, mgr, intersectMaterial,
                                                     mCamSpline.GetLength() / 12.f, 0.3f);
 }
