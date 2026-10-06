@@ -353,7 +353,7 @@ void CEnvFxManagerGrid::RenderDarkWorldParticles(const CTransform4f& xf, const C
 }
 
 CVector3f CEnvFxManager::GetParticleBoundsToWorldScale() const {
-  return (mParticleBounds.GetMaxPoint() - mParticleBounds.GetMinPoint()) / 127.f;
+  return (1.f / 127.f) * (mParticleBounds.GetMaxPoint() - mParticleBounds.GetMinPoint());
 }
 
 void CEnvFxManager::MoveWrapCells(EEnvFxType type, int moveX, int moveY) {
@@ -1290,10 +1290,13 @@ void CEnvFxManager::Render(const CStateManager& mgr) {
 }
 
 static int CalcRainVolume(float density) {
+  float volume;
   if (density < 0.1f) {
-    return static_cast< int >(74.f * (density / 0.1f));
+    volume = 74.f * (density / 0.1f);
+  } else {
+    volume = 21.f * (density / 0.9f) + 74.f;
   }
-  return static_cast< int >(21.f * (density / 0.9f) + 74.f);
+  return static_cast< int >(volume);
 }
 
 static short CalcRainPitch(float density) { return static_cast< short >(8192.f * density); }
