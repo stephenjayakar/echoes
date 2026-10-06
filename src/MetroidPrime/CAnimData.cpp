@@ -2,6 +2,7 @@
 
 #include "Kyoto/Animation/CAnimMathUtils.hpp"
 #include "Kyoto/Animation/CAnimSysContext.hpp"
+#include "Kyoto/Animation/CAnimTreeBlend.hpp"
 #include "Kyoto/Animation/CAnimTreeNode.hpp"
 #include "Kyoto/Animation/CAnimationManager.hpp"
 #include "Kyoto/Animation/CCharLayoutInfo.hpp"
@@ -246,8 +247,20 @@ CAdvancementDeltas CAnimData::DoAdvance(float dt, bool& suspendEffects, CRandom1
 // Guessed name.
 rstl::ncrc_ptr< CAnimTreeNode >
 CAnimData::BuildAnimationTree(const CAnimPlaybackParms& parms) const {
-  // TODO: Build the requested animation or a blend of the two requested animations.
-  return rstl::ncrc_ptr< CAnimTreeNode >();
+  const int animB = parms.GetSecondAnimationId();
+  const uint animA = mCharInfo.GetAnimationIndexList()[parms.GetAnimationId()];
+  const float blendWeight = parms.GetBlendWeight();
+  if (animB != -1) {
+    const uint animBIdx = mCharInfo.GetAnimationIndexList()[animB];
+    const rstl::ncrc_ptr< CAnimTreeNode > treeA =
+        GetAnimationManager()->GetAnimationTree(animA, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    const rstl::ncrc_ptr< CAnimTreeNode > treeB = GetAnimationManager()->GetAnimationTree(
+        animBIdx, CMetaAnimTreeBuildOrders::NoSpecialOrders());
+    return rstl::ncrc_ptr< CAnimTreeNode >(
+        rs_new CAnimTreeBlend(false, treeA, treeB, blendWeight,
+                              CAnimTreeBlend::CreatePrimitiveName(treeA, treeB, blendWeight)));
+  }
+  return GetAnimationManager()->GetAnimationTree(animA, CMetaAnimTreeBuildOrders::NoSpecialOrders());
 }
 
 // Guessed name.
