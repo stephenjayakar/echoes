@@ -35,6 +35,10 @@ protected:
   int GetPlayerIndex() const { return mPlayerIndex; }
   TUniqueId GetCurrentHintId() const { return mCurrentHintId; }
   int GetCurrentPriority() const { return mPriority; }
+  void SetCurrentHint(TUniqueId id, int priority) {
+    mCurrentHintId = id;
+    mPriority = priority;
+  }
   void ClearCurrentHint(int priority) {
     mCurrentHintId = kInvalidUniqueId;
     mPriority = priority;

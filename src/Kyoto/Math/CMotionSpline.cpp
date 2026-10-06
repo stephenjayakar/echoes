@@ -48,7 +48,8 @@ float CMotionSpline::GetKnotLength(uint index) const {
 }
 
 float CMotionSpline::GetKnotTime(uint index) const {
-  return mDuration * (GetKnotLength(index) / mLength);
+  float length = GetKnotLength(index);
+  return mDuration * (length / mLength);
 }
 
 uint CMotionSpline::ValidateKnotIndex(uint index) const {
@@ -241,7 +242,8 @@ float CMotionSpline::CalculateCatmullRomLength(int index) const {
     const CVector3f tangent = linear + t * (quadratic + (1.5f * t) * cubic);
     length += kWeights[i] * tangent.Magnitude();
   }
-  return length * 0.5f;
+  length *= 0.5f;
+  return length;
 }
 
 float CMotionSpline::CalculateRoundedCatmullRomLength(int index) const {
@@ -289,7 +291,8 @@ float CMotionSpline::CalculateRoundedCatmullRomLength(int index) const {
     const CVector3f tangent = firstDerivative + t * (quadratic + (3.f * t) * cubic);
     length += kWeights[i] * tangent.Magnitude();
   }
-  return length * 0.5f;
+  length *= 0.5f;
+  return length;
 }
 
 float CMotionSpline::CalculateBSplineLength(int index) const {
@@ -308,7 +311,8 @@ float CMotionSpline::CalculateBSplineLength(int index) const {
     const CVector3f tangent = (1.f / 6.f) * (linear + t * (quadratic + (3.f * t) * cubic));
     length += kWeights[i] * tangent.Magnitude();
   }
-  return length * 0.5f;
+  length *= 0.5f;
+  return length;
 }
 
 float CMotionSpline::CalculateBezierLength(const CVector3f& a, const CVector3f& b,
@@ -331,7 +335,8 @@ float CMotionSpline::CalculateBezierLength(const CVector3f& a, const CVector3f& 
 float CMotionSpline::CalculateBezierLength(int index) const {
   rstl::reserved_vector< CVector3f, 4 > points;
   GetSurroundingPoints(index, points);
-  return CalculateBezierLength(points[0], points[1], points[2], points[3]);
+  const CVector3f& last = points[3];
+  return CalculateBezierLength(points[0], points[1], points[2], last);
 }
 
 void CMotionSpline::CalculateLength() {

@@ -96,7 +96,7 @@ public:
 
   // CRuleSetEvaluator
   CRuleValue GetConditionValue(FourCC condition) const override;
-  bool ExecuteAction(const CRuleAction& action) override;
+  int ExecuteAction(const CRuleAction& action) override;
 
   // CKnockBackMgr
   virtual void Update(float dt, CStateManager& mgr, CActor& actor);

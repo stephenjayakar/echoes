@@ -215,6 +215,7 @@ public:
   void DrawSpaceWarp(const CVector3f& position, float strength) const;
   void PreRender(uint playerIndex);                // Prime-correlated name.
   void DrawWorld(const CInGameGuiManagerSet& gui); // Prime-correlated name.
+  void DrawDebugStuff() const; // Prime-correlated name; empty in retail.
   void SetupPlayerViewport(uint playerIndex);      // Guessed name.
   void DrawUnusedViewport(int viewportIndex);      // Guessed name.
   // Guessed name; output pointers are independently optional in the native body.

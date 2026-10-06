@@ -91,13 +91,13 @@ void CScriptColorModulate::SetTargetFlags(CStateManager& mgr, const CModelFlags&
     }
     const CStateManager::TIdListResult ids = mgr.GetIdListForScript(it->objId);
     for (CStateManager::TIdList::const_iterator id = ids.first; id != ids.second; ++id) {
-      if (CActor* actor = TCastToPtr< CActor >(mgr.GetObjectByIdFromListAll(id->second))) {
+      if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(id->second))) {
         actor->SetModelFlags(flags);
       }
     }
   }
   if (mParent != kInvalidUniqueId) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.GetObjectByIdFromListAll(mParent))) {
+    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(mParent))) {
       actor->SetModelFlags(flags);
     }
   }
@@ -287,11 +287,14 @@ void CScriptColorModulate::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg&
 // Guessed name
 void CScriptColorModulate::SetExternalTime(float time) {
   if (mExternalTime) {
-    if (mControlSpline.GetKnots().empty()) {
-      const float duration = mFadeState == kFS_BtoA ? mTimeB2A : mTimeA2B;
-      mCurTime = fmod(time, duration);
-    } else {
+    if (!mControlSpline.GetKnots().empty()) {
       mCurTime = time;
+    } else {
+      float duration = mTimeA2B;
+      if (mFadeState == kFS_BtoA) {
+        duration = mTimeB2A;
+      }
+      mCurTime = fmod(time, duration);
     }
   }
 }
