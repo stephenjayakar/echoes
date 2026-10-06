@@ -9,6 +9,7 @@
 #include "Kyoto/CRandom16.hpp"
 #include "Kyoto/Graphics/CModel.hpp"
 #include "Kyoto/Math/CloseEnough.hpp"
+#include "rstl/algorithm.hpp"
 #include "MetroidPrime/CModelData.hpp"
 
 typedef rstl::reserved_vector< rstl::pair< uint, CAdditiveAnimPlayback >, 8 > TAdditiveAnims;
@@ -357,13 +358,9 @@ void CAnimData::InitializeEffects(CStateManager& mgr, TAreaId areaId, const CVec
 
 CParticleGenInfo* CAnimData::GetFirstParticleEffect(const rstl::string& name) {
   const CCharacterInfo::TEffectList& effects = mCharInfo.GetEffects();
-  for (uint i = 0; i < effects.size(); ++i) {
-    if (effects[i].first == name) {
-      const rstl::vector< CEffectComponent >& components = effects[i].second;
-      return components.empty()
-                 ? nullptr
-                 : mParticleDB.GetParticleEffect(components[0].GetComponentNameHash());
-    }
+  CCharacterInfo::TEffectList::const_iterator it = rstl::find_by_key(effects, name);
+  if (it != effects.end() && !it->second.empty()) {
+    return mParticleDB.GetParticleEffect(it->second[0].GetComponentNameHash());
   }
   return nullptr;
 }
