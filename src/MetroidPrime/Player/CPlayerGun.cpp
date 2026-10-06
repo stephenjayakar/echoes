@@ -96,9 +96,13 @@ static const TStateMachineState< CPlayerGun >::SStateFunction skGunStateFunction
     {"EventHandler", &CPlayerGun::EventHandler},
 };
 
+static const float kChargeDtFactor = 1.0f / CPlayerState::GetMissileComboChargeFactor();
 static const float kFactorMultiplierForBeamCombo =
     1.0f / CPlayerState::GetMissileComboChargeFactor();
-static const float kChargeDtFactor = 1.0f / CPlayerState::GetMissileComboChargeFactor();
+static const float kComboChargeFraction = // Guessed name; unused.
+    (CPlayerState::GetMissileComboChargeFactor() - 1.f) /
+    CPlayerState::GetMissileComboChargeFactor();
+static const CVector3f sGunScale(2.f, 2.f, 2.f);
 static const ushort skEmptyBeamSfx[] = {
     0x524,
     0x25A4,
@@ -112,6 +116,7 @@ static const int comboCosts[] = {0, 30, 30, 30};
 
 static const CMaterialFilter skWeaponCollisionFilter = CMaterialFilter::MakeIncludeExclude(
     CMaterialList(kMT_Unknown59), CMaterialList(kMT_NoPlatformCollision));
+static const CColor kUnusedGunColor(0.75f, 0.5f, 0.f, 1.f); // Guessed name; unused.
 static const CMaterialFilter skSeekerTargetFilter = CMaterialFilter::MakeIncludeExclude(
     CMaterialList(kMT_SeekerTarget), CMaterialList(kMT_NoPlatformCollision));
 
@@ -127,7 +132,7 @@ bool IsSeekerTargetInRange(const CActor& target, const CPlayer& player, const CS
                            float radius);
 
 CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
-: CPlayerGunBase(rstl::string("SamusGun"), playerId, CVector3f(2.f, 2.f, 2.f), 20)
+: CPlayerGunBase(rstl::string("SamusGun"), playerId, sGunScale, 20)
 , mGunWorldXf(CTransform4f::Identity())
 , mBeamLocalXf(CTransform4f::Identity())
 , mElbowLocalXf(CTransform4f::Identity())
@@ -139,13 +144,13 @@ CPlayerGun::CPlayerGun(TUniqueId playerId, int characterIndex)
 , mHologramClipCube(CVector3f(-0.293292f, 0.f, -0.2481945f),
                     CVector3f(0.293292f, 1.292392f, 0.2481945f))
 , mRender(&CPlayerGun::RenderGunWithHologram)
-, mGunMotion(rs_new CGunMotion(NWeaponTypes::get_asset_id_from_name("GunMotion"), mScale))
-, mGrappleArm(rs_new CGrappleArm(mScale, playerId, bool(uchar(characterIndex))))
+, mGunMotion(rs_new CGunMotion(NWeaponTypes::get_asset_id_from_name("GunMotion"), sGunScale))
+, mGrappleArm(rs_new CGrappleArm(sGunScale, playerId, bool(uchar(characterIndex))))
 , mAuxWeapon(rs_new CAuxWeapon(playerId))
-, mPowerBeam(rs_new CPowerBeam(playerId, mScale, characterIndex))
-, mDarkBeam(rs_new CDarkBeam(playerId, mScale, characterIndex))
-, mLightBeam(rs_new CLightBeam(playerId, mScale, characterIndex))
-, mAnnihilatorBeam(rs_new CAnnihilatorBeam(playerId, mScale, characterIndex))
+, mPowerBeam(rs_new CPowerBeam(playerId, sGunScale, characterIndex))
+, mDarkBeam(rs_new CDarkBeam(playerId, sGunScale, characterIndex))
+, mLightBeam(rs_new CLightBeam(playerId, sGunScale, characterIndex))
+, mAnnihilatorBeam(rs_new CAnnihilatorBeam(playerId, sGunScale, characterIndex))
 , mSelectableBeams(4, static_cast< CGunWeapon* >(nullptr))
 , mBombDependencies(TToken< CDependencyGroup >(gpSimplePool->GetObj("Bomb_DGRP")), *gpSimplePool)
 , mCurrentBeam(nullptr)
@@ -1153,7 +1158,7 @@ bool CPlayerGun::ProcessGunMorph(float dt, CStateManager& mgr) {
   case CGunMorph::kGS_InWipe:
   case CGunMorph::kGS_OutWipe:
     if (mHoloTransitionGenerator.get() != nullptr) {
-      mHoloTransitionGenerator->SetGlobalOrientation(CTransform4f::Identity());
+      mHoloTransitionGenerator->SetGlobalScale(sGunScale);
       mHoloTransitionGenerator->SetGlobalTranslation(CVector3f(0.f, mGunMorph.mYLerp, 0.f));
       mHoloTransitionGenerator->Update(dt);
     }
@@ -2103,10 +2108,11 @@ void CPlayerGun::UpdateAuxWeapons(float dt, const CTransform4f& transform, CStat
   const CVector3f cameraTranslation =
       GetPlayer(mgr)->GetCameraManager()->GetGlobalCameraTranslation(mgr, true);
   const bool active =
-      mAuxWeapon->UpdateComboFx(dt, mScale, firePosition + cameraTranslation, transform, mgr);
-  if (mComboFiring && mChargePhase == kCP_ComboFired && !active) {
+      mAuxWeapon->UpdateComboFx(dt, sGunScale, firePosition + cameraTranslation, transform, mgr);
+  if (mComboFiring && mChargePhase == kCP_ComboFired && active != true) {
     mCurrentBeam->EnableSecondaryFx(CGunWeapon::kSFT_CancelCharge);
-    if (AnimOver(mgr, 0.f)) {
+    float zero = 0.f;
+    if (AnimOver(mgr, zero)) {
       mComboFiring = false;
     }
   }
@@ -2580,7 +2586,7 @@ void CPlayerGun::ComboActive(CStateManager& mgr, int message, float dt) {
     TCachedToken< CGenDescription >& transfer = mCurrentBeam->GetTransferEffect();
     if (transfer.IsLoaded()) {
       mComboTransferGenerator = rstl::auto_ptr< CElementGen >(rs_new CElementGen(transfer));
-      mComboTransferGenerator->SetGlobalOrientation(CTransform4f::Identity());
+      mComboTransferGenerator->SetGlobalScale(sGunScale);
     }
     mCurrentBeam->SetEnableCharge(true);
     StopChargeSound(mgr, false);
@@ -2592,7 +2598,7 @@ void CPlayerGun::ComboActive(CStateManager& mgr, int message, float dt) {
   case kSM_Update:
     if (mComboTransferGenerator.get() != nullptr) {
       mComboTransferGenerator->SetGlobalTranslation(mBeamLocalXf.GetTranslation());
-      mComboTransferGenerator->SetOrientation(mBeamLocalXf.GetRotation());
+      mComboTransferGenerator->SetGlobalOrientation(mBeamLocalXf.GetRotation());
       mComboTransferGenerator->Update(dt);
     }
     switch (mChargePhase) {
@@ -2615,6 +2621,8 @@ void CPlayerGun::ComboActive(CStateManager& mgr, int message, float dt) {
       mGunMotion->PlayPasAnim(SamusGun::kAS_ComboFire, mgr, 0.f, false);
       mCurrentBeam->EnterComboFire(mgr);
       mChargePhase = kCP_ComboAnimating;
+      break;
+    case kCP_ComboAnimating:
       break;
     }
     break;
