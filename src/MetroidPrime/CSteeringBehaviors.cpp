@@ -6,9 +6,6 @@
 #include "MetroidPrime/CStateManager.hpp"
 #include "rstl/math.hpp"
 
-// Native polynomial solver used by the accelerated interception path.
-extern "C" int fn_802CB918(const float* coefficients, float* roots);
-
 CSteeringBehaviors::CSteeringBehaviors() : x0_(M_PIF / 2.f) {}
 
 CVector3f CSteeringBehaviors::Flee(const CPhysicsActor& actor, const CVector3f& position) const {
@@ -133,7 +130,7 @@ bool CSteeringBehaviors::ProjectLinearIntersection(const CVector3f& origin, floa
 
   bool found = false;
   float roots[4];
-  const uint count = fn_802CB918(coefficients, roots);
+  const uint count = CMath::SolveQuartic(coefficients, roots);
   for (int i = 0; i < count; ++i) {
     const float time = roots[i];
     if (time > 0.f) {
