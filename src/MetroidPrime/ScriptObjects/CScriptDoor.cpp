@@ -371,7 +371,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
             if (door && door->GetUniqueId() != mOpeningSenderDoorId &&
                 door->mDockId == connectedDock->GetUniqueId()) {
               mPartnerDoorId = door->GetUniqueId();
-              mgr.SendScriptMsg(door, GetUniqueId(), kSM_Open, kInvalidUniqueId);
+              mgr.SendScriptMsg(door, GetUniqueId(), kSM_Open);
               return;
             }
           }
@@ -406,7 +406,7 @@ void CScriptDoor::SetDoorState(CStateManager& mgr, EDoorState state) {
     }
     if (mPartnerDoorId != kInvalidUniqueId) {
       if (CEntity* partner = mgr.ObjectById(mPartnerDoorId)) {
-        mgr.SendScriptMsg(partner, GetUniqueId(), kSM_Close, kInvalidUniqueId);
+        mgr.SendScriptMsg(partner, GetUniqueId(), kSM_Close);
       }
       mPartnerDoorId = kInvalidUniqueId;
     }
@@ -473,7 +473,7 @@ void CScriptDoor::Think(float dt, CStateManager& mgr) {
     }
     CGameArea* area = world->Area(connectedArea);
     if (!area->IsLoaded()) {
-      mgr.SendScriptMsg(dock, GetUniqueId(), kSM_SetToMax, kInvalidUniqueId);
+      mgr.SendScriptMsg(dock, GetUniqueId(), kSM_SetToMax);
       break;
     }
     if (area->GetPostConstructed()->x190_ != 0 || !world->IsAreaValid(dock->GetAreaId()) ||

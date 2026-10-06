@@ -2261,7 +2261,7 @@ void CGameArea::DisableDocks(CStateManager& mgr) {
     mPostConstructed->mDocksDisabled = true;
     for (rstl::list< TUniqueId >::const_iterator it = mPostConstructed->mDockIds.begin();
          it != mPostConstructed->mDockIds.end(); ++it) {
-      mgr.SendScriptMsg(*it, kInvalidUniqueId, kSM_SetToZero, kInvalidUniqueId);
+      mgr.SendScriptMsg(*it, kInvalidUniqueId, kSM_SetToZero);
     }
   }
 }

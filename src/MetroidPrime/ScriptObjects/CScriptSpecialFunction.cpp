@@ -1865,9 +1865,7 @@ void CScriptSpecialFunction::ThinkMapTeleport(float dt, CStateManager& mgr) {
       if (CScriptWorldTeleporter* teleporter =
               TCastToPtr< CScriptWorldTeleporter >(mgr.ObjectById(*it))) {
         bool active = teleporter->GetWorldId() == worldId;
-        mgr.SendScriptMsg(teleporter, GetUniqueId(),
-                          active ? kSM_Activate : kSM_Deactivate,
-                          kInvalidUniqueId);
+        mgr.SendScriptMsg(teleporter, GetUniqueId(), active ? kSM_Activate : kSM_Deactivate);
       }
     }
     SendScriptMsgs(mgr.World()->GetWorldAssetId() == worldId ? kSS_Zero : kSS_MaxReached, mgr);

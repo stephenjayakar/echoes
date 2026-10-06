@@ -76,8 +76,7 @@ void CEntity::SetActive(const bool active) { mActive = active; }
 
 void CEntity::SendActive(CStateManager& mgr, bool active) {
   if (active != GetActive()) {
-    mgr.SendScriptMsg(this, GetUniqueId(), active ? kSM_Activate : kSM_Deactivate,
-                      kInvalidUniqueId);
+    mgr.SendScriptMsg(this, GetUniqueId(), active ? kSM_Activate : kSM_Deactivate);
   }
 }
 

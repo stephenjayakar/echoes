@@ -243,8 +243,8 @@ void CEnergyProjectile::ResolveCollisionWithActor(const CRayCastResult& result, 
     CGameProjectile::ResolveCollisionWithActor(result, actor, mgr);
     ApplyDamageToActors(mgr, GetCurrentDamageInfo());
   } else {
-    mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XHIT, kInvalidUniqueId);
-    mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XXDG, kInvalidUniqueId);
+    mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XHIT);
+    mgr.SendScriptMsg(&actor, GetUniqueId(), kSM_XXDG);
     actor.SendScriptMsgs(kSS_ReflectedDamage, mgr);
   }
 

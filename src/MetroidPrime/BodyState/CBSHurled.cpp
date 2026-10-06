@@ -197,7 +197,7 @@ void CBSHurled::PlayLandAnimation(CBodyController& bc, CStateManager& mgr) {
   const CPASAnimParm parm = hurledState->GetAnimParmData(best.second, 3);
   bc.SetFallState(static_cast< pas::EFallState >(parm.GetEnumValue()));
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
-    mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+    mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
   }
 }
 

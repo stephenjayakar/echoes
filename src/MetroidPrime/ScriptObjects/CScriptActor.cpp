@@ -147,7 +147,7 @@ void CScriptActor::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     break;
   case kSM_Increment:
     if (!GetActive()) {
-      mgr.SendScriptMsg(this, GetUniqueId(), kSM_Activate, kInvalidUniqueId);
+      mgr.SendScriptMsg(this, GetUniqueId(), kSM_Activate);
       CScriptColorModulate::FadeInHelper(mgr, GetUniqueId(), mFadeInTime);
     }
     break;

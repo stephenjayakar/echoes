@@ -28,7 +28,7 @@ void CGroundMovement::CheckFalling(CPhysicsActor& actor, CStateManager& mgr, flo
   bool outOfBounds = true;
   const CAABox bounds = *actor.GetTouchBounds();
   for (CGameArea::CConstChainIterator it = mgr.GetWorld()->GetChainHead(CWorld::kC_Alive);
-       it != CWorld::skGlobalEnd; ++it) {
+       it != CWorld::GetAliveAreasEnd(); ++it) {
     if (it->GetAABB().DoBoundsOverlap(*actor.GetTouchBounds())) {
       outOfBounds = false;
       break;

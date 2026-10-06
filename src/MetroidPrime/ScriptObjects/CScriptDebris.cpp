@@ -449,7 +449,7 @@ void CScriptDebris::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
             SetBoundingBox(touchBounds ? *touchBounds : bounds);
           }
 
-          mgr.SendScriptMsg(actor, GetUniqueId(), kSM_Activate, kInvalidUniqueId);
+          mgr.SendScriptMsg(actor, GetUniqueId(), kSM_Activate);
           break;
         }
         mgr.DeleteObjectRequest(generated.mUniqueId);

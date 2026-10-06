@@ -533,7 +533,7 @@ CEntity* CStateManager::ObjectById(TUniqueId uid) {
 }
 
 void CStateManager::DeleteObjectRequest(TUniqueId uid) {
-  SendScriptMsg(uid, kInvalidUniqueId, kSM_Delete, kInvalidUniqueId);
+  SendScriptMsg(uid, kInvalidUniqueId, kSM_Delete);
 }
 
 void CStateManager::SetCurrentAreaId(TAreaId area) {
@@ -2512,10 +2512,10 @@ void CStateManager::ApplyRadiusDamage(const CActor& source, const CVector3f& pos
       ApplyLocalDamage(position, delta, damagee, localDamage, source.GetUniqueId(), owner, info, 1);
     }
     SendDamageScriptMsgs(damagee, source.GetUniqueId(), info);
-    SendScriptMsg(&damagee, source.GetUniqueId(), kSM_Damage, kInvalidUniqueId);
+    SendScriptMsg(&damagee, source.GetUniqueId(), kSM_Damage);
   } else {
     damagee.SendScriptMsgs(kSS_ResistedDamage, *this);
-    SendScriptMsg(&damagee, source.GetUniqueId(), kSM_ResistedDamage, kInvalidUniqueId);
+    SendScriptMsg(&damagee, source.GetUniqueId(), kSM_ResistedDamage);
   }
 
   const CVector3f knockbackDelta =
@@ -2808,8 +2808,7 @@ void CStateManager::MoveActors(float dt) {
 
     CPatterned* patterned = TCastToPtr< CPatterned >(actor);
     if (patterned != nullptr && !ShouldUpdatePatterned(*patterned)) {
-      SendScriptMsg(patterned->GetUniqueId(), kInvalidUniqueId, kSM_AIUpdateDisabled,
-                    kInvalidUniqueId);
+      SendScriptMsg(patterned->GetUniqueId(), kInvalidUniqueId, kSM_AIUpdateDisabled);
       continue;
     }
 

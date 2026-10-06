@@ -210,7 +210,7 @@ bool CBSWallHang::CheckForWall(CBodyController& bc, CStateManager& mgr) {
                              false, false);
       actor->SetVelocityWR(CVector3f::Zero());
       actor->SetMomentumWR(CVector3f::Zero());
-      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
       ret = true;
     }
   }
@@ -224,7 +224,7 @@ bool CBSWallHang::CheckForLand(CBodyController& bc, CStateManager& mgr) {
       mState = pas::kWHS_DetachOutOfJump;
       bc.PlayBestAnimation(CPASAnimParmData(pas::kAS_WallHang, CPASAnimParm::FromEnum(mState)),
                            *mgr.Random());
-      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
+      mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed);
       ret = true;
     }
   }

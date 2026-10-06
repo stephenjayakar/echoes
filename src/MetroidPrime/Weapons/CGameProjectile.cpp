@@ -633,7 +633,7 @@ void CGameProjectile::ResolveCollisionWithActor(const CRayCastResult& result, CA
             CVector3f(1.f, 1.f, 1.f), CVector3f::Zero(), false));
         CSfxManager::SfxStart(particle->mSound, 0x7f, player->GetSoundPan(CPlayer::kMSP_4));
         if (particle->mSendCollideMessage) {
-          mgr.SendScriptMsg(player, GetUniqueId(), kSM_XAOV, kInvalidUniqueId);
+          mgr.SendScriptMsg(player, GetUniqueId(), kSM_XAOV);
         }
       }
     }

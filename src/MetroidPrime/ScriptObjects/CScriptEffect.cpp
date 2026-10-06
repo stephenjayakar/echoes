@@ -226,7 +226,7 @@ void CScriptEffect::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
     CActor::AcceptScriptMsg(mgr, msg);
   }
   CActor* light = TCastToPtr< CActor >(mgr.ObjectById(mLightId));
-  mgr.SendScriptMsg(light, msg.GetSenderId(), msg.GetMessage(), kInvalidUniqueId);
+  mgr.SendScriptMsg(light, msg.GetSenderId(), msg.GetMessage());
   if (oldEmitting == mEmitting) {
     return;
   }

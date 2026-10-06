@@ -65,7 +65,7 @@ void CScriptGenerator::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg
       if (it->msg == kSM_Activate) {
         activations.push_back_unsafe(it->objId);
       } else {
-        mgr.SendScriptMsg(mgr.GetIdForScript(it->objId), GetUniqueId(), it->msg, kInvalidUniqueId);
+        mgr.SendScriptMsg(mgr.GetIdForScript(it->objId), GetUniqueId(), it->msg);
       }
     }
 
