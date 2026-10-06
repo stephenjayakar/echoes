@@ -277,12 +277,18 @@ void CScriptTrigger::NotifyInhabitantIdle(CActor& actor, CStateManager& mgr) {
 
 void CScriptTrigger::UpdateCameraInhabitant(const TUniqueId& id, CStateManager& mgr) {
   CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(id));
-  if (!camera || !(mFlags & kTFL_DetectCamera)) {
+  if (!camera) {
+    return;
+  }
+  if (!(mFlags & kTFL_DetectCamera)) {
     return;
   }
   const rstl::optional_object< CAABox > triggerBounds = GetTouchBounds();
   const rstl::optional_object< CAABox > cameraBounds = camera->GetTouchBounds();
-  if (!triggerBounds || !cameraBounds) {
+  if (!triggerBounds) {
+    return;
+  }
+  if (!cameraBounds) {
     return;
   }
 
