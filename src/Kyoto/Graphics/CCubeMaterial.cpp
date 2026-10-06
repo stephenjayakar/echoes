@@ -85,7 +85,7 @@ void CCubeMaterial::SetupBlendMode(const uint blendFactors, const CModelFlags& f
                                    bool alphaTest) {
   GXBlendFactor newSrcFactor = static_cast< GXBlendFactor >(blendFactors & 0xFFFF);
   GXBlendFactor newDstFactor = static_cast< GXBlendFactor >(blendFactors >> 0x10);
-  CModelFlags::ETrans blendMode = flags.GetTrans();
+  CModelFlags::ETrans blendMode = flags.GetTransSigned();
 
   GXCompare alphaCompare;
   if (alphaTest) {
