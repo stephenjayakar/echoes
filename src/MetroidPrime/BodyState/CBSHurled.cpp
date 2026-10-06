@@ -188,23 +188,24 @@ void CBSHurled::PlayLandAnimation(CBodyController& bc, CStateManager& mgr) {
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(mState));
-  const int animId = db.FindBestAnimation(parms, *mgr.Random(), -1).second;
-  bc.SetCurrentAnimation(CAnimPlaybackParms(animId, -1, 1.f, true), false, false);
+  const rstl::pair< float, int > best = db.FindBestAnimation(parms, *mgr.Random(), -1);
+  bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
 
   const CPASAnimState* hurledState = db.GetAnimState(pas::kAS_Hurled);
-  bc.SetFallState(
-      static_cast< pas::EFallState >(hurledState->GetAnimParmData(animId, 3).GetEnumValue()));
+  const CPASAnimParm parm = hurledState->GetAnimParmData(best.second, 3);
+  bc.SetFallState(static_cast< pas::EFallState >(parm.GetEnumValue()));
   if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(&bc.GetOwner())) {
     mgr.SendScriptMsg(actor, kInvalidUniqueId, kSM_Landed, kInvalidUniqueId);
   }
 }
 
 void CBSHurled::PlayStrikeWallAnimation(CBodyController& bc, CStateManager& mgr) {
+  const CPASDatabase& db = bc.GetPASDatabase();
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(pas::kHS_StrikeWall));
   const rstl::pair< float, int > best =
-      bc.GetPASDatabase().FindBestAnimation(parms, *mgr.Random(), -1);
+      db.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
     mState = pas::kHS_StrikeWall;
@@ -212,11 +213,12 @@ void CBSHurled::PlayStrikeWallAnimation(CBodyController& bc, CStateManager& mgr)
 }
 
 void CBSHurled::Recover(CStateManager& mgr, CBodyController& bc, pas::EHurledState state) {
+  const CPASDatabase& db = bc.GetPASDatabase();
   const CPASAnimParmData parms(pas::kAS_Hurled, CPASAnimParm::FromInt32(mAnimSeries),
                                CPASAnimParm::FromReal32(mKnockAngle),
                                CPASAnimParm::FromEnum(state));
   const rstl::pair< float, int > best =
-      bc.GetPASDatabase().FindBestAnimation(parms, *mgr.Random(), -1);
+      db.FindBestAnimation(parms, *mgr.Random(), -1);
   if (best.first > FLT_EPSILON) {
     bc.SetCurrentAnimation(CAnimPlaybackParms(best.second, -1, 1.f, true), false, false);
     mState = state;

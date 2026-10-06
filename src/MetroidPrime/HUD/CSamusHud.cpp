@@ -553,11 +553,15 @@ void CSamusHud::DeferHintMemo(CAssetId stringTable, uint index, const CHUDMemoPa
 }
 
 bool CSamusHud::IsHudMemoVisible(int playerIndex) {
-  const CSamusHud* hud = gpSamusHud[playerIndex];
-  if (hud == nullptr || hud->mMessageRoot == nullptr || hud->mMessagePane == nullptr) {
+  if (gpSamusHud[playerIndex] == nullptr) {
     return false;
   }
-  return hud->mMessageRoot->GetIsVisible() || hud->mMessagePane->GetIsVisible();
+  if (gpSamusHud[playerIndex]->mMessageRoot == nullptr ||
+      gpSamusHud[playerIndex]->mMessagePane == nullptr) {
+    return false;
+  }
+  return gpSamusHud[playerIndex]->mMessageRoot->GetIsVisible() ||
+         gpSamusHud[playerIndex]->mMessagePane->GetIsVisible();
 }
 
 void CSamusHud::InternalDisplayHudMemo(const rstl::wstring& text, const CHUDMemoParms& info) {
