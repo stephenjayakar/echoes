@@ -1718,11 +1718,10 @@ void CCubeRenderer::DrawModelDisintegrate(const SModelRenderData& model, const C
   const CAABox& bounds = model.GetAABB();
   CTransform4f xf = CTransform4f::RotateX(CRelAngle::FromRadians(-0.7853982f));
   const CAABox rotatedBounds = bounds.GetTransformedAABox(xf);
-  const CVector3f translation = -rotatedBounds.GetMinPoint();
   const CVector3f dimensions = rotatedBounds.GetMaxPoint() - rotatedBounds.GetMinPoint();
   xf = (CTransform4f::Scale(5.f / dimensions.GetX(), 5.f / dimensions.GetY(),
                             5.f / dimensions.GetZ()) *
-        CTransform4f::Translate(translation)) *
+        CTransform4f::Translate(-rotatedBounds.GetMinPoint())) *
        xf;
   const CAABox transformedBounds = bounds.GetTransformedAABox(xf);
   (void)transformedBounds;
@@ -1745,7 +1744,7 @@ void CCubeRenderer::DrawModelDisintegrate(const SModelRenderData& model, const C
   CGX::SetTexCoordGen(GX_TEXCOORD1, GX_TG_MTX3x4, GX_TG_POS, GX_TEXMTX0, false, GX_PTTEXMTX1);
   CGX::SetAlphaCompare(GX_GREATER, 0, GX_AOP_AND, GX_ALWAYS, 0);
   CGX::SetZMode(true, GX_LEQUAL, true);
-  model.DrawFlat(CModelFlags(CModelFlags::kT_Opaque, CColor::White()), true, true);
+  model.DrawFlat(CModelFlags(CModelFlags::kT_Opaque, 1.f), true, true);
   CGX::SetAlphaCompare(GX_ALWAYS, 0, GX_AOP_AND, GX_ALWAYS, 0);
 }
 
