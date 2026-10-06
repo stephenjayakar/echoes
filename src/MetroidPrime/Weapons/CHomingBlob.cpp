@@ -32,12 +32,12 @@ CHomingBlob::CHomingBlob(const TToken< CGenDescription >& particle, TUniqueId ui
 : CWeapon(uid, areaId, active, owner, kWT_Dark, name, xf,
           CMaterialFilter::MakeIncludeExclude(CMaterialList(kMT_Unknown59),
                                               CMaterialList(kMT_Character, kMT_Player)),
-          CMaterialList(kMT_Projectile), damage, kPA_None, CModelData())
+          CMaterialList(kMT_Projectile), damage, kPA_None, CModelData::CModelDataNull())
 , mCollisionBounds(bounds)
 , mParticleGen(rs_new CElementGen(particle, CElementGen::kMOT_One, CElementGen::kOSF_One))
 , mCollisionCache(rs_new CCollisionCache(mCollisionBounds, 2, 2, uid.Value() & 0x3ff))
 , mLightId(kInvalidUniqueId)
-, mParticleAssetId(CToken(particle).GetTag().GetId())
+, mParticleAssetId(TToken< CGenDescription >(particle).GetTag().GetId())
 , mTargetIds()
 , mNextParticleTarget(0)
 , mParticleUpdatePhase(0)
