@@ -88,18 +88,26 @@ void CEchoEmitter::Render(const CStateManager& mgr) const {
   }
   const SProjection projection =
       ProjectPoints(corners.data(), corners.size(), corners.data(), nullptr);
+  const float depth = projection.mProjectedCenter.GetY();
   float minX = corners[0].GetX();
-  float maxX = minX;
   float minZ = corners[0].GetZ();
+  float maxX = minX;
   float maxZ = minZ;
   for (int i = 1; i < 8; ++i) {
-    minX = rstl::min_val(minX, corners[i].GetX());
-    maxX = rstl::max_val(maxX, corners[i].GetX());
-    minZ = rstl::min_val(minZ, corners[i].GetZ());
-    maxZ = rstl::max_val(maxZ, corners[i].GetZ());
+    if (corners[i].GetX() < minX) {
+      minX = corners[i].GetX();
+    }
+    if (corners[i].GetX() > maxX) {
+      maxX = corners[i].GetX();
+    }
+    if (corners[i].GetZ() < minZ) {
+      minZ = corners[i].GetZ();
+    }
+    if (corners[i].GetZ() > maxZ) {
+      maxZ = corners[i].GetZ();
+    }
   }
 
-  const float depth = projection.mProjectedCenter.GetY();
   rstl::reserved_vector< CVector3f, 4 > contour;
   contour.push_back(CVector3f(minX, depth, minZ));
   contour.push_back(CVector3f(maxX, depth, minZ));
