@@ -78,13 +78,20 @@ CParticleData::EParentedMode CAnimTreeDoubleChild::VGetParticlePOIState(uint nam
 CAnimTreeEffectiveContribution CAnimTreeDoubleChild::VGetContributionOfHighestInfluence() const {
   CAnimTreeEffectiveContribution a = mA->GetContributionOfHighestInfluence();
   CAnimTreeEffectiveContribution b = mB->GetContributionOfHighestInfluence();
-  a.mContributionWeight *= GetLeftChildWeight();
-  b.mContributionWeight *= GetRightChildWeight();
-  return a.mContributionWeight > b.mContributionWeight ? a : b;
+  const float leftWeight = a.GetContributionWeight() * GetLeftChildWeight();
+  const float rightWeight = b.GetContributionWeight() * GetRightChildWeight();
+  return leftWeight > rightWeight
+             ? CAnimTreeEffectiveContribution(leftWeight, a.GetPrimitiveName(),
+                                              a.GetSteadyStateAnimInfo(), a.GetTimeRemaining(),
+                                              a.GetAnimDatabaseIndex())
+             : CAnimTreeEffectiveContribution(rightWeight, b.GetPrimitiveName(),
+                                              b.GetSteadyStateAnimInfo(), b.GetTimeRemaining(),
+                                              b.GetAnimDatabaseIndex());
 }
 
 uint CAnimTreeDoubleChild::VGetNumChildren() const {
-  return mA->VGetNumChildren() + mB->VGetNumChildren() + 2;
+  const uint rightCount = mB->VGetNumChildren();
+  return mA->VGetNumChildren() + 2 + rightCount;
 }
 
 CAnimTreeDoubleChild::CDoubleChildAdvancementResult::CDoubleChildAdvancementResult(
