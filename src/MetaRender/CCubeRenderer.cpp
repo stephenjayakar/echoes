@@ -3698,7 +3698,7 @@ void CCubeRenderer::PrepareWorldRendering(
         continue;
       }
     }
-    mDynamicLights.push_back(light);
+    mDynamicLights.push_back_unsafe(light);
   }
   mLightSets.clear();
   mLightSets.push_back(0x00ffffff);

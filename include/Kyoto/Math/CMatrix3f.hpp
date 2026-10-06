@@ -119,4 +119,8 @@ private:
 };
 CHECK_SIZEOF(CMatrix3f, 0x24);
 
+namespace rstl {
+RSTL_DECLARE_BITWISE_CONSTRUCTION(CMatrix3f)
+}
+
 #endif // _CMATRIX3F
