@@ -176,6 +176,22 @@ enum EScriptObjectState {
   kSS_InternalState05 = 0x49533035,
   kSS_InternalState06 = 0x49533036,
   kSS_ScanSource = 0x53434e53,
+  // Guessed names; GUI widget/menu states sent by the ScriptGui REL.
+  kSS_InternalState02 = 0x49533032,
+  kSS_InternalState10 = 0x49533130,
+  kSS_InternalState11 = 0x49533131,
+  kSS_InternalState12 = 0x49533132,
+  kSS_Locked = 0x4c4f434b,
+  kSS_Unlocked = 0x554c434b,
+  kSS_Frozen = 0x4652455a,
+  kSS_Modify = 0x4d444659,
+  kSS_APRC = 0x41505243, // Native GUI accept-press tag, sent before kSS_PressA.
+  kSS_PressA = 0x50525341,
+  kSS_PressB = 0x50525342,
+  kSS_PressX = 0x50525358,
+  kSS_PressY = 0x50525359,
+  kSS_PressZ = 0x5052535a,
+  kSS_PressStart = 0x50525354,
   kSS_InvalidState = 0xffffffff,
 };
 
@@ -209,6 +225,9 @@ enum EScriptObjectMessage {
   kSM_Kill = 0x4b494c4c,
   kSM_InternalMessage00 = 0x494d3030,
   kSM_InternalMessage01 = 0x494d3031,
+  kSM_InternalMessage02 = 0x494d3032, // Guessed name; GUI menu item-state refresh.
+  kSM_Escape = 0x45534350,            // Guessed name; clears a GUI widget's controllers.
+  kSM_Alert = 0x414c5254,             // Guessed name; GUI widget relays it as kSS_Attack.
 
   // Guessed lifecycle names from DKCR HD, corroborated by Echoes consumers.
   kSM_Create = 0x58435254,
