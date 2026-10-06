@@ -210,7 +210,7 @@ private:
     void Shutdown(CPlayerBodyController& controller);
     void UpdatePitch(float dt, const CVector3f& direction, CPlayerBodyController& controller);
 
-    int mAvailableAnimations[3];
+    uint mAvailableAnimations[3];
     int mAnimationIds[3][4];
     float mYawLimits[2];
     float mPitchLimits[2];
