@@ -2,11 +2,17 @@
 
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CStateManager.hpp"
+#include "MetroidPrime/CCameraManager.hpp"
+#include "MetroidPrime/Cameras/CBallCamera.hpp"
+#include "MetroidPrime/Player/CPlayer.hpp"
+#include "MetroidPrime/ScriptObjects/CScriptWater.hpp"
 #include "MetroidPrime/Cameras/CCameraSpring.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 #include "Kyoto/Graphics/CGraphics.hpp"
 #include "Kyoto/Math/CMath.hpp"
+#include "Kyoto/Math/CUnitVector3f.hpp"
+#include "Kyoto/Math/CloseEnough.hpp"
 
 CGameCamera::CGameCamera(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                          const CTransform4f& xf, float fov, float nearZ, float farZ, float aspect,
@@ -129,8 +135,35 @@ void CGameCamera::SetActive(const bool active) {
 
 CTransform4f CGameCamera::ValidateCameraTransform(const CTransform4f& newXf,
                                                   const CTransform4f& oldXf, float dt) {
-  // TODO: Recover orthonormalization and the Echoes-specific horizon/inversion corrections.
-  return newXf;
+  CTransform4f xf(newXf);
+  if (!close_enough(newXf.GetColumn(kDX).Magnitude(), 1.f) ||
+      !close_enough(newXf.GetColumn(kDY).Magnitude(), 1.f) ||
+      !close_enough(newXf.GetColumn(kDZ).Magnitude(), 1.f)) {
+    xf.Orthonormalize();
+  }
+  const float dot = CMath::Limit(CVector3f::Dot(newXf.GetColumn(kDY), CVector3f::Up()), 1.f);
+  if (CMath::AbsF(dot) > 0.999f) {
+    xf = oldXf;
+  }
+  CVector3f forward = xf.GetColumn(kDY);
+  forward.SetZ(0.f);
+  if (xf.GetColumn(kDZ).GetZ() < -0.2f) {
+    if (forward.CanBeNormalized()) {
+      xf = CTransform4f::LookAt(CUnitVector3f(CVector3f::Zero()), forward);
+    } else {
+      xf = oldXf;
+    }
+  }
+  if (!close_enough(xf.GetColumn(kDX).GetZ(), 0.f, 0.01f) &&
+      close_enough(xf.GetColumn(kDZ).GetZ(), 0.f, 0.01f)) {
+    if (forward.IsMagnitudeSafe()) {
+      xf = CTransform4f::LookAt(CUnitVector3f(CVector3f::Zero()), forward);
+    } else {
+      xf = oldXf;
+    }
+  }
+  xf.SetTranslation(newXf.GetTranslation());
+  return xf;
 }
 
 CPlayer& CGameCamera::Player(CStateManager& mgr) const { return *mgr.GetPlayer(mControllerIdx); }
@@ -219,20 +252,35 @@ void CGameCamera::UpdatePerspective(float dt, CStateManager& mgr) {
 }
 
 CVector3f CGameCamera::GetScanObjectIndicatorPosition(const CStateManager& mgr) const {
-  // TODO: Use the watched actor's target position, falling back to the player's ball camera.
-  return GetTranslation();
+  if (TCastToConstPtr< CPlayer >(mgr.GetObjectById(mWatchedObject))) {
+    return CameraManager(const_cast< CStateManager& >(mgr))
+        .BallCamera()
+        ->GetScanObjectIndicatorPosition(mgr);
+  }
+  const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(mWatchedObject));
+  if (actor == nullptr) {
+    return CameraManager(const_cast< CStateManager& >(mgr))
+        .BallCamera()
+        ->GetScanObjectIndicatorPosition(mgr);
+  }
+  return actor->GetScanObjectIndicatorPosition(mgr);
 }
 
 rstl::optional_object< CAABox > CGameCamera::GetTouchBounds() const {
   return CAABox(GetTranslation(), GetTranslation());
 }
 
-void CGameCamera::UnkVtable84() {}
+void CGameCamera::UnkVtable84(TUniqueId fluidId, CStateManager& mgr) {}
 
-void CGameCamera::UnkVtable88(TUniqueId fluidId) {}
+void CGameCamera::UnkVtable88(TUniqueId fluidId, CStateManager& mgr) {}
 
 void CGameCamera::ClearFluidList(CStateManager& mgr) {
-  // TODO: Notify the camera's overlapping triggers before the inherited actor cleanup.
+  const rstl::reserved_vector< TUniqueId, 4 > fluids = GetFluidList();
+  for (int i = 0; i < fluids.size(); ++i) {
+    if (CScriptWater* water = TCastToPtr< CScriptWater >(mgr.ObjectById(fluids[i]))) {
+      water->RemoveInhabitant(GetUniqueId(), mgr);
+    }
+  }
   CActor::ClearFluidList(mgr);
 }
 

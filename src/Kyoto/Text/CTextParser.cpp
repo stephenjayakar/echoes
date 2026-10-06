@@ -234,7 +234,7 @@ int CTextParser::ParseInt(const wchar_t* str, int len, bool allowSign) {
 
   int value = 0;
   for (; pos < len; ++pos) {
-    value = value * 10 + str[pos] - L'0';
+    value = value * 10 + (str[pos] - L'0');
   }
   return negative ? -value : value;
 }
@@ -253,7 +253,7 @@ int CTextParser::FromHex(wchar_t c) {
 }
 
 int CTextParser::GetColorValue(const wchar_t* str) {
-  return (FromHex(str[0]) << 4) + FromHex(str[1]);
+  return (FromHex(str[0]) * 16) + FromHex(str[1]);
 }
 
 CTextColor CTextParser::ParseColor(const wchar_t* str, int len) {

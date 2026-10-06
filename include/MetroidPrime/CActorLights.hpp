@@ -39,7 +39,7 @@ public:
   uint GetActiveAreaLightCount() const { return mAreaLights.size(); }
   const CLight& GetLight(uint idx) const;
 
-  bool GetNeedsRelight() const { return mDirty == TRUE; }
+  bool GetNeedsRelight() const { return mDirty; }
   bool HasShadowLight() const { return mShadowLightArrIdx != -1; }
   int GetShadowLightIndex() const { return mShadowLightIdx; }
   int GetShadowLightArrayIndex() const { return mShadowLightArrIdx; }

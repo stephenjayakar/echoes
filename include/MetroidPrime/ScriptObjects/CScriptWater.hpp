@@ -61,7 +61,7 @@ public:
   void SetupGridClipping(CStateManager& mgr, int computeVerts);
   void SetMorphing(bool morphing);
   float GetSplashEffectScale(float scale) const;
-  TSfxId GetSplashSound(float scale) const;
+  int GetSplashSound(float scale) const;
   const rstl::optional_object< TLockedToken< CGenDescription > >&
   GetSplashEffect(float scale) const;
   int GetSplashIndex(float scale) const;

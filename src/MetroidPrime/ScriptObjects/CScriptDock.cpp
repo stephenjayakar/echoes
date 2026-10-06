@@ -8,6 +8,8 @@
 #include "MetroidPrime/Player/CPlayer.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptDoor.hpp"
 #include "MetroidPrime/ScriptObjects/CScriptPortalTransition.hpp"
+#include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrDock.hpp"
 #include "MetroidPrime/TCastTo.hpp"
 
 CScriptDock::CScriptDock(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
@@ -244,8 +246,9 @@ void CScriptDock::Think(float dt, CStateManager& mgr) {
 
 bool CScriptDock::HasPointCrossedDock(const CStateManager& mgr, const CVector3f& point) const {
   const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(mgr.GetNextAreaId()).GetDock(mDock);
-  const rstl::reserved_vector< CVector3f, 4 >& vertices = dock.GetPlaneVertices();
-  return CPlane(vertices[0], vertices[1], vertices[2]).IsFacing(point);
+  const CVector3f* vertices = dock.GetPlaneVertices().data();
+  const CPlane plane(vertices[0], vertices[1], vertices[2]);
+  return plane.IsFacing(point);
 }
 
 CPlane CScriptDock::GetPlane(const CStateManager& mgr) const {
@@ -289,10 +292,11 @@ TAreaId CScriptDock::GetCurrentConnectedAreaId(const CStateManager& mgr) const {
 }
 
 TUniqueId CScriptDock::GetConnectedScriptDockId(const CStateManager& mgr) const {
-  const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(mArea).GetDock(mDock);
+  const TAreaId area = mArea;
+  const IGameArea::Dock& dock = mgr.GetWorld()->GetAreaAlways(area).GetDock(mDock);
   const int otherDock = dock.GetOtherDockNumber(dock.GetReferenceCount());
   const TAreaId connectedArea = dock.GetConnectedAreaId(dock.GetReferenceCount());
-  const CObjectList& objects = *mgr.GetWorld()->GetAreaAlways(connectedArea).ObjectList();
+  CObjectList& objects = *const_cast< CGameArea& >(mgr.GetWorld()->GetAreaAlways(connectedArea)).ObjectList();
   for (int i = objects.GetFirstObjectIndex(); i != -1; i = objects.GetNextObjectIndex(i)) {
     if (const CScriptDock* nextDock = TCastToConstPtr< CScriptDock >(objects[i])) {
       if (nextDock->GetDockId() == otherDock) {
@@ -301,4 +305,16 @@ TUniqueId CScriptDock::GetConnectedScriptDockId(const CStateManager& mgr) const 
     }
   }
   return kInvalidUniqueId;
+}
+
+CEntity* LoadDock(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrDock sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrDock.inc"
+
+  return rs_new CScriptDock(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+                            LdrToEntityInfo(info, sldrThis.editorProperties),
+                            sldrThis.editorProperties.transform.position,
+                            sldrThis.editorProperties.transform.scale, sldrThis.dockNumber,
+                            TAreaId(sldrThis.areaNumber), 0, sldrThis.loadConnectedImmediate,
+                            sldrThis.isVirtual, sldrThis.showSoftTransition);
 }

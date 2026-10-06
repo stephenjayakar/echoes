@@ -577,7 +577,7 @@ void CCompoundTargetReticle::UpdateNextLockOnGroup(float dt, const CStateManager
           kInvalidUniqueId, 1.f, lag ? mLaggingTargetPosition : mTargetPosition, 0.f, 1.f, true);
       mNextGroupDuration = gpTweakTargeting->GetNextLockOnExitDuration();
       mNextGroupTimer = mNextGroupDuration;
-      mNextTargetId = nextTargetId;
+      mNextTargetId = kInvalidUniqueId;
     } else {
       mNextGroupA = mNextGroupInterpolated;
       mNextGroupA.SetIsOrbitZoneIdlePosition(false);
@@ -1240,9 +1240,7 @@ void CCompoundTargetReticle::DrawScanTargetGroup(const CMatrix3f& rotation,
   CModel* const center = mScanTargetCenter.GetObject();
   CModel* const left = mScanTargetLeft.GetObject();
   CModel* const right = mScanTargetRight.GetObject();
-  if (center == nullptr || left == nullptr || right == nullptr) {
-    return;
-  }
+  if (center != nullptr && left != nullptr && right != nullptr) {
 
   const CColor& crosshairColor = gpTweakTargeting->GetScanLockCrossHairColor();
   float factor = mScanTargetFactor * skScanLockLayoutScale[mgr.GetViewportLayoutIndex()];
@@ -1271,6 +1269,7 @@ void CCompoundTargetReticle::DrawScanTargetGroup(const CMatrix3f& rotation,
                               0.f));
   right->Draw(CModelFlags::Additive(bracketColor.WithAlphaModulatedBy(factor))
                   .DepthCompareUpdate(false, false));
+}
 }
 
 void CCompoundTargetReticle::DrawNextLockOnGroup(const CMatrix3f& rotation,

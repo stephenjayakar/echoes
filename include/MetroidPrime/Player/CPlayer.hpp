@@ -582,7 +582,7 @@ public:
   uchar FireBeamHeld(const CFinalInput& input) const;
   bool IsAligningGrappleSwingTurn() const { return mAligningGrappleSwingTurn; }
   void SetAligningGrappleSwingTurn(bool aligning) { mAligningGrappleSwingTurn = aligning; }
-  bool SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mgr);
+  const bool SetAreaPlayerHint(const CScriptPlayerHint& hint, CStateManager& mgr);
   void ResetPlayerHintState(CStateManager& mgr);
   void CalculatePlayerControlDirection(CStateManager& mgr);
   void UpdatePlayerControlDirection(float dt, CStateManager& mgr);

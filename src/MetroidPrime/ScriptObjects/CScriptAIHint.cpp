@@ -18,7 +18,11 @@ CScriptAIHint::CScriptAIHint(TUniqueId uid, const rstl::string& name, const CEnt
 , mOccupant(kInvalidUniqueId)
 , mTimeRemaining(0.f) {}
 
-void CScriptAIHint::AddToRenderer(const CStateManager& mgr) const {}
+void CScriptAIHint::AddToRenderer(const CStateManager& mgr) const {
+  if (!GetActive()) {
+    return;
+  }
+}
 
 void CScriptAIHint::PreRender(CStateManager& mgr) {}
 
@@ -26,6 +30,9 @@ void CScriptAIHint::Render(const CStateManager& mgr) const {}
 
 void CScriptAIHint::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
   CActor::AcceptScriptMsg(mgr, msg);
+  if (!GetActive()) {
+    return;
+  }
 }
 
 void CScriptAIHint::Think(float dt, CStateManager& mgr) {

@@ -198,7 +198,7 @@ void CScriptPlatform::AddRider(rstl::vector< SRiders >& riders, TUniqueId id,
     riders.reserve(riders.size() + 1);
     riders.push_back_unsafe(rider);
   } else {
-    it->mDecayTimer = decayTimer;
+    (*it).mDecayTimer = decayTimer;
   }
 }
 
@@ -206,8 +206,8 @@ CScriptPlatform::TNearList
 CScriptPlatform::BuildNearListFromRiders(CStateManager& mgr,
                                          const rstl::vector< SRiders >& riders) {
   TNearList result;
-  for (int i = 0; i < riders.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(riders[i].mUid))) {
+  for (rstl::vector< SRiders >::const_iterator it = riders.begin(); it != riders.end(); ++it) {
+    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(it->mUid))) {
       result.push_back(actor->GetUniqueId());
     }
   }
@@ -320,9 +320,9 @@ void CScriptPlatform::PreThink(float dt, CStateManager& mgr) {
   const CTransform4f oldXf = GetTransform();
   const CMotionState oldMotion = GetMotionState();
   if (GetActive()) {
-    for (int i = 0; i < mRiders.size(); ++i) {
-      if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(mRiders[i].mUid))) {
-        mRiders[i].mTransform.SetTranslation(
+    for (rstl::vector< SRiders >::iterator it = mRiders.begin(); it != mRiders.end(); ++it) {
+      if (CPhysicsActor* actor = TCastToPtr< CPhysicsActor >(mgr.ObjectById(it->mUid))) {
+        it->mTransform.SetTranslation(
             GetTransform().TransposeRotate(actor->GetTranslation() - GetTranslation()));
       }
     }
@@ -541,7 +541,7 @@ void CScriptPlatform::SetMotionTime(float time, CStateManager& mgr) {
 
 void CScriptPlatform::TeleportToWaypoint(TUniqueId id, CStateManager& mgr) {
   if (TCastToConstPtr< CScriptWaypoint >(mgr.GetObjectById(id)) && mWaypointTracker.get()) {
-    const float time = mWaypointTracker->GetWaypointTime(id);
+    const float time = mWaypointTracker->GetWaypointTime(id, mgr);
     if (time >= 0.f) {
       SetMotionTime(time, mgr);
     }
@@ -709,7 +709,8 @@ void CScriptPlatform::AddSlave(TUniqueId id, CStateManager& mgr,
       mDynamicSlaves.push_back_unsafe(SRiders(id, xf, rstl::optional_object< float >(decayTimer)));
     }
   } else {
-    it->mDecayTimer = decayTimer;
+    SRiders& rider = *it;
+    rider.mDecayTimer = decayTimer;
   }
 }
 

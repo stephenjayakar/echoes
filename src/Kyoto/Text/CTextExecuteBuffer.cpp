@@ -83,21 +83,32 @@ void CTextExecuteBuffer::AddFont(const TToken< CRasterFont >& font) {
   }
 }
 
+int CFontImageDef::GetWidth() const {
+  TToken< CTexture > tex = mTextures[0];
+  return tex->GetWidth() * mCropFactor.GetX();
+}
+
+int CFontImageDef::GetHeight() const {
+  TToken< CTexture > tex = mTextures[0];
+  return tex->GetHeight() * mCropFactor.GetY();
+}
+
 void CTextExecuteBuffer::AddImage(const CFontImageDef& image) {
   if (!mCurrentLine) {
     StartNewLine();
   }
 
   if (mCurrentBlock && image.IsLoaded()) {
-    bool wrap = mState.IsWordWrapping();
-    if (wrap) {
-      const int width = mCurrentLine->GetWidth() + image.GetWidth();
-      wrap = width > mCurrentBlock->GetOutputWidth();
+    bool newLine = false;
+    bool overflow = false;
+    if (mState.IsWordWrapping() &&
+        mCurrentLine->GetWidth() + image.GetWidth() > mCurrentBlock->GetOutputWidth()) {
+      overflow = true;
     }
-    if (wrap) {
-      wrap = mCurrentLine->GetWordCount() > 0;
+    if (overflow && mCurrentLine->GetWordCount() > 0) {
+      newLine = true;
     }
-    if (wrap) {
+    if (newLine) {
       StartNewLine();
     }
     mCurrentLine->TestLargestImage(image.GetMonoWidth(), image.GetHeight(),
@@ -203,12 +214,27 @@ void CTextExecuteBuffer::StartNewWord() {
   mCurrentLine->IncWords();
 }
 
+CLineInstruction::CLineInstruction(int words, int width, int height, EJustification justification,
+                                   EVerticalJustification verticalJustification, const bool imageBaseline)
+: mWordCount(words)
+, mCurrentX(width)
+, mCurrentY(height)
+, mLargestFontHeight(0)
+, mLargestFontWidth(0)
+, mLargestFontBaseline(0)
+, mLargestImageHeight(0)
+, mLargestImageWidth(0)
+, mLargestImageBaseline(0)
+, mJustification(justification)
+, mVerticalJustification(verticalJustification)
+, mImageBaseline(imageBaseline) {}
+
 void CTextExecuteBuffer::StartNewLine() {
   if (mCurrentLine) {
     TerminateLine(false);
   }
-  const rstl::ncrc_ptr< CInstruction > instruction = rs_new CLineInstruction(
-      0, 0, 0, mState.GetJustification(), mState.GetVerticalJustification(), mImageBaseline);
+  const rstl::ncrc_ptr< CInstruction > instruction = rstl::ncrc_ptr< CInstruction >(rs_new CLineInstruction(
+      0, 0, 0, mState.GetJustification(), mState.GetVerticalJustification(), mImageBaseline));
   mCurrentWord = Add(instruction);
   mCurrentLine = static_cast< CLineInstruction* >(instruction.GetPtr());
   mSpaceDistance = 0;
