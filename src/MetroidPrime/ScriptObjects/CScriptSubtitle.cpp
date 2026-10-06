@@ -5,6 +5,7 @@
 #include "MetaRender/CCubeRenderer.hpp"
 #include "MetroidPrime/CStateManager.hpp"
 #include "MetroidPrime/ScriptLoader.hpp"
+#include "MetroidPrime/ScriptLoader/SLdrSubtitle.hpp"
 
 // Unnamed CStateManager render-list helper (native 0x80037944).
 extern "C" bool fn_80037944(CStateManager& mgr, TUniqueId uid);
@@ -127,6 +128,25 @@ void CScriptSubtitle::RefreshText() {
 }
 
 // Guessed loader name.
-CEntity* LoadSubtitle(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {}
+CEntity* LoadSubtitle(CStateManager& mgr, CInputStream& input, CEntityInfo& info) {
+  SLdrSubtitle sldrThis;
+#include "MetroidPrime/ScriptLoader/SLdrSubtitle.inc"
+
+  if (sldrThis.stringTable == kInvalidAssetId) {
+    return nullptr;
+  }
+  return rs_new CScriptSubtitle(
+      mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
+      LdrToEntityInfo(info, sldrThis.editorProperties), sldrThis.textPositionX,
+      sldrThis.textPositionY, sldrThis.textProperties.textBoundingWidth,
+      sldrThis.textProperties.textBoundingHeight, sldrThis.textProperties.foregroundColor,
+      sldrThis.textProperties.outlineColor, sldrThis.textProperties.geometryColor,
+      sldrThis.textProperties.defaultFont, sldrThis.stringTable, sldrThis.initialStringIndex,
+      sldrThis.fadeInTime, sldrThis.fadeOutTime,
+      CGuiTextProperties(
+          sldrThis.textProperties.wrapText,
+          static_cast< EJustification >(sldrThis.textProperties.unknown_0x18dd95cd),
+          static_cast< EVerticalJustification >(sldrThis.textProperties.unknown_0x42091548)));
+}
 
 CScriptSubtitle::~CScriptSubtitle() {}
