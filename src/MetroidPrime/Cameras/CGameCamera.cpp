@@ -171,22 +171,23 @@ void CGameCamera::ResetFovInterpolation(float fov) {
 }
 
 void CGameCamera::InterpolateFOV(float fov, float duration, float delay) {
-  if (duration > 0.f) {
-    mFovInterpolation.Set(delay, duration, duration, GetFov(), fov, kInvalidUniqueId);
-  } else {
+  if (duration <= 0.f) {
     ResetFovInterpolation(fov);
+  } else {
+    mFovInterpolation.Set(delay, duration, duration, GetFov(), fov, kInvalidUniqueId);
   }
 }
 
 void CGameCamera::InterpolateFOV(float startFov, float duration, float delay, TUniqueId cameraId,
                                  CStateManager& mgr) {
-  CGameCamera* camera = TCastToPtr< CGameCamera >(mgr.ObjectById(cameraId));
+  CGameCamera* camera =
+      TCastToPtr< CGameCamera >(const_cast< CEntity* >(mgr.GetObjectById(cameraId)));
   if (camera != nullptr) {
     const float target = camera->GetFov();
-    if (duration > 0.f) {
-      mFovInterpolation.Set(delay, duration, duration, startFov, target, cameraId);
-    } else {
+    if (duration <= 0.f) {
       ResetFovInterpolation(target);
+    } else {
+      mFovInterpolation.Set(delay, duration, duration, startFov, target, cameraId);
     }
   }
 }
@@ -229,4 +230,23 @@ void CGameCamera::UnkVtable88(TUniqueId fluidId) {}
 void CGameCamera::ClearFluidList(CStateManager& mgr) {
   // TODO: Notify the camera's overlapping triggers before the inherited actor cleanup.
   CActor::ClearFluidList(mgr);
+}
+
+CGameCamera::SFovInterpolation::SFovInterpolation(float delay, float remaining, float duration,
+                                                  float current, float target, TUniqueId cameraId)
+: mDelay(delay)
+, mRemaining(remaining)
+, mDuration(duration)
+, mCurrent(current)
+, mTarget(target)
+, mCameraId(cameraId) {}
+
+void CGameCamera::SFovInterpolation::Set(float delay, float remaining, float duration,
+                                         float current, float target, TUniqueId cameraId) {
+  mDelay = delay;
+  mRemaining = remaining;
+  mDuration = duration;
+  mCurrent = current;
+  mTarget = target;
+  mCameraId = cameraId;
 }
