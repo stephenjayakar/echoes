@@ -24,6 +24,7 @@ struct CSplitterCommandModuleData : public SLdrSplitterCommandModuleData {
   , mLaserSweepDamage(LdrToDamageInfo(data.laserSweepDamage))
   , mLightShieldVulnerability(LdrToDamageVulnerability(data.lightShieldVulnerability))
   , mDarkShieldVulnerability(LdrToDamageVulnerability(data.darkShieldVulnerability)) {}
+  ~CSplitterCommandModuleData() {}
 
   CDamageInfo mLaserPulseDamage;
   CDamageInfo mLaserSweepDamage;
@@ -128,8 +129,11 @@ private:
   void UpdateShields(CStateManager& mgr);
   void UpdateLaserSweep(float dt, CStateManager& mgr);
   void UpdateBeamEffect(float dt, CStateManager& mgr);
-  void UpdateHover(float dt, CStateManager& mgr);
-  void FireLaserPulse(const rstl::string& locator, CStateManager& mgr);
+  void UpdateStuckTimer(float dt, CStateManager& mgr);
+  void UpdateAlertEffect(CStateManager& mgr);
+  int FindDodgeDirection(CStateManager& mgr);
+  void MoveTo(const CVector3f& pos, float dt);
+  void FireLaserPulse(CStateManager& mgr, const rstl::string& locator);
 
   CSplitterCommandModuleData mData;
   CPathFindSearch mPathFindSearch;

@@ -237,6 +237,7 @@ public:
   void fn_801524fc(CStateManager& mgr);
 
   bool GetAlive() const { return mAlive; }
+  void SetHitByPlayerProjectile(bool hit) { mHitByPlayerProjectile = hit; } // Guessed name
   void SetPendingDeath(bool pending) { mPendingDeath = pending; }
   TUniqueId GetDestObj() const { return mDestObj; }
   EFlavorType GetFlavorType() const { return mFlavor; }

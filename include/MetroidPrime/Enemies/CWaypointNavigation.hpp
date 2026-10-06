@@ -16,7 +16,8 @@ public:
   void Patrol(CStateManager& mgr, EStateMsg msg, float dt, CPatterned& actor);
   void ConfigureWobbleSteering(bool clockwise, float strength);
   const CVector3f& GetDestinationPosition() const { return mDestinationPosition; }
-  TUniqueId GetDestination() const { return mDestination; } // Guessed name
+  TUniqueId GetDestination() const { return mDestination; }   // Guessed name
+  void SetDestination(TUniqueId id) { mDestination = id; } // Guessed name
 
 private:
   void ApplyWobbleSteering(CVector3f& movement) const;

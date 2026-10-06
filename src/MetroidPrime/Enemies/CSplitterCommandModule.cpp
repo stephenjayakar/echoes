@@ -3,6 +3,8 @@
 #include "Collision/CCollisionInfoList.hpp"
 #include "Collision/CMaterialFilter.hpp"
 #include "Kyoto/Animation/CPASAnimParmData.hpp"
+#include "Kyoto/Audio/CSfxManager.hpp"
+#include "MetroidPrime/BodyState/CBodyController.hpp"
 #include "MetroidPrime/CActorParameters.hpp"
 #include "MetroidPrime/CAnimData.hpp"
 #include "MetroidPrime/CCollisionActorManager.hpp"
@@ -71,7 +73,8 @@ CSplitterCommandModule::CSplitterCommandModule(TUniqueId uid, const rstl::string
 , xf6a_31_(false) {
   mLaserPulseProjectileInfo.Token().Lock();
   mLaserSweepProjectileInfo.Token().Lock();
-  mBeamLocator = GetModelData()->GetAnimationData()->GetLocatorSegId(rstl::string_l(skBeamLocator));
+  const CAnimData* animData = GetModelData()->GetAnimationData();
+  mBeamLocator = animData->GetLocatorSegId(rstl::string_l(skBeamLocator));
   SetMaterialFilter(CMaterialFilter::MakeIncludeExclude(
       CMaterialList(kMT_Unknown59), CMaterialList(kMT_CollisionActor, kMT_Character)));
   const CPASAnimParmData parms(pas::kAS_Step, CPASAnimParm::FromEnum(pas::kSD_Right),
@@ -96,7 +99,7 @@ void CSplitterCommandModule::Think(float dt, CStateManager& mgr) {
   UpdateShields(mgr);
   UpdateLaserSweep(dt, mgr);
   UpdateBeamEffect(dt, mgr);
-  UpdateHover(dt, mgr);
+  UpdateStuckTimer(dt, mgr);
 }
 
 void CSplitterCommandModule::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
@@ -112,7 +115,7 @@ void CSplitterCommandModule::DoUserAnimEvent(CStateManager& mgr, const CInt32POI
     handled = true;
     break;
   case kUE_Projectile:
-    FireLaserPulse(node.GetLocatorName(), mgr);
+    FireLaserPulse(mgr, node.GetLocatorName());
     handled = true;
     break;
   }
@@ -164,14 +167,14 @@ CVector3f CSplitterCommandModule::GetAimPosition(const CStateManager& mgr, float
   if (xedc_ == 2) {
     if (const CSplitterMainChassis* chassis =
             TCastToConstPtr< CSplitterMainChassis >(mgr.GetObjectById(mMainChassisId))) {
-      aimPos = CVector3f::Lerp(aimPos, chassis->GetAimPosition(mgr, dt),
-                               rstl::min_val(xf18_, 1.f));
+      const CVector3f chassisAimPos = chassis->GetAimPosition(mgr, dt);
+      aimPos = CVector3f::Lerp(aimPos, chassisAimPos, rstl::min_val(xf18_, 1.f));
     }
   } else if (xf1c_ < 1.f) {
     if (const CSplitterMainChassis* chassis =
             TCastToConstPtr< CSplitterMainChassis >(mgr.GetObjectById(mMainChassisId))) {
-      aimPos = CVector3f::Lerp(chassis->GetAimPosition(mgr, dt), aimPos,
-                               rstl::min_val(xf1c_, 1.f));
+      const CVector3f chassisAimPos = chassis->GetAimPosition(mgr, dt);
+      aimPos = CVector3f::Lerp(chassisAimPos, aimPos, rstl::min_val(xf1c_, 1.f));
     }
   }
   return aimPos;
@@ -298,7 +301,8 @@ void CSplitterCommandModule::StartLaserSweep(const CVector3f& start, const CVect
 }
 
 CVector3f CSplitterCommandModule::GetBeamPosition() const {
-  return GetLctrTransform(mBeamLocator).GetTranslation();
+  const CTransform4f xf = GetLctrTransform(mBeamLocator);
+  return xf.GetTranslation();
 }
 
 void CSplitterCommandModule::AutoDestruct(float time) {
@@ -317,7 +321,8 @@ bool CSplitterCommandModule::InDetectionRange(CStateManager& mgr,
   if (IsScanning(mgr, data) && CPatterned::InDetectionRange(mgr, data)) {
     CVector3f delta = mgr.GetPlayer(0)->GetTranslation() - GetTranslation();
     delta.SetZ(0.f);
-    return delta.Magnitude() * mDetectionAngle < CVector3f::Dot(GetTransform().GetForward(), delta);
+    const float dist = delta.Magnitude();
+    return CVector3f::Dot(delta, GetTransform().GetForward()) > dist * mDetectionAngle;
   }
   return false;
 }
@@ -366,7 +371,9 @@ bool CSplitterCommandModule::HasTarget(CStateManager& mgr, const CTriggerData& d
 bool CSplitterCommandModule::InHoverRange(CStateManager& mgr, const CTriggerData& data) const {
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
     const float range = 0.5f * (mData.minLaserPulseRange + mData.maxLaserPulseRange);
-    return (target->GetTranslation() - GetTranslation()).MagSquared() <= range * range;
+    const CVector3f delta = target->GetTranslation() - GetTranslation();
+    const float distSq = delta.MagSquared();
+    return distSq <= range * range;
   }
   return false;
 }
@@ -374,10 +381,12 @@ bool CSplitterCommandModule::InHoverRange(CStateManager& mgr, const CTriggerData
 bool CSplitterCommandModule::InLaserPulseRange(CStateManager& mgr,
                                                const CTriggerData& data) const {
   if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
-    const float distSq = (target->GetTranslation() - GetTranslation()).MagSquared();
+    const CVector3f delta = target->GetTranslation() - GetTranslation();
+    const float distSq = delta.MagSquared();
+    const float minRangeSq = mData.minLaserPulseRange * mData.minLaserPulseRange;
+    const float maxRangeSq = mData.maxLaserPulseRange * mData.maxLaserPulseRange;
     bool ret = false;
-    if (distSq >= mData.minLaserPulseRange * mData.minLaserPulseRange &&
-        distSq <= mData.maxLaserPulseRange * mData.maxLaserPulseRange) {
+    if (distSq >= minRangeSq && distSq <= maxRangeSq) {
       ret = true;
     }
     return ret;
@@ -429,7 +438,143 @@ void CSplitterCommandModule::Idle(CStateManager& mgr, EStateMsg msg, float dt) {
   }
 }
 
-void CSplitterCommandModule::ResetAttackTimes(CStateManager& mgr, int arg) {}
+void CSplitterCommandModule::SeekMainChassis(CStateManager& mgr, EStateMsg msg, float dt) {
+  switch (msg) {
+  case kStateMsg_Activate:
+    mAnimationState.SetState(CAnimationState::kAS_Ready);
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    xf6a_28_ = false;
+    break;
+  case kStateMsg_Update:
+    if (const CSplitterMainChassis* chassis =
+            TCastToConstPtr< CSplitterMainChassis >(mgr.GetObjectById(xefc_))) {
+      const CVector3f dockPos = chassis->GetDockPosition();
+      const CVector3f delta = dockPos - GetTranslation();
+      const float speed = dt * mData.maxLinearVelocity;
+      if (delta.MagSquared() > speed * speed && delta.IsMagnitudeSafe()) {
+        MoveTo(GetTranslation() + speed * delta.AsNormalized(), dt);
+      } else {
+        SetTranslation(dockPos);
+        mAnimationState.SetState(CAnimationState::kAS_Over);
+      }
+    } else {
+      mAnimationState.SetState(CAnimationState::kAS_Over);
+    }
+    break;
+  case kStateMsg_Deactivate:
+    mAnimationState.SetState(CAnimationState::kAS_NotReady);
+    break;
+  }
+}
+
+void CSplitterCommandModule::FollowDockingPath(CStateManager& mgr, EStateMsg msg, float dt) {
+  mWaypointNavigation.Patrol(mgr, msg, dt, *this);
+  switch (msg) {
+  case kStateMsg_Activate:
+    mWaypointNavigation.SetDestination(GetConnectedObject(mgr, kSS_Connect, kSM_Follow));
+    BodyController()->SetLocomotionType(pas::kLT_Combat);
+    break;
+  case kStateMsg_Update: {
+    const CVector3f moveVector = BodyController()->GetCommandMgr().GetMoveVector();
+    const float speed = dt * mData.maxLinearVelocity;
+    if (moveVector.IsMagnitudeSafe()) {
+      MoveTo(GetTranslation() + speed * moveVector, dt);
+      BodyController()->FaceDirection(moveVector, dt);
+    }
+    break;
+  }
+  }
+}
+
+void CSplitterCommandModule::NotifyDocking(CStateManager& mgr, int arg) {
+  if (CSplitterMainChassis* chassis =
+          TCastToPtr< CSplitterMainChassis >(mgr.ObjectById(xefc_))) {
+    if (chassis->Dock(mgr, GetUniqueId())) {
+      mMainChassisId = xefc_;
+      xefc_ = kInvalidUniqueId;
+      SetNextDrawNode(mMainChassisId);
+      if (!xf6a_30_ || (mData.unknown_0xbd80fd94 & 1) == 0) {
+        CSfxManager::AddEmitter(mData.sound_Docking, GetTranslation(), 127,
+                                GetCurrentAreaId().Value(), true, false,
+                                CSfxManager::kMedPriority);
+      }
+      xf6a_30_ = false;
+    }
+  }
+  BodyController()->SetLocomotionType(pas::kLT_Relaxed);
+}
+
+void CSplitterCommandModule::SelectTarget(CStateManager& mgr, int arg) {
+  if (mTargetId == kInvalidUniqueId) {
+    mTargetId = mgr.GetPlayer(0)->GetUniqueId();
+  }
+  UpdateAlertEffect(mgr);
+  SendScriptMsgs(kSS_Attack, mgr, GetUniqueId());
+}
+
+void CSplitterCommandModule::SetTargetDest(CStateManager& mgr, int arg) {
+  CVector3f dest = GetTranslation();
+  xf6a_24_ = false;
+  if (const CActor* target = static_cast< const CActor* >(mgr.GetObjectById(mTargetId))) {
+    dest = target->GetAimPosition(mgr, 0.f) + 4.f * CVector3f::Up();
+    xf6a_24_ = true;
+  }
+  mPathFindNavigation.SetDestination(dest);
+  mPathFindNavigation.SetFaceTarget(mTargetId);
+}
+
+void CSplitterCommandModule::SetDockingDest(CStateManager& mgr, int arg) {
+  CVector3f dest = GetTranslation();
+  xf6a_24_ = false;
+  if (CSplitterMainChassis* chassis =
+          TCastToPtr< CSplitterMainChassis >(mgr.ObjectById(xefc_))) {
+    dest = chassis->GetDockPosition() + 4.f * CVector3f::Up();
+    xf6a_24_ = true;
+    chassis->SetHitByPlayerProjectile(true);
+  }
+  mPathFindNavigation.SetDestination(dest);
+  mPathFindNavigation.SetFaceTarget(kInvalidUniqueId);
+}
+
+void CSplitterCommandModule::FindBestDodgeDirection(CStateManager& mgr, int arg) {
+  xf30_ = -1;
+  if ((mData.unknown_0xbd80fd94 & 2) != 0 && xeec_ < mData.maxDodges) {
+    if (xeec_ < mData.minDodges || mgr.Random()->Range(0.f, 100.f) <= mData.dodgeChance) {
+      xf30_ = FindDodgeDirection(mgr);
+      ++xeec_;
+    } else {
+      xeec_ = mData.maxDodges;
+    }
+  }
+}
+
+void CSplitterCommandModule::RaiseShields(CStateManager& mgr, int arg) { xf6a_28_ = true; }
+
+void CSplitterCommandModule::ResetAttackTimes(CStateManager& mgr, int arg) {
+  xf0c_ = mData.minLaserPulseAttackTime;
+  xf20_ = mgr.Random()->Range(1, mData.maxLaserPulseShots);
+}
+
+void CSplitterCommandModule::UpdateStuckTimer(float dt, CStateManager& mgr) {
+  if (xf6a_31_) {
+    xef4_ += dt;
+    if (xef4_ >= 5.f) {
+      AutoDestruct(0.f);
+    }
+    xf6a_31_ = false;
+  } else {
+    xef4_ = 0.f;
+  }
+}
+
+void CSplitterCommandModule::MoveTo(const CVector3f& pos, float dt) {
+  if (xef4_ > 0.f) {
+    SetTranslation(pos);
+  } else {
+    const CVector3f delta = pos - GetTranslation();
+    MoveInOneFrameOR(GetTransform().TransposeRotate(delta), dt);
+  }
+}
 
 CEntity* REL_LoadSplitterCommandModule(CStateManager& mgr, CInputStream& input,
                                        CEntityInfo& info) {

@@ -31,7 +31,7 @@ public:
 
   // Guessed names; used by the command module while docking.
   CVector3f GetDockPosition() const;
-  bool Dock(CStateManager& mgr, const TUniqueId& commandModule);
+  bool Dock(CStateManager& mgr, TUniqueId commandModule);
   void CancelDockingRequest(const TUniqueId& commandModule);
   bool RequestDocking(const TUniqueId& commandModule);
 
