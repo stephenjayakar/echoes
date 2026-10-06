@@ -23,17 +23,17 @@ CScriptSpindleCamera::CScriptSpindleCamera(
     const CSpindleCameraInterpolant& desiredAngularSpeed,
     const CSpindleCameraInterpolant& deactivateRadius,
     const CSpindleCameraInterpolant& constraintFlipAngle, const CSpindleCameraInterpolant& fov,
-    SLdrSplineType targetType, const CMayaSpline& targetControlSpline, bool targetLoops,
-    SLdrSplineType playerType, bool playerLoops)
+    const CMotionSpline::ESplineType& targetType, const CMayaSpline& targetControlSpline,
+    bool targetLoops, const CMotionSpline::ESplineType& playerType, bool playerLoops)
 : CActor(uid, name, info, 0, xf, CModelData::CModelDataNull(), CMaterialList(kMT_NoStepLogic),
          CActorParameters::None(), kInvalidUniqueId)
 , mParameters(flags, angularSpeed, linearSpeed, motionRadius, radialOffset, desiredAngularOffset,
               minAngularOffset, maxAngularOffset, lookAtAngularOffset, lookAtZOffset, zOffset,
               angularConstraint, angularDampening, desiredAngularSpeed, deactivateRadius,
               constraintFlipAngle, fov)
-, mTargetSpline(targetLoops, 1.f, static_cast< CMotionSpline::ESplineType >(targetType.type))
+, mTargetSpline(targetLoops, 1.f, targetType)
 , mTargetControlSpline(targetControlSpline)
-, mPlayerSpline(playerLoops, 1.f, static_cast< CMotionSpline::ESplineType >(playerType.type))
+, mPlayerSpline(playerLoops, 1.f, playerType)
 , mOrigXf(xf) {}
 
 CScriptSpindleCamera::~CScriptSpindleCamera() {}
@@ -127,6 +127,8 @@ CEntity* LoadSpindleCamera(CStateManager& mgr, CInputStream& input, CEntityInfo&
       linearSpeed, motionRadius, radialOffset, desiredAngularOffset, minAngularOffset,
       maxAngularOffset, lookAtAngularOffset, lookAtZOffset, zOffset, angularConstraint,
       angularDampening, desiredAngularSpeed, deactivateRadius, constraintFlipAngle, fov,
-      sldrThis.targetSplineType, sldrThis.targetControlSpline, sldrThis.targetSplineLoops,
-      sldrThis.playerSplineType, sldrThis.playerSplineLoops);
+      static_cast< CMotionSpline::ESplineType >(sldrThis.targetSplineType.type),
+      sldrThis.targetControlSpline, sldrThis.targetSplineLoops,
+      static_cast< CMotionSpline::ESplineType >(sldrThis.playerSplineType.type),
+      sldrThis.playerSplineLoops);
 }

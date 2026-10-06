@@ -38,8 +38,9 @@ void CMissileRepeller::Update(CStateManager& mgr, const CActor& actor, float dt)
   const CVector3f center = actor.GetAimPosition(mgr, 0.f) + mOffset;
   const CMaterialFilter filter = CMaterialFilter::MakeInclude(CMaterialList(kMT_Projectile));
   rstl::reserved_vector< TUniqueId, 1024 > nearList;
-  const CVector3f extent = mRadius * CVector3f::One();
-  mgr.BuildNearList(nearList, CAABox(center - extent, center + extent), filter, &actor);
+  mgr.BuildNearList(nearList,
+                    CAABox(center - mRadius * CVector3f::One(), center + mRadius * CVector3f::One()),
+                    filter, &actor);
 
   const rstl::reserved_vector< TUniqueId, 10 > previousProjectiles = mDeflectedProjectiles;
   mDeflectedProjectiles.clear();
@@ -63,8 +64,9 @@ void CMissileRepeller::Update(CStateManager& mgr, const CActor& actor, float dt)
       projectile->SetMinHomingDistance(mRadius);
 
       CProjectileWeapon& weapon = projectile->Projectile();
-      const CVector3f axis = CVector3f::Cross(
-          delta + (projectile->GetTranslation() - projectile->GetPreviousPos()), delta);
+      const CVector3f dir =
+          delta + (projectile->GetTranslation() - projectile->GetPreviousPos());
+      const CVector3f axis = CVector3f::Cross(dir, delta);
       if (axis.CanBeNormalized()) {
         const CQuaternion rotation = CQuaternion::AxisAngle(
             CUnitVector3f(axis), CRelAngle::FromDegrees(dt * mDeflectionRate));

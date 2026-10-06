@@ -219,7 +219,7 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
   CCameraFilterPass& pass = mgr.CameraFilterPass(mPlayerIndex, 4);
   CGameCamera& camera = *CurrentCamera(mgr, false);
   camera.RemoveInvalidFluidIds(mgr);
-  const CScriptWater* water =
+  const CScriptWater* const water =
       TCastToConstPtr< CScriptWater >(mgr.GetObjectById(camera.InFluidId()));
   if (camera.GetFluidCount() && water) {
     const float near = camera.GetNearClipDistance();
@@ -230,7 +230,7 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
       if (mFluidFogTime >= 8.f) {
         mFluidFogTime -= 8.f;
       }
-      far += 75.f * sinf(M_2PIF * mFluidFogTime * 0.125f);
+      far += 75.f * sinf(M_2PIF * mFluidFogTime / 8.f);
     }
     const CColor& color = water->GetUnderwaterFogColor();
     mFog.SetFogExplicit(kRFM_PerspExp, color, CVector2f(near, far));
@@ -263,16 +263,14 @@ void CCameraManager::UpdateFilters(float dt, CStateManager& mgr) {
       flash.DisableFilter(0.f);
     } else if (!(mScreenFlashTimer < 0.95f)) {
       const float time = mScreenFlashTimer - 0.95f;
-      float alpha;
+      CColor color(static_cast< uchar >(0xff), 0xdf, 0x89, 0xff);
       if (time < 0.1f) {
-        alpha = (0.3f * time) / 0.1f;
+        color = color.WithAlphaOf((0.3f * time) / 0.1f);
       } else if (time >= 0.15f) {
-        alpha = 0.3f * (1.f - CMath::Limit((time - 0.15f) / 0.15f, 1.f));
+        color = color.WithAlphaOf(0.3f * (1.f - CMath::Limit((time - 0.15f) / 0.15f, 1.f)));
       } else {
-        alpha = 0.3f;
+        color = color.WithAlphaOf(0.3f);
       }
-      CColor color(0xffdf8900);
-      color.SetAlpha(alpha);
       flash.SetFilter(CCameraFilterPass::kFT_Add, CCameraFilterPass::kFS_Fullscreen, 0.f, color,
                       kInvalidAssetId);
     }
@@ -585,7 +583,7 @@ float CCameraManager::GetCameraBobMagnitude() const {
   return 1.f - pitch;
 }
 
-void CCameraManager::AddCamera(TUniqueId uid, CStateManager& mgr) {
+void CCameraManager::AddCamera(const TUniqueId& uid, CStateManager& mgr) {
   if (!TCastToConstPtr< CGameCamera >(mgr.GetObjectById(uid))) {
     return;
   }
@@ -698,9 +696,9 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
     return true;
   }
 
-  rstl::reserved_vector< TUniqueId, 1024 > nearList;
   TUniqueId hitId = kInvalidUniqueId;
-  const int count = int(1.f + spline.GetLength() / step);
+  rstl::reserved_vector< TUniqueId, 1024 > nearList;
+  int count = int(1.f + spline.GetLength() / step);
   switch (mode) {
   case 0: {
     CVector3f previous = spline.GetPositionByLength(0.f);
@@ -742,17 +740,16 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
     for (int i = 0; i < count; ++i) {
       const CVector3f next = spline.GetPositionByLength((i + 1) * step);
       const CVector3f delta = next - previous;
-      if (delta.Magnitude() <= 0.1f) {
-        forward.push_back_unsafe(CRayCastResult());
-        reverse.push_back_unsafe(CRayCastResult());
-      } else {
+      if (delta.Magnitude() > 0.1f) {
         mgr.BuildNearList(nearList, previous, delta.AsNormalized(), delta.Magnitude(), filter,
                           nullptr);
         forward.push_back_unsafe(mgr.RayWorldIntersection(hitId, previous, delta.AsNormalized(),
                                                           delta.Magnitude(), filter, nearList));
-        const CVector3f direction = -delta.AsNormalized();
-        reverse.push_back_unsafe(
-            mgr.RayWorldIntersection(hitId, next, direction, delta.Magnitude(), filter, nearList));
+        reverse.push_back_unsafe(mgr.RayWorldIntersection(hitId, next, -delta.AsNormalized(),
+                                                          delta.Magnitude(), filter, nearList));
+      } else {
+        forward.push_back_unsafe(CRayCastResult::MakeInvalid());
+        reverse.push_back_unsafe(CRayCastResult::MakeInvalid());
       }
       previous = next;
     }
@@ -760,7 +757,8 @@ bool CCameraManager::CheckSplineCollision(const CMotionSpline& spline, int mode,
       if (forward[i].IsValid()) {
         CVector3f span = forward[i].GetPoint() - reverse[i].GetPoint();
         if (CMath::IsEpsilon(span.Magnitude(), 0.f, 0.00001f)) {
-          span = spline.GetPositionByLength((i + 1) * step) - forward[i].GetPoint();
+          const CVector3f pos = spline.GetPositionByLength((i + 1) * step);
+          span = pos - forward[i].GetPoint();
         }
         if (span.Magnitude() > thickness) {
           hitMaterial = forward[i].GetMaterial();

@@ -129,7 +129,7 @@ void CScriptDynamicLight::FindParent(CStateManager& mgr) {
 void CScriptDynamicLight::FindTarget(CStateManager& mgr) {
   const rstl::vector< TUniqueId > targets = FindConnectedObjects(mgr, kSS_CameraTarget, kSM_Attach);
   for (int i = 0; i < targets.size(); ++i) {
-    if (CActor* actor = TCastToPtr< CActor >(mgr.ObjectById(targets[i]))) {
+    if (const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(targets[i]))) {
       mTargetId = actor->GetUniqueId();
       break;
     }
@@ -154,7 +154,8 @@ void CScriptDynamicLight::UpdateLight(float dt) {
   }
   CLight& light = Light();
   const ELightKind kind = mDescription.mKind;
-  mIntensity = UpdateSplineTimer(mDescription.mIntensitySpline, mIntensityTime, dt,
+  const CMayaSpline& intensitySpline = mDescription.mIntensitySpline;
+  mIntensity = UpdateSplineTimer(intensitySpline, mIntensityTime, dt,
                                  mDescription.mIntensityDuration, mDescription.mIntensityLoops);
   if (kind == kLK_LocalAmbient || kind == kLK_Directional || kind == kLK_Spot) {
     const float red = ClampToOne(mIntensity * mDescription.mColor.GetRed());
@@ -165,9 +166,10 @@ void CScriptDynamicLight::UpdateLight(float dt) {
     light.SetColor(color);
   }
   if (kind == kLK_Point || kind == kLK_Spot) {
-    const float falloff =
-        UpdateSplineTimer(mDescription.mFalloffSpline, mFalloffTime, dt,
-                          mDescription.mFalloffDuration, mDescription.mFalloffLoops);
+    const CMayaSpline& falloffSpline = mDescription.mFalloffSpline;
+    const float falloff = UpdateSplineTimer(falloffSpline, mFalloffTime, dt,
+                                            mDescription.mFalloffDuration,
+                                            mDescription.mFalloffLoops);
     const EFalloffType falloffType = mDescription.mFalloffType;
     switch (kind) {
     case kLK_Point:
@@ -180,7 +182,8 @@ void CScriptDynamicLight::UpdateLight(float dt) {
     }
   }
   if (kind == kLK_Spot) {
-    light.SetSpotCutoff(UpdateSplineTimer(mDescription.mSpotlightSpline, mSpotlightTime, dt,
+    const CMayaSpline& spotlightSpline = mDescription.mSpotlightSpline;
+    light.SetSpotCutoff(UpdateSplineTimer(spotlightSpline, mSpotlightTime, dt,
                                           mDescription.mSpotlightDuration,
                                           mDescription.mSpotlightLoops));
   }
@@ -299,9 +302,13 @@ CEntity* LoadDynamicLight(CStateManager& mgr, CInputStream& input, CEntityInfo& 
                                 0.f, 0.f, 0.f, 0.f, 0.f);
     break;
   }
-  if (!light || description.mFalloffType < kFT_Constant ||
-      description.mFalloffType > kFT_Quadratic ||
-      description.mLightSet < CScriptDynamicLight::kLS_LayerOne ||
+  if (!light) {
+    return nullptr;
+  }
+  if (description.mFalloffType < kFT_Constant || description.mFalloffType > kFT_Quadratic) {
+    return nullptr;
+  }
+  if (description.mLightSet < CScriptDynamicLight::kLS_LayerOne ||
       description.mLightSet > CScriptDynamicLight::kLS_All) {
     return nullptr;
   }

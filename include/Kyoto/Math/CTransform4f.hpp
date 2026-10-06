@@ -127,10 +127,7 @@ public:
   void SetRotation(const CMatrix3f& rotation);
   void SetRotation(const CTransform4f& rotation);
   CVector3f TransposeMultiply(const CVector3f& in) const {
-    float x = in.GetX();
-    float y = in.GetY();
-    float z = in.GetZ();
-    return TransposeRotate(CVector3f(x - m03, y - m13, z - m23));
+    return TransposeRotate(CVector3f(in.GetX() - m03, in.GetY() - m13, in.GetZ() - m23));
   }
   CVector3f TransposeRotate(const CVector3f& in) const;
 

@@ -466,6 +466,7 @@ public:
   bool GetWantsToEnterSaveGameScreen() const { return mDeferredTransition == kSMT_SaveGame; }
   bool HasSaveGameScreen() const { return !mSaveGameScreen.null(); }
   TAreaId GetPendingDockArea() const { return mPendingDockArea; }
+  void SetPendingDockArea(TAreaId area) { mPendingDockArea = area; }
   bool GetWantsToEnterMessageScreen() const { return mDeferredTransition == kSMT_MessageScreen; }
 
   const CCameraManager* GetCameraManager(int playerIndex) const {

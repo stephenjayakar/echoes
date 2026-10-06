@@ -527,9 +527,9 @@ float CBSBlendedLocomotion::UpdateLocomotionAnimation(float dt, float velMag, CB
     mTimeMoving = 0.f;
     if (move == CVector3f::Zero()) {
       const pas::ELocomotionAnim anim = init ? pas::kLA_Invalid : mAnim;
-      if ((anim != pas::kLA_Idle || init) &&
+      if ((anim != pas::kLA_Idle || init == true) &&
           (!bc.GetBodyStateInfo().GetLocoAnimChangeAtEndOfAnimOnly() ||
-           bc.GetAnimTimeRemaining() <= dt || init)) {
+           bc.GetAnimTimeRemaining() <= dt || init == true)) {
         const int idleId = GetLocoAnimation(mLocomotionType, pas::kLA_Idle).first;
         if (idleId != bc.GetCurrentAnimId()) {
           const CAnimPlaybackParms parms(idleId, -1, 1.f, true);
@@ -543,41 +543,56 @@ float CBSBlendedLocomotion::UpdateLocomotionAnimation(float dt, float velMag, CB
 
   if (mTimeMoving + dt > 0.2f) {
     mTimeMoving = 0.2f;
-    const CVector3f localMove = act->GetTransform().TransposeRotate(move);
-    CVector3f desired(localMove.GetX(), localMove.GetY(), 0.f);
-    if (desired.CanBeNormalized()) {
-      desired.Normalize();
+  } else {
+    mDirection = CVector3f(0.f, 1.f, 0.f);
+    if (0.f == mTimeMoving) {
+      const CAnimPlaybackParms parms(2, -1, 1.f, true);
+      bc.SetCurrentAnimation(parms, true, false);
+      mAnim = pas::kLA_Run;
     }
-
-    const CRelAngle maxTurn =
-        CRelAngle::FromRadians(mTurnSpeed * dt * CRelAngle::FromDegrees(1.f).AsRadians());
-    const float turnAngle = CVector3f::GetAngleDiff(mDirection, desired);
-    if (turnAngle > maxTurn.AsRadians()) {
-      desired = CVector3f::Slerp(mDirection, desired, maxTurn);
-    }
-
-    const pas::ELocomotionAnim longitudinal =
-        desired.GetY() > 0.f ? pas::kLA_Run : pas::kLA_BackUp;
-    const pas::ELocomotionAnim lateral =
-        desired.GetX() > 0.f ? pas::kLA_StrafeRight : pas::kLA_StrafeLeft;
-    const float longitudinalWeight = desired.GetY() > 0.f ? desired.GetY() : -1.f * desired.GetY();
-    const float lateralWeight = rstl::max_val(1.f - longitudinalWeight, 0.f);
-    const int longitudinalId = GetLocoAnimation(mLocomotionType, longitudinal).first;
-    const int lateralId = GetLocoAnimation(mLocomotionType, lateral).first;
-    const CAnimPlaybackParms parms(longitudinalId, lateralId, lateralWeight, true);
-    bc.SetCurrentAnimation(parms, true, true);
-    mAnim = longitudinal;
-    mDirection = desired;
+    mTimeMoving += dt;
     return 1.f;
   }
 
-  mDirection = CVector3f(0.f, 1.f, 0.f);
-  if (mTimeMoving == 0.f) {
-    const CAnimPlaybackParms parms(2, -1, 1.f, true);
-    bc.SetCurrentAnimation(parms, true, false);
-    mAnim = pas::kLA_Run;
+  CVector3f desired = act->GetTransform().TransposeRotate(move);
+  desired.SetZ(0.f);
+  if (desired.CanBeNormalized() == true) {
+    desired.Normalize();
   }
-  mTimeMoving += dt;
+
+  const float maxTurn = CRelAngle::FromDegrees(mTurnSpeed * dt).AsRadians();
+  CVector3f direction;
+  if (CVector3f::GetAngleDiff(mDirection, desired) > maxTurn) {
+    direction = CVector3f::Slerp(mDirection, desired, CRelAngle::FromRadians(maxTurn));
+  } else {
+    direction = desired;
+  }
+
+  pas::ELocomotionAnim longitudinal;
+  float longitudinalWeight;
+  if (direction.GetY() > 0.f) {
+    longitudinal = pas::kLA_Run;
+    longitudinalWeight = direction.GetY();
+  } else {
+    longitudinal = pas::kLA_BackUp;
+    longitudinalWeight = -1.f * direction.GetY();
+  }
+  pas::ELocomotionAnim lateral;
+  if (direction.GetX() > 0.f) {
+    lateral = pas::kLA_StrafeRight;
+  } else {
+    lateral = pas::kLA_StrafeLeft;
+  }
+  const int longitudinalId = GetLocoAnimation(mLocomotionType, longitudinal).first;
+  const int lateralId = GetLocoAnimation(mLocomotionType, lateral).first;
+  float lateralWeight = 1.f - longitudinalWeight;
+  if (lateralWeight < 0.f) {
+    lateralWeight = 0.f;
+  }
+  const CAnimPlaybackParms parms(longitudinalId, lateralId, lateralWeight, true);
+  bc.SetCurrentAnimation(parms, true, true);
+  mAnim = longitudinal;
+  mDirection = direction;
   return 1.f;
 }
 
