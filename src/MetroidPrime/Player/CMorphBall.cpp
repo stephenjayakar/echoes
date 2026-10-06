@@ -148,15 +148,214 @@ inline CColor CMorphBall::GetBallGlowColor(const SColorRgb& color) {
 
 // Guessed names for TU-local state.
 static float sBallCloseToCollisionDistance;
+// Guessed names. Used by Render.
+static const CColor skBallRenderColorA((uchar)0xff, (uchar)0xff, (uchar)0xc0, (uchar)0xff);
+static const CColor skBallRenderColorB((uchar)0xaa, (uchar)0x54, (uchar)0xff, (uchar)0xff);
+// Guessed names. Default (single-player and multiplayer) model names used by the constructor.
+static const char* const skDefaultBallModel = CMorphBall::skBallCharacter[0].mName;
+static const char* const skDefaultLowPolyModel = CMorphBall::skBallLowPoly[0].mName;
+static const char* const skDefaultSpiderGlassModel =
+    CMorphBall::skSpiderBallGlass[0].mName ? CMorphBall::skSpiderBallGlass[0].mName : "";
+static const char* const skDefaultFrozenModel = CMorphBall::skFrozenBall[0].mName;
+static const char* const skMultiplayerSpiderGlassModel = "";
+static const char* const skMultiplayerBallModel = "SamusMultiBallANCS";
+static const char* const skMultiplayerLowPolyModel = CMorphBall::skBallLowPoly[0].mName;
+static const char* const skMultiplayerFrozenModel = CMorphBall::skFrozenBall[0].mName;
 static rstl::reserved_vector< int, 64 > sWakeEffectForMaterial;
 
-void CMorphBall::DeleteBallShadow() { mShadow = nullptr; }
+// Ownership cleanup is supplied by the members' destructors.
+CMorphBall::~CMorphBall() {}
 
-void CMorphBall::CreateBallShadow() {
-  if (!mShadow.get()) {
-    mShadow = rs_new CMorphBallShadow(64, 64, gpSimplePool->GetObj("TXTR_BallFade"));
+// Material 59 has no established semantic name in this checkout.
+CMorphBall::CMorphBall(CPlayer& player, float radius, bool multiplayer)
+: mPlayer(player)
+, mLoadedModelId(-1)
+, mBallGlowColorIdx(0)
+, mRadius(radius)
+, mBoostControlForce(CVector3f::Zero())
+, mControlForce(CVector3f::Zero())
+, mTireMode(false)
+, mTireLeanAngle(0.f)
+, mBallTiltAngle(0.f)
+, mCollisionSphere(
+      CSphere(CVector3f(0.f, 0.f, radius), radius),
+      CMaterialList(kMT_Player, kMT_Unknown59, kMT_GroundCollider, kMT_NoPlayerCollision))
+, mBallModel(GetMorphBallModel(
+      rstl::string_l(multiplayer ? skMultiplayerBallModel : skDefaultBallModel), mRadius))
+, mBallModelShader(0)
+, mSpiderBallGlassModel(GetMorphBallModel(
+      rstl::string_l(multiplayer ? skMultiplayerSpiderGlassModel : skDefaultSpiderGlassModel),
+      mRadius))
+, mSpiderBallGlassModelShader(0)
+, mLowPolyBallModel(GetMorphBallModel(
+      rstl::string_l(multiplayer ? skMultiplayerLowPolyModel : skDefaultLowPolyModel), mRadius))
+, mLowPolyBallModelShader(0)
+, mFrozenBallModel(GetMorphBallModel(
+      rstl::string_l(multiplayer ? skMultiplayerFrozenModel : skDefaultFrozenModel), mRadius))
+, mLastWallCollisionFrame(-1)
+, mLastFloorCollisionFrame(-1)
+, mBallState(kBS_Normal)
+, mPlayerToSpiderNormal(CVector3f::Zero())
+, mSpiderPullMovement(1.f)
+, mSpiderTrackPoint(CVector3f::Zero())
+, mSpiderInterpBetweenPoints(CVector3f::Zero())
+, mSpiderBetweenPoints(CVector3f::Zero())
+, mLinearVelocityDamping(0.f)
+, mAngularVelocityDamping(0.f)
+, mSpiderNearby(false)
+, mTouchingSpider(false)
+, mSpiderBallSwinging(false)
+, mSpiderSwingInAir(true)
+, mSpiderSurfaceType(kSST_None)
+, mSpiderSurfaceTransform(CTransform4f::Identity())
+, mSpiderSurfacePivotAngle(0.f)
+, mSpiderSurfacePivotTargetAngle(0.f)
+, mRefPullVelocity(0.f)
+, mPlayerToSpiderTrackDistance(0.f)
+, mSwingControlDirection(0.f)
+, mSwingControlTime(0.f)
+, mNormalizedSpiderSurfaceForces(0.f, 0.f)
+, mSpiderTrackForceMagnitude(0.f)
+, mSpiderViewControlMagnitude(0.f)
+, mDamageTimer(0.f)
+, mSpiderForcesReset(false)
+, mSurfaceToWorld(CTransform4f::Identity())
+, mSlowBlueTailSwoosh(
+      gpSimplePool->GetObj(multiplayer ? "SlowBlueTailSwoosh_MP" : "SlowBlueTailSwoosh"))
+, mSlowBlueTailSwoosh2(
+      gpSimplePool->GetObj(multiplayer ? "SlowBlueTailSwoosh2_MP" : "SlowBlueTailSwoosh2"))
+, mJaggyTrail(gpSimplePool->GetObj(multiplayer ? "JaggyTrail_MP" : "JaggyTrail"))
+, mSideSwoosh(gpSimplePool->GetObj("SideSwooshSide"))
+, mWallSpark(gpSimplePool->GetObj("WallSpark"))
+, mBallInnerGlow(gpSimplePool->GetObj("BallInnerGlow"))
+, mSpiderBallMagnet(gpSimplePool->GetObj("SpiderBallMagnetEffect"))
+, mBoostBallGlow(gpSimplePool->GetObj("BoostBallGlow"))
+, mMorphBallTransitionFlash(gpSimplePool->GetObj("MorphBallTransitionFlash"))
+, mMorphBallIceBreak(gpSimplePool->GetObj("Effect_MorphBallIceBreak"))
+, mBoostEffect(gpSimplePool->GetObj("BoostEffect"))
+, mDeathBallOuterShell(gpSimplePool->GetObj("DeathBallOuterShell"))
+, mDeathBallSpikes(gpSimplePool->GetObj("DeathBallSpikes"))
+, mScrewAttackJumpFlash(gpSimplePool->GetObj("ScrewAttackJumpFlash"))
+, mSlowBlueTailSwooshGen(rs_new CParticleSwoosh(mSlowBlueTailSwoosh, 0))
+, mSlowBlueTailSwooshGen2(rs_new CParticleSwoosh(mSlowBlueTailSwoosh, 0))
+, mSlowBlueTailSwoosh2Gen(rs_new CParticleSwoosh(mSlowBlueTailSwoosh2, 0))
+, mSlowBlueTailSwoosh2Gen2(rs_new CParticleSwoosh(mSlowBlueTailSwoosh2, 0))
+, mJaggyTrailGen(rs_new CParticleSwoosh(mJaggyTrail, 0))
+, mSideSwooshGen(multiplayer ? nullptr : rs_new CParticleSwoosh(mSideSwoosh, 0))
+, mSideSwooshGen2(multiplayer ? nullptr : rs_new CParticleSwoosh(mSideSwoosh, 0))
+, mWallSparkGen(rs_new CElementGen(mWallSpark))
+, mBallInnerGlowGen(rs_new CElementGen(mBallInnerGlow))
+, mSpiderBallMagnetGen(rs_new CElementGen(mSpiderBallMagnet))
+, mBoostBallGlowGen(rs_new CElementGen(mBoostBallGlow))
+, mBoostEffectGen(nullptr)
+, mMorphBallTransitionFlashGen(nullptr)
+, mMorphBallIceBreakGen(nullptr)
+, mDeathBallOuterShellGen(nullptr)
+, mDeathBallSpikesGen(nullptr)
+, mScrewAttackJumpFlashGen(nullptr)
+, mScrewAttackWallJumpFlashGen(nullptr)
+, mWakeEffectIndex(-1)
+, mBallInnerGlowLight(kInvalidUniqueId)
+, mBallLightActive(false)
+, mWorldShadow(rs_new CWorldShadow(16, 16, false))
+, mActorLights(rs_new CActorLights(8, CVector3f::Zero(), 4, 4, 0.1f, false, false, false, false))
+, mRainSplashGen(rs_new CRainSplashGenerator(mBallModel->GetScale(), 40, 2, 0.15f, 0.5f))
+, mTireFactor(0.f)
+, mMaxTireFactor(0.5f)
+, mTireInterpolationSpeed(1.f)
+, mTireInterpolating(false)
+, mBoostOverLightFactor(0.f)
+, mBoostLightFactor(0.f)
+, mSpiderLightFactor(0.f)
+, mBallOrientationAverage(CQuaternion::NoRotation())
+, mBallPositionAverage(CVector3f::Zero())
+, mLiftSpeedAverage(0.f)
+, mLiftControlForceAverage(CVector3f::Zero())
+, mFailsafeCounter(0)
+, mVelocityBeforeFailsafe(CVector3f::Zero())
+, mVelocityAfterFailsafe(CVector3f::Zero())
+, mBoostEnabled(true)
+, mTouchedFloorDuringBoost(false)
+, mBoostChargeTime(0.f)
+, mTimeNotInBoost(1000.f)
+, x1028_(0.f)
+, mBoostDrainTime(0.f)
+, mBoostEffectTime(0.f)
+, mBoostDamageScale(1.f)
+, mDisableSpiderBallTime(0.f)
+, mBoostTrailFadeTimer(0.f)
+, mInHalfPipeMode(false)
+, mInHalfPipeModeInAir(false)
+, mTouchedHalfPipeRecently(false)
+, mBallCloseToCollision(false)
+, mCloseToCollisionTime(0.f)
+, mTouchHalfPipeCooldown(0.f)
+, mDisableControlCooldown(0.f)
+, mTouchedHalfPipeRecentCooldown(0.f)
+, mPrevHalfPipeNormal(CVector3f::Zero())
+, mHalfPipeNormal(CVector3f::Zero())
+, mBallAnimationIndex(0)
+, mRollSfxId(0xffff)
+, mLandSfxId(0xffff)
+, mWallSparkFrameCountdown(1)
+, mEndScrewAttackRequested(false)
+, mTouchingWall(false)
+, mPendingRecoil(false)
+, mRecoiling(false)
+, mWallJumpInputPending(false)
+, mCollidedDuringRecovery(false)
+, x18a8_30_(false)
+, mForcedScrewJumpInput(false)
+, mScrewAttackJumpCount(0)
+, mWallJumpCount(0)
+, mScrewAttackExitAnimationFrames(0)
+, mScrewAttackGroundedFrames(0)
+, mTimeSinceScrewAttackJump(0.f)
+, mWallContactTime(0.f)
+, mScrewAttackRecoveryCollisionTime(0.f)
+, mWallNormal(CVector3f::Zero())
+, mScrewAttackDirection(CVector3f::Zero())
+, mBoostState(kBBS_BoostAvailable)
+, mBombJumpState(kBJS_BombJumpAvailable)
+, mDamageEffect(0.f)
+, mDamageEffectDecaySpeed(0.f)
+, mDamageTime(0.f)
+, mMultiplayer(multiplayer)
+, mShadow(nullptr) {
+  mSpiderBallMagnetGen->SetParticleEmission(false);
+  mSpiderBallMagnetGen->Update(double(1.f / 60.f));
+  sBallCloseToCollisionDistance = GetBallRadius() + 0.2f;
+  InitializeWakeEffects();
+  mDeathBallDamageCooldowns.reserve(16);
+  if (!mMultiplayer) {
+    mBallModel->LockTextures();
+    if (mSpiderBallGlassModel.get()) {
+      mSpiderBallGlassModel->LockTextures();
+    }
+    mLowPolyBallModel->LockTextures();
+  }
+  mPlayer.SetCollisionAccuracyModifier(5.f);
+}
+
+void CMorphBall::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
+  switch (msg.GetMessage()) {
+  case kSM_Create:
+    if (mBallInnerGlowGen.get() && mBallInnerGlowGen->SystemHasLight()) {
+      mBallInnerGlowLight = mgr.AllocateUniqueId();
+      const uint sourceId =
+          mBallInnerGlow.GetTag().id + mgr.MaskUIdNumPlayers(mPlayer.GetUniqueId());
+      mgr.AddObject(rs_new CGameLight(
+          mBallInnerGlowLight, kInvalidAreaId, false, rstl::string_l("BallLight"), GetBallToWorld(),
+          mPlayer.GetUniqueId(), mBallInnerGlowGen->GetLight(), sourceId, 0, 0.f));
+    }
+    break;
+  case kSM_Delete:
+    DeleteLight(mgr);
+    break;
   }
 }
+
+void CMorphBall::DeleteBallShadow() { mShadow = nullptr; }
 
 void CMorphBall::RenderToShadowTex(CStateManager& mgr) {
   if (mShadow.get() == nullptr) {
@@ -2317,24 +2516,6 @@ bool CMorphBall::DoUserAnimEvent(CStateManager& mgr, const CInt32POINode& node,
   return false;
 }
 
-void CMorphBall::AcceptScriptMsg(CStateManager& mgr, const CScriptMsg& msg) {
-  switch (msg.GetMessage()) {
-  case kSM_Create:
-    if (mBallInnerGlowGen.get() && mBallInnerGlowGen->SystemHasLight()) {
-      mBallInnerGlowLight = mgr.AllocateUniqueId();
-      const uint sourceId =
-          mBallInnerGlow.GetTag().id + mgr.MaskUIdNumPlayers(mPlayer.GetUniqueId());
-      mgr.AddObject(rs_new CGameLight(
-          mBallInnerGlowLight, kInvalidAreaId, false, rstl::string_l("BallLight"), GetBallToWorld(),
-          mPlayer.GetUniqueId(), mBallInnerGlowGen->GetLight(), sourceId, 0, 0.f));
-    }
-    break;
-  case kSM_Delete:
-    DeleteLight(mgr);
-    break;
-  }
-}
-
 void CMorphBall::Update(float dt, CStateManager& mgr) {
   if (mBallState == kBS_Spider) {
     CreateSpiderBallParticles(mgr, GetBallPosition(), mSpiderTrackPoint);
@@ -3373,165 +3554,8 @@ float CMorphBall::GetBallTouchRadius() const { return gpTweakBall->GetBallTouchR
 
 float CMorphBall::GetBallRadius() const { return mPlayer.GetTweakPlayer()->GetBallRadius(); }
 
-// Ownership cleanup is supplied by the members' destructors.
-CMorphBall::~CMorphBall() {}
-
-// Material 59 has no established semantic name in this checkout.
-CMorphBall::CMorphBall(CPlayer& player, float radius, bool multiplayer)
-: mPlayer(player)
-, mLoadedModelId(-1)
-, mBallGlowColorIdx(0)
-, mRadius(radius)
-, mBoostControlForce(CVector3f::Zero())
-, mControlForce(CVector3f::Zero())
-, mTireMode(false)
-, mTireLeanAngle(0.f)
-, mBallTiltAngle(0.f)
-, mCollisionSphere(
-      CSphere(CVector3f(0.f, 0.f, radius), radius),
-      CMaterialList(kMT_Player, kMT_Unknown59, kMT_GroundCollider, kMT_NoPlayerCollision))
-, mBallModel(GetMorphBallModel(multiplayer ? "SamusMultiBallANCS" : "SamusBallCMDL", radius))
-, mBallModelShader(0)
-, mSpiderBallGlassModel(GetMorphBallModel("", radius))
-, mSpiderBallGlassModelShader(0)
-, mLowPolyBallModel(GetMorphBallModel("SamusBallLowPolyCMDL", radius))
-, mLowPolyBallModelShader(0)
-, mFrozenBallModel(GetMorphBallModel("SamusBallFrozenCMDL", radius))
-, mLastWallCollisionFrame(-1)
-, mLastFloorCollisionFrame(-1)
-, mBallState(kBS_Normal)
-, mPlayerToSpiderNormal(CVector3f::Zero())
-, mSpiderPullMovement(1.f)
-, mSpiderTrackPoint(CVector3f::Zero())
-, mSpiderInterpBetweenPoints(CVector3f::Zero())
-, mSpiderBetweenPoints(CVector3f::Zero())
-, mLinearVelocityDamping(0.f)
-, mAngularVelocityDamping(0.f)
-, mSpiderNearby(false)
-, mTouchingSpider(false)
-, mSpiderBallSwinging(false)
-, mSpiderSwingInAir(true)
-, mSpiderSurfaceType(kSST_None)
-, mSpiderSurfaceTransform(CTransform4f::Identity())
-, mSpiderSurfacePivotAngle(0.f)
-, mSpiderSurfacePivotTargetAngle(0.f)
-, mRefPullVelocity(0.f)
-, mPlayerToSpiderTrackDistance(0.f)
-, mSwingControlDirection(0.f)
-, mSwingControlTime(0.f)
-, mNormalizedSpiderSurfaceForces(0.f, 0.f)
-, mSpiderTrackForceMagnitude(0.f)
-, mSpiderViewControlMagnitude(0.f)
-, mDamageTimer(0.f)
-, mSpiderForcesReset(false)
-, mSurfaceToWorld(CTransform4f::Identity())
-, mSlowBlueTailSwoosh(
-      gpSimplePool->GetObj(multiplayer ? "SlowBlueTailSwoosh_MP" : "SlowBlueTailSwoosh"))
-, mSlowBlueTailSwoosh2(
-      gpSimplePool->GetObj(multiplayer ? "SlowBlueTailSwoosh2_MP" : "SlowBlueTailSwoosh2"))
-, mJaggyTrail(gpSimplePool->GetObj(multiplayer ? "JaggyTrail_MP" : "JaggyTrail"))
-, mSideSwoosh(gpSimplePool->GetObj("SideSwooshSide"))
-, mWallSpark(gpSimplePool->GetObj("WallSpark"))
-, mBallInnerGlow(gpSimplePool->GetObj("BallInnerGlow"))
-, mSpiderBallMagnet(gpSimplePool->GetObj("SpiderBallMagnetEffect"))
-, mBoostBallGlow(gpSimplePool->GetObj("BoostBallGlow"))
-, mMorphBallTransitionFlash(gpSimplePool->GetObj("MorphBallTransitionFlash"))
-, mMorphBallIceBreak(gpSimplePool->GetObj("Effect_MorphBallIceBreak"))
-, mBoostEffect(gpSimplePool->GetObj("BoostEffect"))
-, mDeathBallOuterShell(gpSimplePool->GetObj("DeathBallOuterShell"))
-, mDeathBallSpikes(gpSimplePool->GetObj("DeathBallSpikes"))
-, mScrewAttackJumpFlash(gpSimplePool->GetObj("ScrewAttackJumpFlash"))
-, mSlowBlueTailSwooshGen(rs_new CParticleSwoosh(mSlowBlueTailSwoosh, 0))
-, mSlowBlueTailSwooshGen2(rs_new CParticleSwoosh(mSlowBlueTailSwoosh, 0))
-, mSlowBlueTailSwoosh2Gen(rs_new CParticleSwoosh(mSlowBlueTailSwoosh2, 0))
-, mSlowBlueTailSwoosh2Gen2(rs_new CParticleSwoosh(mSlowBlueTailSwoosh2, 0))
-, mJaggyTrailGen(rs_new CParticleSwoosh(mJaggyTrail, 0))
-, mSideSwooshGen(multiplayer ? nullptr : rs_new CParticleSwoosh(mSideSwoosh, 0))
-, mSideSwooshGen2(multiplayer ? nullptr : rs_new CParticleSwoosh(mSideSwoosh, 0))
-, mWallSparkGen(rs_new CElementGen(mWallSpark))
-, mBallInnerGlowGen(rs_new CElementGen(mBallInnerGlow))
-, mSpiderBallMagnetGen(rs_new CElementGen(mSpiderBallMagnet))
-, mBoostBallGlowGen(rs_new CElementGen(mBoostBallGlow))
-, mBoostEffectGen(nullptr)
-, mMorphBallTransitionFlashGen(nullptr)
-, mMorphBallIceBreakGen(nullptr)
-, mDeathBallOuterShellGen(nullptr)
-, mDeathBallSpikesGen(nullptr)
-, mScrewAttackJumpFlashGen(nullptr)
-, mScrewAttackWallJumpFlashGen(nullptr)
-, mWakeEffectIndex(-1)
-, mBallInnerGlowLight(kInvalidUniqueId)
-, mBallLightActive(false)
-, mWorldShadow(rs_new CWorldShadow(16, 16, false))
-, mActorLights(rs_new CActorLights(8, CVector3f::Zero(), 4, 4, 0.1f, false, false, false, false))
-, mRainSplashGen(rs_new CRainSplashGenerator(mBallModel->GetScale(), 40, 2, 0.15f, 0.5f))
-, mTireFactor(0.f)
-, mMaxTireFactor(0.5f)
-, mTireInterpolationSpeed(1.f)
-, mTireInterpolating(false)
-, mBoostOverLightFactor(0.f)
-, mBoostLightFactor(0.f)
-, mSpiderLightFactor(0.f)
-, mBallOrientationAverage(CQuaternion::NoRotation())
-, mBallPositionAverage(CVector3f::Zero())
-, mLiftSpeedAverage(0.f)
-, mLiftControlForceAverage(CVector3f::Zero())
-, mFailsafeCounter(0)
-, mVelocityBeforeFailsafe(CVector3f::Zero())
-, mVelocityAfterFailsafe(CVector3f::Zero())
-, mBoostEnabled(true)
-, mTouchedFloorDuringBoost(false)
-, mBoostChargeTime(0.f)
-, mTimeNotInBoost(1000.f)
-, x1028_(0.f)
-, mBoostDrainTime(0.f)
-, mBoostEffectTime(0.f)
-, mBoostDamageScale(1.f)
-, mDisableSpiderBallTime(0.f)
-, mBoostTrailFadeTimer(0.f)
-, mInHalfPipeMode(false)
-, mInHalfPipeModeInAir(false)
-, mTouchedHalfPipeRecently(false)
-, mBallCloseToCollision(false)
-, mCloseToCollisionTime(0.f)
-, mTouchHalfPipeCooldown(0.f)
-, mDisableControlCooldown(0.f)
-, mTouchedHalfPipeRecentCooldown(0.f)
-, mPrevHalfPipeNormal(CVector3f::Zero())
-, mHalfPipeNormal(CVector3f::Zero())
-, mBallAnimationIndex(0)
-, mRollSfxId(0xffff)
-, mLandSfxId(0xffff)
-, mWallSparkFrameCountdown(1)
-, mEndScrewAttackRequested(false)
-, mTouchingWall(false)
-, mPendingRecoil(false)
-, mRecoiling(false)
-, mWallJumpInputPending(false)
-, mCollidedDuringRecovery(false)
-, x18a8_30_(false)
-, mForcedScrewJumpInput(false)
-, mScrewAttackJumpCount(0)
-, mWallJumpCount(0)
-, mScrewAttackExitAnimationFrames(0)
-, mScrewAttackGroundedFrames(0)
-, mTimeSinceScrewAttackJump(0.f)
-, mWallContactTime(0.f)
-, mScrewAttackRecoveryCollisionTime(0.f)
-, mWallNormal(CVector3f::Zero())
-, mScrewAttackDirection(CVector3f::Zero())
-, mBoostState(kBBS_BoostAvailable)
-, mBombJumpState(kBJS_BombJumpAvailable)
-, mDamageEffect(0.f)
-, mDamageEffectDecaySpeed(0.f)
-, mDamageTime(0.f)
-, mMultiplayer(multiplayer)
-, mShadow(nullptr) {
-  mSpiderBallMagnetGen->SetParticleEmission(false);
-  mSpiderBallMagnetGen->Update(double(1.f / 60.f));
-  sBallCloseToCollisionDistance = GetBallRadius() + 0.2f;
-  InitializeWakeEffects();
-  mDeathBallDamageCooldowns.reserve(16);
-  // TODO: recover the single-player material preparation calls (see research notes).
-  mPlayer.SetCollisionAccuracyModifier(5.f);
+void CMorphBall::CreateBallShadow() {
+  if (!mShadow.get()) {
+    mShadow = rs_new CMorphBallShadow(64, 64, gpSimplePool->GetObj("TXTR_BallFade"));
+  }
 }
