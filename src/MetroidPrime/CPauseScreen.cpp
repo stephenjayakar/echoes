@@ -910,28 +910,30 @@ void CPauseScreen::SelectNode(int nodeId) {
 }
 
 void CPauseScreen::AdvancePage() {
-  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+  const int nodeId = mScanTree.GetSelectedNode();
+  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
   if (mPage == mPageCount - 1) {
     const int parent = node->GetParentNode();
-    if (parent == -1) {
-      mTransitionState = kTS_FadeOut;
-      CSfxManager::SfxStart(0x21d0, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
-                            CSfxManager::kMedPriority);
-    } else {
+    if (parent != -1) {
       CSfxManager::SfxStart(0x21cf, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                             CSfxManager::kMedPriority);
       mScanTree.SelectNode(parent);
+    } else {
+      mTransitionState = kTS_FadeOut;
+      CSfxManager::SfxStart(0x21d0, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
+                            CSfxManager::kMedPriority);
     }
   } else {
     CSfxManager::SfxStart(0x21d4, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                           CSfxManager::kMedPriority);
-    mPage = rstl::min_val(mPageCount - 1, mPage + 1);
+    mPage = rstl::min_val(mPage + 1, mPageCount - 1);
     mMessage->TextSupport().SetPage(mPage);
   }
 }
 
 void CPauseScreen::FinishOptionEdit(bool accept) {
-  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+  const int nodeId = mScanTree.GetSelectedNode();
+  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
   if (node->GetNodeType() == CScanTreeNode::kNT_Slider) {
     rstl::rc_ptr< CScanTreeSlider > slider(node);
     if (accept) {
@@ -939,45 +941,59 @@ void CPauseScreen::FinishOptionEdit(bool accept) {
         CSfxManager::SfxStart(0xbfd, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                               CSfxManager::kMedPriority);
       }
-    } else {
+    }
+    if (!accept) {
       slider->RestoreSavedValue();
     }
   } else {
     rstl::rc_ptr< CScanTreeMenu > menu(node);
-    if (!accept) {
-      menu->ApplySelectedOption();
-    } else {
+    if (accept) {
       if (menu->GetCurrentOptionIndex() == 1) {
         CGameOptions& options = gpGameState->GameOptions();
         switch (menu->GetSetting()) {
-        case 8:
-          options.ResetSoundToDefaults();
+        case 10:
+          options.ResetExtraFlagsToDefaults();
           break;
         case 9:
           options.ResetScreenToDefaults();
           break;
-        case 10:
-          options.ResetExtraFlagsToDefaults();
+        case 8:
+          options.ResetSoundToDefaults();
           break;
         case 11:
           options.ResetVisorToDefaults();
           break;
         }
-        if (menu->GetSetting() >= 8 && menu->GetSetting() < 12) {
+        switch (menu->GetSetting()) {
+        case 8:
+        case 9:
+        case 10:
+        case 11:
           menu->ApplyOption(0);
           CSfxManager::SfxStart(0x5e0, 0x3c, 0x3f, CSfxManager::kAllAreas, false, false,
                                 CSfxManager::kMedPriority);
+          break;
         }
       }
-      if (menu->GetSetting() < 8 || menu->GetSetting() > 11) {
-        if (menu->GetSelectedOption() != menu->GetCurrentOptionIndex()) {
+      switch (menu->GetSetting()) {
+      case 8:
+      case 9:
+      case 10:
+      case 11:
+        break;
+      default:
+        if (menu->GetCurrentOptionIndex() != menu->GetSelectedOption()) {
           CSfxManager::SfxStart(0xbfd, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                                 CSfxManager::kMedPriority);
         }
+        break;
       }
+    } else {
+      menu->ApplySelectedOption();
     }
   }
-  mScanTree.SelectNode(node->GetParentNode());
+  const int parent = node->GetParentNode();
+  mScanTree.SelectNode(parent);
   UpdateHistoryText();
   CSfxManager::SfxStart(599, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                         CSfxManager::kMedPriority);
@@ -988,10 +1004,12 @@ void CPauseScreen::ProcessButtonInput(const CFinalInput& input) {
     return;
   }
   if (input.PA()) {
-    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+    const int nodeId = mScanTree.GetSelectedNode();
+    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
     if (node->GetNodeType() == CScanTreeNode::kNT_Category) {
       const rstl::rc_ptr< CScanTreeCategory > category(node);
-      SelectNode(category->GetSelectedChild());
+      const int child = category->GetSelectedChild();
+      SelectNode(child);
     } else if ((node->GetNodeType() == CScanTreeNode::kNT_Scan ||
                 node->GetNodeType() == CScanTreeNode::kNT_Inventory) &&
                close_enough(mModelZoomAmount, 0.f)) {
@@ -1003,7 +1021,8 @@ void CPauseScreen::ProcessButtonInput(const CFinalInput& input) {
       FinishOptionEdit(true);
     }
   } else if (input.PB()) {
-    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+    const int nodeId = mScanTree.GetSelectedNode();
+    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
     const int parent = node->GetParentNode();
     if (mModelZoomed) {
       mModelZoomed = false;
@@ -1012,14 +1031,14 @@ void CPauseScreen::ProcessButtonInput(const CFinalInput& input) {
     } else if (node->GetNodeType() == CScanTreeNode::kNT_Menu ||
                node->GetNodeType() == CScanTreeNode::kNT_Slider) {
       FinishOptionEdit(false);
-    } else if (parent == -1 || mOpenedFromScan) {
-      mTransitionState = kTS_FadeOut;
-      CSfxManager::SfxStart(0x21d0, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
-                            CSfxManager::kMedPriority);
-    } else {
+    } else if (parent != -1 && !mOpenedFromScan) {
       mScanTree.SelectNode(parent);
       UpdateHistoryText();
       CSfxManager::SfxStart(0x21cd, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
+                            CSfxManager::kMedPriority);
+    } else {
+      mTransitionState = kTS_FadeOut;
+      CSfxManager::SfxStart(0x21d0, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
                             CSfxManager::kMedPriority);
     }
   } else if (input.PStart()) {
@@ -1030,7 +1049,7 @@ void CPauseScreen::ProcessButtonInput(const CFinalInput& input) {
     mLegendVisible = !mLegendVisible;
     gpGameState->SystemOptions()
         .EnvVars().FindEnvironmentVariable("LogbookLegendVisible")
-        ->Set(mLegendVisible);
+        ->Set(mLegendVisible ? 1 : 0);
     if (!close_enough(mModelZoomAmount, 1.f)) {
       if (mLegendVisible) {
         CSfxManager::SfxStart(0x13b7, 0x7f, 0x3f, CSfxManager::kAllAreas, false, false,
@@ -1041,7 +1060,8 @@ void CPauseScreen::ProcessButtonInput(const CFinalInput& input) {
       }
     }
   } else if (input.PX()) {
-    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+    const int nodeId = mScanTree.GetSelectedNode();
+    rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
     if (node->GetNodeType() == CScanTreeNode::kNT_Scan ||
         node->GetNodeType() == CScanTreeNode::kNT_Inventory) {
       mModelZoomed = !mModelZoomed;
@@ -1152,7 +1172,8 @@ void CPauseScreen::ProcessRotationInput(const CFinalInput& input) {
   }
   if (!close_enough(x, 0.f) || !close_enough(y, 0.f)) {
     if (mRotateSfx == CSfxHandle()) {
-      rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+      const int nodeId = mScanTree.GetSelectedNode();
+      rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
       if (node->GetNodeType() == CScanTreeNode::kNT_Scan ||
           node->GetNodeType() == CScanTreeNode::kNT_Inventory) {
         mRotateSfx = CSfxManager::SfxStart(0x22bf, 0x7f, 0x3f, CSfxManager::kAllAreas, false, true,
@@ -1166,24 +1187,25 @@ void CPauseScreen::ProcessRotationInput(const CFinalInput& input) {
     CSfxManager::SfxStop(mRotateSfx);
     mRotateSfx = CSfxHandle();
   }
-  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(mScanTree.GetSelectedNode());
+  const int nodeId = mScanTree.GetSelectedNode();
+  rstl::rc_ptr< CScanTreeNode > node = mScanTree.GetNode(nodeId);
   if (node->GetNodeType() == CScanTreeNode::kNT_Scan ||
       node->GetNodeType() == CScanTreeNode::kNT_Inventory) {
     ProcessModelInput(input, !close_enough(mModelZoomAmount, 0.f));
   } else if (node->GetNodeType() == CScanTreeNode::kNT_Menu) {
     rstl::rc_ptr< CScanTreeMenu > menu(node);
     const int oldOption = menu->GetCurrentOptionIndex();
-    const int count = menu->GetOptionCount();
-    const bool left = input.DLALeft();
-    const bool right = input.DLARight();
     int option = oldOption;
+    const int count = menu->GetOptionCount();
+    bool left = input.DLALeft();
+    bool right = input.DLARight();
     if (mLeftRepeat.Update(input.DeltaTime(), left) && left && oldOption - 1 >= 0) {
       option = oldOption - 1;
     }
     if (mRightRepeat.Update(input.DeltaTime(), right) && right && oldOption + 1 < count) {
       option = oldOption + 1;
     }
-    if (option != oldOption) {
+    if (oldOption != option) {
       menu->ApplyOption(option);
       CSfxManager::SfxStart(0x5a8, 0x5f, 0x3f, CSfxManager::kAllAreas, false, false,
                             CSfxManager::kMedPriority);
@@ -1200,19 +1222,17 @@ void CPauseScreen::ProcessRotationInput(const CFinalInput& input) {
         delta += 0.01f;
       }
     }
-    const float value = rstl::min_val(1.f, rstl::max_val(0.f, current + delta));
-    if (close_enough(value, current)) {
-      if (mRotateSfx != CSfxHandle()) {
-        CSfxManager::SfxStop(mRotateSfx);
-        mRotateSfx = CSfxHandle();
-      }
-    } else {
+    const float value = CMath::Clamp(0.f, current + delta, 1.f);
+    if (!close_enough(value, current)) {
       slider->SetNormalizedValue(value);
       slider->ApplyNormalizedValue();
       if (mRotateSfx == CSfxHandle()) {
         mRotateSfx = CSfxManager::SfxStart(0x256, 0x7f, 0x3f, CSfxManager::kAllAreas, false, true,
                                            CSfxManager::kMedPriority);
       }
+    } else if (mRotateSfx != CSfxHandle()) {
+      CSfxManager::SfxStop(mRotateSfx);
+      mRotateSfx = CSfxHandle();
     }
   } else {
     mRotationInput = CVector2f(x, y) * 120.f;
