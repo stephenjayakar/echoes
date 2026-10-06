@@ -130,16 +130,16 @@ void CRagDoll::Verlet(float dt) {
     CRagDollParticle& particle = mParticles[i];
     CVector3f oldPos = particle.mCurPos;
     particle.mCurPos += particle.mDamping * (particle.mCurPos - particle.mPrevPos);
-    particle.mCurPos += dt * (dt * particle.mAcceleration);
-    particle.mCurPos += particle.mImpactResponseDelta;
+    particle.mCurPos += dt * (dt * mParticles[i].mAcceleration);
+    particle.mCurPos += mParticles[i].mImpactResponseDelta;
     particle.mPrevPos = oldPos;
     const CVector3f delta = particle.mCurPos - particle.mPrevPos;
     if (delta.MagSquared() > 4.f) {
       particle.mCurPos = particle.mPrevPos + 2.f * delta.AsNormalized();
     }
-    particle.mImpactPending = false;
-    particle.mDamping = 1.f;
-    particle.mImpactResponseDelta = CVector3f::Zero();
+    mParticles[i].mImpactPending = false;
+    mParticles[i].mDamping = 1.f;
+    mParticles[i].mImpactResponseDelta = CVector3f::Zero();
   }
 }
 
