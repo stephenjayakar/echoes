@@ -24,7 +24,7 @@ const CMaterialFilter skCollisionFilter =
 
 CInterpolationCamera::CInterpolationCamera(TUniqueId uid, const CTransform4f& xf, int index,
                                            int controllerIdx)
-: CGameCamera(uid, rstl::string("Interpolation Camera"),
+: CGameCamera(uid, rstl::string_l("Interpolation Camera"),
               CEntityInfo(kInvalidAreaId, NullConnectionList, false), xf,
               CCameraManager::GetDefaultThirdPersonVerticalFOV(),
               CCameraManager::GetDefaultFirstPersonNearClipDistance(),
