@@ -238,6 +238,7 @@ enum EScriptObjectMessage {
   kSM_StopAndReset = 0x53545052,
   kSM_Follow = 0x464f4c57,
   kSM_Attach = 0x41544348,
+  kSM_Arrived = 0x41525256, // Guessed name; CWallCrawler sends it to the waypoint it reaches.
   kSM_Open = 0x4f50454e,
   kSM_Close = 0x434c4f53,
   kSM_Lock = 0x4c4f434b,

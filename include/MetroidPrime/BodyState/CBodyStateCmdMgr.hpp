@@ -448,6 +448,8 @@ CHECK_SIZEOF(CBCAdditiveLoopReactionCmd, 0x10)
 class CBCAdditiveWeightCmd : public CBodyStateCmd {
 public:
   CBCAdditiveWeightCmd() : CBodyStateCmd(kBSC_AdditiveWeight), mWeight(0.f) {}
+  explicit CBCAdditiveWeightCmd(float weight)
+  : CBodyStateCmd(kBSC_AdditiveWeight), mWeight(weight) {}
 
   float GetWeight() const { return mWeight; }
 
@@ -546,6 +548,11 @@ public:
   void DeliverCmd(const CBCAdditiveReactionCmd& cmd) {
     DeliverCmd(cmd.GetCommandId());
     mAdditiveReaction = cmd;
+  }
+
+  void DeliverCmd(const CBCAdditiveWeightCmd& cmd) {
+    DeliverCmd(cmd.GetCommandId());
+    mAdditiveWeight = cmd;
   }
 
   void DeliverCmd(const CBCScriptedCmd& cmd) {
