@@ -181,37 +181,54 @@ bool CMFGameLoader::IsGunPakSetLoaded(int set) const {
 }
 
 void CMFGameLoader::SelectGunPakSet() {
-  int selected = 0;
-  if (gpGameState->GetGameMode().GetGameModeType() != 'SNGL') {
-    selected = gpGameState->GetGameMode().GetNumPlayers() <= 2 ? 1 : 2;
-  }
-  for (int set = 0; set < 3; ++set) {
-    if (set == selected) {
-      if (!IsGunPakSetLoaded(set)) {
-        LoadGunPakSet(set);
+  if (gpGameState->GetGameMode().GetGameModeType() == 'SNGL') {
+    for (int set = 0; set < 3; ++set) {
+      if (set == 0) {
+        if (!IsGunPakSetLoaded(set)) {
+          LoadGunPakSet(set);
+        }
+      } else if (IsGunPakSetLoaded(set)) {
+        UnloadGunPakSet(set);
       }
-    } else if (IsGunPakSetLoaded(set)) {
-      UnloadGunPakSet(set);
+    }
+  } else {
+    const uint numPlayers = gpGameState->GetGameMode().GetNumPlayers();
+    int selected = 1;
+    if (numPlayers > 2) {
+      selected = 2;
+    }
+    for (int set = 0; set < 3; ++set) {
+      if (set == selected) {
+        if (!IsGunPakSetLoaded(set)) {
+          LoadGunPakSet(set);
+        }
+      } else if (IsGunPakSetLoaded(set)) {
+        UnloadGunPakSet(set);
+      }
     }
   }
 }
 
 void CMFGameLoader::LoadGunPakSet(int set) {
-  CResLoader& loader = gpResourceFactory->GetResLoader();
-  loader.AddPakFileAsync(rstl::string_l(skGunPakSets[set][0]), true, false);
-  loader.AddPakFileAsync(rstl::string_l(skGunPakSets[set][1]), true, false);
-  if (strlen(skGunPakSets[set][2]) != 0) {
-    loader.AddPakFileAsync(rstl::string_l(skGunPakSets[set][2]), true, false);
+  const char* pak0 = skGunPakSets[set][0];
+  const char* pak1 = skGunPakSets[set][1];
+  const char* pak2 = skGunPakSets[set][2];
+  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string_l(pak0), true, false);
+  gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string_l(pak1), true, false);
+  if (strlen(pak2) != 0) {
+    gpResourceFactory->GetResLoader().AddPakFileAsync(rstl::string_l(pak2), true, false);
   }
   MarkGunPakSetLoaded(set);
 }
 
 void CMFGameLoader::UnloadGunPakSet(int set) {
-  CResLoader& loader = gpResourceFactory->GetResLoader();
-  loader.RemovePakFile(rstl::string_l(skGunPakSets[set][0]));
-  loader.RemovePakFile(rstl::string_l(skGunPakSets[set][1]));
-  if (strlen(skGunPakSets[set][2]) != 0) {
-    loader.RemovePakFile(rstl::string_l(skGunPakSets[set][2]));
+  const char* pak0 = skGunPakSets[set][0];
+  const char* pak1 = skGunPakSets[set][1];
+  const char* pak2 = skGunPakSets[set][2];
+  gpResourceFactory->GetResLoader().RemovePakFile(rstl::string_l(pak0));
+  gpResourceFactory->GetResLoader().RemovePakFile(rstl::string_l(pak1));
+  if (strlen(pak2) != 0) {
+    gpResourceFactory->GetResLoader().RemovePakFile(rstl::string_l(pak2));
   }
   ClearGunPakSetLoaded(set);
 }
