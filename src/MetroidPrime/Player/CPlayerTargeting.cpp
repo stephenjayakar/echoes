@@ -89,24 +89,21 @@ bool CPlayerTargeting::IsInVisibleArea(const CStateManager& mgr, const CEntity* 
 
 bool CPlayerTargeting::HasStaticGeometry(const CStateManager& mgr, TUniqueId id) {
   const CActor* actor = TCastToConstPtr< CActor >(mgr.GetObjectById(id));
-  if (!actor || !TCastToConstPtr< CScriptPointOfInterest >(actor)) {
-    return false;
-  }
-
-  const TEditorId editorId = mgr.GetEditorIdForUniqueId(id);
-  const CStaticGeometryMap* map = mgr.GetWorld()
-                                      ->GetAreaAlways(actor->GetCurrentAreaId())
-                                      .GetPostConstructed()
-                                      ->mStaticGeometryMap.get();
-  if (!map) {
-    return false;
-  }
-
-  const rstl::vector< CStaticGeometryMapData::TMapping >& mappings = map->GetData().GetMappings();
-  for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it = mappings.begin();
-       it != mappings.end(); ++it) {
-    if (it->second == editorId) {
-      return true;
+  if (actor && TCastToConstPtr< CScriptPointOfInterest >(actor)) {
+    const TEditorId editorId = mgr.GetEditorIdForUniqueId(id);
+    const TAreaId areaId = actor->GetCurrentAreaId();
+    const CStaticGeometryMap* map =
+        mgr.GetWorld()->GetAreaAlways(areaId).GetPostConstructed()->mStaticGeometryMap.get();
+    if (map) {
+      const rstl::vector< CStaticGeometryMapData::TMapping >& mappings =
+          map->GetData().GetMappings();
+      for (rstl::vector< CStaticGeometryMapData::TMapping >::const_iterator it =
+               mappings.begin();
+           it != mappings.end(); ++it) {
+        if (it->second == editorId) {
+          return true;
+        }
+      }
     }
   }
 
