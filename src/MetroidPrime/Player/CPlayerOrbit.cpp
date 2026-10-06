@@ -1002,7 +1002,7 @@ void CPlayer::UpdateAimCandidates(CStateManager& mgr) {
 
 bool CPlayer::ValidateObjectForMode(TUniqueId target, CStateManager& mgr) const {
   const CActor* act = TCastToConstPtr< CActor >(mgr.GetObjectById(target));
-  if (!act || target == kInvalidUniqueId) {
+  if (!act || target.value == kInvalidUniqueId.value) {
     return false;
   }
   if (TCastToConstPtr< CScriptDoor >(mgr.GetObjectById(target))) {
