@@ -105,7 +105,7 @@ CRayCastResult CSandBossChargeBeam::RayCollisionCheckWithWorld(
 
 CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
                      const CTransform4f& xf, const CModelData& mData,
-                     const CPatternedInfo& pInfo, const CActorParameters& aParms,
+                     const CActorParameters& aParms, const CPatternedInfo& pInfo,
                      const SLdrSandBossData& data)
 : CPatterned(kPAI_SandBoss, uid, name, kFT_Zero, info, xf, mData, pInfo, kMT_Ground, kCT_One,
              kBT_BiPedal, aParms)
@@ -162,8 +162,8 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
 , mBeamTurnTimer(0.f)
 , mAttackOrder(0)
 , mRepeaterShots(0)
-, mAttachedArmorModels(rstl::optional_object< CModelData >())
-, mStampedeArmorModels(rstl::optional_object< CModelData >())
+, mAttachedArmorModels(8, rstl::optional_object< CModelData >())
+, mStampedeArmorModels(8, rstl::optional_object< CModelData >())
 , mArmorStates(kArmor_None)
 , mNormalSkinnedModel(GetModelData()->GetAnimationData()->GetModelData())
 , mTailArmorSkinnedModel(rs_new CSkinnedModel(
@@ -172,7 +172,7 @@ CSandBoss::CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo&
           gpSimplePool->GetObj(SObjectTag('CSKR', data.withTailArmorSkinRules))),
       GetModelData()->GetAnimationData()->GetModelData()->GetLayoutInfo()))
 , x14a0_(CTransform4f::Identity())
-, x14d0_(CQuaternion::FromMatrix(GetTransform().GetRotation()))
+, x14d0_(CQuaternion::FromMatrix(xf.GetRotation()))
 , mDoubleChargeDamage(LdrToDamageInfo(data.unknown_0x7619e561.doubleCharge.damage))
 , mTripleChargeDamage(LdrToDamageInfo(data.unknown_0x7619e561.tripleCharge.damage))
 , mStampedeDamage(LdrToDamageInfo(data.stampedeProperties.stampedeDamage))
@@ -2818,8 +2818,8 @@ CEntity* REL_LoadSandBoss(CStateManager& mgr, CInputStream& input, CEntityInfo& 
   return rs_new CSandBoss(mgr.AllocateUniqueId(), sldrThis.editorProperties.name,
                           LdrToEntityInfo(info, sldrThis.editorProperties),
                           LdrToTransform4f(sldrThis.editorProperties), *modelData,
-                          LdrToPatternedInfo(sldrThis.patterned, nullptr),
                           LdrToActorParameters(sldrThis.actorInformation),
+                          LdrToPatternedInfo(sldrThis.patterned, nullptr),
                           sldrThis.sandBossProperties);
 }
 

@@ -56,8 +56,8 @@ private:
 class CSandBoss : public CPatterned {
 public:
   CSandBoss(TUniqueId uid, const rstl::string& name, const CEntityInfo& info,
-            const CTransform4f& xf, const CModelData& mData, const CPatternedInfo& pInfo,
-            const CActorParameters& aParms, const SLdrSandBossData& data);
+            const CTransform4f& xf, const CModelData& mData, const CActorParameters& aParms,
+            const CPatternedInfo& pInfo, const SLdrSandBossData& data);
   ~CSandBoss() override;
 
   // CEntity
