@@ -82,6 +82,11 @@ class ncrc_ptr : public rc_ptr< T > {
 public:
   ncrc_ptr() {}
   ncrc_ptr(T* ptr) : rc_ptr< T >(ptr) {}
+  // Explicit copy ctor; its size keeps list<ncrc_ptr<T>>::create_node out of line.
+  ncrc_ptr(const ncrc_ptr& other) : rc_ptr< T >(other) {
+    ((void)0);
+    ((void)0);
+  }
   ncrc_ptr(const rc_ptr< T >& other) : rc_ptr< T >(other) {}
   ncrc_ptr& operator=(const rc_ptr< T >& other) {
     rc_ptr< T >::operator=(other);

@@ -38,7 +38,7 @@ void CScriptSequenceTimer::ApplyTime(float time, CStateManager& mgr) {
   mCurrentTime = time;
 
   bool wrapped = false;
-  if (mLoop && mMaxTime <= mCurrentTime) {
+  if (mLoop && mCurrentTime >= mMaxTime) {
     wrapped = true;
     mCurrentTime = mLoopStartTime + float(fmod(mCurrentTime, mMaxTime));
   }
@@ -55,8 +55,14 @@ void CScriptSequenceTimer::ApplyTime(float time, CStateManager& mgr) {
     for (rstl::vector< float >::iterator activation = connection->mActivation.first.begin();
          activation != connection->mActivation.first.end(); ++activation) {
       const float activationTime = *activation;
-      const bool crossed = wrapped ? upperTime <= activationTime || activationTime < lowerTime
-                                   : lowerTime <= activationTime && activationTime < upperTime;
+      bool crossed = false;
+      if (!wrapped) {
+        if (lowerTime <= activationTime && activationTime < upperTime) {
+          crossed = true;
+        }
+      } else if (upperTime <= activationTime || activationTime < lowerTime) {
+        crossed = true;
+      }
       if (!crossed) {
         continue;
       }
@@ -70,7 +76,7 @@ void CScriptSequenceTimer::ApplyTime(float time, CStateManager& mgr) {
     }
   }
 
-  if (!mLoop && mMaxTime <= mCurrentTime) {
+  if (!mLoop && mCurrentTime >= mMaxTime) {
     SendScriptMsgs(kSS_MaxReached, mgr, mStartMessage.GetOriginator(), kSM_None);
     mRunning = false;
   }

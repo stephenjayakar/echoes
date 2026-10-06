@@ -83,8 +83,9 @@ bool CFilePreloadData::IsReady() {
 }
 
 void CFilePreloadData::Read(void* dest, int offset, int length) {
+  int firstLength;
   const int chunk = offset / 0x4000;
-  int firstLength = (chunk + 1) * 0x4000 - offset;
+  firstLength = (chunk + 1) * 0x4000 - offset;
   if (length < firstLength) {
     firstLength = length;
   }
