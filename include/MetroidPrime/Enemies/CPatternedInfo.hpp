@@ -28,6 +28,7 @@ public:
   float GetDetectionRange() const { return mDetectionRange; }
   float GetMinAttackRange() const { return mMinAttackRange; }
   float GetMaxAttackRange() const { return mMaxAttackRange; }
+  float GetFrozenXDamageThreshold() const { return mFrozenXDamageThreshold; }
 
 private:
   float mMass;

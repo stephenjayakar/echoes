@@ -34,7 +34,7 @@ struct SLdrUnknownStruct10 {
   int sound_GrenadeExplode; // 0xaf6aad88
 };
 
-inline SLdrUnknownStruct10::SLdrUnknownStruct10() : grenadeDamage(), grenadeExplosion(kInvalidAssetId), grenadeEffect(kInvalidAssetId), grenadeTrail(kInvalidAssetId) {
+inline SLdrUnknownStruct10::SLdrUnknownStruct10() : grenadeDamage(), grenadeExplosion(kInvalidAssetId), grenadeEffect(kInvalidAssetId), grenadeTrail(kInvalidAssetId), sound_GrenadeBounce(-1), sound_GrenadeExplode(-1) {
   grenadeMinAttackInterval = 10.0f;
   grenadePostAttackPause = 0.25f;
   grenadeAttackChance = 80.0f;
@@ -50,8 +50,6 @@ inline SLdrUnknownStruct10::SLdrUnknownStruct10() : grenadeDamage(), grenadeExpl
   grenadeMaxLaunchSpeed = 50.0f;
   unknown_0x454f16b1 = 0;
   eMPDuration = 8.0f;
-  sound_GrenadeBounce = 0;
-  sound_GrenadeExplode = 0;
 }
 
 inline SLdrUnknownStruct10::~SLdrUnknownStruct10() {}
@@ -160,21 +158,18 @@ struct SLdrCommandoShield {
   int sound_ShieldTurnOff; // 0x78be3b8d
 };
 
-inline SLdrCommandoShield::SLdrCommandoShield() : shieldChargeDamage(), shieldVulnerability(), shieldExplodeEffect(kInvalidAssetId), armShieldExplodeEffect(kInvalidAssetId), shieldChargeEffect(kInvalidAssetId), armShieldEffect(kInvalidAssetId) {
+inline SLdrCommandoShield::SLdrCommandoShield() : shieldChargeDamage(), shieldVulnerability(), shieldExplodeEffect(kInvalidAssetId), sound_ShieldExplode(-1), armShieldExplodeEffect(kInvalidAssetId), shieldChargeEffect(kInvalidAssetId), armShieldEffect(kInvalidAssetId), sound_ShieldTurnOn(-1), sound_ShieldTurnOff(-1) {
   shieldChargeDamage.dI_WeaponType = 11;
   shieldChargeDamage.dI_Damage = 10.0f;
   shieldChargeDamage.dI_KnockBackPower = 5.0f;
   shieldChargeMinAttackDist = 15.0f;
   shieldChargeMaxAttackDist = 30.0f;
   shieldChargeSpeed = 40.0f;
-  sound_ShieldExplode = 0;
   unknown_0x6cb0da5a = 50.0f;
   unknown_0xc3938663 = 1.5f;
   armShieldChance = 50.0f;
   armShieldTime = 4.0f;
   armShieldTimeVariation = 1.0f;
-  sound_ShieldTurnOn = 0;
-  sound_ShieldTurnOff = 0;
 }
 
 inline SLdrCommandoShield::~SLdrCommandoShield() {}
@@ -289,7 +284,8 @@ struct SLdrCommandoPirate {
   float intraBurstShotVariation; // 0x7903312e
 };
 
-inline SLdrCommandoPirate::SLdrCommandoPirate() : editorProperties(), patterned(), actorInformation(), ingPossessionData(), bladeDamage(), projectile(kInvalidAssetId), projectileDamage(), unknown_0xfb435257(), shieldInfo() {
+inline SLdrCommandoPirate::SLdrCommandoPirate() : editorProperties(), patterned(), actorInformation(), ingPossessionData(), sound_Impact(-1), sound_Hurled(-1), sound_Death(-1), alwaysFF(-1), alwaysFF_0x467c3d94(-1), bladeDamage(), projectile(kInvalidAssetId), projectileDamage(), sound_Projectile(-1), unknown_0xfb435257(), shieldInfo() {
+  editorProperties.unknown_0x5d298a43 = 3;
   patterned.turnSpeed = 360.0f;
   patterned.detectionAngle = 90.0f;
   patterned.averageAttackTime = 1.0f;
@@ -305,22 +301,18 @@ inline SLdrCommandoPirate::SLdrCommandoPirate() : editorProperties(), patterned(
   patterned.stepUpHeight = 0.30000001f;
   patterned.unknown_0xf0790c1b = 0.2f;
   patterned.creatureSize = 1;
+  actorInformation.lighting.ambientColor = CColor(1.0f, 1.0f, 1.0f, 1.0f);
+  actorInformation.visor.visorFlags = 0x0000000fu;
   sound = 0;
   aggressiveness = 10.0f;
   coverCheck = 50.0f;
   searchRadius = 30.0f;
   dodgeCheck = 80.0f;
-  sound_Impact = 0;
-  sound_Hurled = 0;
-  sound_Death = 0;
-  alwaysFF = -1;
-  alwaysFF_0x467c3d94 = -1;
   bladeDamage.dI_WeaponType = 11;
   bladeDamage.dI_Damage = 10.0f;
   bladeDamage.dI_KnockBackPower = 5.0f;
   projectileDamage.dI_WeaponType = 11;
   projectileDamage.dI_Damage = 5.0f;
-  sound_Projectile = 0;
   hearingRadius = 20.0f;
   intraBurstShotTime = 0.1f;
   intraBurstShotVariation = 0.050000001f;

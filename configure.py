@@ -1491,6 +1491,13 @@ config.libs = [
         extra_cflags=["-pool off"],
     ),
     Rel(
+        "CommandoPirate",
+        [
+            Object(NonMatching, "MetroidPrime/Enemies/CCommandoPirate.cpp"),
+        ],
+        extra_cflags=["-pool off"],
+    ),
+    Rel(
         "DestructibleBarrier",
         [
             Object(NonMatching, "MetroidPrime/ScriptObjects/CScriptDestructibleBarrier.cpp"),

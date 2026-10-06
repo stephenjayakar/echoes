@@ -14,6 +14,7 @@ public:
                       float checkIntervalRange);
   void Update(float dt, CStateManager& mgr); // Guessed name
   void SetTarget(TUniqueId target);          // Guessed name
+  void SetSegment(const CSegId& segment) { mSegment = segment; } // Guessed name
 
 private:
   TUniqueId mOwner;            // Guessed name
