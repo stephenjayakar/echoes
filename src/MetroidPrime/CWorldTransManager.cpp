@@ -500,7 +500,7 @@ void CWorldTransManager::DrawAllModels() const {
     CVector3f scale = CVector3f::One();
     if (!data.mPlatformModelData.IsNull()) {
       const CAABox bounds = data.mPlatformModelData.GetBounds();
-      const float halfWidth = 0.5f * (bounds.GetMaxPoint().GetX() - bounds.GetMinPoint().GetX());
+      const float halfWidth = (bounds.GetMaxPoint().GetX() - bounds.GetMinPoint().GetX()) / 2.f;
       scale = CVector3f(halfWidth, halfWidth, halfWidth);
     }
     const CDarkWorldInfo& dark = *mDarkWorldInfo;
