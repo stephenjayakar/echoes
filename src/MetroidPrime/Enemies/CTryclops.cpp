@@ -103,6 +103,7 @@ bool CTryclops::InMaxRange(CStateManager& mgr, const CTriggerData&) const {
   const float detectionRange = mDetectionRange;
   const float detectionHeight = mDetectionHeightRange;
   float nearestDistSq = detectionRange * detectionRange;
+  const float heightSq = detectionHeight * detectionHeight;
   const float negRange = -detectionRange;
   const CAABox bounds(GetTranslation() + CVector3f(negRange, negRange, 0.f),
                       GetTranslation() +
@@ -118,7 +119,7 @@ bool CTryclops::InMaxRange(CStateManager& mgr, const CTriggerData&) const {
         if (distSq < nearestDistSq) {
           bool inHeightRange = true;
           if (detectionHeight > 0.f) {
-            inHeightRange = delta.GetZ() * delta.GetZ() < detectionHeight * detectionHeight;
+            inHeightRange = delta.GetZ() * delta.GetZ() < heightSq;
           }
           if (inHeightRange &&
               mPathFindSearch.OnPath(bomb->GetTranslation()) == CPathFindSearch::kR_Success) {
@@ -195,10 +196,10 @@ void CTryclops::TargetCover(CStateManager& mgr, EStateMsg msg, float) {
 }
 
 bool CTryclops::InAttackPosition(CStateManager& mgr, const CTriggerData&) const {
-  float nearestDistSq = FLT_MAX;
   mTargetPlayerId = kInvalidUniqueId;
+  float nearestDistSq = 3.4028235e38f;
   const CVector3f ownPos = GetTranslation();
-  for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+  for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
     const CPlayer* player = mgr.GetPlayer(i);
     if ((player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
              ? player->GetMorphballTransitionState()
@@ -206,8 +207,10 @@ bool CTryclops::InAttackPosition(CStateManager& mgr, const CTriggerData&) const 
         player->GetAttachedActorId() == kInvalidUniqueId) {
       const CVector3f pos = player->GetTranslation();
       const CVector3f center = pos + CVector3f(0.f, 0.f, player->GetMorphBall()->GetBallRadius());
-      if (ObjectInVortexArea(pos, center, player->GetBoundingBox(), mgr)) {
-        const float distSq = (pos - ownPos).MagSquared();
+      const CAABox bounds = player->GetBoundingBox();
+      if (ObjectInVortexArea(pos, center, bounds, mgr)) {
+        const CVector3f delta = pos - ownPos;
+        const float distSq = delta.MagSquared();
         if (distSq < nearestDistSq) {
           nearestDistSq = distSq;
           mTargetPlayerId = player->GetUniqueId();
@@ -230,7 +233,8 @@ bool CTryclops::InRange(CStateManager& mgr, const CTriggerData&) const {
 
 bool CTryclops::ObjectInVortexArea(const CVector3f& pos, const CVector3f& center,
                                    const CAABox& bounds, const CStateManager& mgr) const {
-  if (bounds.DoBoundsOverlap(GetBoundingBox())) {
+  const CAABox ownBounds = GetBoundingBox();
+  if (bounds.DoBoundsOverlap(ownBounds)) {
     return true;
   }
   const CTransform4f xf = GetLctrTransform(rstl::string_l(kMouthLctr));
@@ -240,7 +244,8 @@ bool CTryclops::ObjectInVortexArea(const CVector3f& pos, const CVector3f& center
   const float projection = CVector3f::Dot(delta.AsNormalized(), forward);
   if (distance < mSuckRange) {
     const CVector3f angleDelta = pos - (xf.GetTranslation() - 4.f * forward);
-    if (projection > 0.f && CVector3f::Dot(angleDelta.AsNormalized(), forward) > mMinSuckAngleProj) {
+    const float angleProjection = CVector3f::Dot(angleDelta.AsNormalized(), forward);
+    if (projection > 0.f && angleProjection > mMinSuckAngleProj) {
       if (distance > 2.f) {
         static const CMaterialFilter kSolidFilter = CMaterialFilter::MakeIncludeExclude(
             CMaterialList(kMT_Unknown59),
@@ -316,6 +321,8 @@ void CTryclops::Suck(CStateManager& mgr, EStateMsg msg, float dt) {
 
 void CTryclops::SelectTarget(CStateManager& mgr, EStateMsg msg, float dt) {
   switch (msg) {
+  case kStateMsg_Deactivate:
+    break;
   case kStateMsg_Activate:
     if (CPlayer* player = TCastToPtr< CPlayer >(mgr.ObjectById(mTargetPlayerId))) {
       ReleasePlayer(*player, mgr);
@@ -374,7 +381,7 @@ void CTryclops::Crouch(CStateManager& mgr, EStateMsg msg, float) {
         SetDestPos(waypoint->GetTranslation());
       }
       GrabPlayer(*player, mgr);
-      SendScriptMsgs(kSS_Inside, mgr, kSM_None);
+      SendScriptMsgs(kSS_Inside, mgr, kInvalidUniqueId, kSM_None);
       player->AttachActorToPlayer(GetUniqueId(), true);
       player->EnableLeaveMorphBall(false);
       player->GetMorphBall()->DisableHalfPipeStatus();
@@ -398,6 +405,8 @@ void CTryclops::Crouch(CStateManager& mgr, EStateMsg msg, float) {
 
 void CTryclops::JumpBack(CStateManager& mgr, EStateMsg msg, float) {
   switch (msg) {
+  case kStateMsg_Deactivate:
+    break;
   case kStateMsg_Activate: {
     const TUniqueId waypointId = GetConnectedObject(mgr, kSS_Retreat, kSM_Follow);
     if (const CActor* waypoint = TCastToConstPtr< CActor >(mgr.GetObjectById(waypointId))) {
@@ -422,8 +431,9 @@ void CTryclops::JumpBack(CStateManager& mgr, EStateMsg msg, float) {
 
 void CTryclops::PathFind(CStateManager& mgr, EStateMsg msg, float dt) {
   CPatterned::PathFind(mgr, msg, dt);
+  const CVector3f forward = GetTransform().GetForward();
   const CVector3f move = GetBodyController()->GetCommandMgr().GetMoveVector();
-  if (CVector3f::Dot(GetTransform().GetForward(), move) < 0.f && move.CanBeNormalized()) {
+  if (CVector3f::Dot(forward, move) < 0.f && move.CanBeNormalized()) {
     BodyController()->CommandMgr().ClearLocomotionCmds();
     BodyController()->CommandMgr().DeliverCmd(
         CBCLocomotionCmd(CVector3f::Zero(), move.AsNormalized(), 1.f));
@@ -437,6 +447,9 @@ void CTryclops::Approach(CStateManager& mgr, EStateMsg msg, float dt) {
   CPatterned::PathFind(mgr, msg, dt);
   ApplySeparationBehavior(mgr);
   switch (msg) {
+  case kStateMsg_Activate:
+  case kStateMsg_Deactivate:
+    break;
   case kStateMsg_Update:
     SetBombPosition(mgr);
     break;
@@ -572,7 +585,7 @@ void CTryclops::ShootBomb(CStateManager& mgr, const CTransform4f& xf) {
 bool CTryclops::SpotPlayer(CStateManager& mgr, const CTriggerData&) const {
   if (mBombId != kInvalidUniqueId) {
     if (CBomb* bomb = TCastToPtr< CBomb >(mgr.ObjectById(mBombId))) {
-      for (uint i = 0; i < mgr.GetNumPlayers(); ++i) {
+      for (int i = 0; i < mgr.GetNumPlayers(); ++i) {
         const CPlayer* player = mgr.GetPlayer(i);
         if ((player->GetSpawnedMorphballState() == CPlayer::kMS_Unmorphed
                  ? player->GetMorphballTransitionState()
@@ -777,6 +790,8 @@ void CTryclops::ApplySeparationBehavior(CStateManager& mgr) {
 void CTryclops::Patrol(CStateManager& mgr, EStateMsg msg, float dt) {
   CPatterned::Patrol(mgr, msg, dt);
   switch (msg) {
+  case kStateMsg_Deactivate:
+    break;
   case kStateMsg_Activate:
     BodyController()->SetLocomotionType(pas::kLT_Relaxed);
     break;
@@ -940,11 +955,13 @@ void CTryclops::GrabPlayer(CPlayer& player, CStateManager& mgr) {
 void CTryclops::SetupCollisionManager(CStateManager& mgr) {
   rstl::vector< CJointCollisionDescription > joints;
   joints.reserve(1);
-  const CSegId segId = GetModelData()->GetAnimationData()->GetLocatorSegId(rstl::string_l(kMouthLctr));
+  const CAnimData* animData = GetModelData()->GetAnimationData();
+  const CSegId segId = animData->GetLocatorSegId(rstl::string_l(kMouthLctr));
   if (segId != CSegId::Invalid()) {
-    joints.push_back_unsafe(CJointCollisionDescription::SphereCollision(
-        segId, CVector3f::Zero(), 1.5f * gpTweakPlayerA->GetBallRadius(),
-        rstl::string_l(kMouthLctr), 50.f));
+    const float radius = 1.5f * gpTweakPlayerA->GetBallRadius();
+    const CJointCollisionDescription desc = CJointCollisionDescription::SphereCollision(
+        segId, CVector3f::Zero(), radius, rstl::string_l(kMouthLctr), 50.f);
+    joints.push_back_unsafe(desc);
   }
   mCollisionActorManager = rs_new CCollisionActorManager(mgr, GetUniqueId(), GetCurrentAreaId(),
                                                          joints, false);
