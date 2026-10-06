@@ -4026,6 +4026,12 @@ void CCubeRenderer::CopyTextureRegion(void* dest, int format, int left, int top,
   GXCopyTex(dest, false);
 }
 
+// The full-strength layer keeps its multiply by one: the factor only folds when written inline.
+static inline void SetCloudLayerColor(GXTevKColorID id, const CColor& from, const CColor& to,
+                                      float opacity, float factor) {
+  CGX::SetTevKColor(id, CColor::Lerp(from, to, opacity * factor).GetGXColor());
+}
+
 void CCubeRenderer::DrawDarkWorldCloud(float time, const CVector3f& scale, const CColor& color) {
   static const GXVtxDescList vtxDesc[] = {
       {GX_VA_POS, GX_DIRECT},  {GX_VA_TEX0, GX_DIRECT}, {GX_VA_TEX1, GX_DIRECT},
@@ -4035,28 +4041,30 @@ void CCubeRenderer::DrawDarkWorldCloud(float time, const CVector3f& scale, const
   const CTransform4f oldView(CGraphics::GetViewMatrix());
   const CGraphics::CProjectionState oldProjection(CGraphics::GetProjectionState());
   const rstl::pair< CVector2f, CVector2f > screen = SetViewportOrtho(true, -4096.f, 4096.f);
+  const CVector2f& lt = screen.first;
+  const CVector2f& rb = screen.second;
   CGX::SetVtxDescv(vtxDesc);
   mDarkWorldCloud->Load(GX_TEXMAP0, CTexture::kCM_Mirror);
 
   const float remaining = 1.f - scale.GetY();
-  const float opacity = time / 3.f;
+  const CColor transparent(static_cast< uchar >(0), 0, 0, 0);
+  const CColor fullColor = color;
+  time /= 3.f;
   const float growth = remaining / 3.f;
   const float scrollX = 2.f * scale.GetX();
   const float scrollY = 2.f * scale.GetZ();
-  const float extent0 = 1.f + growth;
-  const float extent1 = 2.f / 3.f + growth;
   const float extent2 = 1.f / 3.f + growth;
-  const float low0 = -extent0 * 0.5f + 0.5f;
-  const float low1 = -extent1 * 0.5f + 0.5f;
-  const float low2 = -extent2 * 0.5f + 0.5f;
-  const float high0 = extent0 * 0.5f + 0.5f;
-  const float high1 = extent1 * 0.5f + 0.5f;
-  const float high2 = extent2 * 0.5f + 0.5f;
-  const CColor transparent(0u);
-  CGX::SetTevKColor(GX_KCOLOR0,
-                    CColor::Lerp(transparent, color, opacity * scale.GetY()).GetGXColor());
-  CGX::SetTevKColor(GX_KCOLOR1, CColor::Lerp(transparent, color, opacity).GetGXColor());
-  CGX::SetTevKColor(GX_KCOLOR2, CColor::Lerp(transparent, color, opacity * remaining).GetGXColor());
+  const float extent1 = 2.f / 3.f + growth;
+  const float extent0 = 1.f + growth;
+  const float low0 = 0.5f * -extent0 + 0.5f;
+  const float low1 = 0.5f * -extent1 + 0.5f;
+  const float low2 = 0.5f * -extent2 + 0.5f;
+  const float high0 = 0.5f * extent0 + 0.5f;
+  const float high1 = 0.5f * extent1 + 0.5f;
+  const float high2 = 0.5f * extent2 + 0.5f;
+  SetCloudLayerColor(GX_KCOLOR0, transparent, fullColor, time, scale.GetY());
+  SetCloudLayerColor(GX_KCOLOR1, transparent, fullColor, time, 1.f);
+  SetCloudLayerColor(GX_KCOLOR2, transparent, fullColor, time, remaining);
   CGX::SetTevKColorSel(GX_TEVSTAGE0, GX_TEV_KCSEL_K0);
   CGX::SetTevKAlphaSel(GX_TEVSTAGE0, GX_TEV_KASEL_K0_A);
   CGX::SetTevColorIn(GX_TEVSTAGE0, GX_CC_ZERO, GX_CC_KONST, GX_CC_TEXC, GX_CC_ZERO);
@@ -4089,19 +4097,19 @@ void CCubeRenderer::DrawDarkWorldCloud(float time, const CVector3f& scale, const
   CGX::SetZMode(false, GX_ALWAYS, false);
 
   CGX::Begin(GX_TRIANGLESTRIP, GX_VTXFMT0, 4);
-  GXPosition3f32(screen.first.GetX(), 0.f, screen.first.GetY());
+  GXPosition3f32(lt.GetX(), 0.f, lt.GetY());
   GXTexCoord2f32(low0 + scrollX, low0 + scrollY);
   GXTexCoord2f32(low1 + scrollX, low1 + scrollY);
   GXTexCoord2f32(low2 + scrollX, low2 + scrollY);
-  GXPosition3f32(screen.second.GetX(), 0.f, screen.first.GetY());
+  GXPosition3f32(rb.GetX(), 0.f, lt.GetY());
   GXTexCoord2f32(high0 + scrollX, low0 + scrollY);
   GXTexCoord2f32(high1 + scrollX, low1 + scrollY);
   GXTexCoord2f32(high2 + scrollX, low2 + scrollY);
-  GXPosition3f32(screen.first.GetX(), 0.f, screen.second.GetY());
+  GXPosition3f32(lt.GetX(), 0.f, rb.GetY());
   GXTexCoord2f32(low0 + scrollX, high0 + scrollY);
   GXTexCoord2f32(low1 + scrollX, high1 + scrollY);
   GXTexCoord2f32(low2 + scrollX, high2 + scrollY);
-  GXPosition3f32(screen.second.GetX(), 0.f, screen.second.GetY());
+  GXPosition3f32(rb.GetX(), 0.f, rb.GetY());
   GXTexCoord2f32(high0 + scrollX, high0 + scrollY);
   GXTexCoord2f32(high1 + scrollX, high1 + scrollY);
   GXTexCoord2f32(high2 + scrollX, high2 + scrollY);
