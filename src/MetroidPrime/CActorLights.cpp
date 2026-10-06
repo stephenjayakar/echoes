@@ -458,18 +458,15 @@ void CActorLights::MoveAmbienceToLights(const CVector3f& color) {
 
 // Guessed name.
 bool CActorLights::IsLightExcluded(const CStateManager& mgr, TUniqueId id) const {
-  if (id == kInvalidUniqueId) {
-    return false;
+  if (id != kInvalidUniqueId) {
+    if (const CScriptDynamicLight* light =
+            TCastToConstPtr< CScriptDynamicLight >(mgr.GetObjectById(TUniqueId(id)))) {
+      if (!((mLayer2 && light->UsesLayerTwo()) || (!mLayer2 && light->UsesLayerOne()))) {
+        return true;
+      }
+    }
   }
-  const CScriptDynamicLight* light =
-      TCastToConstPtr< CScriptDynamicLight >(mgr.GetObjectById(id));
-  if (light == nullptr) {
-    return false;
-  }
-  if (mLayer2) {
-    return !light->UsesLayerTwo();
-  }
-  return !light->UsesLayerOne();
+  return false;
 }
 
 void CActorLights::BuildDynamicLightList(const CStateManager& mgr, const CAABox& bounds) {
@@ -640,11 +637,11 @@ void CActorLights::BuildFakeLightList(const rstl::vector< CLight >& lights, cons
   mAreaLights.clear();
   mDynamicLights.clear();
 
-  for (int i = 0; i < lights.size(); ++i) {
-    mDynamicLights.push_back(lights[i]);
-    if (i == 3) {
+  for (int i = 0; i < 4; ++i) {
+    if (i == lights.size()) {
       break;
     }
+    mDynamicLights.push_back(lights[i]);
   }
 }
 
