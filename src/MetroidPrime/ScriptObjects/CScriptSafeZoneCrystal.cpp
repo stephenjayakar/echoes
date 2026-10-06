@@ -19,16 +19,16 @@
 
 static const CWeaponTypeVulnerability skNormalVulnerability(1.f, CWeaponTypeVulnerability::kE_Normal,
                                                             true);
-static const rstl::pair< EWeaponType, CWeaponTypeVulnerability > skDarkCrystalOverrides[4] = {
-    rstl::pair< EWeaponType, CWeaponTypeVulnerability >(kWT_Power, skNormalVulnerability),
-    rstl::pair< EWeaponType, CWeaponTypeVulnerability >(kWT_Annihilator, skNormalVulnerability),
-    rstl::pair< EWeaponType, CWeaponTypeVulnerability >(kWT_Light, skNormalVulnerability),
-    rstl::pair< EWeaponType, CWeaponTypeVulnerability >(kWT_Dark, skNormalVulnerability),
+static CDamageVulnerability::TWeaponVulnerability skDarkCrystalOverrides[4] = {
+    CDamageVulnerability::TWeaponVulnerability(kWT_Power, skNormalVulnerability),
+    CDamageVulnerability::TWeaponVulnerability(kWT_Annihilator, skNormalVulnerability),
+    CDamageVulnerability::TWeaponVulnerability(kWT_Light, skNormalVulnerability),
+    CDamageVulnerability::TWeaponVulnerability(kWT_Dark, skNormalVulnerability),
 };
 static const CWeaponTypeVulnerability
     skPassThroughVulnerability(0.f, CWeaponTypeVulnerability::kE_PassThrough, true);
-static const rstl::pair< EWeaponType, CWeaponTypeVulnerability > skLightCrystalOverrides[1] = {
-    rstl::pair< EWeaponType, CWeaponTypeVulnerability >(kWT_Dark, skNormalVulnerability),
+static CDamageVulnerability::TWeaponVulnerability skLightCrystalOverrides[1] = {
+    CDamageVulnerability::TWeaponVulnerability(kWT_Dark, skNormalVulnerability),
 };
 
 // Guessed helpers; the REL carries out-of-line copies of each.
