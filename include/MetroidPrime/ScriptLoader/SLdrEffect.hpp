@@ -42,7 +42,7 @@ struct SLdrEffect {
 };
 
 inline SLdrEffect::SLdrEffect() : editorProperties(), particleEffect(kInvalidAssetId), lighting(), motionSplineType(), motionControlSpline() {
-  editorProperties.unknown_0x5d298a43 = 3;
+  editorProperties.unknown_0x5d298a43 = 0x00000003u;
   unknown_0x3df5a489 = false;
   restartOnActivate = false;
   unknown_0xee538174 = false;
